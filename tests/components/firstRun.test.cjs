@@ -16,7 +16,7 @@ const userAtom = atom({})
 const servicesAtom = atom([])
 const itemsAtom = atom({})
 let Wizard, Tour, helpers, nameHelpers
-let post, track, route
+let post, track, route, queryServices
 const inputs = new Map()
 const Input = (props) => {
   inputs.set(props.label, props)
@@ -65,8 +65,16 @@ test.before(async () => {
         const [town, changeTown] = React.useState(initial)
         return { town, changeTown, isDetected: false }
       }
-    if (id === '@helpers/CRUD')
-      return { postData: (...args) => post(...args), getData: async () => [] }
+    if (id === '@helpers/CRUD') return { postData: (...args) => post(...args) }
+    if (id === '@helpers/useEntityQueries')
+      return {
+        useServicesQuery: () => ({
+          data: queryServices,
+          isFetching: false,
+          isError: false,
+          refetch: async () => ({ data: queryServices }),
+        }),
+      }
     if (id === 'next/navigation')
       return { useRouter: () => ({ push: (x) => route.push(x) }) }
     if (id === '@state/atoms/siteSettingsAtom') return settingsAtom
@@ -92,11 +100,12 @@ test.before(async () => {
 })
 test.after(() => dom.window.close())
 
-async function setup(t, custom = {}, overrides = {}) {
+async function setup(t, custom = {}, overrides = {}, existingServices = []) {
   const store = createStore()
   inputs.clear()
   track = []
   route = []
+  queryServices = existingServices
   const savedUsers = [],
     savedServices = [],
     requests = []
@@ -137,6 +146,7 @@ async function setup(t, custom = {}, overrides = {}) {
   }
   let confirm,
     title,
+    confirmButtonName,
     disabled,
     closed = false
   const props = {
@@ -152,7 +162,9 @@ async function setup(t, custom = {}, overrides = {}) {
     setDisableConfirm: (value) => {
       disabled = value
     },
-    setConfirmButtonName: () => {},
+    setConfirmButtonName: (value) => {
+      confirmButtonName = value
+    },
   }
   const container = document.createElement('div')
   document.body.append(container)
@@ -181,6 +193,7 @@ async function setup(t, custom = {}, overrides = {}) {
     rawConfirm: () => confirm(),
     edit: (label, value) => React.act(() => inputs.get(label).onChange(value)),
     title: () => title,
+    confirmButtonName: () => confirmButtonName,
     disabled: () => disabled,
     closed: () => closed,
     remount: async () => {
@@ -215,6 +228,22 @@ test('four screens save full name and track completion only after services', asy
     ui.requests.some((x) => x.url.startsWith('/api/events')),
     false
   )
+})
+
+test('existing service makes service creation optional', async (t) => {
+  const ui = await setup(t, { firstRunWizardStep: 'services' }, {}, [
+    { _id: 'service-existing', title: 'Готовая услуга' },
+  ])
+
+  assert.match(ui.container.textContent, /уже есть 1 услуга/i)
+  assert.doesNotMatch(ui.container.textContent, /Добавить ещё услугу/)
+  assert.equal(ui.confirmButtonName(), 'Пропустить и завершить')
+
+  await ui.confirm()
+
+  assert.equal(ui.savedServices.length, 0)
+  assert.equal(ui.store.get(settingsAtom).custom.firstRunWizardCompleted, true)
+  assert.equal(ui.title(), 'Всё готово к работе')
 })
 
 test('profile errors and failed network never advance the step', async (t) => {

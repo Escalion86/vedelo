@@ -19,6 +19,11 @@ export const getEventAddressLine = (event) => {
     .join(', ')
 }
 
+export const getPendingAttentionCount = (items) =>
+  (Array.isArray(items) ? items : []).filter(
+    (item) => item?.reminderType !== 'additional_done'
+  ).length
+
 export const getPostponeActionsForSegment = (segment) => {
   if (segment === 'tomorrow') {
     return [
@@ -64,6 +69,8 @@ export const moveDateToDayOffset = (
     safeSource.getSeconds(),
     safeSource.getMilliseconds()
   )
-  target.setTime(target.getTime() + Math.max(0, Number(dayOffset || 0)) * DAY_MS)
+  target.setTime(
+    target.getTime() + Math.max(0, Number(dayOffset || 0)) * DAY_MS
+  )
   return target
 }

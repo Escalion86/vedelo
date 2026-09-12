@@ -1,6 +1,6 @@
 {
   "name": "ArtistCRM",
-  "version": "1.18.3",
+  "version": "1.18.4",
   "private": true,
   "scripts": {
     "test:file-import": "node --test server/fileImport.test.mjs server/fileImportBudget.integration.test.mjs server/aiChatCompletion.test.js",

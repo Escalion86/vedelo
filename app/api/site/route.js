@@ -5,6 +5,7 @@ import getTenantContext from '@server/getTenantContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { getProtectedCustomAccessFailures } from '@server/integrationAccess'
 import { sanitizeTelegramSiteSettings } from '@server/telegramBusiness'
+import { mergeSiteSettingsCustom } from '@helpers/siteSettingsCustom.mjs'
 
 const normalizeTowns = (towns = []) =>
   Array.from(
@@ -70,35 +71,6 @@ export const POST = async (req) => {
       ? await SiteSettings.findOne({ tenantId }).lean()
       : null
   if (body.custom !== undefined) {
-    const nextProvider = String(
-      readCustom(body.custom, 'aiAnalysisProvider') || ''
-    )
-      .trim()
-      .toLowerCase()
-    const previousProvider = String(
-      readCustom(existingSiteSettings?.custom, 'aiAnalysisProvider') || ''
-    )
-      .trim()
-      .toLowerCase()
-    const previousDeepseekKey = String(
-      readCustom(existingSiteSettings?.custom, 'deepseekKey') || ''
-    )
-    const nextDeepseekKey = String(
-      readCustom(body.custom, 'deepseekKey') || ''
-    )
-    if (
-      user?.role !== 'dev' &&
-      ((nextProvider === 'deepseek' && previousProvider !== 'deepseek') ||
-        nextDeepseekKey !== previousDeepseekKey)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Интеграция DeepSeek пока доступна только разработчику',
-        },
-        { status: 403 }
-      )
-    }
     const existingCustom = existingSiteSettings?.custom ?? {}
     const normalizedExistingCustom =
       typeof existingCustom?.get === 'function'
@@ -121,10 +93,38 @@ export const POST = async (req) => {
         body.custom[key] = normalizedExistingCustom[key]
       }
     }
+    const nextCustom = mergeSiteSettingsCustom(existingCustom, body.custom)
+    const nextProvider = String(
+      readCustom(nextCustom, 'aiAnalysisProvider') || ''
+    )
+      .trim()
+      .toLowerCase()
+    const previousProvider = String(
+      readCustom(existingSiteSettings?.custom, 'aiAnalysisProvider') || ''
+    )
+      .trim()
+      .toLowerCase()
+    const previousDeepseekKey = String(
+      readCustom(existingSiteSettings?.custom, 'deepseekKey') || ''
+    )
+    const nextDeepseekKey = String(readCustom(nextCustom, 'deepseekKey') || '')
+    if (
+      user?.role !== 'dev' &&
+      ((nextProvider === 'deepseek' && previousProvider !== 'deepseek') ||
+        nextDeepseekKey !== previousDeepseekKey)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Интеграция DeepSeek пока доступна только разработчику',
+        },
+        { status: 403 }
+      )
+    }
     const access = await getUserTariffAccess(tenantId)
     const failures = getProtectedCustomAccessFailures({
       existingCustom: existingSiteSettings?.custom,
-      nextCustom: body.custom,
+      nextCustom,
       access,
     })
     if (failures.length > 0) {
@@ -136,6 +136,7 @@ export const POST = async (req) => {
         { status: 403 }
       )
     }
+    body.custom = nextCustom
   }
 
   const update = {}
@@ -143,7 +144,7 @@ export const POST = async (req) => {
   if (body.towns !== undefined) update.towns = normalizeTowns(body.towns)
   if (body.defaultTown !== undefined)
     update.defaultTown = body.defaultTown ?? ''
-  if (body.custom !== undefined) update.custom = body.custom ?? {}
+  if (body.custom !== undefined) update.custom = body.custom
   if (body.fabMenu !== undefined) update.fabMenu = body.fabMenu ?? []
   if (body.supervisor !== undefined) update.supervisor = body.supervisor ?? {}
   if (body.dateStartProject !== undefined)

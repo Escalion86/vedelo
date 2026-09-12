@@ -12,7 +12,8 @@ import PhoneInput from '@components/PhoneInput'
 import Textarea from '@components/Textarea'
 import Notice from '@components/Notice'
 import { FirstRunTourModal } from './firstRunTourFunc'
-import { getData, postData } from '@helpers/CRUD'
+import { postData } from '@helpers/CRUD'
+import { useServicesQuery } from '@helpers/useEntityQueries'
 import getPersonFullName from '@helpers/getPersonFullName'
 import { buildSingleNamePatch } from '@helpers/personName.mjs'
 import {
@@ -32,7 +33,6 @@ import { normalizeTelegramInput } from '@helpers/socialInput'
 import useOnboardingTown from '@helpers/useOnboardingTown'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
-import servicesAtom from '@state/atoms/servicesAtom'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 
 const TIME_ZONE_OPTIONS = [
@@ -85,7 +85,12 @@ export const FirstRunWizardModal = ({
   const isRepeatRun = useRef(settings?.custom?.firstRunWizardCompleted === true)
   const closeRef = useRef(closeModal)
   closeRef.current = closeModal
-  const [services, setServices] = useAtom(servicesAtom)
+  const {
+    data: services = [],
+    isFetching: servicesLoading,
+    isError: servicesLoadFailed,
+    refetch: refetchServices,
+  } = useServicesQuery()
   const items = useAtomValue(itemsFuncAtom)
   const router = useRouter()
   const [stepIndex, setStepIndex] = useState(() =>
@@ -131,8 +136,6 @@ export const FirstRunWizardModal = ({
   const [busy, setBusy] = useState(false)
   const [attempted, setAttempted] = useState(false)
   const [error, setError] = useState('')
-  const [loadFailed, setLoadFailed] = useState(false)
-  const [loadAttempt, setLoadAttempt] = useState(0)
   const lock = useRef(false)
   useEffect(() => {
     setCloseButtonShow?.(isRepeatRun.current)
@@ -148,31 +151,25 @@ export const FirstRunWizardModal = ({
   const step = FIRST_RUN_STEPS[stepIndex]
 
   useEffect(() => {
-    if (Array.isArray(services)) return
-    let active = true
-    getData('/api/services').then((result) => {
-      if (!active) return
-      if (Array.isArray(result)) setServices(result)
-      else setLoadFailed(true)
-    })
-    return () => {
-      active = false
-    }
-  }, [services, setServices, loadAttempt])
-
-  useEffect(() => {
-    if (step !== 'services' || drafts !== null || !Array.isArray(services))
+    if (
+      step !== 'services' ||
+      drafts !== null ||
+      servicesLoading ||
+      servicesLoadFailed
+    )
       return
     setDrafts(
-      (services.length
-        ? services
+      (services.length > 0
+        ? []
         : getStarterServicesForPreset(preset).slice(0, 1)
       ).map((service) => ({
         ...service,
-        draftKey: service._id || crypto.randomUUID(),
+        draftKey: crypto.randomUUID(),
       }))
     )
-  }, [step, drafts, services, preset])
+  }, [step, drafts, services, preset, servicesLoading, servicesLoadFailed])
+
+  const hasExistingServices = services.length > 0
 
   const saveSettings = async (patch) => {
     const next = await postData('/api/site', patch)
@@ -209,7 +206,7 @@ export const FirstRunWizardModal = ({
         ? Boolean(town.trim() && timeZone)
         : step === 'specialization'
           ? ONBOARDING_ACTIVITY_PRESETS.some((item) => item.key === preset)
-          : areOnboardingServicesValid(drafts)
+          : hasExistingServices || areOnboardingServicesValid(drafts)
 
   const saveStep = async () => {
     if (lock.current) return
@@ -244,7 +241,7 @@ export const FirstRunWizardModal = ({
       if (step === 'specialization')
         await saveCustom({ onboardingActivityPreset: preset })
       if (step === 'services') {
-        for (const draft of drafts) {
+        for (const draft of drafts ?? []) {
           const saved = await items?.service?.set(
             {
               _id: draft._id,
@@ -275,7 +272,9 @@ export const FirstRunWizardModal = ({
               existing: settingsRef.current?.custom,
             }),
             [FIRST_RUN_STEP_KEY]: null,
-            onboardingStarterServicesCreated: true,
+            onboardingStarterServicesCreated:
+              settingsRef.current?.custom?.onboardingStarterServicesCreated ===
+                true || !hasExistingServices,
           },
         })
         fetch('/api/acquisition/activity', {
@@ -325,7 +324,9 @@ export const FirstRunWizardModal = ({
       phase === 'choice'
         ? 'Показать на примере'
         : stepIndex === 3
-          ? 'Сохранить и продолжить'
+          ? hasExistingServices
+            ? 'Пропустить и завершить'
+            : 'Сохранить и продолжить'
           : 'Далее'
     )
     setDisableConfirm(
@@ -337,6 +338,7 @@ export const FirstRunWizardModal = ({
     step,
     drafts,
     busy,
+    hasExistingServices,
     setTitle,
     setConfirmButtonName,
     setDisableConfirm,
@@ -472,7 +474,11 @@ export const FirstRunWizardModal = ({
                     aria-pressed={theme === item.value}
                     onClick={() => changeTheme(item.value)}
                   >
-                    <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <FontAwesomeIcon
+                      icon={item.icon}
+                      className="h-4 w-4 shrink-0"
+                      aria-hidden="true"
+                    />
                     {item.label}
                   </button>
                 ))}
@@ -534,22 +540,26 @@ export const FirstRunWizardModal = ({
           <>
             {drafts === null && (
               <p role="status">
-                {loadFailed
+                {servicesLoadFailed
                   ? 'Не удалось загрузить услуги.'
                   : 'Загружаем услуги…'}
               </p>
             )}
-            {loadFailed && !Array.isArray(services) && (
+            {servicesLoadFailed && (
               <button
                 type="button"
                 className="first-run-link"
-                onClick={() => {
-                  setLoadFailed(false)
-                  setLoadAttempt((value) => value + 1)
-                }}
+                onClick={() => refetchServices()}
               >
                 Повторить загрузку
               </button>
+            )}
+            {hasExistingServices && drafts !== null && (
+              <Notice tone="info">
+                У вас уже есть {services.length}{' '}
+                {services.length === 1 ? 'услуга' : 'услуги'}. Создавать новую
+                не требуется — пропустите этот шаг и завершите настройку.
+              </Notice>
             )}
             {drafts?.map((draft, index) => (
               <section
@@ -631,7 +641,7 @@ export const FirstRunWizardModal = ({
                 </details>
               </section>
             ))}
-            {drafts !== null && (
+            {drafts !== null && !hasExistingServices && (
               <button
                 type="button"
                 className="first-run-link self-start"

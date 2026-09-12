@@ -312,15 +312,18 @@ const itemsFuncGenerator = (
               ? eventActions
               : itemName === 'client'
                 ? clientActions
-                : itemName === 'serviceGroup'
-                  ? options?.serviceGroupActions
-                : null
+                : itemName === 'service'
+                  ? options?.serviceActions
+                  : itemName === 'serviceGroup'
+                    ? options?.serviceGroupActions
+                    : null
 
           if (serverActions?.set) {
             const isUpdate = Boolean(item?._id && !clone)
             if (isUpdate) setLoadingCard(itemName + item._id)
             try {
               const data = await serverActions.set(item, clone)
+              if (itemName === 'service') props.setService(data)
               if (isUpdate) setNotLoadingCard(itemName + item._id)
               if (!noSnackbar) {
                 const message = isUpdate
@@ -426,14 +429,19 @@ const itemsFuncGenerator = (
               ? eventActions
               : itemName === 'client'
                 ? clientActions
-                : itemName === 'serviceGroup'
-                  ? options?.serviceGroupActions
-                : null
+                : itemName === 'service'
+                  ? options?.serviceActions
+                  : itemName === 'serviceGroup'
+                    ? options?.serviceGroupActions
+                    : null
 
           if (serverActions?.delete) {
             setLoadingCard(itemName + itemId)
             try {
               await serverActions.delete(itemId)
+              if (itemName === 'service') {
+                props.deleteService(itemId)
+              }
               if (itemName === 'serviceGroup') {
                 props.deleteServiceGroup(itemId)
               }
@@ -462,11 +470,13 @@ const itemsFuncGenerator = (
           return await deleteData(
             getApiUrl(itemName, itemId),
             () => {
+              setNotLoadingCard(itemName + itemId)
               if (messages[itemName]?.delete?.success)
                 snackbar.success(messages[itemName].delete.success)
               props['delete' + capitalizeFirstLetter(itemName)](itemId)
             },
             (error) => {
+              setNotLoadingCard(itemName + itemId)
               if (messages[itemName]?.delete?.error)
                 snackbar.error(
                   buildErrorToast(messages[itemName].delete.error, error)

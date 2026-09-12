@@ -22,7 +22,10 @@ import { resolveServerSyncDisabled } from '@helpers/serverSyncMode'
 import { sendClientLog } from '@helpers/clientLog'
 import { useEventActions } from '@helpers/useEventsQuery'
 import { useClientActions } from '@helpers/useClientsQuery'
-import { useServiceGroupActions } from '@helpers/useEntityQueries'
+import {
+  useServiceActions,
+  useServiceGroupActions,
+} from '@helpers/useEntityQueries'
 import { isPushSupported, syncPushSubscription } from '@helpers/pushClient'
 import useCabinetPerformanceMetrics from '@helpers/useCabinetPerformanceMetrics'
 import { shouldOpenFirstRunWizard } from '@helpers/firstRunWizard.mjs'
@@ -52,6 +55,7 @@ const StateLoader = (props) => {
   const serverSyncDisabled = resolveServerSyncDisabled(siteSettingsState)
   const eventActions = useEventActions()
   const clientActions = useClientActions()
+  const serviceActions = useServiceActions()
   const serviceGroupActions = useServiceGroupActions()
 
   useCabinetStateHydration(props)
@@ -82,6 +86,7 @@ const StateLoader = (props) => {
       disableServerSync: serverSyncDisabled,
       eventActions,
       clientActions,
+      serviceActions,
       serviceGroupActions,
     })
     setItemsFunc(itemsFunc)
@@ -101,6 +106,7 @@ const StateLoader = (props) => {
     eventActions,
     router,
     serverSyncDisabled,
+    serviceActions,
     serviceGroupActions,
     setItemsFunc,
     setModalsFunc,

@@ -7,7 +7,7 @@ const CardOverlay = ({ loading, error, rounded = false }) => {
   if (error) {
     return (
       <div
-        className={`absolute inset-0 z-20 flex items-center justify-center bg-red-800 bg-opacity-80 text-2xl text-white ${roundedClass}`}
+        className={`bg-opacity-80 absolute inset-0 z-20 flex items-center justify-center bg-red-800 text-2xl text-white ${roundedClass}`}
       >
         ОШИБКА
       </div>
@@ -15,7 +15,7 @@ const CardOverlay = ({ loading, error, rounded = false }) => {
   }
   return (
     <div
-      className={`absolute inset-0 z-20 flex items-center justify-center bg-general bg-opacity-80 ${roundedClass}`}
+      className={`card-loading-overlay bg-general bg-opacity-80 absolute inset-0 z-20 flex items-center justify-center ${roundedClass}`}
     >
       <LoadingSpinner />
     </div>

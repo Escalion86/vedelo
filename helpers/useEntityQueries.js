@@ -92,10 +92,13 @@ export const useServiceActions = () => {
     },
   })
 
-  return {
-    set: (item, clone) => saveService({ item, clone }),
-    delete: (serviceId) => deleteService(serviceId),
-  }
+  return useMemo(
+    () => ({
+      set: (item, clone) => saveService({ item, clone }),
+      delete: (serviceId) => deleteService(serviceId),
+    }),
+    [deleteService, saveService]
+  )
 }
 
 // ============ SERVICE GROUPS ============

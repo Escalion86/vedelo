@@ -4,9 +4,21 @@ import assert from 'node:assert/strict'
 import {
   getEventAddressLine,
   getEventTitle,
+  getPendingAttentionCount,
   getPostponeActionsForSegment,
   moveDateToDayOffset,
 } from './upcomingEventsOverview.js'
+
+test('attention badge excludes completed tasks kept in the today list', () => {
+  assert.equal(
+    getPendingAttentionCount([
+      { reminderType: 'additional' },
+      { reminderType: 'depositOverdue' },
+      { reminderType: 'additional_done' },
+    ]),
+    2
+  )
+})
 
 test('getEventTitle returns event type as event name', () => {
   assert.equal(getEventTitle({ eventType: 'Свадьба' }), 'Свадьба')
@@ -43,7 +55,9 @@ test('getPostponeActionsForSegment uses day after tomorrow and plus two days for
     ['Перенести на послезавтра', 'Перенести на +2 дня']
   )
   assert.deepEqual(
-    getPostponeActionsForSegment('tomorrow').map((item) => item.targetDayOffset),
+    getPostponeActionsForSegment('tomorrow').map(
+      (item) => item.targetDayOffset
+    ),
     [2, 3]
   )
 })

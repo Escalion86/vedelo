@@ -37,6 +37,7 @@ import { useMessengerSummaryQuery } from '@helpers/useMessengerSummary'
 import {
   getEventAddressLine,
   getEventTitle,
+  getPendingAttentionCount,
   getPostponeActionsForSegment,
   moveDateToDayOffset,
 } from '@helpers/upcomingEventsOverview'
@@ -490,21 +491,21 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           targetId: 'attention-seg-overdue',
           color: '#dc2626',
           label: 'просроч.',
-          count: segmentedItems.overdue?.length ?? 0,
+          count: getPendingAttentionCount(segmentedItems.overdue),
         },
         {
           key: 'today',
           targetId: 'attention-seg-today',
           color: '#d97706',
           label: 'сегодня',
-          count: segmentedItems.today?.length ?? 0,
+          count: getPendingAttentionCount(segmentedItems.today),
         },
         {
           key: 'tomorrow',
           targetId: 'attention-seg-tomorrow',
           color: '#2563eb',
           label: 'завтра',
-          count: segmentedItems.tomorrow?.length ?? 0,
+          count: getPendingAttentionCount(segmentedItems.tomorrow),
         },
         {
           key: 'messages',
