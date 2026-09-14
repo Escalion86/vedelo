@@ -13,6 +13,11 @@ const sanitizeMobileSettings = (settings) => {
       firstRunWizardCompleted: custom.firstRunWizardCompleted === true,
       firstRunWizardCompletedAt: custom.firstRunWizardCompletedAt || null,
       onboardingActivityPreset: custom.onboardingActivityPreset || '',
+      primaryEntityTerminology:
+        custom.primaryEntityTerminology === 'events' ||
+        custom.primaryEntityTerminology === 'orders'
+          ? custom.primaryEntityTerminology
+          : 'auto',
       onboardingStarterServicesCreated:
         custom.onboardingStarterServicesCreated === true,
       showColleagueTransferFields: custom.showColleagueTransferFields === true,

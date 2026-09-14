@@ -7,6 +7,12 @@ import getRequestContext from '@server/getRequestContext'
 import { buildTenantSafeUpdate } from '@server/tenantSafeUpdate'
 import { resetClientMessengerAvailability } from '@helpers/clientMessengerAvailability'
 import { recordActivityHistory } from '@server/activityHistory'
+import getUserTariffAccess from '@server/getUserTariffAccess'
+import {
+  entityHasDocuments,
+  getDocumentStorageKeys,
+  normalizeEntityDocuments,
+} from '@helpers/entityDocuments'
 import {
   recordSyncTombstone,
   withSyncVersionIncrement,
@@ -53,6 +59,19 @@ export const PUT = async (req, { params }) => {
     )
 
   const update = resetClientMessengerAvailability(existingClient, body)
+  if (body.documents !== undefined) {
+    const documents = normalizeEntityDocuments(body.documents, {
+      allowedStorageKeys: getDocumentStorageKeys(existingClient.documents),
+    })
+    const access = await getUserTariffAccess(context.user?._id)
+    if (entityHasDocuments({ documents }) && !access?.allowDocuments) {
+      return NextResponse.json(
+        { success: false, error: 'Файлы и документы недоступны на текущем тарифе' },
+        { status: 403 }
+      )
+    }
+    update.documents = documents
+  }
 
   const client = await Clients.findOneAndUpdate(
     { _id: id, tenantId },

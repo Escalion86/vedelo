@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'ArtistCRM - CRM для артистов'
+export const alt = 'Ведело - CRM для артистов'
 export const size = {
   width: 1200,
   height: 630,
@@ -50,7 +50,7 @@ export default function OpenGraphImage() {
           >
             A
           </div>
-          ArtistCRM
+          Ведело
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>

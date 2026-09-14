@@ -14,13 +14,25 @@ export type Client = {
   vk?: string
   viber?: number | string | null
   instagram?: string
-  preferredContactChannel?: 'phone' | 'telegram' | 'whatsapp' | 'max' | 'vk' | 'other' | ''
+  preferredContactChannel?:
+    | 'phone'
+    | 'telegram'
+    | 'whatsapp'
+    | 'max'
+    | 'vk'
+    | 'other'
+    | ''
   preferredContactChannelOther?: string
   messengerPushMuted?: boolean
   comment?: string
   clientType?: string
   town?: string
-  significantDates?: Array<{ _id?: string; title?: string; date?: string; comment?: string }>
+  significantDates?: Array<{
+    _id?: string
+    title?: string
+    date?: string
+    comment?: string
+  }>
   legalName?: string
   inn?: string
   kpp?: string
@@ -30,6 +42,23 @@ export type Client = {
   checkingAccount?: string
   correspondentAccount?: string
   legalAddress?: string
+  documents?: Array<{
+    id: string
+    type: DocumentTemplate['type']
+    customTypeName?: string
+    title?: string
+    url?: string
+    file?: {
+      name?: string
+      storageKey?: string
+      url?: string
+      path?: string
+      size?: number | null
+      contentType?: string
+      checksum?: string
+    } | null
+    createdAt?: string
+  }>
   updatedAt?: string
 }
 
@@ -87,10 +116,12 @@ export type Event = {
     url?: string
     file?: {
       name?: string
+      storageKey?: string
       url?: string
       path?: string
       size?: number | null
       contentType?: string
+      checksum?: string
     } | null
     createdAt?: string
   }>
@@ -152,6 +183,8 @@ export type MobileSettings = {
   timeZone?: string
   custom?: {
     eventTypes?: string[]
+    onboardingActivityPreset?: string
+    primaryEntityTerminology?: 'auto' | 'events' | 'orders'
     [key: string]: unknown
   }
   updatedAt?: string

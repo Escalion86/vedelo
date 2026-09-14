@@ -17,9 +17,9 @@ export const parseApiError = async (res: Response) => {
   const contentType = res.headers?.get?.('content-type') || ''
   const fallbackMessage =
     res.status === 404 && !contentType.includes('application/json')
-      ? 'Мобильный API пока недоступен на сервере ArtistCRM. Обновите сервер и повторите вход.'
+      ? 'Мобильный API пока недоступен на сервере Ведело. Обновите сервер и повторите вход.'
       : res.status >= 500
-        ? 'Сервер ArtistCRM временно недоступен. Попробуйте ещё раз позже.'
+        ? 'Сервер Ведело временно недоступен. Попробуйте ещё раз позже.'
         : `Сервер вернул ошибку HTTP ${res.status}`
   const fallback = new ApiError(fallbackMessage, res.status)
 

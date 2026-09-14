@@ -7,8 +7,8 @@ import { loadCachedHistory, loadHistoryPage } from '../src/features/history/api'
 import type { HistoryFilters, HistoryItem } from '../src/features/history/types'
 import { Button, EmptyState, ErrorNotice, Field, PageHeader, Screen, Surface } from '../src/shared/ui/components'
 import { colors, radius, spacing } from '../src/shared/ui/theme'
+import { useWorkItemTerminology } from '../src/shared/hooks/useWorkItemTerminology'
 
-const entityOptions = [['', 'Все'], ['event', 'Мероприятия'], ['client', 'Клиенты'], ['transaction', 'Финансы']] as const
 const operationOptions = [['', 'Все действия'], ['create', 'Добавление'], ['update', 'Изменение'], ['delete', 'Удаление'], ['merge', 'Объединение']] as const
 const sourceOptions = [['', 'Все источники'], ['web', 'Web'], ['android', 'Android'], ['public_api', 'API'], ['tilda', 'Tilda'], ['google_import', 'Календарь']] as const
 const sourceLabel: Record<string, string> = { web: 'Web', android: 'Android', public_api: 'Public API', tilda: 'Tilda', google_import: 'Google Calendar', avito: 'Avito', vk: 'VK', telephony: 'Телефония' }
@@ -39,6 +39,8 @@ const HistoryRow = ({ item }: { item: HistoryItem }) => {
 }
 
 export default function HistoryScreen() {
+  const terms = useWorkItemTerminology()
+  const entityOptions = [['', 'Все'], ['event', terms.pluralCapitalized], ['client', 'Клиенты'], ['transaction', 'Финансы']] as const
   const params = useLocalSearchParams<{ entityType?: string; entityId?: string }>()
   const fixedEntity = Boolean(params.entityType && params.entityId)
   const [entityType, setEntityType] = useState(params.entityType || '')

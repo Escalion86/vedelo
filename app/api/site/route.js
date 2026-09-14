@@ -6,6 +6,7 @@ import getUserTariffAccess from '@server/getUserTariffAccess'
 import { getProtectedCustomAccessFailures } from '@server/integrationAccess'
 import { sanitizeTelegramSiteSettings } from '@server/telegramBusiness'
 import { mergeSiteSettingsCustom } from '@helpers/siteSettingsCustom.mjs'
+import { clearTenantWorkItemTerminologyCache } from '@server/tenantTerminology'
 
 const normalizeTowns = (towns = []) =>
   Array.from(
@@ -71,6 +72,8 @@ export const POST = async (req) => {
       ? await SiteSettings.findOne({ tenantId }).lean()
       : null
   if (body.custom !== undefined) {
+    body.custom =
+      body.custom && typeof body.custom === 'object' ? body.custom : {}
     const existingCustom = existingSiteSettings?.custom ?? {}
     const normalizedExistingCustom =
       typeof existingCustom?.get === 'function'
@@ -219,6 +222,7 @@ export const POST = async (req) => {
     { $set: { ...update, tenantId } },
     { returnDocument: 'after', upsert: true }
   )
+  clearTenantWorkItemTerminologyCache(tenantId)
 
   return NextResponse.json(
     { success: true, data: sanitizeTelegramSiteSettings(siteSettings) },

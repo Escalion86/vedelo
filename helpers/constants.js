@@ -297,6 +297,7 @@ export const DEFAULT_CLIENT = Object.freeze({
   checkingAccount: '',
   correspondentAccount: '',
   legalAddress: '',
+  documents: [],
 })
 
 export const CLIENT_TYPES = Object.freeze([
@@ -475,6 +476,9 @@ export const DEFAULT_SITE_SETTINGS = Object.freeze({
   storeCalendarResponse: false,
   referralProgram: {
     percent: 5,
+  },
+  custom: {
+    primaryEntityTerminology: 'auto',
   },
 })
 

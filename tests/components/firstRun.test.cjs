@@ -56,6 +56,7 @@ test.before(async () => {
     if (id === '@helpers/personName.mjs') return nameHelpers
     if (id === '@helpers/getPersonFullName')
       return compile('helpers/getPersonFullName.js')
+    if (id === '@helpers/getNoun') return compile('helpers/getNoun.js')
     if (id === '@helpers/socialInput')
       return { normalizeTelegramInput: (x) => x }
     if (id === '@helpers/metrikaGoals')

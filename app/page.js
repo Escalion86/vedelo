@@ -11,12 +11,9 @@ import Tariffs from '@models/Tariffs'
 import { getServerSession } from 'next-auth'
 import authOptions from './api/auth/[...nextauth]/_options'
 import { redirect } from 'next/navigation'
+import { BRAND, getCanonicalBaseUrl } from '@helpers/brand.mjs'
 
-const rawDomain = process.env.DOMAIN || 'https://artistcrm.ru'
-const siteUrl = rawDomain.startsWith('http')
-  ? rawDomain
-  : `https://${rawDomain}`
-const normalizedSiteUrl = siteUrl.replace(/\/$/, '')
+const normalizedSiteUrl = getCanonicalBaseUrl(process.env.DOMAIN)
 const homeUrl = `${normalizedSiteUrl}/`
 const ogImageUrl = `${normalizedSiteUrl}/opengraph-image`
 const registerUrl = '/login?mode=register'
@@ -24,9 +21,9 @@ const tariffRegisterUrl =
   '/login?mode=register&callbackUrl=%2Fcabinet%2Ftariff-select'
 
 export const metadata = {
-  title: 'ArtistCRM - CRM для артистов, ведущих и музыкантов',
+  title: 'Ведело — CRM для малого бизнеса и частных специалистов',
   description:
-    'ArtistCRM: CRM-система для артистов. Заявки, клиенты, финансы, Google Календарь, договоры и акты в одном кабинете.',
+    'Ведело: заявки, заказы, клиенты, финансы, календарь и документы в одном кабинете.',
   keywords: [
     'crm для артистов',
     'crm для ведущих',
@@ -42,8 +39,8 @@ export const metadata = {
     type: 'website',
     locale: 'ru_RU',
     url: homeUrl,
-    siteName: 'ArtistCRM',
-    title: 'ArtistCRM - CRM для артистов, ведущих и музыкантов',
+    siteName: BRAND.name,
+    title: 'Ведело — CRM для малого бизнеса',
     description:
       'Соберите заявки, клиентов, финансы и документы в одном месте. Контроль сроков и синхронизация с Google Календарем.',
     images: [
@@ -51,15 +48,15 @@ export const metadata = {
         url: ogImageUrl,
         width: 1200,
         height: 630,
-        alt: 'ArtistCRM — CRM для артистов',
+        alt: 'Ведело — CRM для малого бизнеса',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ArtistCRM - CRM для артистов',
+    title: 'Ведело — CRM для частных специалистов',
     description:
-      'Управляйте заявками, мероприятиями, оплатами и документами из одного кабинета.',
+      'Управляйте заявками, заказами, оплатами и документами из одного кабинета.',
     images: [ogImageUrl],
   },
   robots: {
@@ -84,21 +81,21 @@ const formatPrice = (price) => {
 
 const formatEventsLimit = (limit) => {
   if (!Number.isFinite(limit) || Number(limit) === 0) {
-    return 'Без ограничений по мероприятиям'
+    return 'Без ограничений по заказам'
   }
-  return `До ${limit} мероприятий в месяц`
+  return `До ${limit} заказов в месяц`
 }
 
 const faqItems = [
   {
-    question: 'Подойдёт ли ArtistCRM, если заказов немного?',
+    question: 'Подойдёт ли Ведело, если заказов немного?',
     answer:
-      'Да. На бесплатном тарифе можно вести заявки, клиентов и оплаты без оплаты сервиса. Актуальный лимит заказов и мероприятий указан в таблице тарифов.',
+      'Да. На бесплатном тарифе можно вести заявки, клиентов и оплаты без оплаты сервиса. Актуальный лимит заказов указан в таблице тарифов.',
   },
   {
     question: 'Нужно ли устанавливать программу?',
     answer:
-      'Не обязательно. ArtistCRM работает в браузере, а при желании его можно установить как PWA-приложение на телефон или компьютер. Данные синхронизируются через облако.',
+      'Не обязательно. Ведело работает в браузере, а при желании его можно установить как PWA-приложение на телефон или компьютер. Данные синхронизируются через облако.',
   },
   {
     question: 'Можно ли начать бесплатно?',
@@ -108,7 +105,7 @@ const faqItems = [
   {
     question: 'Есть ли синхронизация с Google Календарём?',
     answer:
-      'Да. Доступность синхронизации мероприятий и напоминаний с Google Календарём указана в актуальной таблице тарифов.',
+      'Да. Доступность синхронизации заказов и напоминаний с Google Календарём указана в актуальной таблице тарифов.',
   },
 ]
 
@@ -135,7 +132,7 @@ const steps = [
   ['Заявка', 'Сохраняете обращение и источник'],
   ['Контакт', 'Планируете звонок или встречу'],
   ['Оплата', 'Отмечаете задаток и остаток'],
-  ['Событие или заказ', 'Проводите работу и закрываете заказ'],
+  ['Выполненный заказ', 'Проводите работу и закрываете заказ'],
 ]
 
 const audiencePages = [
@@ -182,10 +179,10 @@ const audiencePages = [
 ]
 
 const tariffFeatureRows = [
-  { label: 'Работа с заявками и мероприятиями', included: true },
+  { label: 'Работа с заявками и заказами', included: true },
   { label: 'Клиентская база', included: true },
   { label: 'Учёт оплат и расходов', included: true },
-  { label: 'Мероприятий в месяц', type: 'eventsLimit' },
+  { label: 'Заказов в месяц', type: 'eventsLimit' },
   { label: 'Синхронизация с Google Календарём', key: 'allowCalendarSync' },
   { label: 'Статистика и аналитика', key: 'allowStatistics' },
   { label: 'Договоры, акты и документы', key: 'allowDocuments' },
@@ -215,9 +212,7 @@ function ProductPreview() {
       <div className="landing-product-outline" />
       <div className="landing-product">
         <aside className="landing-product-nav">
-          <div className="landing-product-brand">
-            Artist<span>CRM</span>
-          </div>
+          <div className="landing-product-brand">Ведело</div>
           {['Сегодня', 'Заявки', 'Клиенты', 'Заказы', 'Финансы'].map(
             (item, index) => (
               <div
@@ -522,14 +517,14 @@ export default async function HomePage() {
   const softwareApplicationSchema = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'ArtistCRM',
+    name: BRAND.name,
     applicationCategory: 'BusinessApplication',
     applicationSubCategory: 'CRM для самостоятельных специалистов',
     operatingSystem: 'Web',
     inLanguage: 'ru-RU',
     url: homeUrl,
     description:
-      'CRM-система для артистов и самостоятельных специалистов: заявки, клиенты, финансы, календарь и документы.',
+      'Ведело — CRM для малого бизнеса и частных специалистов: заявки, заказы, клиенты, финансы, календарь и документы.',
     featureList: benefits.map((benefit) => benefit.title),
     image: ogImageUrl,
     offers:
@@ -552,15 +547,15 @@ export default async function HomePage() {
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'ArtistCRM',
+    name: BRAND.name,
     url: homeUrl,
     logo: `${normalizedSiteUrl}/img/logo-96.webp`,
   }
   const websiteSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'ArtistCRM',
-    alternateName: 'Artist CRM',
+    name: BRAND.name,
+    alternateName: BRAND.transitionSignature,
     url: homeUrl,
     inLanguage: 'ru-RU',
   }
@@ -596,18 +591,21 @@ export default async function HomePage() {
           <Link
             href="/"
             className="landing-logo"
-            aria-label="ArtistCRM — главная"
+            aria-label="Ведело — главная"
           >
             <Image
-              src="/img/logo-48.png"
+              src="/brand/vedelo-mark.svg"
               alt=""
               width={34}
               height={34}
               priority
             />
             <span>
-              Artist<strong>CRM</strong>
+              Ведело
             </span>
+            <small className="hidden text-[10px] font-medium tracking-normal text-[#6e5a42] sm:inline">
+              ранее ArtistCRM
+            </small>
           </Link>
           <nav className="landing-nav" aria-label="Основная навигация">
             <Link href="#features">Возможности</Link>
@@ -643,7 +641,7 @@ export default async function HomePage() {
               className="landing-hero-lead landing-reveal"
               style={{ '--delay': '60ms' }}
             >
-              ArtistCRM помогает не терять обращения, вовремя связываться с
+              Ведело помогает не терять обращения, вовремя связываться с
               клиентами и видеть оплаты по каждому заказу.
             </p>
             <div
@@ -737,7 +735,7 @@ export default async function HomePage() {
               <p className="landing-section-kicker">Подберите свой сценарий</p>
               <h2 id="audiences-title">Выберите, чем вы занимаетесь</h2>
               <p>
-                Покажем, как ArtistCRM работает именно в вашей сфере — с вашими
+                Покажем, как Ведело работает именно в вашей сфере — с вашими
                 заявками, сроками, оплатами и документами.
               </p>
             </div>
@@ -752,7 +750,7 @@ export default async function HomePage() {
                 key={`${item.title}-${item.href}`}
                 href={item.href}
                 className="landing-audience-card"
-                aria-label={`${item.title}: посмотреть преимущества ArtistCRM`}
+                aria-label={`${item.title}: посмотреть преимущества Ведело`}
               >
                 <span className="landing-audience-number" aria-hidden="true">
                   {String(index + 1).padStart(2, '0')}
@@ -808,7 +806,7 @@ export default async function HomePage() {
       <section className="landing-cta landing-section-below">
         <div className="landing-container landing-cta-inner">
           <h2>
-            Сосредоточьтесь на клиентах — порядок ArtistCRM возьмёт на себя.
+            Сосредоточьтесь на клиентах — порядок Ведело возьмёт на себя.
           </h2>
           <div>
             <MetrikaLink
@@ -831,7 +829,7 @@ export default async function HomePage() {
           <div>
             <Link href="/" className="landing-logo">
               <span>
-                Artist<strong>CRM</strong>
+                Ведело
               </span>
             </Link>
             <p>
@@ -862,7 +860,7 @@ export default async function HomePage() {
           </nav>
         </div>
         <div className="landing-container landing-copyright">
-          © {new Date().getFullYear()} ArtistCRM. Все права защищены.
+          © {new Date().getFullYear()} Ведело. Все права защищены.
         </div>
       </footer>
     </main>

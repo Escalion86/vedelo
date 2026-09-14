@@ -27,12 +27,10 @@ const CabinetHeader = ({ title = '', titleLink, icon, count = null }) => {
         >
           <img
             className="h-10 rounded-full"
-            src={icon || '/img/logo-48.png'}
-            alt="Логотип ArtistCRM"
+            src={icon || '/brand/vedelo-mark.svg'}
+            alt="Логотип Ведело"
           />
-          <span className="text-xl font-semibold tracking-tight">
-            Artist<span className="text-[var(--ui-primary)]">CRM</span>
-          </span>
+          <span className="text-xl font-semibold tracking-tight">Ведело</span>
         </Link>
         {title ? (
           <div className="tablet:ml-4 tablet:border-l tablet:border-gray-200 tablet:pl-4 tablet:text-sm tablet:font-normal tablet:text-gray-600 flex min-w-0 items-center gap-2 text-base font-semibold text-gray-800">

@@ -39,7 +39,7 @@ try {
   googleServices = null
 }
 
-requireValue(app.name === 'ArtistCRM', 'expo.name должен быть ArtistCRM')
+requireValue(app.name === 'Ведело', 'expo.name должен быть Ведело')
 requireValue(app.slug === 'artistcrm', 'Expo slug должен соответствовать EAS project')
 requireValue(app.version === '1.0.0', 'expo.version должен быть 1.0.0')
 requireValue(pkg.version === app.version, 'package и Expo версии должны совпадать')

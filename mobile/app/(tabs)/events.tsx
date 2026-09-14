@@ -9,12 +9,14 @@ import { colors, radius, spacing } from '../../src/shared/ui/theme'
 import { EventCalendar } from '../../src/features/events/EventCalendar'
 import { MobileEventCard } from '../../src/features/events/MobileEventCard'
 import { buildEventCalendarOccurrences, countOccurrencesByDate, startOfMonth, toDateKey, type EventCalendarOccurrence } from '../../src/features/events/calendar'
+import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 
 type Filter = 'requests' | 'upcoming' | 'past' | 'all'
 type ViewMode = 'list' | 'calendar'
 type EventRow = { key: string; event: Event; occurrence?: EventCalendarOccurrence }
 const filters: Array<[Filter, string]> = [['requests', 'Заявки'], ['upcoming', 'Предстоящие'], ['past', 'Прошедшие'], ['all', 'Все']]
 export default function EventsScreen() {
+  const terminology = useWorkItemTerminology()
   const [filter, setFilter] = useState<Filter>('upcoming')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
@@ -76,7 +78,7 @@ export default function EventsScreen() {
 
   return (
     <Screen scroll={false} contentStyle={styles.screenContent}>
-      <PageHeader title="Мероприятия" subtitle="Заявки, календарь и контроль оплат" action={<Pressable testID="add-event" accessibilityRole="button" accessibilityLabel="Добавить мероприятие" style={styles.add} onPress={() => router.push('/events/edit/new' as never)}><MaterialCommunityIcons name="plus" size={26} color="#fff" /></Pressable>} />
+      <PageHeader title={terminology.pluralCapitalized} subtitle="Заявки, календарь и контроль оплат" action={<Pressable testID="add-event" accessibilityRole="button" accessibilityLabel={`Добавить ${terminology.accusative}`} style={styles.add} onPress={() => router.push('/events/edit/new' as never)}><MaterialCommunityIcons name="plus" size={26} color="#fff" /></Pressable>} />
       <ScrollView horizontal style={styles.filterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{filters.map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} style={[styles.filter, filter === value && styles.filterActive]} onPress={() => setFilter(value)}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{label}</Text></Pressable>)}</ScrollView>
       <View style={styles.viewSwitch}>
         <Pressable testID="events-view-list" accessibilityRole="button" accessibilityState={{ selected: viewMode === 'list' }} style={[styles.viewButton, viewMode === 'list' && styles.viewButtonActive]} onPress={() => setViewMode('list')}><MaterialCommunityIcons name="format-list-bulleted" size={18} color={viewMode === 'list' ? colors.primary : colors.textMuted} /><Text style={[styles.viewText, viewMode === 'list' && styles.viewTextActive]}>Список</Text></Pressable>
@@ -99,7 +101,7 @@ export default function EventsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={rows.length || viewMode === 'calendar' ? styles.list : styles.emptyList}
         ListHeaderComponent={viewMode === 'calendar' ? <View style={styles.calendarHeader}><EventCalendar month={month} selectedDateKey={selectedDateKey} counts={occurrenceCounts} undatedCount={events.filter((event) => !event.eventDate).length} onMonthChange={setMonth} onSelectDate={selectDate} /><Text style={styles.selectedDate}>{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</Text></View> : null}
-        ListEmptyComponent={<EmptyState title={viewMode === 'calendar' ? 'На эту дату записей нет' : 'Здесь пока пусто'} description={viewMode === 'calendar' ? 'Выберите другой день или создайте мероприятие.' : 'Создайте новую заявку — изменения сохранятся даже без сети.'} />}
+        ListEmptyComponent={<EmptyState title={viewMode === 'calendar' ? 'На эту дату записей нет' : 'Здесь пока пусто'} description={viewMode === 'calendar' ? `Выберите другой день или создайте ${terminology.accusative}.` : 'Создайте новую заявку — изменения сохранятся даже без сети.'} />}
         renderItem={({ item }) => {
           const eventServices = (item.event.servicesIds || [])
             .map((serviceId) => servicesById.get(serviceId))

@@ -63,12 +63,12 @@ export const POST = async (req) => {
     purpose: 'balance',
     provider: 'tochka',
     idempotenceKey,
-    comment: 'Пополнение баланса ArtistCRM из Android',
+    comment: 'Пополнение баланса Ведело из Android',
   })
   try {
     const providerPayment = await createTochkaPayment({
       amount,
-      description: 'Пополнение баланса ArtistCRM',
+      description: 'Пополнение баланса Ведело',
       idempotenceKey,
       returnUrl: getReturnUrl(req),
       user,

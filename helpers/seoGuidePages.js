@@ -76,7 +76,7 @@ export const seoGuidePages = {
 export const seoGuideSlugs = Object.keys(seoGuidePages)
 
 export const buildSeoGuideMetadata = (page) => ({
-  title: `${page.title} | ArtistCRM`,
+  title: `${page.title} | Ведело`,
   description: page.description,
   alternates: { canonical: `${normalizedSiteUrl}/${page.slug}` },
   openGraph: {

@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store'
 import { Directory, File, Paths } from 'expo-file-system'
 import { getDatabase } from './database'
 import { api } from '../api/client'
+import { upsertEntities } from './cache'
 import { markSyncPending, refreshSyncStateFromQueue } from '../sync/syncState'
 import {
   extractRemoteFileUrl,
@@ -286,21 +287,27 @@ export const syncFileQueue = async () => {
         name: item.name,
         type: item.mimeType || 'application/octet-stream',
       } as unknown as Blob)
-      if (
-        item.entityType === 'events' &&
-        item.attachmentKind === 'documentFile' &&
-        item.entityId
-      ) {
+      const isEntityDocument =
+        ['events', 'clients'].includes(item.entityType || '') &&
+        item.entityId &&
+        ['documentFile', 'entityDocument'].includes(item.attachmentKind || '')
+      if (isEntityDocument) {
         form.append('fileQueueId', item.id)
+        form.append('type', 'other')
+        form.append('title', item.name)
       }
-      const response = await api.upload<{ success: true; data: unknown }>(
-        item.entityType === 'events' &&
-          item.attachmentKind === 'documentFile' &&
-          item.entityId
-          ? `/mobile/v1/events/${encodeURIComponent(item.entityId)}/files`
+      const response = await api.upload<{
+        success: true
+        data: { document?: { id?: string }; entity?: { _id: string } }
+      }>(
+        isEntityDocument
+          ? `/mobile/v1/${item.entityType}/${encodeURIComponent(item.entityId || '')}/files`
           : '/mobile/v1/files',
         form
       )
+      if (isEntityDocument && response.data.entity?._id) {
+        await upsertEntities(item.entityType || '', [response.data.entity])
+      }
       return extractRemoteFileUrl(response.data)
     },
     markSynced: async (item, remoteUrl, updatedAt) => {

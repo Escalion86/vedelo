@@ -2,6 +2,10 @@ import formatAddress from '@helpers/formatAddress'
 import formatDate from '@helpers/formatDate'
 import formatDateTime from '@helpers/formatDateTime'
 import getPersonFullName from '@helpers/getPersonFullName'
+import {
+  getWorkItemTemplateVariables,
+  replaceWorkItemTerms,
+} from '@helpers/workItemTerminology.mjs'
 
 const EMPTY_VALUE = '____________'
 const PARTIES_TABLES_MARKER_PREFIX = '[[PARTIES_TABLES:'
@@ -182,6 +186,10 @@ const amountToWordsRu = (value, withCurrency = false) => {
 }
 
 const CONTRACT_TEMPLATE_VARIABLES = [
+  'workItemLabel',
+  'workItemLabelGenitive',
+  'workItemLabelPlural',
+  'workItemLabelPluralGenitive',
   'НОМЕР ДОКУМЕНТА',
   'ОСНОВНОЙ ГОРОД',
   'ДАТА ДОГОВОРА',
@@ -375,6 +383,7 @@ const buildContractVariables = ({
   serviceTitles,
   performerName,
   contractMeta = {},
+  siteSettings = {},
 }) => {
   const contractDateRaw = contractMeta?.contractDate
   const contractDate =
@@ -497,6 +506,7 @@ const buildContractVariables = ({
         })
 
   const values = {
+    ...getWorkItemTemplateVariables(siteSettings),
     'НОМЕР ДОКУМЕНТА': documentNumber,
     'ОСНОВНОЙ ГОРОД': baseTown,
     'ДАТА ДОГОВОРА': contractDate,
@@ -570,6 +580,7 @@ const generateContractTemplate = ({
   performerName = '',
   template = '',
   contractMeta = {},
+  siteSettings = {},
 }) => {
   const variables = buildContractVariables({
     event,
@@ -577,8 +588,9 @@ const generateContractTemplate = ({
     serviceTitles,
     performerName,
     contractMeta,
+    siteSettings,
   })
-  return replaceTemplateVariables(template, variables)
+  return replaceTemplateVariables(replaceWorkItemTerms(template, siteSettings), variables)
 }
 
 const getContractTemplateVariablesMap = ({
@@ -587,6 +599,7 @@ const getContractTemplateVariablesMap = ({
   serviceTitles = [],
   performerName = '',
   contractMeta = {},
+  siteSettings = {},
 }) =>
   buildContractVariables({
     event,
@@ -594,6 +607,7 @@ const getContractTemplateVariablesMap = ({
     serviceTitles,
     performerName,
     contractMeta,
+    siteSettings,
   })
 
 export {

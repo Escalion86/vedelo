@@ -1,5 +1,6 @@
 import formatAddress from '@helpers/formatAddress'
 import getPersonFullName from '@helpers/getPersonFullName'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 const EVENT_STATUS_LABELS = Object.freeze({
   draft: 'Заявка',
@@ -72,7 +73,12 @@ export const buildExportDatasets = ({
   clients = [],
   services = [],
   transactions = [],
+  siteSettings = {},
 }) => {
+  const terms = resolveWorkItemTerminology(siteSettings)
+  const eventDateHeader = `Дата ${terms.genitive}`
+  const linkedHeader = `Связано с ${terms.instrumental}`
+  const transactionEventHeader = terms.labelCapitalized
   const eventsMap = new Map(
     events.filter((item) => item?._id).map((item) => [item._id, item])
   )
@@ -165,7 +171,7 @@ export const buildExportDatasets = ({
   const requestsHeaders = [
     'ID',
     'Дата заявки',
-    'Дата мероприятия',
+    eventDateHeader,
     'Клиент',
     'Телефон',
     'Город',
@@ -173,14 +179,14 @@ export const buildExportDatasets = ({
     'Услуги',
     'Статус',
     'Договорная сумма',
-    'Связано с мероприятием',
+    linkedHeader,
   ]
   const requestsRows = events
     .filter((event) => event?.status === 'draft')
     .map((request) => ({
       ID: request._id,
       'Дата заявки': formatDateTime(request.createdAt),
-      'Дата мероприятия': formatDateTime(request.eventDate),
+      [eventDateHeader]: formatDateTime(request.eventDate),
       Клиент: resolveClientName(request.clientId),
       Телефон: resolveClientPhone(request.clientId, request.phone),
       Город: request?.address?.town ?? '',
@@ -188,7 +194,7 @@ export const buildExportDatasets = ({
       Услуги: resolveServicesTitles(request.servicesIds),
       Статус: request.status ?? '',
       'Договорная сумма': Number(request.contractSum ?? 0),
-      'Связано с мероприятием': 'Нет',
+      [linkedHeader]: 'Нет',
     }))
 
   const transactionsHeaders = [
@@ -198,7 +204,7 @@ export const buildExportDatasets = ({
     'Категория',
     'Сумма',
     'Клиент',
-    'Мероприятие',
+    transactionEventHeader,
     'Комментарий',
   ]
   const transactionsRows = transactions.map((transaction) => ({
@@ -208,7 +214,7 @@ export const buildExportDatasets = ({
     Категория: transaction.category ?? '',
     Сумма: Number(transaction.amount ?? 0),
     Клиент: resolveClientName(transaction.clientId),
-    Мероприятие: resolveEventTitle(eventsMap.get(transaction.eventId)),
+    [transactionEventHeader]: resolveEventTitle(eventsMap.get(transaction.eventId)),
     Комментарий: transaction.comment ?? '',
   }))
 

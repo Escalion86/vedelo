@@ -2,13 +2,14 @@ import webpush from 'web-push'
 import crypto from 'crypto'
 import PushDeliveryLogs from '@models/PushDeliveryLogs'
 import PushSubscriptions from '@models/PushSubscriptions'
+import { getDomainMigrationPhase } from '@helpers/domainMigration.mjs'
 
 let isConfigured = false
 
 const getVapidConfig = () => {
   const publicKey = process.env.VAPID_PUBLIC_KEY || ''
   const privateKey = process.env.VAPID_PRIVATE_KEY || ''
-  const subject = process.env.VAPID_SUBJECT || 'mailto:support@artistcrm.ru'
+  const subject = process.env.VAPID_SUBJECT || 'mailto:support@vedelo.ru'
   return {
     publicKey: String(publicKey).trim(),
     privateKey: String(privateKey).trim(),
@@ -79,6 +80,7 @@ const savePushSubscription = async ({
   subscription,
   userAgent = '',
   isActive = true,
+  webAppOrigin = 'artistcrm',
 }) => {
   const normalized = parseSubscription(subscription)
   if (!tenantId || !normalized) return null
@@ -105,6 +107,7 @@ const savePushSubscription = async ({
         endpoint: normalized.endpoint,
         keys: normalized.keys,
         userAgent: String(userAgent || '').slice(0, 500),
+        webAppOrigin: webAppOrigin === 'vedelo' ? 'vedelo' : 'artistcrm',
         isActive: Boolean(isActive),
       },
     },
@@ -184,9 +187,15 @@ const sendPushToTenant = async ({ tenantId, payload, source = 'unknown' }) => {
     return { ok: false, sent: 0, failed: 0, deactivated: 0, reason: 'no_vapid' }
   }
 
+  const migration = getDomainMigrationPhase({
+    startedAt: process.env.BRAND_MIGRATION_STARTED_AT,
+  })
+  const originFilter =
+    migration.phase === 'locked' ? { webAppOrigin: 'vedelo' } : {}
   const docs = await PushSubscriptions.find({
     tenantId,
     isActive: true,
+    ...originFilter,
   })
     .select('endpoint keys')
     .lean()
@@ -292,6 +301,117 @@ const sendPushToTenant = async ({ tenantId, payload, source = 'unknown' }) => {
   }
 }
 
+const sendLegacyMigrationNoticeAndDeactivate = async ({ limit = 500 } = {}) => {
+  const migration = getDomainMigrationPhase({
+    startedAt: process.env.BRAND_MIGRATION_STARTED_AT,
+  })
+  if (migration.phase !== 'locked') {
+    return { ok: true, skipped: true, processed: 0, sent: 0, failed: 0 }
+  }
+  if (!ensureWebPushConfigured()) {
+    return {
+      ok: false,
+      skipped: true,
+      processed: 0,
+      sent: 0,
+      failed: 0,
+      reason: 'no_vapid',
+    }
+  }
+
+  const docs = await PushSubscriptions.find({
+    isActive: true,
+    migrationNoticeSentAt: null,
+    $or: [
+      { webAppOrigin: 'artistcrm' },
+      { webAppOrigin: { $exists: false } },
+      { webAppOrigin: null },
+    ],
+  })
+    .select('tenantId endpoint keys')
+    .limit(Math.max(1, Math.min(Number(limit) || 500, 2000)))
+    .lean()
+
+  let sent = 0
+  let failed = 0
+  const processedAt = new Date()
+  const body = JSON.stringify({
+    title: 'ArtistCRM переехал в Ведело',
+    body: 'Откройте приложение, чтобы безопасно перенести вход и установить Ведело.',
+    icon: '/icons/AppImages/android/android-launchericon-192-192.png',
+    badge: '/icons/notification-badge.svg',
+    tag: 'vedelo-domain-migration',
+    requireInteraction: true,
+    data: {
+      type: 'domain_migration',
+      url: '/migrate',
+    },
+  })
+
+  for (const doc of docs) {
+    const subscription = parseSubscription(doc)
+    if (!subscription) {
+      failed += 1
+      await PushSubscriptions.updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            migrationNoticeSentAt: processedAt,
+            isActive: false,
+          },
+        }
+      )
+      continue
+    }
+    let delivered = false
+
+    try {
+      await webpush.sendNotification(subscription, body, {
+        TTL: 259200,
+        urgency: 'high',
+        topic: 'vedelo-domain-migration',
+      })
+      sent += 1
+      delivered = true
+    } catch (error) {
+      failed += 1
+      await logPushDelivery({
+        tenantId: doc.tenantId,
+        endpoint: subscription.endpoint,
+        source: 'domain-migration',
+        eventType: 'send',
+        status: 'failed',
+        payloadType: 'domain_migration',
+        statusCode: Number(error?.statusCode || 0) || null,
+        message: error?.body || error?.message || 'Ошибка отправки push о переезде',
+      })
+    }
+
+    await PushSubscriptions.updateOne(
+      {
+        _id: doc._id,
+        isActive: true,
+        migrationNoticeSentAt: null,
+      },
+      {
+        $set: {
+          migrationNoticeSentAt: processedAt,
+          isActive: false,
+          ...(delivered ? { lastSentAt: processedAt } : {}),
+        },
+      }
+    )
+  }
+
+  return {
+    ok: true,
+    skipped: false,
+    processed: docs.length,
+    sent,
+    failed,
+  }
+}
+
 const getPushPublicKey = () => {
   const { publicKey } = getVapidConfig()
   return publicKey
@@ -303,6 +423,7 @@ export {
   deactivatePushSubscription,
   countActivePushSubscriptions,
   sendPushToTenant,
+  sendLegacyMigrationNoticeAndDeactivate,
   getPushPublicKey,
   logPushDelivery,
 }

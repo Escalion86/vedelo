@@ -18,9 +18,9 @@ import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
 } from '@helpers/constants'
-import { getEventStatusButtonClasses } from '@helpers/eventStatusStyles'
 import TabContext from '@components/Tabs/TabContext'
 import TabPanel from '@components/Tabs/TabPanel'
+import EventStatusPicker from '@components/ValuePicker/EventStatusPicker'
 import tariffsAtom from '@state/atoms/tariffsAtom'
 import { postData } from '@helpers/CRUD'
 import { getUserTariffAccess } from '@helpers/tariffAccess'
@@ -35,7 +35,7 @@ import AddressPoolPicker from '@components/AddressPoolPicker'
 import InputWrapper from '@components/InputWrapper'
 import LabeledContainer from '@components/LabeledContainer'
 import OtherContactsPicker from '@components/OtherContactsPicker'
-import EventDocumentsEditor from '@components/EventDocumentsEditor'
+import DocumentsEditor from '@components/DocumentsEditor'
 import EventProposalsSection from '@components/EventProposalsSection'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
@@ -71,6 +71,7 @@ import {
 } from '@helpers/eventDocuments'
 import { shouldShowColleagueTransferControls } from '@helpers/firstRunWizard.mjs'
 import { canUseProposalBuilder } from '@helpers/proposalAccess'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 const normalizeAddressValue = (rawAddress) => {
   const normalized = { ...DEFAULT_ADDRESS }
@@ -175,6 +176,7 @@ const eventFunc = (
     const { data: clients = [] } = useClientsQuery()
     const loggedUser = useAtomValue(loggedUserAtom)
     const [siteSettings, setSiteSettings] = useAtom(siteSettingsAtom)
+    const workItemTerms = resolveWorkItemTerminology(siteSettings)
     const colleagues = useMemo(
       () => clients.filter((client) => client.clientType === 'colleague'),
       [clients]
@@ -361,9 +363,6 @@ const eventFunc = (
     const [errors, , addError, removeError, clearErrors] = useErrors()
     const addErrorRef = useRef(addError)
     const clearErrorsRef = useRef(clearErrors)
-    const newEventUploadKeyRef = useRef(
-      `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    )
 
     useEffect(() => {
       addErrorRef.current = addError
@@ -512,14 +511,9 @@ const eventFunc = (
 
     useEffect(() => {
       if (clone || !sourceEventId) return
-      setTitle?.('Редактирование мероприятия')
+      setTitle?.(`Редактирование ${workItemTerms.genitive}`)
       setConfirmButtonName?.('Применить')
-    }, [setConfirmButtonName, setTitle, sourceEventId])
-
-    const documentsUploadBaseDirectory = useMemo(
-      () => `events/${sourceEventId || newEventUploadKeyRef.current}/documents`,
-      [sourceEventId]
-    )
+    }, [setConfirmButtonName, setTitle, sourceEventId, workItemTerms.genitive])
 
     const eventTransactions = useMemo(
       () =>
@@ -822,7 +816,7 @@ const eventFunc = (
       const savedEvent = await setEvent(payload, clone)
       const nextEventId = savedEvent?._id ?? payload?._id ?? null
       if (!nextEventId) {
-        throw new Error('Не удалось создать мероприятие')
+        throw new Error(`Не удалось создать ${workItemTerms.accusative}`)
       }
       setAiHighlightedFields(new Set())
       if (nextEventId) {
@@ -845,7 +839,7 @@ const eventFunc = (
         isCreatingDraftRequest,
         hasAdditionalEvents,
       }
-    }, [buildEventSaveContext, setEvent])
+    }, [buildEventSaveContext, setEvent, workItemTerms.accusative])
 
     const openAdditionalEventModal = useCallback(
       (index = null, options = {}) => {
@@ -893,10 +887,10 @@ const eventFunc = (
         if (!targetEventId) return false
 
         modalsFunc.add({
-          title: 'Закрыть мероприятие?',
-          text: 'Мероприятие полностью оплачено и завершено. Возможно, стоит закрыть мероприятие?',
-          confirmButtonName: 'Закрыть мероприятие',
-          confirmButtonPendingName: 'Закрываем мероприятие...',
+          title: `Закрыть ${workItemTerms.accusative}?`,
+          text: `${workItemTerms.labelCapitalized} полностью оплачено и завершено. Возможно, стоит закрыть ${workItemTerms.accusative}?`,
+          confirmButtonName: `Закрыть ${workItemTerms.accusative}`,
+          confirmButtonPendingName: `Закрываем ${workItemTerms.accusative}...`,
           declineButtonName: 'Оставить открытым',
           showDecline: true,
           waitForConfirm: true,
@@ -911,7 +905,12 @@ const eventFunc = (
 
         return true
       },
-      [modalsFunc, setEvent]
+      [
+        modalsFunc,
+        setEvent,
+        workItemTerms.accusative,
+        workItemTerms.labelCapitalized,
+      ]
     )
 
     const handleSaveSuccess = useCallback(
@@ -1007,7 +1006,7 @@ const eventFunc = (
         hasError = true
       }
       if (!eventDate) {
-        addErrorRef.current({ eventDate: 'Укажите дату мероприятия' })
+        addErrorRef.current({ eventDate: `Укажите дату ${workItemTerms.genitive}` })
         hasError = true
       }
       if (!servicesIds || servicesIds.length === 0) {
@@ -1036,6 +1035,7 @@ const eventFunc = (
       isTransferred,
       servicesIds,
       showColleagueTransferControls,
+      workItemTerms.genitive,
     ])
 
     const addMinutesToDate = (value, minutes) => {
@@ -1133,7 +1133,7 @@ const eventFunc = (
         if (shouldShowConflictWarning) {
           modalsFunc.add({
             title: 'Пересечение по времени',
-            text: `Внимание! Есть мероприятия в выбранном периоде (${conflictsCount}). Все равно сохранить?`,
+            text: `Внимание! В выбранном периоде есть ${workItemTerms.plural} (${conflictsCount}). Все равно сохранить?`,
             confirmButtonName: 'Все равно сохранить',
             declineButtonName: 'Вернуться',
             showDecline: true,
@@ -1253,6 +1253,7 @@ const eventFunc = (
           client: currentClient,
           serviceTitles: selectedServiceTitles,
           performerName: getPersonFullName(loggedUser),
+          siteSettings: currentSettings,
           contractMeta: {
             defaultTown: currentSettings?.defaultTown ?? '',
             artistFullName:
@@ -1307,6 +1308,7 @@ const eventFunc = (
           client: currentClient,
           serviceTitles: selectedServiceTitles,
           performerName: getPersonFullName(loggedUser),
+          siteSettings: currentSettings,
           actMeta: {
             defaultTown: currentSettings?.defaultTown ?? '',
             artistFullName:
@@ -1582,7 +1584,7 @@ const eventFunc = (
         }
 
         if (!targetEventId) {
-          setFinanceError('Сначала сохраните мероприятие')
+          setFinanceError(`Сначала сохраните ${workItemTerms.accusative}`)
           return
         }
 
@@ -1672,52 +1674,27 @@ const eventFunc = (
                 </ul>
               </Notice>
             ) : null}
-            <InputWrapper label="Статус" paddingY fitWidth>
-              <div className="flex w-full flex-col">
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: 'draft', label: 'Заявка' },
-                    { value: 'active', label: 'Подтверждено' },
-                    { value: 'canceled', label: 'Отменено' },
-                    { value: 'closed', label: 'Закрыто' },
-                  ].map((item) => {
-                    const isActive = status === item.value
-                    const isClosedOption = item.value === 'closed'
-                    const disabled =
-                      isClosedOption && !canSetClosedStatus && !isClosed
-                    return (
-                      <button
-                        key={item.value}
-                        type="button"
-                        disabled={disabled}
-                        title={disabled ? closeStatusDisabledReason : ''}
-                        className={`focus-visible:ring-general inline-flex min-h-[32px] items-center rounded border px-3 py-1 text-sm font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none ${getEventStatusButtonClasses(
-                          item.value,
-                          isActive
-                        )} ${isActive ? 'shadow' : 'shadow-sm'} ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                        onClick={() => {
-                          if (disabled) return
-                          setStatus(item.value)
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                {status !== 'closed' && !canSetClosedStatus ? (
-                  <div className="mt-2 text-xs text-amber-700">
-                    {closeStatusDisabledReason}
-                  </div>
-                ) : null}
-                {isClosed ? (
-                  <div className="mt-2 text-xs text-red-700">
-                    Статус «Закрыто»: редактирование полей мероприятия
-                    недоступно.
-                  </div>
-                ) : null}
-              </div>
-            </InputWrapper>
+            <div className="event-status-picker">
+              <EventStatusPicker
+                status={status}
+                onChange={setStatus}
+                disabledValues={
+                  canSetClosedStatus || isClosed ? [] : ['closed']
+                }
+                disabledReasons={{ closed: closeStatusDisabledReason }}
+              />
+              {status !== 'closed' && !canSetClosedStatus ? (
+                <Notice tone="warning" className="mt-2 text-xs">
+                  {closeStatusDisabledReason}
+                </Notice>
+              ) : null}
+              {isClosed ? (
+                <Notice tone="error" className="mt-2 text-xs">
+                  Статус «Закрыто»: редактирование полей мероприятия
+                  недоступно.
+                </Notice>
+              ) : null}
+            </div>
             <div className={formLockedClassName}>
               <AiFieldHighlight
                 active={isAiFieldHighlighted('servicesIds')}
@@ -2166,16 +2143,18 @@ const eventFunc = (
             </AiFieldHighlight>
             {isDraft ? (
               <Notice tone="warning" className="rounded-md">
-                {`Для заявки финансы, транзакции и документы недоступны. Переведите тип в "Подтверждено"`}
+                {`Для заявки финансовые операции и транзакции недоступны. Файлы и документы можно добавить уже сейчас.`}
               </Notice>
             ) : null}
-            {isByContract && !isDraft && canUseDocuments && (
+            {canUseDocuments && (
               <div className="mt-3">
-                <LabeledContainer label="Документы мероприятия" noMargin>
-                  <EventDocumentsEditor
+                <LabeledContainer label="Файлы и документы" noMargin>
+                  <DocumentsEditor
                     documents={documents}
                     onChange={setDocuments}
-                    directory={documentsUploadBaseDirectory}
+                    entityType="events"
+                    entityId={sourceEventId}
+                    entityLabel={workItemTerms.accusative}
                     documentTemplates={documentTemplates}
                     buildTemplateVariables={buildDocumentTemplateVariables}
                     noMargin
@@ -2443,7 +2422,7 @@ const eventFunc = (
   }
 
   return {
-    title: `${eventId && !clone ? 'Редактирование' : 'Создание'} мероприятия`,
+    title: `${eventId && !clone ? 'Редактирование' : 'Создание'} рабочей карточки`,
     confirmButtonName: eventId && !clone ? 'Применить' : 'Создать',
     Children: EventModal,
   }

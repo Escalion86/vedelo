@@ -46,7 +46,7 @@ const Header = ({ noMenu }) => {
 
   const menu = [{ name: 'Наши цели', href: '/#about' }]
   // if (events?.length > 0)
-  menu.push({ name: 'Мероприятия', href: '/#events' })
+  menu.push({ name: 'Заказы', href: '/#events' })
   if (services?.length > 0) menu.push({ name: 'Услуги', href: '/#services' })
   menu.push({ name: 'Контакты', href: '/#contacts' })
 
@@ -69,7 +69,7 @@ const Header = ({ noMenu }) => {
             <img
               className="object-contain h-16 laptop:min-w-min"
               src={'/img/logo_horizontal.png'}
-              alt="logo"
+              alt="Ведело"
               // width={48}
               // height={48}
             />

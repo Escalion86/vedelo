@@ -1,4 +1,4 @@
-# GitHub Secrets Setup — ArtistCRM Mobile
+# GitHub Secrets Setup — Ведело Mobile
 
 ## Required Secrets
 

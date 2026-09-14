@@ -281,7 +281,7 @@ const ProposalPublicClient = ({ publicId, token }) => {
                 <div className="mt-1">Telegram: {proposal.artist.telegram}</div>
               ) : null}
               <div className="mt-5 text-xs text-stone-400">
-                Предложение подготовлено в ArtistCRM
+                Предложение подготовлено в Ведело
               </div>
             </footer>
           ) : null}

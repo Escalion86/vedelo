@@ -1,4 +1,4 @@
-# ArtistCRM Android 1.0.0 — release candidate
+# Ведело Android 1.0.0 — release candidate
 
 ## Что нового
 
@@ -21,7 +21,7 @@
 - React Native: `0.83.6`;
 - минимальная версия: Android 10 / API 29;
 - compile/target SDK: API 36;
-- production API: `https://artistcrm.ru/api`;
+- production API: `https://vedelo.ru/api`;
 - формат Google Play: Android App Bundle (`.aab`), track `internal`.
 
 ## Что проверить на Internal Testing

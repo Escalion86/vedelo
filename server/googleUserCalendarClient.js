@@ -34,10 +34,10 @@ const GOOGLE_CALENDAR_TITLE_MODES = new Set([
   'client_eventType',
 ])
 
-const getOAuthClient = () => {
+const getOAuthClient = (redirectUriOverride = '') => {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI
+  const redirectUri = redirectUriOverride || process.env.GOOGLE_OAUTH_REDIRECT_URI
   if (!clientId || !clientSecret || !redirectUri) return null
   const endpoints = {}
   if (process.env.GOOGLE_OAUTH_AUTH_URL) {

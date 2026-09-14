@@ -21,6 +21,8 @@ import store from '@state/store'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import RegistrationOfferBanner from '@components/RegistrationOfferBanner'
+import DomainMigrationBanner from '@components/DomainMigrationBanner'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 // import { useAtomValue } from 'jotai'
 
 // const SuspenseChild = () => (
@@ -81,7 +83,15 @@ function CabinetPage(props) {
     ? CONTENTS[currentPage].Component
     : () => <div className="flex justify-center px-2">Ошибка 404</div>
 
-  const title = CONTENTS[currentPage] ? CONTENTS[currentPage].name : ''
+  const workItemTerms = resolveWorkItemTerminology(props.siteSettings)
+  const title =
+    currentPage === 'eventsUpcoming'
+      ? `Предстоящие ${workItemTerms.plural}`
+      : currentPage === 'eventsPast'
+        ? `Прошедшие ${workItemTerms.plural}`
+        : currentPage === 'events'
+          ? workItemTerms.pluralCapitalized
+          : CONTENTS[currentPage]?.name || ''
   const headerCount =
     headerCountState.page === currentPage ? headerCountState.count : null
 
@@ -95,6 +105,7 @@ function CabinetPage(props) {
             <CabinetHeader title={title} count={headerCount} />
             <BurgerLayout />
             <ContentWrapper page={currentPage}>
+              <DomainMigrationBanner />
               <RegistrationOfferBanner user={props.loggedUser} />
               <Component
                 {...props}

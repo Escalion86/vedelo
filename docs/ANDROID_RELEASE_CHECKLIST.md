@@ -1,6 +1,6 @@
 # Android 1.0 — release checklist
 
-Этот чек-лист фиксирует выпускной порог для пользовательского приложения ArtistCRM. Разделы администрирования тарифов, пользователей и ролей, PartyCRM и dev-инструменты в Android-приложение не входят.
+Этот чек-лист фиксирует выпускной порог для пользовательского приложения «Ведело» (ранее ArtistCRM). Разделы администрирования тарифов, пользователей и ролей, PartyCRM и dev-инструменты в Android-приложение не входят.
 
 ## Сборка
 
@@ -9,7 +9,7 @@
 - [x] Production-профиль EAS выпускает Android App Bundle (`.aab`).
 - [x] `compileSdkVersion` и `targetSdkVersion` равны 36; приложение заранее соответствует требованию Google Play для новых приложений и обновлений с 31 августа 2026 года.
 - [x] `minSdkVersion` равен 29 (Android 10).
-- [x] Production API URL `https://artistcrm.ru/api`, EAS project и удалённый production keystore проверены без тестовых значений; доступность новых API проверяется отдельным deployment gate выше.
+- [ ] Production API URL `https://vedelo.ru/api`, EAS project и удалённый production keystore проверены без тестовых значений; старый `artistcrm.ru` остаётся доступен на время PWA-миграции.
 - [ ] Финальный AAB для Google Play собрать после production-деплоя и device QA; предварительная очередь `e55ff927-c92d-43a1-9cee-0d7304b0d2b2` отменена в пользу установочного APK.
 - [x] Чистая повторная APK-сборка `c7fc4b94-68e8-4cda-a6a5-00e6eefb7ead` с `versionCode 7` завершена после повышения compileSdk до 36.
 - [x] Брендированная APK-сборка `1d9ee861-b7b0-436d-b38b-d7e33a2663b7` с `versionCode 9` успешно завершена после исправления экрана входа, начальных `7`/`8` в маске телефона, launcher/adaptive icon и splash; промежуточная сборка `versionCode 8` отменена до завершения.

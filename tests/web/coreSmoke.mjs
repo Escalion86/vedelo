@@ -187,7 +187,7 @@ export const runWebCoreSmoke = async ({
     const response = await userA(route)
     assert.equal(response.status, 200, route)
     const html = await response.text()
-    assert.match(html, /Кабинет ArtistCRM/)
+    assert.match(html, /Кабинет Ведело/)
     assert.doesNotMatch(
       html,
       /NEXT_HTTP_ERROR_FALLBACK;500|Application error: a server-side exception/

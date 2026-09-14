@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Tabs } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from '../../src/shared/ui/theme'
+import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 
 const icon = (name: keyof typeof MaterialCommunityIcons.glyphMap) =>
   ({ color, size }: { color: string; size: number }) => (
@@ -10,6 +11,7 @@ const icon = (name: keyof typeof MaterialCommunityIcons.glyphMap) =>
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
+  const terminology = useWorkItemTerminology()
 
   return (
     <Tabs
@@ -27,7 +29,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Главная', tabBarIcon: icon('view-dashboard-outline') }} />
-      <Tabs.Screen name="events" options={{ title: 'Мероприятия', tabBarIcon: icon('calendar-blank-outline') }} />
+      <Tabs.Screen name="events" options={{ title: terminology.pluralCapitalized, tabBarIcon: icon('calendar-blank-outline') }} />
       <Tabs.Screen name="clients" options={{ title: 'Клиенты', tabBarIcon: icon('account-group-outline') }} />
       <Tabs.Screen name="finance" options={{ title: 'Финансы', tabBarIcon: icon('wallet-outline') }} />
       <Tabs.Screen name="more" options={{ title: 'Ещё', tabBarIcon: icon('dots-horizontal-circle-outline') }} />

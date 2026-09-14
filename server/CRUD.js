@@ -21,6 +21,8 @@ import {
   buildGoogleCalendarStatusIconsPrefix,
   shouldSkipGoogleCalendarEventSync,
 } from '@helpers/googleCalendarStatusIcons'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
+import { getCanonicalBaseUrl } from '@helpers/brand.mjs'
 
 function isJson(str) {
   try {
@@ -402,6 +404,10 @@ const updateEventInCalendar = async (
   const { calendar, calendarId } = context
   const effectiveCalendarId = event?.googleCalendarCalendarId || calendarId
   const timeZone = await getSiteTimeZone(event?.tenantId)
+  const tenantSiteSettings = event?.tenantId
+    ? await SiteSettings.findOne({ tenantId: event.tenantId }).select('custom').lean()
+    : null
+  const workItemTerms = resolveWorkItemTerminology(tenantSiteSettings)
   const previousAdditionalEvents = Array.isArray(
     previousEvent?.additionalEvents
   )
@@ -693,7 +699,7 @@ const updateEventInCalendar = async (
     return (
       [eventTypeTitle, servicesTitle, eventTitle, clientName]
         .filter(Boolean)
-        .join(' • ') || 'Мероприятие'
+        .join(' • ') || workItemTerms.labelCapitalized
     )
   }
   const calendarTitle = buildCalendarTitle()
@@ -741,7 +747,7 @@ const updateEventInCalendar = async (
           .trim('\n')
       ),
       syncSettings.showEventLink
-        ? `Ссылка на мероприятие:\n${process.env.DOMAIN + '/event/' + event._id}`
+        ? `Ссылка на ${workItemTerms.accusative}:\n${getCanonicalBaseUrl(process.env.DOMAIN) + '/event/' + event._id}`
         : '',
     ]
       .filter(Boolean)
@@ -761,7 +767,7 @@ const updateEventInCalendar = async (
     // visibility: event.showOnSite ? 'default' : 'private',
   }
 
-  const eventLink = `${process.env.DOMAIN + '/event/' + event._id}`
+  const eventLink = `${getCanonicalBaseUrl(process.env.DOMAIN) + '/event/' + event._id}`
   const eventDateLabel = isValidDateValue(startDate)
     ? startDate.toLocaleString('ru-RU', {
         day: '2-digit',
@@ -786,9 +792,9 @@ const updateEventInCalendar = async (
         }`
       : ''
   const additionalBaseDescriptionLines = [
-    'Доп. событие по мероприятию',
-    `Мероприятие: ${calendarTitle}`,
-    `Дата мероприятия: ${eventDateLabel}`,
+    `Доп. событие по ${workItemTerms.dative}`,
+    `${workItemTerms.labelCapitalized}: ${calendarTitle}`,
+    `Дата ${workItemTerms.genitive}: ${eventDateLabel}`,
     `Статус: ${
       event.status === 'draft'
         ? 'Заявка'
@@ -796,11 +802,11 @@ const updateEventInCalendar = async (
           ? 'Отменено'
           : event.status === 'closed'
             ? 'Закрыто'
-            : 'Мероприятие'
+            : workItemTerms.labelCapitalized
     }`,
     clientBlock,
     colleagueBlock,
-    syncSettings.showEventLink ? `Ссылка на мероприятие:\n${eventLink}` : '',
+    syncSettings.showEventLink ? `Ссылка на ${workItemTerms.accusative}:\n${eventLink}` : '',
   ].filter(Boolean)
 
   const toAdditionalEventPayload = (item) => {

@@ -197,7 +197,7 @@ export function ManagedIntegrationsSection({
       setCredential('')
       await finishMutation(
         'ai',
-        `${aiProvider === 'deepseek' ? 'DeepSeek' : aiProvider === 'artistcrm' ? 'ИИ ArtistCRM' : 'AITunnel'} подключён`
+        `${aiProvider === 'deepseek' ? 'DeepSeek' : aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'} подключён`
       )
     } catch (reason) {
       setCredential('')
@@ -335,7 +335,7 @@ export function ManagedIntegrationsSection({
       provider: 'ai',
       status: overview.ai,
       icon: 'creation-outline',
-      description: 'ИИ ArtistCRM или собственный AITunnel',
+      description: 'ИИ Ведело или собственный AITunnel',
     },
     {
       provider: 'public-leads',
@@ -396,9 +396,9 @@ export function ManagedIntegrationsSection({
       </> : null}
 
       {selected === 'ai' ? <>
-        <Text style={styles.muted}>Общий ИИ ArtistCRM оплачивается из баланса. При собственном AITunnel списаний со стороны ArtistCRM нет.</Text>
+        <Text style={styles.muted}>Общий ИИ Ведело оплачивается из баланса. При собственном AITunnel списаний со стороны Ведело нет.</Text>
         <Button
-          title={aiProvider === 'artistcrm' ? '✓ ИИ ArtistCRM' : 'ИИ ArtistCRM'}
+          title={aiProvider === 'artistcrm' ? '✓ ИИ Ведело' : 'ИИ Ведело'}
           variant={aiProvider === 'artistcrm' ? undefined : 'secondary'}
           onPress={() => {
             setAiProvider('artistcrm')
@@ -448,8 +448,8 @@ export function ManagedIntegrationsSection({
         {aiProvider !== 'artistcrm' ? <Field label="Модель AI-анализа" value={analysisModel} onChangeText={setAnalysisModel} autoCapitalize="none" /> : null}
         <Button
           title={details?.analysisProvider === aiProvider && details?.configured
-            ? aiProvider === 'artistcrm' ? 'Включить ИИ ArtistCRM' : 'Заменить ключ и включить'
-            : `Подключить ${aiProvider === 'deepseek' ? 'DeepSeek' : aiProvider === 'artistcrm' ? 'ИИ ArtistCRM' : 'AITunnel'}`}
+            ? aiProvider === 'artistcrm' ? 'Включить ИИ Ведело' : 'Заменить ключ и включить'
+            : `Подключить ${aiProvider === 'deepseek' ? 'DeepSeek' : aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'}`}
           onPress={connectAi}
           loading={loading}
         />

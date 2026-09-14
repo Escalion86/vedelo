@@ -30,6 +30,7 @@ import {
   type EncryptedLocalFile,
 } from '../../../src/shared/storage/encryptedFiles'
 import { runSync } from '../../../src/shared/sync/syncEngine'
+import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
 import {
   Button,
   EmptyState,
@@ -52,6 +53,7 @@ const typeLabel: Record<DocumentTemplate['type'], string> = {
 }
 
 export default function EventDocumentsScreen() {
+  const terms = useWorkItemTerminology()
   const { id } = useLocalSearchParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [event, setEvent] = useState<Event | null>(null)
@@ -95,10 +97,7 @@ export default function EventDocumentsScreen() {
   )
 
   const pickAttachment = async () => {
-    if (!event || event.status === 'draft') {
-      setError('Вложения доступны после подтверждения заявки')
-      return
-    }
+    if (!event) return
     setError('')
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -114,7 +113,7 @@ export default function EventDocumentsScreen() {
         size: asset.size,
         entityType: 'events',
         entityId: event._id,
-        attachmentKind: 'documentFile',
+        attachmentKind: 'entityDocument',
       })
       await loadLocal()
       setLoading(true)
@@ -170,7 +169,7 @@ export default function EventDocumentsScreen() {
     Alert.alert(
       'Удалить локальное вложение?',
       file.status === 'synced'
-        ? 'Локальная зашифрованная копия будет удалена. Файл останется в мероприятии.'
+        ? `Локальная зашифрованная копия будет удалена. Файл останется в ${terms.prepositional}.`
         : 'Файл не будет отправлен на сервер.',
       [
         { text: 'Отмена', style: 'cancel' },
@@ -187,7 +186,7 @@ export default function EventDocumentsScreen() {
 
   const removeUploadedFile = (url: string) =>
     Alert.alert(
-      'Убрать вложение из мероприятия?',
+      `Убрать вложение из ${terms.genitive}?`,
       'Файл в облачном хранилище не будет удалён автоматически.',
       [
         { text: 'Отмена', style: 'cancel' },
@@ -250,7 +249,7 @@ export default function EventDocumentsScreen() {
 
   const remove = (documentId: string) =>
     Alert.alert(
-      'Убрать документ из мероприятия?',
+      `Убрать документ из ${terms.genitive}?`,
       'Файл в облачном хранилище не будет удалён автоматически.',
       [
         { text: 'Отмена', style: 'cancel' },
@@ -259,15 +258,33 @@ export default function EventDocumentsScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!event) return
-            const updated = await saveLocalEntity({
-              entityType: 'events',
-              entityId: event._id,
-              values: {
-                documents: (event.documents || []).filter(
-                  (document) => document.id !== documentId
-                ),
-              },
-            })
+            const document = event.documents?.find(
+              (item) => item.id === documentId
+            )
+            const updated = document?.file?.storageKey
+              ? (
+                  await api.delete<{
+                    success: true
+                    data: { entity: Event }
+                  }>(`/mobile/v1/events/${event._id}/files`, {
+                    documentId,
+                    deleteId: documentId,
+                  })
+                ).data.entity
+              : ((await saveLocalEntity({
+                  entityType: 'events',
+                  entityId: event._id,
+                  values: {
+                    documents: (event.documents || []).filter(
+                      (item) => item.id !== documentId
+                    ),
+                  },
+                })) as Event)
+            await upsertEntities('events', [updated])
+            const local = localFiles.find(
+              (file) => file.remoteUrl === documentId
+            )
+            if (local) await deleteEncryptedFile(local.id)
             setEvent(updated as Event)
             await queryClient.invalidateQueries({
               queryKey: ['cached-entities', 'events'],
@@ -277,17 +294,56 @@ export default function EventDocumentsScreen() {
       ]
     )
 
-  const openDocument = async (url: string, title: string) => {
+  const openDocument = async (
+    url: string,
+    title: string,
+    documentId?: string,
+    storageKey?: string
+  ) => {
+    if (storageKey && documentId) {
+      const response = await api.post<{
+        success: true
+        data: { url: string }
+      }>(`/mobile/v1/events/${id}/files/access-url`, {
+        documentId,
+        disposition: 'inline',
+      })
+      url = response.data.url
+    }
     if (!url) return
     const supported = await Linking.canOpenURL(url)
     if (supported) await Linking.openURL(url)
     else await Share.share({ title, message: url })
   }
 
+  const shareDocument = async (
+    document: NonNullable<Event['documents']>[number]
+  ) => {
+    const local = localFiles.find((file) => file.remoteUrl === document.id)
+    if (local) {
+      await shareLocalFile(local)
+      return
+    }
+    let url = document.url || document.file?.url || ''
+    if (document.file?.storageKey) {
+      const response = await api.post<{
+        success: true
+        data: { url: string }
+      }>(`/mobile/v1/events/${id}/files/access-url`, {
+        documentId: document.id,
+        disposition: 'attachment',
+      })
+      url = response.data.url
+    }
+    if (url) {
+      await Share.share({ title: document.title || 'Документ', message: url })
+    }
+  }
+
   return (
     <Screen>
       <PageHeader
-        title="Документы мероприятия"
+        title="Файлы и документы"
         subtitle={event?.eventType || 'Договоры, акты и вложения'}
       />
       {error ? <ErrorNotice message={error} /> : null}
@@ -336,7 +392,8 @@ export default function EventDocumentsScreen() {
         />
         {event?.status === 'draft' ? (
           <Text style={styles.warning}>
-            Документы доступны после подтверждения заявки.
+            Формирование договора и акта доступно после подтверждения заявки, а
+            произвольные файлы можно добавить уже сейчас.
           </Text>
         ) : null}
       </Surface>
@@ -351,7 +408,6 @@ export default function EventDocumentsScreen() {
           variant="secondary"
           onPress={pickAttachment}
           loading={loading}
-          disabled={event?.status === 'draft'}
         />
         {localFiles
           .filter((file) => file.status !== 'synced')
@@ -436,7 +492,7 @@ export default function EventDocumentsScreen() {
                 <Text style={styles.muted}>
                   {file.size
                     ? `${Math.max(1, Math.round(file.size / 1024))} КБ`
-                    : 'Файл мероприятия'}
+                    : `Файл ${terms.genitive}`}
                   {encrypted ? ' · доступен без сети' : ''}
                 </Text>
               </Pressable>
@@ -476,7 +532,12 @@ export default function EventDocumentsScreen() {
                 <Pressable
                   style={styles.grow}
                   onPress={() =>
-                    openDocument(url, document.title || 'Документ')
+                    openDocument(
+                      url,
+                      document.title || 'Документ',
+                      document.id,
+                      document.file?.storageKey
+                    )
                   }
                 >
                   <Text style={styles.title}>
@@ -491,10 +552,8 @@ export default function EventDocumentsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`Поделиться документом ${document.title || typeLabel[document.type]}`}
                   hitSlop={10}
-                  onPress={() =>
-                    Share.share({ title: document.title, message: url })
-                  }
-                  disabled={!url}
+                  onPress={() => void shareDocument(document)}
+                  disabled={!url && !document.file?.storageKey}
                 >
                   <MaterialCommunityIcons
                     name="share-variant-outline"

@@ -34,6 +34,8 @@ import {
   hasObligationPaymentMethod,
 } from '@helpers/transactionObligation'
 import { getEventCloseBlockedReason } from '@helpers/eventCloseSuggestion'
+import { getTenantWorkItemTerminology } from '@server/tenantTerminology'
+import { getDocumentStorageKeys } from '@helpers/entityDocuments'
 
 const EVENT_STATUSES = new Set(['draft', 'canceled', 'active', 'closed'])
 
@@ -114,10 +116,11 @@ export const GET = async (req, { params }) => {
   }
 
   await dbConnect()
+  const terms = await getTenantWorkItemTerminology(tenantId)
   const event = await Events.findOne({ _id: id, tenantId }).lean()
   if (!event) {
     return NextResponse.json(
-      { success: false, error: 'Мероприятие не найдено' },
+      { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
   }
@@ -150,11 +153,12 @@ export const PUT = async (req, { params }) => {
     )
   }
   await dbConnect()
+  const terms = await getTenantWorkItemTerminology(tenantId)
 
   const oldEvent = await Events.findOne({ _id: id, tenantId }).lean()
   if (!oldEvent)
     return NextResponse.json(
-      { success: false, error: 'Мероприятие не найдено' },
+      { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
 
@@ -284,7 +288,9 @@ export const PUT = async (req, { params }) => {
   if (body.documentFiles !== undefined)
     update.documentFiles = normalizeEventDocumentFiles(body.documentFiles)
   if (body.documents !== undefined)
-    update.documents = normalizeEventDocuments(body.documents)
+    update.documents = normalizeEventDocuments(body.documents, {
+      allowedStorageKeys: getDocumentStorageKeys(oldEvent.documents),
+    })
   if (body.isByContract !== undefined)
     update.isByContract = Boolean(body.isByContract)
   if (body.servicesIds !== undefined)
@@ -338,13 +344,13 @@ export const PUT = async (req, { params }) => {
       )
     }
     return NextResponse.json(
-      { success: false, error: 'Не удалось сохранить мероприятие' },
+      { success: false, error: `Не удалось сохранить ${terms.accusative}` },
       { status: 500 }
     )
   }
   if (!event)
     return NextResponse.json(
-      { success: false, error: 'Мероприятие не найдено' },
+      { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
 
@@ -468,6 +474,7 @@ export const DELETE = async (req, { params }) => {
     )
   }
   await dbConnect()
+  const terms = await getTenantWorkItemTerminology(tenantId)
   const transactionsCount = await Transactions.countDocuments({
     tenantId,
     eventId: id,
@@ -476,7 +483,7 @@ export const DELETE = async (req, { params }) => {
     return NextResponse.json(
       {
         success: false,
-        error: `Нельзя удалить мероприятие: есть транзакции (${transactionsCount})`,
+        error: `Нельзя удалить ${terms.accusative}: есть транзакции (${transactionsCount})`,
       },
       { status: 409 }
     )
@@ -484,7 +491,7 @@ export const DELETE = async (req, { params }) => {
   const deleted = await Events.findOneAndDelete({ _id: id, tenantId })
   if (!deleted)
     return NextResponse.json(
-      { success: false, error: 'Мероприятие не найдено' },
+      { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
   await recordActivityHistory({

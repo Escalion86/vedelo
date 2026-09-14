@@ -5,6 +5,7 @@ const CLIENT_FIELDS = [
   'messengerPushMuted', 'comment', 'clientType', 'town', 'significantDates',
   'legalName', 'inn', 'kpp', 'ogrn', 'bankName', 'bik', 'checkingAccount',
   'correspondentAccount', 'legalAddress', 'updatedAt',
+  'documents',
 ]
 
 const serializeMobileClient = (client) => {

@@ -1,20 +1,20 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Оплата и возвраты — ArtistCRM',
+  title: 'Оплата и возвраты — Ведело',
   description:
-    'Условия оплаты тарифов ArtistCRM, пополнения баланса и возврата денежных средств.',
+    'Условия оплаты тарифов Ведело, пополнения баланса и возврата денежных средств.',
 }
 
-const legalName = process.env.NEXT_PUBLIC_LEGAL_NAME || 'ArtistCRM'
+const legalName = process.env.NEXT_PUBLIC_LEGAL_NAME || 'Ведело'
 const legalInn = process.env.NEXT_PUBLIC_LEGAL_INN || ''
-const legalEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@artistcrm.ru'
+const legalEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@vedelo.ru'
 
 const PaymentPage = () => (
   <main className="min-h-screen bg-[#f5f6f8] px-6 py-10 text-gray-800">
     <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-general">
-        ArtistCRM
+        Ведело
       </p>
       <h1 className="mt-3 text-3xl font-semibold text-gray-900">
         Оплата и возвраты
@@ -35,7 +35,7 @@ const PaymentPage = () => (
       <section className="mt-6 grid gap-3 text-sm leading-6">
         <h2 className="text-lg font-semibold text-gray-900">Что оплачивается</h2>
         <p>
-          Пользователь оплачивает доступ к онлайн-сервису ArtistCRM по выбранному
+          Пользователь оплачивает доступ к онлайн-сервису Ведело по выбранному
           тарифу или пополняет внутренний баланс для последующей оплаты тарифа.
           Стоимость тарифов указана на странице выбора тарифа в личном кабинете.
         </p>

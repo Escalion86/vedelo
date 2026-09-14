@@ -1,54 +1,82 @@
 import InputWrapper from '@components/InputWrapper'
 import { EVENT_STATUSES } from '@helpers/constants'
-import { getEventStatusButtonClasses } from '@helpers/eventStatusStyles'
+import { faCheck } from '@fortawesome/free-solid-svg-icons/faCheck'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
+
+const EVENT_STATUS_DESCRIPTIONS = Object.freeze({
+  draft: 'Без подтверждения',
+  active: 'Заказ подтверждён',
+  canceled: 'Мероприятие отменено',
+  closed: 'Завершено и оплачено',
+})
+const EMPTY_VALUES = Object.freeze([])
+const EMPTY_REASONS = Object.freeze({})
 
 const EventStatusPicker = ({
   status,
   onChange = null,
   required = false,
-  disabledValues = [],
+  disabledValues = EMPTY_VALUES,
+  disabledReasons = EMPTY_REASONS,
   error = false,
 }) => (
   <InputWrapper
-    label="Статус"
+    label="Статус мероприятия"
     value={status}
     required={required}
     error={error}
-    paddingY
-    fitWidth
+    paddingX={false}
+    paddingY={false}
+    noBorder
+    fullWidth
+    wrapperClassName="items-stretch"
   >
-    <div className="flex flex-wrap gap-2">
+    <div
+      className="event-status-picker__options"
+      role="radiogroup"
+      aria-label="Статус мероприятия"
+    >
       {EVENT_STATUSES.map((item) => {
         const isActive = item.value === status
         const isDisabled = disabledValues.includes(item.value)
-        const buttonClasses = getEventStatusButtonClasses(
-          item.value,
-          isActive
-        )
+        const disabledReason = disabledReasons[item.value]
 
         return (
           <button
             key={item.value}
             type="button"
             className={cn(
-              'inline-flex min-h-[32px] items-center gap-2 rounded border px-3 py-1 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-general focus-visible:ring-offset-1',
-              buttonClasses,
+              'event-status-picker__option',
+              `event-status-picker__option--${item.value}`,
               isDisabled
-                ? 'cursor-not-allowed opacity-50'
-                : 'cursor-pointer',
-              isActive ? 'shadow' : 'shadow-sm'
+                ? 'event-status-picker__option--disabled cursor-not-allowed'
+                : 'cursor-pointer'
             )}
             onClick={
-              !isDisabled && onChange
-                ? () => onChange(item.value)
-                : undefined
+              !isDisabled && onChange ? () => onChange(item.value) : undefined
             }
             disabled={isDisabled}
+            role="radio"
+            aria-checked={isActive}
+            aria-label={
+              disabledReason ? `${item.name}. ${disabledReason}` : item.name
+            }
+            data-selected={isActive ? 'true' : undefined}
+            title={disabledReason || undefined}
           >
-            {item.icon && <FontAwesomeIcon icon={item.icon} className="h-4 w-4" />}
-            <span>{item.name}</span>
+            <span className="event-status-picker__icon" aria-hidden="true">
+              {item.icon ? <FontAwesomeIcon icon={item.icon} /> : null}
+              <span className="event-status-picker__selected-mark">
+                <FontAwesomeIcon icon={faCheck} />
+              </span>
+            </span>
+            <span className="event-status-picker__copy">
+              <span className="event-status-picker__name">{item.name}</span>
+              <span className="event-status-picker__description">
+                {EVENT_STATUS_DESCRIPTIONS[item.value]}
+              </span>
+            </span>
           </button>
         )
       })}

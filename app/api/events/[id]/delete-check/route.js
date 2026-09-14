@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Events from '@models/Events'
 import Transactions from '@models/Transactions'
 import dbConnect from '@server/dbConnect'
+import { getTenantWorkItemTerminology } from '@server/tenantTerminology'
 import getTenantContext from '@server/getTenantContext'
 
 export const GET = async (req, { params }) => {
@@ -15,10 +16,11 @@ export const GET = async (req, { params }) => {
   }
 
   await dbConnect()
+  const terms = await getTenantWorkItemTerminology(tenantId)
   const event = await Events.findOne({ _id: id, tenantId }).lean()
   if (!event) {
     return NextResponse.json(
-      { success: false, error: 'Мероприятие не найдено' },
+      { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
   }

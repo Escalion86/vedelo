@@ -12,18 +12,21 @@ import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { buildExportDatasets, downloadCsv } from '@helpers/csvExport'
 import { getUserTariffAccess } from '@helpers/tariffAccess'
 import { useStatisticsQuery } from '@helpers/useStatisticsQuery'
-
-const EXPORT_OPTIONS = [
-  { key: 'events', label: 'Мероприятия' },
-  { key: 'requests', label: 'Заявки' },
-  { key: 'transactions', label: 'Транзакции' },
-]
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
+import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 
 const ExportContent = () => {
   const router = useRouter()
   const tariffs = useAtomValue(tariffsAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const statisticsQuery = useStatisticsQuery()
+  const terms = useWorkItemTerminology()
+  const siteSettings = useAtomValue(siteSettingsAtom)
+  const exportOptions = [
+    { key: 'events', label: terms.pluralCapitalized },
+    { key: 'requests', label: 'Заявки' },
+    { key: 'transactions', label: 'Транзакции' },
+  ]
   const [selected, setSelected] = useState({
     events: true,
     requests: true,
@@ -32,17 +35,17 @@ const ExportContent = () => {
   const access = getUserTariffAccess(loggedUser, tariffs)
   const hasSelection = Object.values(selected).some(Boolean)
   const datasets = useMemo(
-    () => buildExportDatasets(statisticsQuery.data ?? {}),
-    [statisticsQuery.data]
+    () => buildExportDatasets({ ...(statisticsQuery.data ?? {}), siteSettings }),
+    [siteSettings, statisticsQuery.data]
   )
 
   const handleExport = () => {
     const fileSuffix = 'all-all-with-requests'
-    EXPORT_OPTIONS.forEach(({ key }) => {
+    exportOptions.forEach(({ key }) => {
       if (!selected[key]) return
       const dataset = datasets[key]
       downloadCsv(
-        `artistcrm-${key}-${fileSuffix}.csv`,
+        `vedelo-${key}-${fileSuffix}.csv`,
         dataset.headers,
         dataset.rows
       )
@@ -82,7 +85,7 @@ const ExportContent = () => {
             </div>
           </div>
           <div className="flex flex-col gap-3">
-            {EXPORT_OPTIONS.map(({ key, label }) => (
+            {exportOptions.map(({ key, label }) => (
               <CheckBox
                 key={key}
                 checked={selected[key]}

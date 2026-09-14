@@ -10,6 +10,7 @@ import {
   READ_SCOPE,
   WRITE_SCOPE,
 } from '@server/googleUserCalendarClient'
+import { resolveTrustedRequestOrigin } from '@server/trustedOrigin'
 
 export const runtime = 'nodejs'
 
@@ -54,7 +55,8 @@ export const GET = async (req) => {
     )
   }
 
-  const oauth = getOAuthClient()
+  const requestOrigin = resolveTrustedRequestOrigin(req)
+  const oauth = getOAuthClient(`${requestOrigin}/api/google-calendar/callback`)
   if (!oauth) {
     return NextResponse.json(
       { success: false, error: 'Google OAuth не настроен' },
@@ -73,7 +75,7 @@ export const GET = async (req) => {
 
   const redirect = req.nextUrl.searchParams.get('redirect') || '/cabinet/profile'
   const nonce = crypto.randomBytes(16).toString('hex')
-  const state = encodeState({ nonce, redirect, purpose })
+  const state = encodeState({ nonce, redirect, purpose, origin: requestOrigin })
 
   const url = oauth.generateAuthUrl({
     access_type: 'offline',
@@ -83,7 +85,7 @@ export const GET = async (req) => {
   })
 
   const response = NextResponse.json({ success: true, data: { url } })
-  const baseUrl = normalizeBaseUrl(process.env.DOMAIN)
+  const baseUrl = normalizeBaseUrl(requestOrigin)
   const hostname = baseUrl ? new URL(baseUrl).hostname : req.nextUrl.hostname
   const cleanHost = hostname?.startsWith('www.')
     ? hostname.replace(/^www\./, '')

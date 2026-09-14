@@ -139,7 +139,7 @@ const AiUsageAdminContent = () => {
         <div className="flex max-w-2xl flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div>
             <div className="text-lg font-semibold text-gray-900">
-              Тарификация ИИ ArtistCRM
+              Тарификация ИИ Ведело
             </div>
             <MutedText as="p" className="mt-1 text-gray-500">
               Пользователь оплачивает фактическую стоимость AITunnel, умноженную

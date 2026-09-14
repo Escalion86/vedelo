@@ -18,7 +18,7 @@ const WhatsNewToast = () => {
   return (
     <aside
       className="tablet:bottom-6 tablet:left-auto tablet:right-6 tablet:w-80 fixed right-3 bottom-20 left-3 z-40 rounded-xl border border-gray-200 bg-white p-3 shadow-lg"
-      aria-label="Новые возможности ArtistCRM"
+      aria-label="Новые возможности Ведело"
     >
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--ui-primary)] text-[var(--ui-primary-text)]">

@@ -22,6 +22,7 @@ import {
 } from '@server/eventApiNormalization'
 import { recordCrmItemCreated } from '@server/acquisitionFunnel'
 import { getEventCloseBlockedReason } from '@helpers/eventCloseSuggestion'
+import { getTenantWorkItemTerminology } from '@server/tenantTerminology'
 
 const getStatusValue = (payload) => {
   const status = payload?.status
@@ -86,6 +87,7 @@ const getPastAdditionalEventsMatch = (segment, now) => {
 }
 
 export const GET = async (req) => {
+  let terms = null
   try {
     const { tenantId } = await getRequestContext(req)
     if (!tenantId) {
@@ -95,6 +97,7 @@ export const GET = async (req) => {
       )
     }
     await dbConnect()
+    terms = await getTenantWorkItemTerminology(tenantId)
     const { searchParams } = new URL(req.url)
     const scope = searchParams.get('scope') || 'all'
     const before = searchParams.get('before')
@@ -336,7 +339,7 @@ export const GET = async (req) => {
   } catch (error) {
     console.log('Events GET error', error)
     return NextResponse.json(
-      { success: false, error: 'Не удалось загрузить мероприятия' },
+      { success: false, error: `Не удалось загрузить ${terms?.pluralAccusative || 'мероприятия'}` },
       { status: 500 }
     )
   }
@@ -397,6 +400,7 @@ export const POST = async (req) => {
     )
   }
   await dbConnect()
+  const terms = await getTenantWorkItemTerminology(tenantId)
   if (Number.isFinite(access?.eventsPerMonth) && access.eventsPerMonth > 0) {
     const now = new Date()
     const start = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -407,7 +411,7 @@ export const POST = async (req) => {
     })
     if (count >= access.eventsPerMonth) {
       return NextResponse.json(
-        { success: false, error: 'Достигнут лимит мероприятий' },
+        { success: false, error: `Достигнут лимит ${terms.pluralGenitive}` },
         { status: 403 }
       )
     }

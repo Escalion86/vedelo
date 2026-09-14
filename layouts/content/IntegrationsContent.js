@@ -320,7 +320,7 @@ const NovofonGuide = () => (
     </p>
     <ol className="list-decimal space-y-2 pl-5">
       <li>
-        В ArtistCRM включите интеграцию Novofon. Если секретный ключ еще не
+        В Ведело включите интеграцию Novofon. Если секретный ключ еще не
         создан, он появится автоматически.
       </li>
       <li>
@@ -337,7 +337,7 @@ const NovofonGuide = () => (
         тот же адрес.
       </li>
       <li>
-        Если Novofon предлагает выбрать метод, выберите POST. ArtistCRM
+        Если Novofon предлагает выбрать метод, выберите POST. Ведело
         принимает JSON и form-urlencoded данные от Novofon.
       </li>
       <li>
@@ -348,7 +348,7 @@ const NovofonGuide = () => (
       </li>
       <li>
         Переключатель Использовать ключи API в Novofon для приема уведомлений
-        обычно не нужен. Поле Ключ Novofon в ArtistCRM можно оставить пустым:
+        обычно не нужен. Поле Ключ Novofon в Ведело можно оставить пустым:
         текущий прием звонков защищен секретом в webhook-адресе.
       </li>
       <li>Сохраните настройки в Novofon и сделайте тестовый звонок.</li>
@@ -375,12 +375,12 @@ const NovofonGuide = () => (
 const AIProviderGuide = () => (
   <div className="flex flex-col gap-3 text-sm leading-6 text-gray-700">
     <p>
-      Можно использовать общий ИИ ArtistCRM с оплатой из баланса или подключить
+      Можно использовать общий ИИ Ведело с оплатой из баланса или подключить
       собственный ключ AITunnel. Собственный ключ сохраняется отдельно для
-      вашего аккаунта, а ArtistCRM не списывает деньги за такие запросы.
+      вашего аккаунта, а Ведело не списывает деньги за такие запросы.
     </p>
     <ol className="list-decimal space-y-2 pl-5">
-      <li>Для простого старта выберите «ИИ ArtistCRM» — ключ не нужен.</li>
+      <li>Для простого старта выберите «ИИ Ведело» — ключ не нужен.</li>
       <li>
         Запросы будут списываться из текущего баланса по фактической стоимости.
       </li>
@@ -399,7 +399,7 @@ const AIProviderGuide = () => (
 const AvitoGuide = () => (
   <div className="flex flex-col gap-3 text-sm leading-6 text-gray-700">
     <p>
-      Интеграция Avito подключается отдельно для каждого пользователя ArtistCRM.
+      Интеграция Avito подключается отдельно для каждого пользователя Ведело.
       Нужны доступ к Avito API и возможность работать с Messenger API или
       webhook сообщений.
     </p>
@@ -418,10 +418,10 @@ const AvitoGuide = () => (
         webhook новых сообщений.
       </li>
       <li>
-        Вставьте Client ID и Client Secret в ArtistCRM и нажмите Подключить.
+        Вставьте Client ID и Client Secret в Ведело и нажмите Подключить.
       </li>
       <li>
-        Если ArtistCRM покажет, что webhook нужно подключить вручную, скопируйте
+        Если Ведело покажет, что webhook нужно подключить вручную, скопируйте
         Адрес webhook и вставьте его в настройках Avito API.
       </li>
       <li>
@@ -429,7 +429,7 @@ const AvitoGuide = () => (
       </li>
     </ol>
     <p>
-      Если сообщение пришло, ArtistCRM создаст заявку со статусом Черновик и
+      Если сообщение пришло, Ведело создаст заявку со статусом Черновик и
       источником Avito. Повторные сообщения из того же чата не должны создавать
       дубли.
     </p>
@@ -439,7 +439,7 @@ const AvitoGuide = () => (
 const VkGuide = () => (
   <div className="flex flex-col gap-3 text-sm leading-6 text-gray-700">
     <p>
-      Интеграция VK подключается отдельно для каждого пользователя ArtistCRM.
+      Интеграция VK подключается отдельно для каждого пользователя Ведело.
       Нужен токен сообщества с доступом к сообщениям и Callback API группы.
     </p>
     <ol className="list-decimal space-y-2 pl-5">
@@ -449,9 +449,9 @@ const VkGuide = () => (
         В разделе Работа с API создайте ключ доступа сообщества с правами на
         сообщения.
       </li>
-      <li>Заполните поля в ArtistCRM и нажмите Подключить.</li>
+      <li>Заполните поля в Ведело и нажмите Подключить.</li>
       <li>
-        В Callback API добавьте сервер, вставьте адрес webhook из ArtistCRM,
+        В Callback API добавьте сервер, вставьте адрес webhook из Ведело,
         secret key и подтвердите сервер строкой подтверждения.
       </li>
       <li>В типах событий Callback API включите входящие сообщения.</li>
@@ -468,7 +468,7 @@ const TelegramBusinessGuide = () => (
   <div className="flex flex-col gap-3 text-sm leading-6 text-gray-700">
     <p>
       Для интеграции нужен отдельный Telegram-бот, подключённый к вашему
-      аккаунту как Business Bot. Токен хранится только на сервере ArtistCRM.
+      аккаунту как Business Bot. Токен хранится только на сервере Ведело.
     </p>
     <div className="font-semibold text-gray-900">1. Создайте бота</div>
     <ol className="list-decimal space-y-2 pl-5">
@@ -485,11 +485,11 @@ const TelegramBusinessGuide = () => (
         и нажмите «Запустить».
       </li>
       <li>Отправьте команду /newbot.</li>
-      <li>Укажите отображаемое имя бота, например «ArtistCRM секретарь».</li>
+      <li>Укажите отображаемое имя бота, например «Ведело секретарь».</li>
       <li>
         Придумайте уникальное имя пользователя, которое заканчивается на{' '}
         <span className="font-semibold">bot</span>, например
-        ArtistCRM_Escalion_bot.
+        Ведело_Escalion_bot.
       </li>
       <li>
         BotFather пришлёт токен. Скопируйте его, никому не отправляйте и не
@@ -515,7 +515,7 @@ const TelegramBusinessGuide = () => (
       вашему аккаунту.
     </Notice>
     <div className="font-semibold text-gray-900">
-      3. Подключите бота к ArtistCRM
+      3. Подключите бота к Ведело
     </div>
     <ol className="list-decimal space-y-2 pl-5">
       <li>Вставьте полученный токен в блок Telegram Business.</li>
@@ -538,12 +538,12 @@ const TelegramBusinessGuide = () => (
         только нужные категории или выбранные чаты.
       </li>
       <li>
-        Решите, должна ли ArtistCRM создавать карточку для каждого нового
+        Решите, должна ли Ведело создавать карточку для каждого нового
         Telegram-контакта. Для личного аккаунта не включайте эту настройку.
       </li>
       <li>
         Попросите клиента написать вам тестовое сообщение. После этого диалог
-        появится в ArtistCRM. В блоке интеграции статус должен измениться на
+        появится в Ведело. В блоке интеграции статус должен измениться на
         «Подключено к аккаунту».
       </li>
     </ol>
@@ -1002,7 +1002,7 @@ const IntegrationsContent = () => {
       },
       {
         successMessage: `Выбран провайдер ${
-          isDeepseek ? 'DeepSeek' : isPlatform ? 'ИИ ArtistCRM' : 'AITunnel'
+          isDeepseek ? 'DeepSeek' : isPlatform ? 'ИИ Ведело' : 'AITunnel'
         }`,
       }
     )
@@ -1779,7 +1779,7 @@ const IntegrationsContent = () => {
                 <div className="mt-2 text-xs leading-5 text-gray-500">
                   Если выключить настройку, новые сообщения сохранятся как
                   непривязанные Telegram-диалоги. Их можно будет привязать к
-                  клиенту вручную. При создании карточки ArtistCRM отправит
+                  клиенту вручную. При создании карточки Ведело отправит
                   уведомление, если уведомления включены.
                 </div>
                 <Notice
@@ -1787,7 +1787,7 @@ const IntegrationsContent = () => {
                   className="mt-2 rounded text-xs font-medium leading-5"
                 >
                   Важно: не включайте эту настройку, если бот подключён к вашему
-                  личному Telegram-аккаунту. Иначе ArtistCRM будет создавать
+                  личному Telegram-аккаунту. Иначе Ведело будет создавать
                   карточки для друзей, родственников и других личных контактов,
                   которые напишут вам в Telegram.
                 </Notice>
@@ -1951,7 +1951,7 @@ const IntegrationsContent = () => {
         {canUseAi ? (
           <IntegrationAccordion
             title="ИИ-провайдер"
-            description="ИИ ArtistCRM с оплатой из баланса или ваш собственный AITunnel."
+            description="ИИ Ведело с оплатой из баланса или ваш собственный AITunnel."
             connected={isAiProviderConnected}
             warning={
               aiIntegrationEnabled &&
@@ -1963,7 +1963,7 @@ const IntegrationsContent = () => {
               <div className="text-sm text-gray-600">
                 Выберите сервис, который будет анализировать текст и заполнять
                 черновики мероприятий. Общий ИИ не требует ключа и оплачивается
-                из баланса. При собственном ключе списаний со стороны ArtistCRM
+                из баланса. При собственном ключе списаний со стороны Ведело
                 нет.
               </div>
               {!canUseTelephony && (
@@ -1995,7 +1995,7 @@ const IntegrationsContent = () => {
                 value={aiAnalysisProvider}
                 onChange={selectAiProvider}
                 options={[
-                  { value: 'artistcrm', label: 'ИИ ArtistCRM' },
+                  { value: 'artistcrm', label: 'ИИ Ведело' },
                   { value: 'aitunnel', label: 'Свой AITunnel' },
                   ...(isDeveloper
                     ? [{ value: 'deepseek', label: 'DeepSeek (разработчик)' }]
@@ -2183,7 +2183,7 @@ const IntegrationsContent = () => {
               {aiUsage?.recent?.length > 0 ? (
                 <div className="rounded-lg border border-gray-200 bg-white p-3">
                   <div className="mb-2 font-semibold text-gray-900">
-                    Последние расходы ИИ ArtistCRM
+                    Последние расходы ИИ Ведело
                   </div>
                   <div className="flex flex-col divide-y divide-gray-100 text-sm">
                     {aiUsage.recent.slice(0, 5).map((item) => (

@@ -16,17 +16,18 @@ import { useAtom, useAtomValue } from 'jotai'
 import { useRouter } from 'next/navigation'
 import useSnackbar from '@helpers/useSnackbar'
 import { reachGoal } from '@helpers/metrikaGoals'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const formatPrice = (price) => {
   if (!price || Number(price) === 0) return 'Бесплатно'
   return `${Number(price).toLocaleString('ru-RU')} ₽/мес`
 }
 
-const formatEventsLimit = (limit) => {
+const formatEventsLimit = (limit, terms) => {
   if (!Number.isFinite(limit) || Number(limit) === 0) {
-    return 'Без ограничений по мероприятиям'
+    return `Без ограничений по ${terms.pluralDative}`
   }
-  return `До ${limit} мероприятий в месяц`
+  return `До ${limit} ${terms.pluralGenitive} в месяц`
 }
 
 const TariffSelectContent = () => {
@@ -38,6 +39,7 @@ const TariffSelectContent = () => {
   const loggedUserActiveRole = useAtomValue(loggedUserActiveRoleSelector)
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const [isSaving, setIsSaving] = useState(false)
+  const terms = useWorkItemTerminology()
 
   useEffect(() => {
     reachGoal('tariff_page_open')
@@ -244,7 +246,7 @@ const TariffSelectContent = () => {
                       {tariff.title || 'Тариф'}
                     </div>
                     <div className="mt-1 text-sm text-gray-600">
-                      {formatEventsLimit(tariff.eventsPerMonth)}
+                      {formatEventsLimit(tariff.eventsPerMonth, terms)}
                     </div>
                   </div>
                   <div className="text-lg font-semibold text-gray-900">

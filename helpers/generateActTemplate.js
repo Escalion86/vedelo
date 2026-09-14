@@ -2,6 +2,10 @@ import formatAddress from '@helpers/formatAddress'
 import formatDate from '@helpers/formatDate'
 import formatDateTime from '@helpers/formatDateTime'
 import getPersonFullName from '@helpers/getPersonFullName'
+import {
+  getWorkItemTemplateVariables,
+  replaceWorkItemTerms,
+} from '@helpers/workItemTerminology.mjs'
 
 const EMPTY_VALUE = '____________'
 const PARTIES_TABLES_MARKER_PREFIX = '[[PARTIES_TABLES:'
@@ -43,6 +47,10 @@ const normalizeToken = (value) =>
     .replace(/\s+/g, ' ')
 
 const ACT_TEMPLATE_VARIABLES = [
+  'workItemLabel',
+  'workItemLabelGenitive',
+  'workItemLabelPlural',
+  'workItemLabelPluralGenitive',
   'НОМЕР ДОКУМЕНТА',
   'ДАТА АКТА',
   'ДАТА ДОГОВОРА',
@@ -157,6 +165,7 @@ const buildActVariables = ({
   serviceTitles,
   performerName,
   actMeta = {},
+  siteSettings = {},
 }) => {
   const actDateRaw = actMeta?.actDate
   const actDate =
@@ -257,6 +266,7 @@ const buildActVariables = ({
         })
 
   return {
+    ...getWorkItemTemplateVariables(siteSettings),
     'НОМЕР ДОКУМЕНТА': documentNumber,
     'ДАТА АКТА': actDate,
     'ДАТА ДОГОВОРА': contractDate,
@@ -306,6 +316,7 @@ const generateActTemplate = ({
   performerName = '',
   template = '',
   actMeta = {},
+  siteSettings = {},
 }) => {
   const variables = buildActVariables({
     event,
@@ -313,8 +324,9 @@ const generateActTemplate = ({
     serviceTitles,
     performerName,
     actMeta,
+    siteSettings,
   })
-  return replaceTemplateVariables(template, variables)
+  return replaceTemplateVariables(replaceWorkItemTerms(template, siteSettings), variables)
 }
 
 const getActTemplateVariablesMap = ({
@@ -323,6 +335,7 @@ const getActTemplateVariablesMap = ({
   serviceTitles = [],
   performerName = '',
   actMeta = {},
+  siteSettings = {},
 }) =>
   buildActVariables({
     event,
@@ -330,6 +343,7 @@ const getActTemplateVariablesMap = ({
     serviceTitles,
     performerName,
     actMeta,
+    siteSettings,
   })
 
 export { DEFAULT_ACT_TEMPLATE, ACT_TEMPLATE_VARIABLES, getActTemplateVariablesMap }

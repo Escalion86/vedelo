@@ -20,6 +20,6 @@ if (
 
 export const env = {
   apiBaseUrl: rawApiBaseUrl || 'http://localhost:3000/api',
-  appScheme: rawAppScheme || 'artistcrm',
+  appScheme: rawAppScheme || 'vedelo',
   vkIdAppId: rawVkIdAppId || '',
 }

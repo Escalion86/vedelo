@@ -5,7 +5,7 @@ import authOptions from '../api/auth/[...nextauth]/_options'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Кабинет ArtistCRM',
+  title: 'Кабинет Ведело',
   robots: {
     index: false,
     follow: false,

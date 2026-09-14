@@ -105,6 +105,9 @@ describe('fileQueueProcessor', () => {
       'https://files.test/a'
     )
     expect(extractRemoteFileUrl({ path: '/tenant/file' })).toBe('/tenant/file')
+    expect(extractRemoteFileUrl({ document: { id: 'offline-queue-id' } })).toBe(
+      'offline-queue-id'
+    )
   })
 
   it('отклоняет пустой и слишком большой локальный файл до шифрования', () => {

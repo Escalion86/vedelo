@@ -13,7 +13,7 @@ export const buildNewUserRegistrationPush = (user = {}) => {
     : `Регистрация ${registrationLabel}`
 
   return {
-    title: 'Новый пользователь ArtistCRM',
+    title: 'Новый пользователь Ведело',
     body,
     tag: `new-user-${String(user._id || Date.now())}`,
     data: {

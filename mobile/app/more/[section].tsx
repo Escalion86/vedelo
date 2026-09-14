@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as DocumentPicker from 'expo-document-picker'
 import * as Sharing from 'expo-sharing'
 import { File, Paths } from 'expo-file-system'
-import type { Call, Client, DocumentTemplate, Event, Transaction } from '../../src/shared/domain/types'
+import type { Call, Client, DocumentTemplate, Event, MobileSettings, Transaction } from '../../src/shared/domain/types'
 import { api } from '../../src/shared/api/client'
 import { ServicesSection } from '../../src/features/services/ServicesSection'
 import { ListsSection } from '../../src/features/lists/ListsSection'
@@ -27,15 +27,49 @@ import {
 } from '../../src/shared/notifications/useExpoPushNotifications'
 import { Button, EmptyState, ErrorNotice, Field, PageHeader, Screen, SectionTitle, StatusChip, Surface } from '../../src/shared/ui/components'
 import { colors, radius, spacing } from '../../src/shared/ui/theme'
+import { useQueryClient } from '@tanstack/react-query'
+import { MOBILE_SETTINGS_QUERY_KEY, useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 
 const titles: Record<string, [string, string]> = {
-  calls: ['Звонки', 'Журнал IP-телефонии и результаты'], statistics: ['Статистика', 'Показатели по сохранённым данным'], services: ['Услуги', 'Прайс и группы услуг'], documents: ['Документы', 'Шаблоны, договоры и акты'], lists: ['Списки', 'Пользовательские справочники'], notifications: ['Уведомления', 'Push и напоминания'], integrations: ['Интеграции', 'Подключённые внешние сервисы'], referrals: ['Рефералы', 'Приглашения и вознаграждения'],
+  calls: ['Звонки', 'Журнал IP-телефонии и результаты'], statistics: ['Статистика', 'Показатели по сохранённым данным'], services: ['Услуги', 'Прайс и группы услуг'], documents: ['Документы', 'Шаблоны, договоры и акты'], lists: ['Списки', 'Пользовательские справочники'], notifications: ['Уведомления', 'Push и напоминания'], integrations: ['Интеграции', 'Подключённые внешние сервисы'], referrals: ['Рефералы', 'Приглашения и вознаграждения'], settings: ['Настройки', 'Организация и термины'],
 }
 
 export default function MoreSectionScreen() {
   const { section = '' } = useLocalSearchParams<{ section: string }>()
-  const [title, subtitle] = titles[section] || ['Раздел', 'ArtistCRM']
-  return <Screen><PageHeader title={title} subtitle={subtitle} />{section === 'calls' ? <Calls /> : section === 'statistics' ? <Statistics /> : section === 'services' ? <ServicesSection /> : section === 'referrals' ? <Referrals /> : section === 'integrations' ? <IntegrationsSection /> : section === 'notifications' ? <Notifications /> : section === 'documents' ? <Documents /> : <Lists />}</Screen>
+  const [title, subtitle] = titles[section] || ['Раздел', 'Ведело']
+  return <Screen><PageHeader title={title} subtitle={subtitle} />{section === 'calls' ? <Calls /> : section === 'statistics' ? <Statistics /> : section === 'services' ? <ServicesSection /> : section === 'referrals' ? <Referrals /> : section === 'integrations' ? <IntegrationsSection /> : section === 'notifications' ? <Notifications /> : section === 'documents' ? <Documents /> : section === 'settings' ? <Settings /> : <Lists />}</Screen>
+}
+
+const terminologyOptions = [
+  ['auto', 'Авто', 'По сфере работы'],
+  ['events', 'Мероприятия', 'Для артистов и event-сферы'],
+  ['orders', 'Заказы', 'Для услуг, изделий и проектов'],
+] as const
+
+const Settings = () => {
+  const terminology = useWorkItemTerminology()
+  const queryClient = useQueryClient()
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const selected = terminology.settings?.custom?.primaryEntityTerminology || 'auto'
+
+  const save = async (value: 'auto' | 'events' | 'orders') => {
+    setSaving(true)
+    setError('')
+    try {
+      const response = await api.put<{ success: true; data: MobileSettings }>(
+        '/mobile/v1/settings/terminology',
+        { primaryEntityTerminology: value }
+      )
+      queryClient.setQueryData(MOBILE_SETTINGS_QUERY_KEY, response.data)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось сохранить')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <>{error ? <ErrorNotice message={error} /> : null}<Surface><SectionTitle>Как называть основную работу</SectionTitle><Text style={styles.muted}>Сейча в приложении: «{terminology.pluralCapitalized}».</Text>{terminologyOptions.map(([value, title, description]) => <Pressable key={value} disabled={saving} onPress={() => void save(value)} style={[styles.settingOption, selected === value && styles.settingOptionActive]}><View style={styles.grow}><Text style={styles.title}>{title}</Text><Text style={styles.muted}>{description}</Text></View><MaterialCommunityIcons name={selected === value ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={selected === value ? colors.primary : colors.textMuted} /></Pressable>)}</Surface></>
 }
 
 const Calls = () => {
@@ -165,7 +199,7 @@ const Statistics = () => {
       destination = new File(Paths.cache, `artistcrm-statistics-${year || 'all'}.csv`)
       destination.create({ overwrite: true, intermediates: true })
       destination.write(csv)
-      await Sharing.shareAsync(destination.uri, { mimeType: 'text/csv', dialogTitle: 'Экспорт статистики ArtistCRM' })
+      await Sharing.shareAsync(destination.uri, { mimeType: 'text/csv', dialogTitle: 'Экспорт статистики Ведело' })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось экспортировать CSV')
     } finally {
@@ -193,7 +227,7 @@ const Statistics = () => {
   </>
 }
 
-const Referrals = () => { const [data, setData] = useState<{ referralsCount: number; rewardsTotal: number; referrals: Array<{ _id?: string; name?: string; firstName?: string; createdAt?: string }> } | null>(null); const [error, setError] = useState(''); useEffect(() => { api.get<{ success: true; data: NonNullable<typeof data> }>('/mobile/v1/referrals').then((response) => setData(response.data)).catch((reason) => setError(reason instanceof Error ? reason.message : 'Ошибка загрузки')) }, []); return <>{error ? <ErrorNotice message={error} /> : null}<View style={styles.metrics}><Metric label="Приглашено" value={data?.referralsCount || 0} /><Metric label="Начислено ₽" value={data?.rewardsTotal || 0} /></View>{data?.referrals?.map((item, index) => <Surface key={item._id || index}><Text style={styles.title}>{item.name || item.firstName || 'Пользователь ArtistCRM'}</Text><Text style={styles.muted}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString('ru-RU') : ''}</Text></Surface>)}</> }
+const Referrals = () => { const [data, setData] = useState<{ referralsCount: number; rewardsTotal: number; referrals: Array<{ _id?: string; name?: string; firstName?: string; createdAt?: string }> } | null>(null); const [error, setError] = useState(''); useEffect(() => { api.get<{ success: true; data: NonNullable<typeof data> }>('/mobile/v1/referrals').then((response) => setData(response.data)).catch((reason) => setError(reason instanceof Error ? reason.message : 'Ошибка загрузки')) }, []); return <>{error ? <ErrorNotice message={error} /> : null}<View style={styles.metrics}><Metric label="Приглашено" value={data?.referralsCount || 0} /><Metric label="Начислено ₽" value={data?.rewardsTotal || 0} /></View>{data?.referrals?.map((item, index) => <Surface key={item._id || index}><Text style={styles.title}>{item.name || item.firstName || 'Пользователь Ведело'}</Text><Text style={styles.muted}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString('ru-RU') : ''}</Text></Surface>)}</> }
 
 type NotificationSettings = {
   remindersEnabled: boolean
@@ -404,4 +438,4 @@ const csvCell = (value: unknown) => {
 const transactionCategoryLabel = (category: string) => ({ taxes: 'Налоги', referral_out: 'Реферальные выплаты', organizer: 'Комиссия организатора', services: 'Услуги и подрядчики', transport: 'Транспорт', advertising: 'Реклама', other: 'Прочее' }[category] || category)
 const callStatusLabel = (status?: Call['status']) => ({ new: 'Новый', processing: 'Обработка', ready: 'Готов', linked: 'Связан', ignored: 'Пропущен', failed: 'Ошибка' }[status || 'new'] || 'Новый')
 const Metric = ({ label, value }: { label: string; value: number }) => <View style={styles.metric}><Text style={styles.metricValue}>{new Intl.NumberFormat('ru-RU').format(value)}</Text><Text style={styles.metricLabel}>{label}</Text></View>
-const styles = StyleSheet.create({ row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md }, grow: { flex: 1 }, round: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }, title: { color: colors.text, fontSize: 14, fontWeight: '700' }, muted: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 3 }, body: { color: colors.text, fontSize: 13, lineHeight: 19 }, metrics: { flexDirection: 'row', gap: spacing.sm }, metric: { flex: 1, minHeight: 86, backgroundColor: colors.primarySoft, borderRadius: radius.lg, padding: spacing.md, justifyContent: 'space-between' }, metricValue: { color: colors.text, fontSize: 21, fontWeight: '800' }, metricLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '700' }, bigMoney: { color: colors.text, fontSize: 30, fontWeight: '800' }, split: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }, success: { color: colors.success, fontSize: 12, fontWeight: '700' }, danger: { color: colors.danger, fontSize: 12, fontWeight: '700' }, price: { color: colors.text, fontSize: 14, fontWeight: '800' }, integration: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, file: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, filterWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, filterChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted }, filterChipActive: { backgroundColor: colors.primary }, filterChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' }, filterChipTextActive: { color: '#FFFFFF' }, listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border } })
+const styles = StyleSheet.create({ row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md }, grow: { flex: 1 }, round: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }, title: { color: colors.text, fontSize: 14, fontWeight: '700' }, muted: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 3 }, body: { color: colors.text, fontSize: 13, lineHeight: 19 }, metrics: { flexDirection: 'row', gap: spacing.sm }, metric: { flex: 1, minHeight: 86, backgroundColor: colors.primarySoft, borderRadius: radius.lg, padding: spacing.md, justifyContent: 'space-between' }, metricValue: { color: colors.text, fontSize: 21, fontWeight: '800' }, metricLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '700' }, bigMoney: { color: colors.text, fontSize: 30, fontWeight: '800' }, split: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }, success: { color: colors.success, fontSize: 12, fontWeight: '700' }, danger: { color: colors.danger, fontSize: 12, fontWeight: '700' }, price: { color: colors.text, fontSize: 14, fontWeight: '800' }, integration: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, file: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, filterWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, filterChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted }, filterChipActive: { backgroundColor: colors.primary }, filterChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' }, filterChipTextActive: { color: '#FFFFFF' }, listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, settingOption: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md }, settingOptionActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft } })

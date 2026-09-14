@@ -24,12 +24,27 @@ const atoms = {
 }
 const cache = new Map()
 const Box = ({ children }) => React.createElement('div', null, children)
+const eventTerms = {
+  mode: 'events',
+  label: 'мероприятие',
+  labelCapitalized: 'Мероприятие',
+  genitive: 'мероприятия',
+  dative: 'мероприятию',
+  accusative: 'мероприятие',
+  plural: 'мероприятия',
+  pluralCapitalized: 'Мероприятия',
+  pluralGenitive: 'мероприятий',
+}
 const mocks = {
   jotai: { useAtomValue: (value) => React.useMemo(() => value, [value]) },
   '@helpers/useEventsQuery': { useEventQuery: () => queryState },
   '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: emptyList }) },
   '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: emptyList }) },
   '@helpers/useCopyToClipboard': (value) => React.useCallback(() => value, [value]),
+  '@helpers/useWorkItemTerminology': () => eventTerms,
+  '@helpers/workItemTerminology.mjs': {
+    resolveWorkItemTerminology: () => eventTerms,
+  },
   '@fortawesome/react-fontawesome': { FontAwesomeIcon: () => null },
 }
 

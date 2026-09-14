@@ -23,11 +23,21 @@ const pushSubscriptionsSchema = {
     type: String,
     default: '',
   },
+  webAppOrigin: {
+    type: String,
+    enum: ['artistcrm', 'vedelo'],
+    default: 'artistcrm',
+    index: true,
+  },
   isActive: {
     type: Boolean,
     default: true,
   },
   lastSentAt: {
+    type: Date,
+    default: null,
+  },
+  migrationNoticeSentAt: {
     type: Date,
     default: null,
   },

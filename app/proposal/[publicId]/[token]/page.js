@@ -1,7 +1,7 @@
 import ProposalPublicClient from './ProposalPublicClient'
 
 export const metadata = {
-  title: 'Персональное предложение — ArtistCRM',
+  title: 'Персональное предложение — Ведело',
   robots: { index: false, follow: false, nocache: true },
 }
 

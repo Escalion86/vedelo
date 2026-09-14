@@ -44,6 +44,7 @@ import AdditionalEventCard, {
 } from './AdditionalEventCard'
 import openEventAdditionalEventEditorModal from './eventAdditionalEventEditorModal'
 import openEventAdditionalEventViewModal from './eventAdditionalEventViewModal'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 const EVENT_STATUS_META = Object.freeze({
   draft: {
@@ -102,7 +103,7 @@ const FinanceMetric = ({ label, value, valueClassName = 'text-gray-900' }) => (
   </div>
 )
 
-const EventFinanceSection = ({ event, transactions }) => {
+const EventFinanceSection = ({ event, transactions, terms }) => {
   const summary = useMemo(() => {
     const sortedTransactions = [...transactions].sort(
       (a, b) =>
@@ -190,7 +191,7 @@ const EventFinanceSection = ({ event, transactions }) => {
         </div>
         {summary.sortedTransactions.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 px-3 py-4 text-sm text-gray-500">
-            Транзакций по мероприятию нет
+            Транзакций по {terms.dative} нет
           </div>
         ) : (
           <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -323,7 +324,8 @@ const CardButtonsComponent = ({ event, calendarLink }) => (
   />
 )
 
-const eventViewFunc = (eventId) => {
+const eventViewFunc = (eventId, options = {}) => {
+  const configTerms = resolveWorkItemTerminology(options.siteSettings)
   const EventViewModal = ({
     closeModal,
     setOnConfirmFunc,
@@ -340,6 +342,7 @@ const eventViewFunc = (eventId) => {
     })
     const { data: clients = [] } = useClientsQuery()
     const siteSettings = useAtomValue(siteSettingsAtom)
+    const terms = resolveWorkItemTerminology(siteSettings)
     const modalsFunc = useAtomValue(modalsFuncAtom)
     const itemsFunc = useAtomValue(itemsFuncAtom)
     const [pendingAdditionalEventIndex, setPendingAdditionalEventIndex] =
@@ -558,14 +561,14 @@ const eventViewFunc = (eventId) => {
     }, [event, calendarLink, setTopLeftComponent])
 
     if (!event && eventId && isPending)
-      return <Notice tone="neutral">Загружаем мероприятие…</Notice>
+      return <Notice tone="neutral">Загружаем {terms.accusative}…</Notice>
 
     if (!event?._id || !eventId)
       return (
         <Notice tone="error">
           {isError
-            ? 'Не удалось загрузить мероприятие. Попробуйте открыть его ещё раз.'
-            : 'Мероприятие не найдено.'}
+            ? `Не удалось загрузить ${terms.accusative}. Попробуйте открыть его ещё раз.`
+            : `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}.`}
         </Notice>
       )
 
@@ -599,7 +602,7 @@ const eventViewFunc = (eventId) => {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex-1">
                   <div className="tablet:text-2xl text-left text-lg font-bold break-words text-gray-900">
-                    {formatAddress(displayAddress, 'Мероприятие')}
+                    {formatAddress(displayAddress, terms.labelCapitalized)}
                   </div>
                   <div className="mt-1 text-xs text-gray-500">
                     Создано:{' '}
@@ -659,6 +662,7 @@ const eventViewFunc = (eventId) => {
               <EventFinanceSection
                 event={event}
                 transactions={eventTransactions}
+                terms={terms}
               />
             ) : null}
 
@@ -866,7 +870,7 @@ const eventViewFunc = (eventId) => {
   }
 
   return {
-    title: `Мероприятие`,
+    title: configTerms.labelCapitalized,
     Children: EventViewModal,
   }
 }

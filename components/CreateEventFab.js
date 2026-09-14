@@ -5,15 +5,18 @@ import { AnimatePresence, motion } from 'framer-motion'
 import AddIcon from '@mui/icons-material/Add'
 import { useAtomValue } from 'jotai'
 import windowDimensionsTailwindSelector from '@state/selectors/windowDimensionsTailwindSelector'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 /**
  * Плавающая кнопка создания (FAB) с выбором типа записи.
  * items: [{ key, label, icon, onClick }]
  * На телефонах (phoneV/phoneH) скрыта — создание вынесено в нижнюю навигацию.
  */
-const CreateEventFab = ({ items = [], title = 'Добавить заявку или мероприятие' }) => {
+const CreateEventFab = ({ items = [], title }) => {
   const [open, setOpen] = useState(false)
   const device = useAtomValue(windowDimensionsTailwindSelector)
+  const terms = useWorkItemTerminology()
+  const resolvedTitle = title || `Добавить заявку или ${terms.accusative}`
 
   useEffect(() => {
     if (!open) return undefined
@@ -69,9 +72,9 @@ const CreateEventFab = ({ items = [], title = 'Добавить заявку и�
         </AnimatePresence>
         <motion.button
           type="button"
-          aria-label={title}
+          aria-label={resolvedTitle}
           aria-expanded={open}
-          title={title}
+          title={resolvedTitle}
           animate={{ rotate: open ? 45 : 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
           className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-[var(--ui-primary)] text-white shadow-lg transition-colors hover:bg-[var(--ui-primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ui-primary)]"

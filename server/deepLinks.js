@@ -1,9 +1,10 @@
 const DEEP_LINK_VERSION = 'v1'
-const MOBILE_SCHEME = 'artistcrm'
+const MOBILE_SCHEME = 'vedelo'
+const LEGACY_MOBILE_SCHEME = 'artistcrm'
 const MOBILE_HOST = 'app'
 
 const getWebHost = () => {
-  const domain = String(process.env.DOMAIN || 'https://artistcrm.ru').trim()
+  const domain = String(process.env.DOMAIN || 'https://vedelo.ru').trim()
   return domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')
 }
 
@@ -60,4 +61,4 @@ const buildDeepLinks = (params) => ({
   web: buildDeepLink({ ...params, target: 'web' }),
 })
 
-export { buildDeepLink, buildDeepLinks }
+export { buildDeepLink, buildDeepLinks, MOBILE_SCHEME, LEGACY_MOBILE_SCHEME }

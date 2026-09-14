@@ -608,7 +608,9 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
             title={meta.title}
             titleClassName="card-title"
             titleRight={
-              <StatusChip tone={meta.tone}>{items.length}</StatusChip>
+              <StatusChip tone={meta.tone}>
+                {getPendingAttentionCount(items)}
+              </StatusChip>
             }
           >
             {items.length === 0 ? (

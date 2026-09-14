@@ -4,6 +4,7 @@ import PushReminderLogs from '@models/PushReminderLogs'
 import { logPushDelivery } from '@server/pushNotifications'
 import { sendMultiChannelPushToTenant } from '@server/multiChannelPush'
 import { shouldRunForTenantReminderTime } from '@server/additionalEventsReminderTime'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 const DEFAULT_TIME_ZONE = 'Asia/Krasnoyarsk'
 
@@ -89,6 +90,7 @@ const formatAdditionalEventLine = ({
   isOverdue,
   timeZone,
 }) => {
+  const workItemTerms = resolveWorkItemTerminology(tenantSettings)
   const dateObj = toDate(date)
   if (isOverdue) {
     return `• ${additionalTitle} — просрочено`
@@ -117,7 +119,7 @@ const buildSummaryPayload = ({
   // --- Section 1: Events in next 24 hours ---
   if (next24hEvents.length > 0) {
     const displayEvents = next24hEvents.slice(0, MAX_SUMMARY_ITEMS)
-    lines.push(`📅 На сегодня: ${next24hEvents.length} мероприятий`)
+    lines.push(`📅 На сегодня: ${next24hEvents.length} ${workItemTerms.pluralGenitive}`)
     for (const item of displayEvents) {
       lines.push(
         formatEventLine({ title: item.title, date: item.date, timeZone })
@@ -132,7 +134,7 @@ const buildSummaryPayload = ({
   // --- Section 2: Events needing closure ---
   if (needsClosingCount > 0) {
     if (lines.length > 0) lines.push('')
-    lines.push(`📋 Закрыть: ${needsClosingCount} мероприятий`)
+    lines.push(`📋 Закрыть: ${needsClosingCount} ${workItemTerms.pluralGenitive}`)
     totalItems += needsClosingCount
   }
 
@@ -175,7 +177,7 @@ const buildSummaryPayload = ({
   const hasOverdue = needsClosingCount > 0 || overdueAddCount > 0
   const title = hasOverdue
     ? `📋 Сводка: ${totalItems} напоминаний`
-    : `📋 Напоминания: ${totalItems} мероприятий`
+    : `📋 Напоминания: ${totalItems} ${workItemTerms.pluralGenitive}`
 
   const body = lines.join('\n')
 
@@ -295,8 +297,10 @@ const sendAdditionalEventsPushReminders = async ({ now = new Date() } = {}) => {
     const dueItems = getTenantDueItems(event.tenantId)
     stats.processedEvents += 1
 
+    const workItemTerms = resolveWorkItemTerminology(tenantSettings)
     const eventTitle =
-      String(event?.eventType || 'Мероприятие').trim() || 'Мероприятие'
+      String(event?.eventType || workItemTerms.labelCapitalized).trim() ||
+      workItemTerms.labelCapitalized
 
     // --- Main event date analysis ---
     if (event.eventDate) {

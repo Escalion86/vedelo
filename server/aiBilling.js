@@ -299,7 +299,7 @@ export const settlePlatformAiUsage = async (reservation, providerUsage = {}) => 
       provider: 'aitunnel',
       idempotenceKey: `ai:${reservation.operationId}`,
       paidAt: new Date(),
-      comment: `ИИ ArtistCRM: ${reservation.feature}`,
+      comment: `ИИ Ведело: ${reservation.feature}`,
     }).catch((error) => {
       console.error('[ai-billing] payment ledger failed', {
         usageId: String(reservation.usageId),
@@ -339,5 +339,5 @@ export const isAiBalanceError = (error) =>
 
 export const getAiBalanceErrorMessage = (error) => {
   const required = toNonNegativeNumber(error?.requiredBalanceRub).toFixed(2)
-  return `Недостаточно средств для ИИ ArtistCRM. Баланс должен быть больше средней стоимости запроса — ${required} ₽. Пополните баланс или подключите собственный AITunnel.`
+  return `Недостаточно средств для ИИ Ведело. Баланс должен быть больше средней стоимости запроса — ${required} ₽. Пополните баланс или подключите собственный AITunnel.`
 }

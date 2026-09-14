@@ -103,7 +103,7 @@ const registerNotificationCategories = async () => {
 const configureAndroidChannel = async () => {
   if (Platform.OS !== 'android') return
   await Notifications.setNotificationChannelAsync('default', {
-    name: 'ArtistCRM',
+    name: 'Ведело',
     description: 'Заявки, задачи, звонки и ежедневные напоминания',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
@@ -133,7 +133,7 @@ const getPushSetupError = (error: unknown) => {
       message
     )
   ) {
-    return 'Push не настроен в этой сборке ArtistCRM. Установите обновлённую версию приложения.'
+    return 'Push не настроен в этой сборке Ведело. Установите обновлённую версию приложения.'
   }
   return 'Не удалось подключить push-уведомления. Проверьте интернет и повторите попытку.'
 }

@@ -57,6 +57,53 @@ test('drops empty documents', () => {
   assert.deepEqual(normalizeEventDocuments([{ title: 'empty' }]), [])
 })
 
+test('не принимает новый storageKey из клиентского JSON', () => {
+  const malicious = {
+    id: 'doc-storage',
+    type: 'other',
+    title: 'Чужой файл',
+    file: {
+      name: 'secret.pdf',
+      storageKey:
+        'artistcrm/507f1f77bcf86cd799439011/clients/507f1f77bcf86cd799439012/documents/foreign',
+    },
+  }
+  assert.equal(normalizeEventDocument(malicious), null)
+  assert.equal(
+    normalizeEventDocument(malicious, { trustStorageKey: true }).file
+      .storageKey,
+    malicious.file.storageKey
+  )
+})
+
+test('дедуплицирует сначала по id, затем по storageKey и legacy URL', () => {
+  const result = normalizeEventDocuments(
+    [
+      {
+        id: 'one',
+        type: 'other',
+        file: { name: 'one.pdf', storageKey: 'artistcrm/key-one' },
+      },
+      {
+        id: 'two',
+        type: 'other',
+        file: { name: 'copy.pdf', storageKey: 'artistcrm/key-one' },
+      },
+      { id: 'link-one', type: 'other', url: 'https://example.com/a' },
+      {
+        id: 'link-two',
+        type: 'other',
+        file: { name: 'a', url: 'https://example.com/a' },
+      },
+    ],
+    { trustStorageKey: true }
+  )
+  assert.deepEqual(
+    result.map((item) => item.id),
+    ['one', 'link-one']
+  )
+})
+
 test('merges legacy event documents idempotently', () => {
   const event = {
     documents: [

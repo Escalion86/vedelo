@@ -6,7 +6,7 @@ const getYookassaConfig = () => {
   const shopId = String(process.env.YOOKASSA_SHOP_ID || '').trim()
   const secretKey = String(process.env.YOOKASSA_SECRET_KEY || '').trim()
   const returnUrl = String(
-    process.env.YOOKASSA_RETURN_URL || `${process.env.DOMAIN || 'https://artistcrm.ru'}/cabinet/tariff-select`
+    process.env.YOOKASSA_RETURN_URL || `${process.env.DOMAIN || 'https://vedelo.ru'}/cabinet/tariff-select`
   ).trim()
   return { shopId, secretKey, returnUrl }
 }
@@ -39,7 +39,7 @@ const buildReceipt = ({ amount, description, user }) => {
     customer,
     items: [
       {
-        description: String(description || 'Оплата ArtistCRM').slice(0, 128),
+        description: String(description || 'Оплата Ведело').slice(0, 128),
         quantity: '1.00',
         amount: {
           value: normalizeAmount(amount),
@@ -78,7 +78,7 @@ const createYookassaPayment = async ({
       type: 'redirect',
       return_url: returnUrl || config.returnUrl,
     },
-    description: String(description || 'Оплата ArtistCRM').slice(0, 128),
+    description: String(description || 'Оплата Ведело').slice(0, 128),
     metadata,
     receipt: buildReceipt({ amount, description, user }),
   }

@@ -1,17 +1,24 @@
 import { shouldSuppressIncomingMessagePush } from './swPushSuppression.js'
 
-const SERVICE_WORKER_VERSION = 'artistcrm-custom-sw-v3'
+const SERVICE_WORKER_VERSION = 'vedelo-custom-sw-v4'
+const MIGRATION_STARTED_AT = String(process.env.BRAND_MIGRATION_STARTED_AT || '')
 
 const SERVICE_WORKER_SCRIPT = `
 const SERVICE_WORKER_VERSION = '${SERVICE_WORKER_VERSION}'
-const APP_SHELL_CACHE = 'crm-app-shell-v2'
-const RUNTIME_CACHE = 'crm-runtime-v2'
+const MIGRATION_STARTED_AT = ${JSON.stringify(MIGRATION_STARTED_AT)}
+const IS_LEGACY_ORIGIN = /(^|\\.)artistcrm\\.ru$/i.test(self.location.hostname)
+const MIGRATION_DAY = MIGRATION_STARTED_AT
+  ? Math.floor(Math.max(0, Date.now() - new Date(MIGRATION_STARTED_AT).getTime()) / 86400000) + 1
+  : 0
+const MIGRATION_LOCKED = IS_LEGACY_ORIGIN && MIGRATION_DAY >= 30
+const APP_SHELL_CACHE = MIGRATION_LOCKED ? 'vedelo-migration-shell-v1' : 'vedelo-app-shell-v4'
+const RUNTIME_CACHE = MIGRATION_LOCKED ? 'vedelo-migration-runtime-v1' : 'vedelo-runtime-v4'
 const ACTIVE_CONVERSATIONS = {}
 // Логика живёт в server/swPushSuppression.js (там же тесты);
 // сюда функция инжектируется исходником, чтобы SW был самодостаточным.
 const shouldSuppressIncomingMessagePush = ${shouldSuppressIncomingMessagePush.toString()}
 const APP_SHELL_URLS = [
-  '/',
+  MIGRATION_LOCKED ? '/migrate' : '/',
   '/manifest.json',
   '/icons/AppImages/android/android-launchericon-192-192.png',
   '/icons/AppImages/android/android-launchericon-512-512.png',
@@ -88,15 +95,18 @@ self.addEventListener('fetch', (event) => {
           const preloadResponse = await event.preloadResponse
           if (preloadResponse) return preloadResponse
 
-          const networkResponse = await fetch(request)
+          const navigationRequest = MIGRATION_LOCKED
+            ? new Request(new URL('/migrate', self.location.origin).href, request)
+            : request
+          const networkResponse = await fetch(navigationRequest)
           const runtimeCache = await caches.open(RUNTIME_CACHE)
-          runtimeCache.put(request, networkResponse.clone())
+          runtimeCache.put(navigationRequest, networkResponse.clone())
           return networkResponse
         } catch (error) {
-          const cachedResponse = await caches.match(request)
+          const cachedResponse = await caches.match(MIGRATION_LOCKED ? '/migrate' : request)
           if (cachedResponse) return cachedResponse
 
-          const appShell = await caches.match('/')
+          const appShell = await caches.match(MIGRATION_LOCKED ? '/migrate' : '/')
           if (appShell) return appShell
 
           return Response.error()

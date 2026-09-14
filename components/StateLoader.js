@@ -95,7 +95,10 @@ const StateLoader = (props) => {
         router,
         itemsFunc,
         loggedUser,
-        { disableServerSync: serverSyncDisabled }
+        {
+          disableServerSync: serverSyncDisabled,
+          siteSettings: siteSettingsState,
+        }
         // loggedUser,
         // siteSettingsState,
       )
@@ -111,6 +114,7 @@ const StateLoader = (props) => {
     setItemsFunc,
     setModalsFunc,
     snackbar,
+    siteSettingsState,
   ])
 
   useEffect(() => {

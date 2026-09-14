@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-const siteUrl = (process.env.DOMAIN || 'https://artistcrm.ru').replace(
+const siteUrl = (process.env.DOMAIN || 'https://vedelo.ru').replace(
   /\/$/,
   ''
 )
@@ -8,8 +8,8 @@ const pageUrl = `${siteUrl}/terms`
 const ogImage = `${siteUrl}/og-image.jpg`
 
 export const metadata = {
-  title: 'Пользовательское соглашение — ArtistCRM',
-  description: 'Пользовательское соглашение сервиса ArtistCRM.',
+  title: 'Пользовательское соглашение — Ведело',
+  description: 'Пользовательское соглашение сервиса Ведело.',
   alternates: {
     canonical: pageUrl,
   },
@@ -17,22 +17,22 @@ export const metadata = {
     type: 'website',
     locale: 'ru_RU',
     url: pageUrl,
-    siteName: 'ArtistCRM',
-    title: 'Пользовательское соглашение — ArtistCRM',
-    description: 'Пользовательское соглашение сервиса ArtistCRM.',
+    siteName: 'Ведело',
+    title: 'Пользовательское соглашение — Ведело',
+    description: 'Пользовательское соглашение сервиса Ведело.',
     images: [
       {
         url: ogImage,
         width: 1200,
         height: 630,
-        alt: 'ArtistCRM — Пользовательское соглашение',
+        alt: 'Ведело — Пользовательское соглашение',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Пользовательское соглашение — ArtistCRM',
-    description: 'Пользовательское соглашение сервиса ArtistCRM.',
+    title: 'Пользовательское соглашение — Ведело',
+    description: 'Пользовательское соглашение сервиса Ведело.',
     images: [ogImage],
   },
   robots: {
@@ -59,7 +59,7 @@ export default function TermsPage() {
 
         <p>
           Настоящее Пользовательское соглашение (далее — «Соглашение»)
-          определяет условия использования сервиса ArtistCRM (далее — «Сервис»)
+          определяет условия использования сервиса Ведело (далее — «Сервис»)
           и заключено между ИП Белинский Алексей Алексеевич (ИНН 245727560982,
           ОГРНИП 319246800103511), адрес: РФ, Красноярский край, г. Красноярск,
           ул. 4 Продольная 34 (далее — «Исполнитель») и пользователем Сервиса
@@ -147,7 +147,7 @@ export default function TermsPage() {
             6.1. Обработка персональных данных осуществляется в соответствии с
             Политикой конфиденциальности, опубликованной на{' '}
             <Link href="/privacy" className="text-general">
-              https://artistcrm.ru/privacy
+              https://vedelo.ru/privacy
             </Link>
             .
           </p>
@@ -196,7 +196,7 @@ export default function TermsPage() {
             10.1. Исполнитель вправе изменять Соглашение. Актуальная версия
             публикуется на сайте{' '}
             <Link href="/" className="text-general">
-              https://artistcrm.ru
+              https://vedelo.ru
             </Link>
             .
           </p>

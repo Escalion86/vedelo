@@ -17,8 +17,8 @@ module.exports = ({ config }) => {
 
   return {
     ...resolved,
-    name: 'ArtistCRM Dev',
-    scheme: 'artistcrm-dev',
+    name: 'Ведело Dev',
+    scheme: ['vedelo-dev', 'artistcrm-dev'],
     ios: {
       ...resolved.ios,
       bundleIdentifier: 'ru.escalion.artistcrm.dev',

@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import AccountDeletionForm from './AccountDeletionForm'
 
-const siteUrl = (process.env.DOMAIN || 'https://artistcrm.ru').replace(/\/$/, '')
+const siteUrl = (process.env.DOMAIN || 'https://vedelo.ru').replace(/\/$/, '')
 
 export const metadata = {
-  title: 'Удаление аккаунта ArtistCRM',
-  description: 'Публичная форма запроса удаления аккаунта и пользовательских данных ArtistCRM.',
+  title: 'Удаление аккаунта Ведело',
+  description: 'Публичная форма запроса удаления аккаунта и пользовательских данных Ведело.',
   alternates: { canonical: `${siteUrl}/account-deletion` },
   robots: { index: true, follow: true },
 }
@@ -15,7 +15,7 @@ export default function AccountDeletionPage() {
     <main className="bg-white">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-12 text-sm text-gray-700">
         <div className="flex flex-col gap-3">
-          <p className="text-general text-xs font-semibold tracking-[0.2em] uppercase">ArtistCRM</p>
+          <p className="text-general text-xs font-semibold tracking-[0.2em] uppercase">Ведело</p>
           <h1 className="font-futuraPT text-3xl font-semibold text-black">Удаление аккаунта и данных</h1>
           <p className="text-base leading-7">Запрос можно отправить здесь без доступа к Android-приложению. В приложении та же функция находится в разделе «Ещё → Профиль».</p>
         </div>

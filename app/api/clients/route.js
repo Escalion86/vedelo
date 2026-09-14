@@ -3,6 +3,11 @@ import Clients from '@models/Clients'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import { recordActivityHistory } from '@server/activityHistory'
+import getUserTariffAccess from '@server/getUserTariffAccess'
+import {
+  entityHasDocuments,
+  normalizeEntityDocuments,
+} from '@helpers/entityDocuments'
 
 export const GET = async (req) => {
   const context = await getRequestContext(req)
@@ -28,8 +33,16 @@ export const POST = async (req) => {
       { status: 401 }
     )
   }
+  const documents = normalizeEntityDocuments(body.documents)
+  const access = await getUserTariffAccess(context.user?._id)
+  if (entityHasDocuments({ documents }) && !access?.allowDocuments) {
+    return NextResponse.json(
+      { success: false, error: 'Файлы и документы недоступны на текущем тарифе' },
+      { status: 403 }
+    )
+  }
   await dbConnect()
-  const client = await Clients.create({ ...body, tenantId })
+  const client = await Clients.create({ ...body, documents, tenantId })
 
   await recordActivityHistory({
     req,

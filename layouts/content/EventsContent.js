@@ -45,6 +45,7 @@ import {
   readEventListFiltersState,
   writeEventListFiltersState,
 } from '@helpers/eventListFilters'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 // Неделя в календаре месяца начинается с понедельника (локально для этого экрана,
 // общий DAYS_OF_WEEK в helpers/constants остаётся с воскресенья для форматтеров дат)
@@ -223,7 +224,12 @@ const getMonthItemToneClassName = (item) => {
   return 'border-amber-200 bg-amber-50 text-amber-700'
 }
 
-const EventStatusFilterChips = ({ value, onChange, mode = 'all' }) => {
+const EventStatusFilterChips = ({
+  value,
+  onChange,
+  mode = 'all',
+  activeLabel,
+}) => {
   const keys = getStatusFilterKeys(mode)
 
   const handleToggle = (key) => {
@@ -241,7 +247,7 @@ const EventStatusFilterChips = ({ value, onChange, mode = 'all' }) => {
           <CabinetFilterChip
             key={key}
             active={Boolean(value[key])}
-            label={meta.label}
+            label={key === 'active' && activeLabel ? activeLabel : meta.label}
             selectedClassName={meta.selectedClass}
             idleClassName={meta.idleClass}
             dotClassName={meta.dotClass}
@@ -346,6 +352,7 @@ const EventsContent = ({
   onHeaderCountChange,
 }) => {
   const { isCompact } = useUiDensity()
+  const workItemTerms = useWorkItemTerminology()
   const eventsScope =
     filter === 'upcoming' ? 'upcoming' : filter === 'past' ? 'past' : 'all'
 
@@ -1265,8 +1272,8 @@ const EventsContent = ({
                 } min-w-[118px] gap-1 px-3 text-xs`}
                 aria-label={
                   hasActiveFilters
-                    ? 'Фильтры мероприятий, есть активные фильтры'
-                    : 'Фильтры мероприятий'
+                    ? `Фильтры ${workItemTerms.pluralGenitive}, есть активные фильтры`
+                    : `Фильтры ${workItemTerms.pluralGenitive}`
                 }
               >
                 <FilterAltIcon fontSize="small" />
@@ -1312,6 +1319,7 @@ const EventsContent = ({
                     value={statusFilter}
                     onChange={setStatusFilter}
                     mode={filter}
+                    activeLabel={workItemTerms.pluralCapitalized}
                   />
                   <EventTransferredFilterChip
                     value={transferredMode === 'only'}
@@ -1397,13 +1405,13 @@ const EventsContent = ({
               icon={<NoteAddIcon />}
               title={
                 filter === 'past'
-                  ? 'Прошедших мероприятий пока нет'
+                  ? `Прошедших ${workItemTerms.pluralGenitive} пока нет`
                   : 'Пока нет ни одной заявки'
               }
               hint={
                 filter === 'past'
-                  ? 'Завершённые и закрытые мероприятия появятся здесь автоматически.'
-                  : 'Создайте первую заявку — вручную, голосом или свободным текстом. Дальше ArtistCRM напомнит о следующем контакте и задатке.'
+                  ? `Завершённые и закрытые ${workItemTerms.plural} появятся здесь автоматически.`
+                  : 'Создайте первую заявку — вручную, голосом или свободным текстом. Дальше Ведело напомнит о следующем контакте и задатке.'
               }
               actionLabel={filter === 'past' ? null : 'Создать заявку'}
               onAction={filter === 'past' ? null : handleCreateRequest}
@@ -1476,7 +1484,7 @@ const EventsContent = ({
                     {monthTitle}
                   </div>
                   <MutedText className="text-xs">
-                    Мероприятий: {monthMeta.events} | Задач:{' '}
+                    {workItemTerms.pluralCapitalized}: {monthMeta.events} | Задач:{' '}
                     {monthMeta.additional}
                   </MutedText>
                 </div>

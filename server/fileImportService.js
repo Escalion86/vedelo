@@ -248,8 +248,8 @@ const journalBudget = async (job, id, budget) => {
             paidAt: operation.finishedAt,
             comment:
               budget.feature === 'file_analysis'
-                ? 'ИИ ArtistCRM: анализ файла'
-                : 'ИИ ArtistCRM: импорт из файла',
+                ? 'ИИ Ведело: анализ файла'
+                : 'ИИ Ведело: импорт из файла',
           },
         },
         { upsert: true }

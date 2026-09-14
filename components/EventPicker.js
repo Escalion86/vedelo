@@ -8,6 +8,7 @@ import formatDate from '@helpers/formatDate'
 import formatAddress from '@helpers/formatAddress'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const EventPicker = ({
   selectedEvent,
@@ -22,6 +23,8 @@ const EventPicker = ({
   showEditButton,
 }) => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
+  const terms = useWorkItemTerminology()
+  const resolvedLabel = label || terms.labelCapitalized
   const handleEdit = () => {
     if (selectedEventId && !disabled) modalsFunc.event?.edit(selectedEventId)
   }
@@ -38,7 +41,7 @@ const EventPicker = ({
 
   return (
     <InputWrapper
-      label={label}
+      label={resolvedLabel}
       required={required}
       error={error}
       paddingY={paddingY}
@@ -53,7 +56,7 @@ const EventPicker = ({
           <div className="flex flex-col gap-0.5">
             <div className="text-base font-semibold text-gray-900">
               {selectedEvent
-                ? formatAddress(selectedEvent?.address, 'Мероприятие')
+                ? formatAddress(selectedEvent?.address, terms.labelCapitalized)
                 : 'Не выбрано'}
             </div>
             {selectedEvent && (
@@ -77,7 +80,7 @@ const EventPicker = ({
           <IconActionButton
             icon={faPencilAlt}
             onClick={handleEdit}
-            title="Редактировать мероприятие"
+            title={`Редактировать ${terms.accusative}`}
             variant="warning"
             size="lg"
             className="h-[50px] w-[50px]"
@@ -124,7 +127,7 @@ EventPicker.defaultProps = {
   selectedEvent: null,
   selectedEventId: null,
   disabled: false,
-  label: 'Мероприятие',
+  label: undefined,
   required: false,
   error: null,
   paddingY: true,

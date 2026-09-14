@@ -90,7 +90,7 @@ const getTelegramNetworkErrorMessage = (cause) => {
       : 'Сервер не может подключиться к Telegram API'
   }
   if (code === 'ECONNREFUSED') {
-    return 'Прокси отклонил соединение (ECONNREFUSED). Проверьте, что порт прокси доступен из процесса или контейнера ArtistCRM.'
+    return 'Прокси отклонил соединение (ECONNREFUSED). Проверьте, что порт прокси доступен из процесса или контейнера Ведело.'
   }
   if (
     [

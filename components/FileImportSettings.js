@@ -8,6 +8,7 @@ import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import Notice from '@components/Notice'
 import { validateImportFile } from '@helpers/fileImport.mjs'
 import { queryKeys } from '@helpers/queryKeys'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const rub = (amount) =>
   `${Number(amount || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
@@ -41,6 +42,7 @@ const api = async (url, options) => {
 }
 
 const FileImportSettings = () => {
+  const terms = useWorkItemTerminology()
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const user = useAtomValue(loggedUserAtom)
   const queryClient = useQueryClient()
@@ -208,10 +210,10 @@ const FileImportSettings = () => {
       aria-label="Импорт из файла"
     >
       <div>
-        <h2 className="text-lg font-semibold">Импорт мероприятий из файла</h2>
+        <h2 className="text-lg font-semibold">Импорт {terms.pluralGenitive} из файла</h2>
         <p className="text-sm opacity-80">
           XLSX, CSV, TXT и DOCX без обязательного шаблона. До 5 МБ и 100
-          мероприятий.
+          {terms.pluralGenitive}.
         </p>
       </div>
       <ol className="file-import-progress" aria-label="Этапы импорта">
@@ -349,7 +351,7 @@ const FileImportSettings = () => {
                     более этой суммы.
                   </>
                 ) : (
-                  'Анализ оплачивается по личному ключу ИИ-провайдера. ArtistCRM не списывает средства.'
+                  'Анализ оплачивается по личному ключу ИИ-провайдера. Ведело не списывает средства.'
                 )}
               </p>
               {job.quote?.provider === 'artistcrm' ? payment : null}
@@ -376,7 +378,7 @@ const FileImportSettings = () => {
               <p>
                 {job.status === 'analyzing'
                   ? 'ИИ изучает структуру файла…'
-                  : `Обработка мероприятий: ${finished} из ${job.records.length}`}
+                  : `Обработка ${terms.pluralGenitive}: ${finished} из ${job.records.length}`}
               </p>
               <p className="mt-1 text-sm">
                 Прогресс сохраняется на сервере. После возвращения откройте этот
@@ -531,7 +533,7 @@ const FileImportSettings = () => {
                       disabled={busy}
                       onClick={() => openEvent(record.eventId)}
                     >
-                      Открыть мероприятие
+                      Открыть {terms.accusative}
                     </button>
                   ) : null}
                 </details>
@@ -541,7 +543,7 @@ const FileImportSettings = () => {
           {job.ignored?.length > 0 && showRules ? (
             <details>
               <summary className="cursor-pointer text-sm">
-                Строки вне мероприятий: {job.ignored.length} — проверьте, что
+                Строки вне {terms.pluralGenitive}: {job.ignored.length} — проверьте, что
                 ничего не потеряно
               </summary>
               <pre className="mt-2 text-xs break-words whitespace-pre-wrap">
@@ -576,7 +578,7 @@ const FileImportSettings = () => {
                     завершения или остановки.
                   </>
                 ) : (
-                  'Используется личный ключ. ArtistCRM не списывает средства; стоимость запросов определяет ваш провайдер.'
+                  'Используется личный ключ. Ведело не списывает средства; стоимость запросов определяет ваш провайдер.'
                 )}
               </Notice>
               {job.quote.provider === 'artistcrm' ? payment : null}
@@ -626,7 +628,7 @@ const FileImportSettings = () => {
                   : 'Неиспользованный резерв возвращён.'}
               </p>
               <p className="mt-1">
-                Откройте созданные мероприятия и отметьте «Импорт из файла
+                Откройте созданные {terms.plural} и отметьте «Импорт из файла
                 проверен» после проверки.
               </p>
               <button

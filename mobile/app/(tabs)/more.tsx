@@ -22,6 +22,7 @@ const sections = [
   { title: 'Организация', items: [
     ['message-alert-outline', 'Обратная связь', 'Диалог с разработчиком', '/support'],
     ['sync-alert', 'Синхронизация', 'Очередь, ошибки и конфликты', '/sync'],
+    ['cog-outline', 'Настройки', 'Термины и общие параметры', '/more/settings'],
     ['format-list-bulleted', 'Списки', 'Пользовательские справочники', '/more/lists'],
     ['bell-outline', 'Уведомления', 'Напоминания и push', '/more/notifications'],
     ['connection', 'Интеграции', 'Календарь, Avito, VK и телефония', '/more/integrations'],

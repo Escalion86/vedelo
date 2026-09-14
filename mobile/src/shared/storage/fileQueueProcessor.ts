@@ -71,7 +71,11 @@ export const extractRemoteFileUrl = (data: unknown) => {
   if (typeof first === 'string') return first
   if (!first || typeof first !== 'object') return ''
   const value = first as Record<string, unknown>
-  return String(value.url || value.fileUrl || value.path || '')
+  const document =
+    value.document && typeof value.document === 'object'
+      ? (value.document as Record<string, unknown>)
+      : null
+  return String(value.url || value.fileUrl || value.path || document?.id || '')
 }
 
 export const processFileQueueItems = async (

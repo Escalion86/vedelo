@@ -134,6 +134,7 @@ export default function ClientDetailScreen() {
       </Surface>
 
       <Button title="Переписки Avito и VK" variant="secondary" onPress={() => router.push({ pathname: '/conversations', params: { clientId: client._id } } as never)} />
+      <Button title={`Файлы и документы · ${client.documents?.length || 0}`} variant="secondary" onPress={() => router.push(`/clients/${client._id}/documents` as never)} disabled={client._id.startsWith('local-')} />
       <Button title="Добавить транзакцию" variant="secondary" onPress={() => router.push({ pathname: '/finance/edit/new', params: { clientId: client._id } } as never)} />
       <Button title="Новое мероприятие" onPress={() => router.push({ pathname: '/events/edit/new', params: { clientId: client._id } } as never)} />
       <Button title="Объединить дубликат" variant="secondary" disabled={client._id.startsWith('local-') || Boolean(client.syncStatus && client.syncStatus !== 'synced')} onPress={() => router.push(`/clients/${client._id}/merge` as never)} />

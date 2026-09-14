@@ -26,6 +26,7 @@ import DropDown from './DropDown'
 import useCopyToClipboard from '@helpers/useCopyToClipboard'
 import { getAdditionalEventsSummary } from '@helpers/additionalEvents'
 import { shouldShowAdditionalEventsAction } from '@helpers/eventCardActions'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const MENU_ITEM_TONE = {
   red: {
@@ -132,6 +133,7 @@ const CardButtons = ({
   showStatusButton = true,
   compactTriggerClassName = '',
 }) => {
+  const terms = useWorkItemTerminology()
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const device = useAtomValue(windowDimensionsTailwindSelector)
@@ -366,8 +368,8 @@ const CardButtons = ({
           color="blue"
           tooltipText={
             typeOfItem === 'client'
-              ? 'Заявки и мероприятия'
-              : 'Мероприятия с пользователем'
+              ? `Заявки и ${terms.plural}`
+              : `${terms.pluralCapitalized} с пользователем`
           }
         />
       )}

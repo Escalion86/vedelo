@@ -6,6 +6,7 @@ import Button from '@components/Button'
 import LoadingSpinner from '@components/LoadingSpinner'
 import NativeSelect from '@components/NativeSelect'
 import Notice from '@components/Notice'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const BATCH_SIZE = 10
 
@@ -47,6 +48,7 @@ const formatRub = (value) =>
   }).format(Number(value || 0))
 
 const GoogleCalendarImportSettings = () => {
+  const terms = useWorkItemTerminology()
   const queryClient = useQueryClient()
   const initialRange = useMemo(getDefaultRange, [])
   const [calendarStatus, setCalendarStatus] = useState({ loading: true })
@@ -285,12 +287,12 @@ const GoogleCalendarImportSettings = () => {
       await scanEvents({ preserveResult: true })
     } catch (importError) {
       setError(
-        `${importError?.message || 'Не удалось выполнить импорт'}. Уже созданные мероприятия сохранены; повторный запуск не создаст дубли.`
+        `${importError?.message || 'Не удалось выполнить импорт'}. Уже созданные ${terms.plural} сохранены; повторный запуск не создаст дубли.`
       )
     } finally {
       setImporting(false)
     }
-  }, [preview, queryClient, scanEvents, selectedIds])
+  }, [preview, queryClient, scanEvents, selectedIds, terms.plural])
 
   if (calendarStatus.loading) {
     return <LoadingSpinner text="Проверяем Google Calendar..." />
@@ -432,7 +434,7 @@ const GoogleCalendarImportSettings = () => {
           </div>
           <div className="mt-4 flex justify-end">
             <Button
-              name="Найти мероприятия"
+              name={`Найти ${terms.pluralAccusative}`}
               onClick={scanEvents}
               loading={loading}
               disabled={!dateFrom || !dateTo || importing}
@@ -480,7 +482,7 @@ const GoogleCalendarImportSettings = () => {
                 <>
                   <div className="font-medium">Собственный ИИ-провайдер</div>
                   <div className="text-xs text-violet-700">
-                    Списаний с баланса ArtistCRM не будет.
+                    Списаний с баланса Ведело не будет.
                   </div>
                 </>
               )}
@@ -502,7 +504,7 @@ const GoogleCalendarImportSettings = () => {
               role="alert"
               className="calendar-import-error mt-3 p-3"
             >
-              Общий ИИ ArtistCRM временно не настроен. Подключите собственный
+              Общий ИИ Ведело временно не настроен. Подключите собственный
               AITunnel или повторите попытку позже.
             </Notice>
           ) : null}

@@ -24,7 +24,7 @@ const SeoLandingPage = ({ page }) => {
     {
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
-      name: 'ArtistCRM',
+      name: 'Ведело',
       applicationCategory: 'BusinessApplication',
       applicationSubCategory: page.title,
       operatingSystem: 'Web',
@@ -61,7 +61,7 @@ const SeoLandingPage = ({ page }) => {
         {
           '@type': 'ListItem',
           position: 1,
-          name: 'ArtistCRM',
+          name: 'Ведело',
           item: `${normalizedSiteUrl}/`,
         },
         {
@@ -87,14 +87,14 @@ const SeoLandingPage = ({ page }) => {
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
         <Link href="/" className="flex cursor-pointer items-center gap-3">
           <Image
-            src="/img/logo-48.png"
-            alt="ArtistCRM"
+            src="/brand/vedelo-mark.svg"
+            alt="Ведело"
             width={40}
             height={40}
             className="h-10 w-10 rounded-full object-cover"
             priority
           />
-          <span className="text-sm font-semibold text-black">ArtistCRM</span>
+          <span className="text-sm font-semibold text-black">Ведело</span>
         </Link>
         <Link href="/login" className="ui-btn ui-btn-primary cursor-pointer">
           Войти
@@ -194,7 +194,7 @@ const SeoLandingPage = ({ page }) => {
             </div>
             <Image
               src={page.poster}
-              alt="Как ArtistCRM помогает фокуснику вести заявки"
+              alt="Как Ведело помогает фокуснику вести заявки"
               width={1024}
               height={1536}
               className="mx-auto h-auto w-full max-w-sm rounded-xl"
@@ -218,7 +218,7 @@ const SeoLandingPage = ({ page }) => {
               <Image
                 key={src}
                 src={src}
-                alt={`Сценарий ArtistCRM для фокусника, шаг ${index + 1}`}
+                alt={`Сценарий Ведело для фокусника, шаг ${index + 1}`}
                 width={348}
                 height={735}
                 className="h-auto w-[78vw] max-w-[348px] shrink-0 snap-center rounded-xl shadow-lg"
@@ -279,7 +279,7 @@ const SeoLandingPage = ({ page }) => {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="font-futuraPT text-2xl font-semibold text-black">
-                Попробуйте ArtistCRM на реальных заявках
+                Попробуйте Ведело на реальных заявках
               </h2>
               <p className="mt-2 text-sm text-gray-700">
                 Начните с клиентов, ближайших заказов и контроля оплат.
@@ -304,7 +304,7 @@ const SeoLandingPage = ({ page }) => {
       <footer className="border-t border-gray-200 bg-white/70">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-gray-600 lg:flex-row lg:items-center lg:justify-between">
           <Link href="/" className="text-general font-semibold">
-            ArtistCRM
+            Ведело
           </Link>
           <nav className="flex flex-wrap gap-4">
             {relatedPages.map((item) => (

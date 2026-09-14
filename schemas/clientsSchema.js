@@ -1,5 +1,6 @@
 import { DEFAULT_USERS_NOTIFICATIONS } from '@helpers/constants'
 import { Schema } from 'mongoose'
+import documentSchema from './documentSchema'
 
 const clientsSchema = {
   syncVersion: {
@@ -196,6 +197,10 @@ const clientsSchema = {
   legalAddress: {
     type: String,
     default: '',
+  },
+  documents: {
+    type: [documentSchema],
+    default: [],
   },
 }
 

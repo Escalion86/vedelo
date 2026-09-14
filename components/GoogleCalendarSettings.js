@@ -10,6 +10,7 @@ import { shouldSaveGoogleCalendarSettingsBeforeSync } from '@helpers/googleCalen
 import { faSpinner, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { reachGoalOnce } from '@helpers/metrikaGoals'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const DEFAULT_CALENDAR_REMINDERS = Object.freeze({
   useDefault: false,
@@ -159,6 +160,13 @@ const serializeCanceledDeleteFlag = (value) => JSON.stringify(Boolean(value))
 const serializeTransferredSkipFlag = (value) => JSON.stringify(Boolean(value))
 
 const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
+  const terms = useWorkItemTerminology()
+  const terminologyText = (value) =>
+    String(value)
+      .replaceAll('мероприятиям', terms.pluralDative)
+      .replaceAll('мероприятий', terms.pluralGenitive)
+      .replaceAll('мероприятия', terms.genitive)
+      .replaceAll('мероприятие', terms.label)
   const [calendarStatus, setCalendarStatus] = useState({
     loading: true,
     allowCalendarSync: false,
@@ -511,7 +519,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
       if (!listResult?.success) {
         setCalendarError(
           listResult?.error ||
-            'Не удалось получить список проверенных мероприятий'
+            `Не удалось получить список проверенных ${terms.pluralGenitive}`
         )
         setCalendarLoading(false)
         return
@@ -524,7 +532,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
       setSyncProgress({ open: true, total, done: 0 })
 
       if (total === 0) {
-        setCheckedSyncSummary('Нет мероприятий для синхронизации.')
+        setCheckedSyncSummary(`Нет ${terms.pluralGenitive} для синхронизации.`)
         setSyncProgress({ open: false, total: 0, done: 0 })
         setCalendarLoading(false)
         return
@@ -550,7 +558,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
       )
       setSyncProgress({ open: false, total: 0, done: 0 })
     } catch (error) {
-      setCalendarError('Не удалось синхронизировать проверенные мероприятия')
+      setCalendarError(`Не удалось синхронизировать проверенные ${terms.pluralAccusative}`)
       setSyncProgress({ open: false, total: 0, done: 0 })
     }
     setCalendarLoading(false)
@@ -625,7 +633,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
               Массовая синхронизация
             </div>
             <div className="mt-1 text-xs text-gray-500">
-              Отправляет/Обновляет в Google Calendar все мероприятия.
+              Отправляет/обновляет в Google Calendar все {terms.pluralAccusative}.
             </div>
             <div className="flex justify-end mt-3">
               <button
@@ -701,7 +709,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
             >
               {TITLE_MODE_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
-                  {item.name}
+                  {terminologyText(item.name)}
                 </option>
               ))}
             </NativeSelect>
@@ -717,7 +725,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
                     [item.key]: !prev[item.key],
                   }))
                 }
-                label={item.label}
+                label={terminologyText(item.label)}
                 small
                 noMargin
                 disabled={!calendarStatus.connected}
@@ -987,10 +995,10 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
             </div>
             <div className="mt-2 text-sm text-gray-700">
               {syncSuggestModal.source === 'reminders'
-                ? 'Синхронизировать мероприятия, чтобы обновить уведомления в Google Calendar?'
+                ? `Синхронизировать ${terms.pluralAccusative}, чтобы обновить уведомления в Google Calendar?`
                 : syncSuggestModal.source === 'syncSettings'
-                  ? 'Синхронизировать мероприятия, чтобы обновить данные в Google Calendar?'
-                  : 'Синхронизировать мероприятия, чтобы обновить цвета и условия синхронизации в Google Calendar?'}
+                  ? `Синхронизировать ${terms.pluralAccusative}, чтобы обновить данные в Google Calendar?`
+                  : `Синхронизировать ${terms.pluralAccusative}, чтобы обновить цвета и условия синхронизации в Google Calendar?`}
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button

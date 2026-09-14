@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "ArtistCRM",
+    "name": "Ведело",
     "slug": "artistcrm",
-    "scheme": "artistcrm",
-    "version": "1.0.0",
+    "scheme": ["vedelo", "artistcrm"],
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/images/icon.png",
@@ -44,7 +44,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "ArtistCRM использует микрофон только после нажатия кнопки записи, чтобы создать AI-черновик мероприятия.",
+          "microphonePermission": "Ведело использует микрофон только после нажатия кнопки записи, чтобы создать AI-черновик рабочей карточки.",
           "recordAudioAndroid": true,
           "enableBackgroundRecording": false,
           "enableBackgroundPlayback": false
@@ -71,7 +71,7 @@
         "backgroundColor": "#f7efe1"
       },
       "package": "ru.escalion.artistcrm",
-      "versionCode": 16,
+      "versionCode": 17,
       "allowBackup": false,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",

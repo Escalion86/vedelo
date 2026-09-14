@@ -49,7 +49,7 @@ export const LoadingSpinner = ({
           <Image
             className="aspect-1 h-[70%] max-h-[80%] w-[70%] object-contain"
             style={{ maxHeight: widthHeight, maxWidth: widthHeight }}
-            src="/img/logo-48.png"
+            src="/brand/vedelo-mark.svg"
             alt="Логотип"
             width={widthHeight}
             height={widthHeight}

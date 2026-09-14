@@ -17,6 +17,7 @@ import {
   Surface,
 } from '../../src/shared/ui/components'
 import { colors, radius, spacing } from '../../src/shared/ui/theme'
+import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 
 const dayStart = (offset = 0) => {
   const date = new Date()
@@ -26,6 +27,7 @@ const dayStart = (offset = 0) => {
 }
 
 export default function DashboardScreen() {
+  const terms = useWorkItemTerminology()
   const { user } = useAuth()
   const syncRunState = useSyncRunState()
   const syncPresentation = getSyncStatePresentation(syncRunState)
@@ -161,7 +163,7 @@ export default function DashboardScreen() {
 
       <Surface>
         <View style={styles.sectionHeader}>
-          <SectionTitle>Ближайшие мероприятия</SectionTitle>
+          <SectionTitle>Ближайшие {terms.plural}</SectionTitle>
           <Pressable onPress={() => router.push('/(tabs)/events')}>
             <Text style={styles.link}>Все</Text>
           </Pressable>
@@ -186,7 +188,7 @@ export default function DashboardScreen() {
               </View>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle} numberOfLines={1}>
-                  {event.eventType || 'Мероприятие'}
+                  {event.eventType || terms.labelCapitalized}
                 </Text>
                 <Text style={styles.rowSubtitle} numberOfLines={1}>
                   {event.description || event.address?.town || 'Без описания'}
@@ -202,7 +204,7 @@ export default function DashboardScreen() {
         ) : (
           <EmptyState
             title="Календарь свободен"
-            description="Создайте заявку или мероприятие — оно появится здесь."
+            description={`Создайте заявку или ${terms.accusative} — запись появится здесь.`}
           />
         )}
         <Button

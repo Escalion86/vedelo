@@ -8,6 +8,7 @@ import tariffsAtom from '@state/atoms/tariffsAtom'
 import { getUserTariffAccess } from '@helpers/tariffAccess'
 import Notice from '@components/Notice'
 import GoogleCalendarImportSettings from '@components/GoogleCalendarImportSettings'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const FileImportSettings = dynamic(
   () => import('@components/FileImportSettings')
@@ -19,11 +20,12 @@ const ImportContent = () => {
   const user = useAtomValue(loggedUserAtom)
   const tariffs = useAtomValue(tariffsAtom)
   const { allowAi } = getUserTariffAccess(user, tariffs)
+  const terms = useWorkItemTerminology()
   if (!allowAi)
     return (
       <div className="p-2 sm:p-4">
         <Notice tone="info">
-          Импорт мероприятий использует ИИ и доступен только в тарифе с ИИ.
+          Импорт {terms.pluralGenitive} использует ИИ и доступен только в тарифе с ИИ.
           Выберите подходящий тариф, чтобы загрузить файл или продолжить
           сохранённый импорт.
         </Notice>

@@ -5,6 +5,8 @@ import Users from '@models/Users'
 import { verifyVkIdAuthToken } from '@server/vkidAuthToken'
 import getAuthSecret from '@server/getAuthSecret'
 import { verifyImpersonationTicket } from '@server/impersonationTicket'
+import { consumeDomainMigrationCode } from '@server/domainMigration'
+import { BRAND } from '@helpers/brand.mjs'
 
 const normalizePhone = (phone) => {
   if (!phone) return ''
@@ -14,6 +16,15 @@ const normalizePhone = (phone) => {
 const isHash = (value) => typeof value === 'string' && value.startsWith('$2')
 
 const authSecret = getAuthSecret()
+
+const requestHost = (request) => {
+  const headers = request?.headers
+  const value =
+    typeof headers?.get === 'function'
+      ? headers.get('x-forwarded-host') || headers.get('host')
+      : headers?.['x-forwarded-host'] || headers?.host || ''
+  return String(value).toLowerCase().replace(/:\d+$/, '')
+}
 
 const authOptions = {
   // Configure one or more authentication providers
@@ -79,6 +90,26 @@ const authOptions = {
           }
         } catch (error) {
           console.log({ error })
+          return null
+        }
+      },
+    }),
+    CredentialsProvider({
+      id: 'domain-migration',
+      name: 'Перенос в Ведело',
+      credentials: {
+        code: { label: 'One-time migration code', type: 'password' },
+      },
+      async authorize(credentials, request) {
+        try {
+          const host = requestHost(request)
+          const isDevelopment = process.env.NODE_ENV !== 'production'
+          if (!isDevelopment && host !== BRAND.primaryHost && host !== `www.${BRAND.primaryHost}`) {
+            return null
+          }
+          return await consumeDomainMigrationCode(credentials?.code)
+        } catch (error) {
+          console.warn('Не удалось погасить код переноса')
           return null
         }
       },
@@ -199,6 +230,7 @@ const authOptions = {
         token.secondName = user.secondName
         token.tariffId = user.tariffId
         token.impersonation = user.impersonation ?? null
+        token.domainMigrationId = user.domainMigrationId ?? null
       }
       return token
     },
@@ -211,6 +243,7 @@ const authOptions = {
       session.user.secondName = token.secondName
       session.user.tariffId = token.tariffId ?? null
       session.user.impersonation = token.impersonation ?? null
+      session.user.domainMigrationId = token.domainMigrationId ?? null
       session.user.name = token.phone
       return session
     },

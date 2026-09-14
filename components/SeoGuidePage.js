@@ -11,8 +11,8 @@ const SeoGuidePage = ({ page }) => {
     description: page.description,
     inLanguage: 'ru-RU',
     mainEntityOfPage: `${normalizedSiteUrl}/${page.slug}`,
-    author: { '@type': 'Organization', name: 'ArtistCRM' },
-    publisher: { '@type': 'Organization', name: 'ArtistCRM' },
+    author: { '@type': 'Organization', name: 'Ведело' },
+    publisher: { '@type': 'Organization', name: 'Ведело' },
   }
 
   return (
@@ -23,8 +23,8 @@ const SeoGuidePage = ({ page }) => {
       />
       <header className="mx-auto flex max-w-4xl items-center justify-between px-6 py-5">
         <Link href="/" className="flex cursor-pointer items-center gap-3">
-          <Image src="/img/logo-48.png" alt="ArtistCRM" width={40} height={40} />
-          <span className="font-semibold">ArtistCRM</span>
+          <Image src="/brand/vedelo-mark.svg" alt="Ведело" width={40} height={40} />
+          <span className="font-semibold">Ведело</span>
         </Link>
         <Link href="/login" className="ui-btn ui-btn-primary cursor-pointer">Войти</Link>
       </header>
@@ -65,7 +65,7 @@ const SeoGuidePage = ({ page }) => {
               goalName="content_cta_click"
               goalParams={{ page: page.slug }}
             >
-              Посмотреть ArtistCRM
+              Посмотреть Ведело
             </MetrikaLink>
             <Link href="/login?mode=register" className="ui-btn ui-btn-secondary cursor-pointer">
               Создать кабинет

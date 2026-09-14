@@ -4,6 +4,8 @@ import { modalsFuncAtom } from '@state/atoms'
 import CardButtons from '@components/CardButtons'
 import ContactsIconsButtons from '@components/ContactsIconsButtons'
 import SurfaceCard from '@components/SurfaceCard'
+import DocumentsEditor from '@components/DocumentsEditor'
+import Notice from '@components/Notice'
 import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import getPersonFullName from '@helpers/getPersonFullName'
@@ -12,7 +14,11 @@ import {
   useClientQuery,
   useClientRelationsQuery,
   useClientsQuery,
+  useClientActions,
 } from '@helpers/useClientsQuery'
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
+import tariffsAtom from '@state/atoms/tariffsAtom'
+import { getUserTariffAccess } from '@helpers/tariffAccess'
 
 const CONTACT_CHANNEL_LABELS = {
   phone: 'Телефон',
@@ -36,7 +42,9 @@ const formatSignificantDate = (value) => {
 const SectionBlock = ({ title, action, children }) => (
   <SurfaceCard>
     <div className="mb-2 flex items-center justify-between gap-2">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</div>
+      <div className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+        {title}
+      </div>
       {action}
     </div>
     {children}
@@ -66,6 +74,9 @@ const clientViewFunc = (clientId) => {
       initialClient
     )
     const modalsFunc = useAtomValue(modalsFuncAtom)
+    const loggedUser = useAtomValue(loggedUserAtom)
+    const tariffs = useAtomValue(tariffsAtom)
+    const clientActions = useClientActions()
     const { data: relations } = useClientRelationsQuery(clientId)
     const events = useMemo(() => relations?.events ?? [], [relations?.events])
     const transactions = useMemo(
@@ -95,12 +106,11 @@ const clientViewFunc = (clientId) => {
       return new Date(event.eventDate).getTime() < startOfToday
     }).length
 
-    const upcomingCount =
-      clientEvents.filter((event) => {
-        if (event.status === 'canceled') return false
-        if (!event.eventDate) return true
-        return new Date(event.eventDate).getTime() >= startOfToday
-      }).length
+    const upcomingCount = clientEvents.filter((event) => {
+      if (event.status === 'canceled') return false
+      if (!event.eventDate) return true
+      return new Date(event.eventDate).getTime() >= startOfToday
+    }).length
 
     const clientTransactions = useMemo(() => {
       if (!clientId) return []
@@ -133,7 +143,8 @@ const clientViewFunc = (clientId) => {
         rows.push(`Расчетный счет: ${client.checkingAccount}`)
       if (client.correspondentAccount)
         rows.push(`Корр. счет: ${client.correspondentAccount}`)
-      if (client.legalAddress) rows.push(`Юридический адрес: ${client.legalAddress}`)
+      if (client.legalAddress)
+        rows.push(`Юридический адрес: ${client.legalAddress}`)
       return rows
     }, [client])
     const significantDates = useMemo(
@@ -150,6 +161,14 @@ const clientViewFunc = (clientId) => {
         return client.preferredContactChannelOther?.trim() || 'Другое'
       return CONTACT_CHANNEL_LABELS[client.preferredContactChannel] || ''
     }, [client])
+    const canUseDocuments = getUserTariffAccess(
+      loggedUser,
+      tariffs
+    )?.allowDocuments
+
+    const updateClientDocuments = async (documents) => {
+      await clientActions.set({ ...client, documents })
+    }
 
     useEffect(() => {
       if (setTopLeftComponent)
@@ -163,7 +182,7 @@ const clientViewFunc = (clientId) => {
 
     if (!clientId || !client)
       return (
-        <div className="flex justify-center w-full text-lg ">
+        <div className="flex w-full justify-center text-lg">
           ОШИБКА! Клиент не найден!
         </div>
       )
@@ -208,7 +227,7 @@ const clientViewFunc = (clientId) => {
             </div>
           </div>
           {!setTopLeftComponent && (
-            <div className="absolute right-4 top-4">
+            <div className="absolute top-4 right-4">
               <CardButtonsComponent
                 client={client}
                 onEdit={() => modalsFunc.client?.edit(clientId)}
@@ -229,7 +248,7 @@ const clientViewFunc = (clientId) => {
                 </div>
               )}
               {client.comment && (
-                <div className="whitespace-pre-wrap break-words">
+                <div className="break-words whitespace-pre-wrap">
                   <span className="font-semibold text-gray-900">
                     Комментарий:
                   </span>{' '}
@@ -252,18 +271,24 @@ const clientViewFunc = (clientId) => {
             </button>
           }
         >
-          <div className="grid grid-cols-1 gap-2 tablet:grid-cols-3">
+          <div className="tablet:grid-cols-3 grid grid-cols-1 gap-2">
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Прошли</div>
-              <div className="text-base font-semibold text-gray-900">{passedCount}</div>
+              <div className="text-base font-semibold text-gray-900">
+                {passedCount}
+              </div>
             </div>
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Будут</div>
-              <div className="text-base font-semibold text-gray-900">{upcomingCount}</div>
+              <div className="text-base font-semibold text-gray-900">
+                {upcomingCount}
+              </div>
             </div>
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Отменены</div>
-              <div className="text-base font-semibold text-gray-900">{canceledCount}</div>
+              <div className="text-base font-semibold text-gray-900">
+                {canceledCount}
+              </div>
             </div>
           </div>
         </SectionBlock>
@@ -280,7 +305,7 @@ const clientViewFunc = (clientId) => {
             </button>
           }
         >
-          <div className="grid grid-cols-1 gap-2 tablet:grid-cols-3">
+          <div className="tablet:grid-cols-3 grid grid-cols-1 gap-2">
             <div className="client-view-kpi-income rounded-lg border border-emerald-200 bg-emerald-50 p-2">
               <div className="text-[11px] text-emerald-700">Доходы</div>
               <div className="text-base font-semibold text-emerald-700">
@@ -300,6 +325,23 @@ const clientViewFunc = (clientId) => {
               </div>
             </div>
           </div>
+        </SectionBlock>
+        <SectionBlock title="Файлы и документы">
+          {canUseDocuments ? (
+            <DocumentsEditor
+              documents={client.documents ?? []}
+              onChange={updateClientDocuments}
+              entityType="clients"
+              entityId={client._id}
+              entityLabel="клиента"
+              maxVisible={3}
+              noMargin
+            />
+          ) : (
+            <Notice tone="warning" className="rounded-md">
+              Файлы и документы недоступны на текущем тарифе.
+            </Notice>
+          )}
         </SectionBlock>
         {requisitesLines.length > 0 && (
           <SectionBlock title="Реквизиты">
@@ -324,7 +366,7 @@ const clientViewFunc = (clientId) => {
                     {item.date ? `: ${formatSignificantDate(item.date)}` : ''}
                   </div>
                   {item.comment && (
-                    <div className="mt-1 whitespace-pre-wrap break-words">
+                    <div className="mt-1 break-words whitespace-pre-wrap">
                       {item.comment}
                     </div>
                   )}
@@ -333,7 +375,6 @@ const clientViewFunc = (clientId) => {
             </div>
           </SectionBlock>
         )}
-
       </div>
     )
   }

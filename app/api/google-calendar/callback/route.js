@@ -12,6 +12,7 @@ import {
   normalizeCalendarSyncSettings,
   normalizeCalendarStatusColors,
 } from '@server/googleUserCalendarClient'
+import { resolveTrustedRequestOrigin } from '@server/trustedOrigin'
 
 export const runtime = 'nodejs'
 
@@ -23,16 +24,6 @@ const decodeState = (value) => {
   } catch (error) {
     return null
   }
-}
-
-const normalizeBaseUrl = (value) => {
-  if (!value) return null
-  const trimmed = String(value).trim().replace(/\/+$/, '')
-  if (!trimmed) return null
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed
-  }
-  return `https://${trimmed}`
 }
 
 export const GET = async (req) => {
@@ -51,13 +42,6 @@ export const GET = async (req) => {
     )
   }
 
-  const oauth = getOAuthClient()
-  if (!oauth) {
-    return NextResponse.json(
-      { success: false, error: 'Google OAuth не настроен' },
-      { status: 500 }
-    )
-  }
   const cookieState = req.cookies.get('gc_oauth_state')?.value
 
   if (!code) {
@@ -70,7 +54,14 @@ export const GET = async (req) => {
   const decodedState = decodeState(state)
   const redirect = decodedState?.redirect || '/cabinet/profile'
   const importConnection = decodedState?.purpose === 'import'
-  const baseUrl = normalizeBaseUrl(process.env.DOMAIN) || req.nextUrl.origin
+  const baseUrl = resolveTrustedRequestOrigin(req, decodedState?.origin)
+  const oauth = getOAuthClient(`${baseUrl}/api/google-calendar/callback`)
+  if (!oauth) {
+    return NextResponse.json(
+      { success: false, error: 'Google OAuth не настроен' },
+      { status: 500 }
+    )
+  }
   if (!decodedState?.nonce || decodedState.nonce !== cookieState) {
     const response = NextResponse.redirect(
       new URL(`${redirect}?gc_error=state`, baseUrl)

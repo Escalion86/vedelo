@@ -445,7 +445,7 @@ export default function ProfileScreen() {
                 </Text>
                 <Text style={styles.sessionMeta}>
                   {session.appVersion
-                    ? `ArtistCRM ${session.appVersion} · `
+                    ? `Ведело ${session.appVersion} · `
                     : ''}
                   активность {formatSessionDate(session.lastUsedAt)}
                 </Text>
@@ -481,7 +481,7 @@ export default function ProfileScreen() {
         onPress={requestDeletion}
       />
       <Text style={styles.disclaimer}>
-        Запрос удаления также доступен на публичной странице ArtistCRM без входа
+        Запрос удаления также доступен на публичной странице Ведело без входа
         в приложение.
       </Text>
     </Screen>

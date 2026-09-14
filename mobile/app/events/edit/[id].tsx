@@ -26,6 +26,7 @@ import {
 import { colors, radius, spacing } from '../../../src/shared/ui/theme'
 import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
 import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
+import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
 
 type OtherContactDraft = {
   localKey: string
@@ -66,6 +67,7 @@ const eventTasksToDrafts = (event: Event, cloning: boolean): EventTaskDraft[] =>
   }))
 
 export default function EventEditScreen() {
+  const terms = useWorkItemTerminology()
   const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string }>()
   const isNew = params.id === 'new'
   const isClone = Boolean(params.cloneId)
@@ -127,7 +129,7 @@ export default function EventEditScreen() {
         clientId: contact.clientId || '',
         comment: contact.comment || '',
       })))
-    }).catch(() => setError('Не удалось загрузить данные мероприятия'))
+    }).catch(() => setError(`Не удалось загрузить данные ${terms.genitive}`))
   }, [isClone, isNew, params.clientId, params.cloneId, params.id])
 
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) =>
@@ -155,7 +157,7 @@ export default function EventEditScreen() {
 
   const save = async () => {
     if (!values.eventType.trim() && !values.description.trim()) {
-      setError('Укажите тип или описание мероприятия')
+      setError(`Укажите тип или описание ${terms.genitive}`)
       return
     }
     const dateError = validateEventDates({
@@ -235,7 +237,7 @@ export default function EventEditScreen() {
   }
 
   const remove = () => Alert.alert(
-    'Удалить мероприятие?',
+    `Удалить ${terms.accusative}?`,
     'Удаление будет синхронизировано со всеми устройствами.',
     [
       { text: 'Отмена', style: 'cancel' },
@@ -261,7 +263,7 @@ export default function EventEditScreen() {
       <Surface>
         <Field
           testID="event-type"
-          label="Тип мероприятия"
+          label={`Тип ${terms.genitive}`}
           value={values.eventType}
           onChangeText={(value) => set('eventType', value)}
           placeholder="Свадьба, корпоратив…"
@@ -472,7 +474,7 @@ export default function EventEditScreen() {
         title="Сохранить"
         loadingTitle={
           values.status === 'closed'
-            ? 'Закрываем мероприятие...'
+            ? `Закрываем ${terms.accusative}...`
             : 'Сохраняем...'
         }
         onPress={save}
@@ -480,7 +482,7 @@ export default function EventEditScreen() {
       />
       {!isNew && !isClone ? (
         <Button
-          title="Удалить мероприятие"
+          title={`Удалить ${terms.accusative}`}
           variant="danger"
           onPress={remove}
           disabled={loading}

@@ -61,6 +61,7 @@ import {
   buildServiceDeleteBlockedText,
   buildServiceDeleteConfirmText,
 } from '@helpers/serviceDeleteCheck'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 // import userHistoryFunc from './modalsFunc/userHistoryFunc'
 // import userActionsHistoryFunc from './modalsFunc/userActionsHistoryFunc'
 // import userPersonalStatusEditFunc from './modalsFunc/userPersonalStatusEditFunc'
@@ -75,6 +76,7 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
   // const itemsFunc = getRecoil(itemsFuncAtom)
   const canManageUsers = ['dev', 'admin'].includes(loggedUser?.role)
   const disableServerSync = Boolean(options?.disableServerSync)
+  const workItemTerms = resolveWorkItemTerminology(options?.siteSettings)
 
   return {
     add: addModal,
@@ -232,20 +234,20 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
       statusEdit: (eventId) => addModal(eventStatusEditFunc(eventId)),
       close: (eventId) =>
         addModal({
-          title: 'Закрытие мероприятия',
-          text: 'Вы уверены, что хотите закрыть мероприятие?',
+          title: `Закрытие ${workItemTerms.genitive}`,
+          text: `Вы уверены, что хотите закрыть ${workItemTerms.accusative}?`,
           onConfirm: async () => itemsFunc.event.close(eventId),
         }),
       cancel: (eventId) =>
         addModal({
           title: 'Отмена события',
-          text: 'Вы уверены, что хотите отменить мероприятие (это не удалит мероприятие, а лишь изменит его статус на отмененное)?',
+          text: `Вы уверены, что хотите отменить ${workItemTerms.accusative}? Карточка не удалится, изменится только статус.`,
           onConfirm: async () => itemsFunc.event.cancel(eventId),
         }),
       uncancel: (eventId) =>
         addModal({
           title: 'Возобновление события',
-          text: 'Вы уверены, что хотите возобновить мероприятие?',
+          text: `Вы уверены, что хотите возобновить ${workItemTerms.accusative}?`,
           onConfirm: async () => itemsFunc.event.uncancel(eventId),
         }),
       delete: async (eventId) => {
@@ -265,8 +267,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
             : []
           if (!result?.success) {
             addModal({
-              title: 'Удаление мероприятия недоступно',
-              text: result?.error || 'Не удалось проверить мероприятие',
+              title: `Удаление ${workItemTerms.genitive} недоступно`,
+              text: result?.error || `Не удалось проверить ${workItemTerms.accusative}`,
               confirmButtonName: 'Понятно',
               onConfirm: true,
               showDecline: false,
@@ -283,8 +285,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
               .filter(Boolean)
               .join('\n')
             addModal({
-              title: 'Удаление мероприятия недоступно',
-              text: `Удалить мероприятие нельзя, есть связанные данные:\n${reasonLines}`,
+              title: `Удаление ${workItemTerms.genitive} недоступно`,
+              text: `Удалить ${workItemTerms.accusative} нельзя, есть связанные данные:\n${reasonLines}`,
               confirmButtonName: 'Понятно',
               onConfirm: true,
               showDecline: false,
@@ -293,20 +295,21 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
           }
           addModal({
             title: 'Удаление события',
-            text: 'Вы уверены, что хотите удалить мероприятие?',
+            text: `Вы уверены, что хотите удалить ${workItemTerms.accusative}?`,
             onConfirm: async () => itemsFunc.event.delete(eventId),
           })
         } catch (error) {
           addModal({
-            title: 'Удаление мероприятия недоступно',
-            text: 'Не удалось проверить мероприятие',
+            title: `Удаление ${workItemTerms.genitive} недоступно`,
+            text: `Не удалось проверить ${workItemTerms.accusative}`,
             confirmButtonName: 'Понятно',
             onConfirm: true,
             showDecline: false,
           })
         }
       },
-      view: (eventId, options) => addModal(eventViewFunc(eventId, options)),
+      view: (eventId, options) =>
+        addModal(eventViewFunc(eventId, { ...options, siteSettings })),
       additionalEvents: (eventId) =>
         addModal(eventAdditionalEventsFunc(eventId)),
       upcomingOverview: () => addModal(upcomingEventsOverviewFunc()),

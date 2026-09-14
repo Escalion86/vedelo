@@ -382,10 +382,17 @@ const fetchPushPublicKey = async () => {
 }
 
 const savePushSubscription = async (subscription) => {
+  const webAppOrigin =
+    typeof window !== 'undefined' && /(^|\.)vedelo\.ru$/i.test(window.location.hostname)
+      ? 'vedelo'
+      : 'artistcrm'
   const saveResponse = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: subscription.toJSON() }),
+    body: JSON.stringify({
+      subscription: subscription.toJSON(),
+      webAppOrigin,
+    }),
   })
 
   if (!saveResponse.ok) {

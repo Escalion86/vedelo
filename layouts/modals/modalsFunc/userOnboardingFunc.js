@@ -30,6 +30,7 @@ import {
 } from '@helpers/firstRunWizard.mjs'
 import { reachGoalOnce } from '@helpers/metrikaGoals'
 import { normalizeTelegramInput } from '@helpers/socialInput'
+import { getNounServices } from '@helpers/getNoun'
 import useOnboardingTown from '@helpers/useOnboardingTown'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
@@ -556,9 +557,8 @@ export const FirstRunWizardModal = ({
             )}
             {hasExistingServices && drafts !== null && (
               <Notice tone="info">
-                У вас уже есть {services.length}{' '}
-                {services.length === 1 ? 'услуга' : 'услуги'}. Создавать новую
-                не требуется — пропустите этот шаг и завершите настройку.
+                У вас уже есть {getNounServices(services.length)}. Создавать
+                новую не требуется — пропустите этот шаг и завершите настройку.
               </Notice>
             )}
             {drafts?.map((draft, index) => (

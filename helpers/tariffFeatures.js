@@ -16,13 +16,13 @@ export const getTariffFeatureKeys = (tariff) =>
     ({ key }) => key
   )
 
-export const getTariffFeatureLabels = (tariff) => {
+export const getTariffFeatureLabels = (tariff, terms = { pluralGenitive: 'заказов' }) => {
   const labels = TARIFF_FEATURES.filter(({ key }) => Boolean(tariff?.[key])).map(
     ({ label }) => label
   )
   const eventsPerMonth = Number(tariff?.eventsPerMonth ?? 0)
   if (eventsPerMonth > 0) {
-    labels.unshift(`До ${eventsPerMonth} мероприятий в месяц`)
+    labels.unshift(`До ${eventsPerMonth} ${terms.pluralGenitive} в месяц`)
   }
   return labels
 }

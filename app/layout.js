@@ -11,19 +11,15 @@ import AppSnackbarProvider from '@components/AppSnackbarProvider'
 import AppQueryProvider from '@components/AppQueryProvider'
 import Script from 'next/script'
 import AcquisitionTracker from '@components/AcquisitionTracker'
+import { BRAND, getCanonicalBaseUrl } from '@helpers/brand.mjs'
 
-const rawDomain = process.env.DOMAIN || 'https://artistcrm.ru'
-const siteUrl = rawDomain.startsWith('http')
-  ? rawDomain
-  : `https://${rawDomain}`
-const normalizedSiteUrl = siteUrl.replace(/\/$/, '')
+const normalizedSiteUrl = getCanonicalBaseUrl(process.env.DOMAIN)
 
 export const metadata = {
   metadataBase: new URL(normalizedSiteUrl),
-  title: 'ArtistCRM — CRM для артистов',
-  description:
-    'CRM-система для артистов: заявки, мероприятия, финансы, договоры и напоминания.',
-  applicationName: 'ArtistCRM',
+  title: 'Ведело — CRM для малого бизнеса',
+  description: `${BRAND.description}: заявки, заказы, финансы, документы и напоминания.`,
+  applicationName: BRAND.name,
   manifest: '/manifest.json',
   verification: {
     yandex: 'f559d6455245a7c5',
@@ -31,7 +27,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'ArtistCRM',
+    title: BRAND.name,
   },
   icons: {
     icon: [
@@ -57,7 +53,7 @@ export const metadata = {
 }
 
 export const viewport = {
-  themeColor: '#ebd3a5',
+  themeColor: '#a56f2a',
 }
 
 const YANDEX_METRIKA_ID = '108801563'

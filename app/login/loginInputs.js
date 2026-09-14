@@ -888,7 +888,7 @@ const LoginInputs = ({
       <div className="ring-general/30 relative z-10 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl ring-1">
         <div className="mb-6">
           <div className="text-general text-xs tracking-[0.2em] uppercase">
-            ArtistCRM
+            Ведело — ранее ArtistCRM
           </div>
           <h1 className="mt-2 text-2xl font-semibold text-gray-900">
             {mode === 'login'

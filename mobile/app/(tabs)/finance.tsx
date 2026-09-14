@@ -12,6 +12,7 @@ import { formatPhoneForDisplay } from '../../src/shared/format/phone'
 import { useCachedEntities } from '../../src/shared/hooks/useCachedEntities'
 import { EmptyState, PageHeader, Screen, SectionTitle, Surface } from '../../src/shared/ui/components'
 import { colors, radius, spacing } from '../../src/shared/ui/theme'
+import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 
 type Filter = 'all' | 'income' | 'expense' | 'obligation'
 const money = (value: number) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`
@@ -24,6 +25,7 @@ const personName = (client?: Client) => client
   : ''
 
 export default function FinanceScreen() {
+  const terms = useWorkItemTerminology()
   const [filter, setFilter] = useState<Filter>('all')
   const query = useCachedEntities<Transaction>('transactions')
   const eventsQuery = useCachedEntities<Event>('events')
@@ -62,14 +64,14 @@ export default function FinanceScreen() {
       {deposits.length ? (
         <Surface>
           <View style={styles.sectionHeader}><View style={styles.sectionTitleRow}><MaterialCommunityIcons name="clock-alert-outline" size={22} color={colors.warning} /><SectionTitle>Контроль задатков</SectionTitle></View><Text style={styles.sectionAmount}>{depositSummary}</Text></View>
-          {deposits.map((row) => <PaymentRow key={row.event._id} row={row} kind="deposit" />)}
+          {deposits.map((row) => <PaymentRow key={row.event._id} row={row} kind="deposit" fallbackTitle={terms.labelCapitalized} />)}
         </Surface>
       ) : null}
 
       {balances.length ? (
         <Surface>
           <View style={styles.sectionHeader}><View style={styles.sectionTitleRow}><MaterialCommunityIcons name="cash-clock" size={22} color={colors.blue} /><SectionTitle>Остатки по договорам</SectionTitle></View><Text style={[styles.sectionAmount, styles.blue]}>{money(balances.reduce((sum, row) => sum + row.contractRemaining, 0))}</Text></View>
-          {balances.map((row) => <PaymentRow key={row.event._id} row={row} kind="contract" />)}
+          {balances.map((row) => <PaymentRow key={row.event._id} row={row} kind="contract" fallbackTitle={terms.labelCapitalized} />)}
         </Surface>
       ) : null}
 
@@ -109,9 +111,9 @@ export default function FinanceScreen() {
 
 const Summary = ({ label, value, tone }: { label: string; value: number; tone: 'success' | 'danger' | 'warning' | 'neutral' }) => <View style={[styles.summaryCard, tone === 'success' ? styles.summarySuccess : tone === 'danger' ? styles.summaryDanger : tone === 'warning' ? styles.summaryWarning : styles.summaryNeutral]}><Text style={styles.summaryLabel}>{label}</Text><Text style={styles.summaryValue}>{money(value)}</Text></View>
 
-const PaymentRow = ({ row, kind }: { row: ReturnType<typeof buildEventPaymentControl>[number]; kind: 'deposit' | 'contract' }) => (
+const PaymentRow = ({ row, kind, fallbackTitle }: { row: ReturnType<typeof buildEventPaymentControl>[number]; kind: 'deposit' | 'contract'; fallbackTitle: string }) => (
   <Pressable style={styles.paymentRow} onPress={() => router.push(`/events/${row.event._id}` as never)}>
-    <View style={styles.transactionInfo}><Text style={styles.transactionTitle}>{row.event.eventType || 'Мероприятие'}</Text><Text style={styles.muted}>{row.event.eventDate ? new Date(row.event.eventDate).toLocaleDateString('ru-RU') : 'Дата не назначена'}{kind === 'deposit' && row.event.depositDueAt ? ` · срок ${new Date(row.event.depositDueAt).toLocaleDateString('ru-RU')}` : ''}</Text></View>
+    <View style={styles.transactionInfo}><Text style={styles.transactionTitle}>{row.event.eventType || fallbackTitle}</Text><Text style={styles.muted}>{row.event.eventDate ? new Date(row.event.eventDate).toLocaleDateString('ru-RU') : 'Дата не назначена'}{kind === 'deposit' && row.event.depositDueAt ? ` · срок ${new Date(row.event.depositDueAt).toLocaleDateString('ru-RU')}` : ''}</Text></View>
     <View style={styles.paymentAmounts}><Text style={kind === 'deposit' ? styles.obligation : styles.blue}>{kind === 'deposit' && !row.event.depositExpectedAmount ? 'сумма не указана' : money(kind === 'deposit' ? row.depositRemaining : row.contractRemaining)}</Text><Text style={styles.paid}>оплачено {money(kind === 'deposit' ? row.depositPaid : row.paid)}</Text></View>
     <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />
   </Pressable>

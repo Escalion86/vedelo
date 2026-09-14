@@ -216,7 +216,7 @@ export const AiUsagePanel = ({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Расходы ИИ ArtistCRM</Text>
+        <Text style={styles.sectionTitle}>Расходы ИИ Ведело</Text>
         <Button
           title="Обновить"
           variant="secondary"
@@ -261,7 +261,7 @@ export const AiUsagePanel = ({
       ) : !platformActive ? (
         <View style={[styles.notice, styles.neutralNotice]}>
           <Text style={styles.muted}>
-            Сейчас используется собственный провайдер. ArtistCRM не списывает
+            Сейчас используется собственный провайдер. Ведело не списывает
             баланс за такие запросы.
           </Text>
         </View>

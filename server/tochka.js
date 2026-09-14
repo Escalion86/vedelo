@@ -16,7 +16,7 @@ const getTochkaConfig = () => {
   const merchantId = String(process.env.TOCHKA_MERCHANT_ID || '').trim()
   const returnUrl = String(
     process.env.TOCHKA_RETURN_URL ||
-      `${process.env.DOMAIN || 'https://artistcrm.ru'}/cabinet/tariff-select?payment=tochka`
+      `${process.env.DOMAIN || 'https://vedelo.ru'}/cabinet/tariff-select?payment=tochka`
   ).trim()
   return { apiUrl, token, clientId, customerCode, merchantId, returnUrl }
 }
@@ -117,7 +117,7 @@ const buildReceiptClient = (user) => {
 
 const buildReceiptItems = ({ amount, description }) => {
   const itemName = String(
-    process.env.TOCHKA_RECEIPT_ITEM_NAME || description || 'Оплата ArtistCRM'
+    process.env.TOCHKA_RECEIPT_ITEM_NAME || description || 'Оплата Ведело'
   ).slice(0, 128)
 
   return [
@@ -175,7 +175,7 @@ const createTochkaPayment = async ({
     Data: {
       customerCode: config.customerCode,
       amount: value,
-      purpose: String(description || 'Оплата ArtistCRM').slice(0, 140),
+      purpose: String(description || 'Оплата Ведело').slice(0, 140),
       redirectUrl: returnUrl || config.returnUrl,
       failRedirectUrl: returnUrl || config.returnUrl,
       paymentMode: ['sbp'],

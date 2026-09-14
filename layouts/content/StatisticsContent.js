@@ -25,6 +25,7 @@ import { buildStatisticsChartData } from '@helpers/buildStatisticsChartData'
 import { getStatisticsMonthDetails } from '@helpers/getStatisticsMonthDetails'
 import { useStatisticsQuery } from '@helpers/useStatisticsQuery'
 import TransactionCard from '@layouts/cards/TransactionCard'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const ALL_TOWNS_OPTION = 'Все города'
 
@@ -231,6 +232,7 @@ const StatisticsContent = () => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const statisticsQuery = useStatisticsQuery()
   const statisticsData = statisticsQuery.data ?? {}
+  const terms = useWorkItemTerminology()
 
   const transactions = Array.isArray(statisticsData.transactions)
     ? statisticsData.transactions
@@ -687,26 +689,28 @@ const StatisticsContent = () => {
             </div>
           </SurfaceCard>
           <MonthEventStatusCard
-            title="Мероприятий"
+            title={terms.pluralGenitive[0].toUpperCase() + terms.pluralGenitive.slice(1)}
             totalCount={eventsTotal}
             statusCounts={eventStatusCounts}
+            emptyText={`Нет ${terms.pluralGenitive}`}
           />
           {transferredEventsTotal > 0 ? (
             <MonthEventStatusCard
-              title="Переданных мероприятий"
+              title={`Переданных ${terms.pluralGenitive}`}
               totalCount={transferredEventsTotal}
               statusCounts={transferredEventStatusCounts}
+              emptyText={`Нет переданных ${terms.pluralGenitive}`}
             />
           ) : null}
         </div>
 
         <div className="space-y-2">
           <div className="text-sm font-semibold text-gray-700">
-            Мероприятия месяца
+            {terms.pluralCapitalized} месяца
           </div>
           {details.events.length === 0 ? (
             <div className="text-sm text-gray-500">
-              Нет мероприятий за этот месяц
+              Нет {terms.pluralGenitive} за этот месяц
             </div>
           ) : (
             <div className="space-y-2">
@@ -767,7 +771,7 @@ const StatisticsContent = () => {
             event.stopPropagation()
             onCountClick?.()
           }}
-          aria-label={`${label}: открыть мероприятия`}
+          aria-label={`${label}: открыть ${terms.pluralAccusative}`}
         >
           {count}
         </button>
@@ -887,7 +891,7 @@ const StatisticsContent = () => {
                     paymentLeftEvents.length,
                     () =>
                       openEventsDetailsModal(
-                        'Мероприятия с остатком по оплате',
+                        `${terms.pluralCapitalized} с остатком по оплате`,
                         paymentLeftEvents
                       )
                   )}
@@ -900,7 +904,7 @@ const StatisticsContent = () => {
                 <SurfaceCard className="rounded" paddingClassName="p-3">
                   {renderMetricTitle('Задаток', depositPaidEvents.length, () =>
                     openEventsDetailsModal(
-                      'Предстоящие мероприятия с оплатами',
+                      `Предстоящие ${terms.plural} с оплатами`,
                       depositPaidEvents
                     )
                   )}
@@ -1162,10 +1166,10 @@ const StatisticsContent = () => {
 
               <SurfaceCard className="rounded" paddingClassName="p-3">
                 <div className="mb-2 text-sm font-semibold text-gray-700">
-                  Самые прибыльные мероприятия
+                  Самые прибыльные {terms.plural}
                 </div>
                 {topProfitableEvents.length === 0 ? (
-                  <div className="text-sm text-gray-500">Нет мероприятий</div>
+                  <div className="text-sm text-gray-500">Нет {terms.pluralGenitive}</div>
                 ) : (
                   <div className="space-y-2 text-sm">
                     {topProfitableEvents.map(({ event, profit }) => (
@@ -1175,7 +1179,7 @@ const StatisticsContent = () => {
                       >
                         <div className="font-medium">
                           {resolveEventTitle(event) ||
-                            'Мероприятие без названия'}
+                            `${terms.labelCapitalized} без названия`}
                         </div>
                         <div className="text-xs text-gray-500">
                           {formatDateTime(event?.eventDate)} •{' '}

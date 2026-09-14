@@ -15,7 +15,9 @@ export const runDocumentsHttpSmoke = async ({
   const tariffId = new mongoose.Types.ObjectId()
   const clientId = new mongoose.Types.ObjectId()
   const eventId = new mongoose.Types.ObjectId()
+  const draftEventId = new mongoose.Types.ObjectId()
   const otherEventId = new mongoose.Types.ObjectId()
+  const otherClientId = new mongoose.Types.ObjectId()
   // Минимальный пользовательский DOCX-шаблон только в памяти, без файлов на диске.
   const template = (
     await Packer.toBuffer(
@@ -56,6 +58,12 @@ export const runDocumentsHttpSmoke = async ({
     inn: '1234567890',
     clientType: 'individual_entrepreneur',
   })
+  await db.collection('clients').insertOne({
+    _id: otherClientId,
+    tenantId: otherTenantId,
+    firstName: 'Чужой клиент',
+    documents: [],
+  })
   await db.collection('events').insertMany([
     {
       _id: eventId,
@@ -65,6 +73,14 @@ export const runDocumentsHttpSmoke = async ({
       contractSum: 12345,
       eventDate: new Date('2026-09-20T12:00:00Z'),
       servicesIds: [],
+      documents: [],
+    },
+    {
+      _id: draftEventId,
+      tenantId,
+      clientId,
+      status: 'draft',
+      eventType: 'Заявка с вложением',
       documents: [],
     },
     { _id: otherEventId, tenantId: otherTenantId, status: 'active' },
@@ -158,11 +174,13 @@ export const runDocumentsHttpSmoke = async ({
     const form = await new Response(upload.bytes, {
       headers: { 'content-type': upload.headers['content-type'] },
     }).formData()
+    const uploadId = form.get('uploadId')
+    assert.match(String(uploadId), /^[a-zA-Z0-9-]{1,80}$/)
     assert.equal(
-      form.get('directory'),
-      `artistcrm/${tenantId}/events/${eventId}/documents`
+      form.get('storageKey'),
+      `artistcrm/${tenantId}/events/${eventId}/documents/${uploadId}`
     )
-    const file = form.get('files')
+    const file = form.get('file')
     assert.match(file.name, /\.docx$/)
     const xml = new PizZip(Buffer.from(await file.arrayBuffer()))
       .file('word/document.xml')
@@ -180,9 +198,109 @@ export const runDocumentsHttpSmoke = async ({
     stored.documents.map((item) => item.type),
     ['contract', 'act']
   )
+  assert.ok(
+    stored.documents.every((item) => item.file.storageKey && !item.file.url)
+  )
+
+  const uploadFile = async (entityType, id, uploadId, name = 'brief.xlsx') => {
+    const form = new FormData()
+    form.append('fileQueueId', uploadId)
+    form.append('type', 'other')
+    form.append('title', name)
+    form.append(
+      'files',
+      new Blob(['xlsx-smoke'], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+      name
+    )
+    const response = await fetch(
+      `${baseUrl}/api/mobile/v1/${entityType}/${id}/files`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: form,
+      }
+    )
+    return { status: response.status, body: await response.json() }
+  }
+
+  const beforeEntityUploads = cloudRequests.length
+  const draftUpload = await uploadFile(
+    'events',
+    draftEventId,
+    'draft-xlsx-smoke'
+  )
+  assert.equal(draftUpload.status, 200, JSON.stringify(draftUpload.body))
+  assert.equal(draftUpload.body.data.document.type, 'other')
+  assert.equal(
+    draftUpload.body.data.document.file.storageKey,
+    `artistcrm/${tenantId}/events/${draftEventId}/documents/draft-xlsx-smoke`
+  )
+  assert.equal(cloudRequests.length, beforeEntityUploads + 1)
+  assert.equal(
+    (await uploadFile('events', draftEventId, 'draft-xlsx-smoke')).status,
+    200
+  )
+  assert.equal(
+    cloudRequests.length,
+    beforeEntityUploads + 1,
+    'повтор fileQueueId не должен загружать второй объект'
+  )
+
+  const clientUpload = await uploadFile(
+    'clients',
+    clientId,
+    'client-xlsx-smoke'
+  )
+  assert.equal(clientUpload.status, 200, JSON.stringify(clientUpload.body))
+  assert.equal(clientUpload.body.data.entity.documents.length, 1)
+  assert.equal(
+    (await uploadFile('clients', otherClientId, 'foreign-client-file')).status,
+    404
+  )
+
+  const accessResponse = await fetch(
+    `${baseUrl}/api/mobile/v1/clients/${clientId}/files/access-url`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        documentId: 'client-xlsx-smoke',
+        disposition: 'attachment',
+      }),
+    }
+  )
+  assert.equal(accessResponse.status, 200)
+  assert.match((await accessResponse.json()).data.url, /private-files\/content/)
+
+  const deleteClientDocument = () =>
+    fetch(`${baseUrl}/api/mobile/v1/clients/${clientId}/files`, {
+      method: 'DELETE',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        documentId: 'client-xlsx-smoke',
+        deleteId: 'client-xlsx-smoke',
+      }),
+    })
+  assert.equal((await deleteClientDocument()).status, 200)
+  const requestsAfterDelete = cloudRequests.length
+  assert.equal((await deleteClientDocument()).status, 200)
+  assert.equal(cloudRequests.length, requestsAfterDelete)
+
   await db
     .collection('tariffs')
     .updateOne({ _id: tariffId }, { $set: { allowDocuments: false } })
   assert.equal((await generate(eventId, 'contract-smoke')).status, 403)
-  assert.equal(cloudRequests.length, initialUploads + 2)
+  assert.equal(
+    (await uploadFile('clients', clientId, 'tariff-blocked-file')).status,
+    403
+  )
+  assert.equal(cloudRequests.length, requestsAfterDelete)
 }

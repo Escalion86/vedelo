@@ -1,13 +1,14 @@
 {
-  "name": "ArtistCRM",
-  "short_name": "ArtistCRM",
-  "description": "CRM \u0438 \u043b\u0438\u0447\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442 \u0430\u0440\u0442\u0438\u0441\u0442\u043e\u0432",
+  "id": "/",
+  "name": "Ведело — ранее ArtistCRM",
+  "short_name": "Ведело",
+  "description": "CRM для малого бизнеса и частных специалистов",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#ebd3a5",
-  "background_color": "#ebd3a5",
+  "theme_color": "#a56f2a",
+  "background_color": "#f7efe1",
   "icons": [
     {
       "src": "/icons/AppImages/windows11/SmallTile.scale-100.png",

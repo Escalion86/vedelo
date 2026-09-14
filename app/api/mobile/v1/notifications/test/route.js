@@ -11,7 +11,7 @@ export const POST = async (req) => {
     tenantId,
     payload: {
       title: 'Тест Android-уведомления',
-      body: 'ArtistCRM успешно связался с push-сервисом',
+      body: 'Ведело успешно связался с push-сервисом',
       data: { url: 'artistcrm://more/notifications', type: 'mobile_push_test' },
       priority: 'high',
       tag: `mobile-push-test-${Date.now()}`,

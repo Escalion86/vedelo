@@ -14,6 +14,7 @@ import { getCachedEntity, listCachedEntities } from '../../../src/shared/storage
 import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/mutations'
 import { Button, ErrorNotice, Field, PageHeader, Screen, SectionTitle, Surface } from '../../../src/shared/ui/components'
 import { colors, radius, spacing } from '../../../src/shared/ui/theme'
+import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
 
 const PAYMENT_METHODS = [
   ['transfer', 'Перевод'], ['account', 'Расчётный счёт'], ['cash', 'Наличные'],
@@ -25,6 +26,7 @@ const personName = (client?: Client) => client
   : 'Клиент'
 
 export default function TransactionEditScreen() {
+  const terms = useWorkItemTerminology()
   const params = useLocalSearchParams<{ id: string; eventId?: string; clientId?: string }>()
   const isNew = params.id === 'new'
   const queryClient = useQueryClient()
@@ -111,7 +113,7 @@ export default function TransactionEditScreen() {
       return
     }
     if (selectedEvent && selectedEvent.status !== 'active') {
-      setError('Транзакции можно изменять только у активного мероприятия')
+      setError(`Транзакции можно изменять только у активного ${terms.genitive}`)
       return
     }
     if (
@@ -184,15 +186,15 @@ export default function TransactionEditScreen() {
       </Surface>
 
       <Surface>
-        <SectionTitle>Мероприятие</SectionTitle>
+        <SectionTitle>{terms.labelCapitalized}</SectionTitle>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalOptions}>
-          <Choice active={!values.eventId} label="Без мероприятия" onPress={() => set('eventId', '')} />
-          {availableEvents.map((event) => <Choice key={event._id} active={values.eventId === event._id} label={`${event.eventType || 'Мероприятие'}${event.eventDate ? ` · ${new Date(event.eventDate).toLocaleDateString('ru-RU')}` : ''}`} onPress={() => selectEvent(event._id)} />)}
+          <Choice active={!values.eventId} label={`Без ${terms.genitive}`} onPress={() => set('eventId', '')} />
+          {availableEvents.map((event) => <Choice key={event._id} active={values.eventId === event._id} label={`${event.eventType || terms.labelCapitalized}${event.eventDate ? ` · ${new Date(event.eventDate).toLocaleDateString('ru-RU')}` : ''}`} onPress={() => selectEvent(event._id)} />)}
         </ScrollView>
-        {selectedEvent && selectedEvent.status !== 'active' ? <Text style={styles.readOnlyHint}>Это мероприятие не активно. Сохранение транзакции недоступно.</Text> : null}
+        {selectedEvent && selectedEvent.status !== 'active' ? <Text style={styles.readOnlyHint}>{terms.labelCapitalized} не активен{terms.mode === 'events' ? 'о' : ''}. Сохранение транзакции недоступно.</Text> : null}
         <SectionTitle>Клиент</SectionTitle>
         {values.eventId ? (
-          <Text style={styles.linkedClient}>{selectedClient ? personName(selectedClient) : 'У мероприятия клиент не выбран'}</Text>
+          <Text style={styles.linkedClient}>{selectedClient ? personName(selectedClient) : `У ${terms.genitive} клиент не выбран`}</Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalOptions}>
             <Choice active={!values.clientId} label="Не выбран" onPress={() => set('clientId', '')} />

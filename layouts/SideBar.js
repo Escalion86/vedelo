@@ -16,8 +16,9 @@ import { useAtom, useAtomValue } from 'jotai'
 import { additionalEventsOverdueCountAtom } from '@state/selectors/additionalEventsOverdueCountAtom'
 import ImpersonationReturnButton from '@components/ImpersonationReturnButton'
 import { useSupportSummaryQuery } from '@helpers/useSupportTickets'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
-const menuCfg = (role) => {
+const menuCfg = (role, workItemTerms) => {
   // const visiblePages = pages.filter((page) => )
 
   const result = pagesGroups
@@ -54,7 +55,8 @@ const menuCfg = (role) => {
       }, [])
       if (pagesItems.length > 0)
         totalGroups.push({
-          name: group.name,
+          name:
+            group.id === 2 ? workItemTerms.pluralCapitalized : group.name,
           icon: group.icon,
           items: pagesItems,
           bottom: group.bottom,
@@ -287,11 +289,12 @@ const SideBar = ({ page }) => {
   const loggedUser = useAtomValue(loggedUserAtom)
   const overdueAdditionalCount = useAtomValue(additionalEventsOverdueCountAtom)
   const supportSummary = useSupportSummaryQuery()
+  const workItemTerms = useWorkItemTerminology()
   const role = loggedUser?.role ?? 'user'
   const isMobile =
     device === 'phoneV' || device === 'phoneH' || device === 'tablet'
   const motionVariants = isMobile ? mobileVariants : variants
-  const roleMenuCfg = menuCfg(role)
+  const roleMenuCfg = menuCfg(role, workItemTerms)
 
   const handleNavigate = (href) => {
     setPendingPage(href)

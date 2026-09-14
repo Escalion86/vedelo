@@ -9,22 +9,24 @@ import CardActions from '@components/CardActions'
 import IconCheckBox from '@components/IconCheckBox'
 import { useAtomValue } from 'jotai'
 import CardWrapper from '@components/CardWrapper'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const formatPrice = (price) => {
   if (!price || Number(price) === 0) return 'Бесплатно'
   return `${Number(price).toLocaleString('ru-RU')} ₽/мес`
 }
 
-const formatEventsLimit = (limit) => {
+const formatEventsLimit = (limit, terms) => {
   if (!Number.isFinite(limit) || Number(limit) === 0) {
-    return 'Без ограничений по мероприятиям'
+    return `Без ограничений по ${terms.pluralDative}`
   }
-  return `До ${limit} мероприятий в месяц`
+  return `До ${limit} ${terms.pluralGenitive} в месяц`
 }
 
 const TariffCard = ({ tariff, style, onEdit, onDelete }) => {
   const loading = useAtomValue(loadingAtom('tariff' + tariff?._id))
   const error = useAtomValue(errorAtom('tariff' + tariff?._id))
+  const terms = useWorkItemTerminology()
   if (!tariff) return null
 
   return (
@@ -54,7 +56,7 @@ const TariffCard = ({ tariff, style, onEdit, onDelete }) => {
               {tariff.title || 'Без названия'}
             </div>
             <div className="card-muted mt-1 text-sm">
-              {formatEventsLimit(tariff.eventsPerMonth)}
+              {formatEventsLimit(tariff.eventsPerMonth, terms)}
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">

@@ -22,7 +22,7 @@
       "autoIncrement": true,
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://artistcrm.ru/api",
+        "EXPO_PUBLIC_API_BASE_URL": "https://vedelo.ru/api",
         "EXPO_PUBLIC_APP_SCHEME": "artistcrm"
       },
       "android": {
@@ -34,7 +34,7 @@
       "distribution": "internal",
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://artistcrm.ru/api",
+        "EXPO_PUBLIC_API_BASE_URL": "https://vedelo.ru/api",
         "EXPO_PUBLIC_APP_SCHEME": "artistcrm"
       },
       "android": {

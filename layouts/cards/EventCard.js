@@ -43,6 +43,7 @@ import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventQuery } from '@helpers/useEventsQuery'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
 import { getEventCloseSuggestionState } from '@helpers/eventCloseSuggestion'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 // const CALENDAR_RESPONSE_MARKER = '--- Google Calendar Response ---'
 
@@ -136,6 +137,7 @@ const EventCard = ({
   const loading = useAtomValue(loadingAtom('event' + eventId))
   const error = useAtomValue(errorAtom('event' + eventId))
   const siteSettings = useAtomValue(siteSettingsAtom)
+  const terms = resolveWorkItemTerminology(siteSettings)
 
   const calendarLink = useMemo(() => {
     return getGoogleCalendarLinkFromText(event?.description)
@@ -377,7 +379,7 @@ const EventCard = ({
             <FontAwesomeIcon
               icon={faFileContract}
               className="h-4 w-4 shrink-0 text-blue-600"
-              aria-label="Мероприятие по договору"
+              aria-label={`${terms.labelCapitalized} по договору`}
             />
           ) : null}
           {needsCheck ? (
@@ -387,7 +389,7 @@ const EventCard = ({
               aria-label={
                 event.importedFromFile
                   ? 'Импорт из файла не проверен'
-                  : 'Проверка мероприятия не завершена'
+                  : `Проверка ${terms.genitive} не завершена`
               }
             />
           ) : null}
@@ -504,7 +506,7 @@ const EventCard = ({
                     ? 'event-profit-card--negative event-profit-text--negative'
                     : 'event-profit-card--zero event-profit-text--zero'
               }`}
-              title="Итог мероприятия: получено минус потрачено"
+              title={`Итог ${terms.genitive}: получено минус потрачено`}
             >
               {net.toLocaleString()} ₽
             </span>

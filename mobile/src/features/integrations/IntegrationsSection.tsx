@@ -325,7 +325,7 @@ export function IntegrationsSection() {
           )}
           disabled={loading}
         />
-        <SectionTitle>Календарь для ArtistCRM</SectionTitle>
+        <SectionTitle>Календарь для Ведело</SectionTitle>
         {calendars.map((calendar) => {
           const selected = calendar.id === google.calendarId
           return <Pressable

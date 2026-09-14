@@ -25,6 +25,7 @@ import {
 } from '@helpers/serverSyncQueue'
 import { useSiteSettingsQuery } from '@helpers/useEntityQueries'
 import { SHOW_COLLEAGUE_TRANSFER_FIELDS_KEY } from '@helpers/firstRunWizard.mjs'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 const TIME_ZONE_OPTIONS = [
   { value: 'UTC', name: 'UTC' },
@@ -39,6 +40,12 @@ const TIME_ZONE_OPTIONS = [
   { value: 'Asia/Vladivostok', name: 'UTC+10 Владивосток' },
   { value: 'Asia/Magadan', name: 'UTC+11 Магадан' },
   { value: 'Asia/Kamchatka', name: 'UTC+12 Камчатка' },
+]
+
+const PRIMARY_ENTITY_TERMINOLOGY_OPTIONS = [
+  { value: 'auto', name: 'Авто — по сфере работы' },
+  { value: 'events', name: 'Мероприятия' },
+  { value: 'orders', name: 'Заказы' },
 ]
 
 const SettingsContent = () => {
@@ -66,6 +73,7 @@ const SettingsContent = () => {
   }, [])
 
   const customSettings = siteSettingsState?.custom ?? {}
+  const workItemTerms = resolveWorkItemTerminology(siteSettingsState)
   const serverSyncDisabled = resolveServerSyncDisabled(siteSettingsState)
   const checkBoxColors = darkTheme
     ? { checked: '#f8fafc', unchecked: '#94a3b8' }
@@ -232,6 +240,25 @@ const SettingsContent = () => {
           </LabeledContainer>
         )}
         <ComboBox
+          label="Как называть основную работу"
+          items={PRIMARY_ENTITY_TERMINOLOGY_OPTIONS}
+          value={customSettings?.primaryEntityTerminology ?? 'auto'}
+          onChange={(value) =>
+            saveSiteSettingsPatch({
+              custom: {
+                ...(siteSettingsState?.custom ?? {}),
+                primaryEntityTerminology: value,
+              },
+            })
+          }
+          fullWidth
+          noMargin
+        />
+        <MutedText className="text-gray-500">
+          Сейча в кабинете: «{workItemTerms.pluralCapitalized}». Авторежим
+          использует выбранную в мастере сферу работы.
+        </MutedText>
+        <ComboBox
           label="Часовой пояс"
           items={TIME_ZONE_OPTIONS}
           value={siteSettingsState?.timeZone ?? 'Asia/Krasnoyarsk'}
@@ -240,7 +267,7 @@ const SettingsContent = () => {
           noMargin
         />
         <InputDuration
-          label="Стандартная длительность мероприятия"
+          label={`Стандартная длительность ${workItemTerms.genitive}`}
           min={15}
           max={1440}
           value={defaultEventDuration}

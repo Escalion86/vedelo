@@ -4,10 +4,12 @@ import { useCallback, useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@components/Modal'
 import AppButton from '@components/AppButton'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const MAX_TEXT_LENGTH = 12000
 
 const TextDraftModal = ({ open, onClose, onDraft }) => {
+  const terms = useWorkItemTerminology()
   const [text, setText] = useState('')
   const [processing, setProcessing] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -22,7 +24,7 @@ const TextDraftModal = ({ open, onClose, onDraft }) => {
   const handleSubmit = useCallback(async () => {
     const normalizedText = text.trim()
     if (!normalizedText) {
-      setErrorMessage('Вставьте описание мероприятия')
+      setErrorMessage(`Вставьте описание ${terms.genitive}`)
       return
     }
 
@@ -56,7 +58,7 @@ const TextDraftModal = ({ open, onClose, onDraft }) => {
     } finally {
       setProcessing(false)
     }
-  }, [onDraft, text])
+  }, [onDraft, terms.genitive, text])
 
   const handleKeyDown = useCallback(
     (event) => {
@@ -95,7 +97,7 @@ const TextDraftModal = ({ open, onClose, onDraft }) => {
     >
       <div className="flex flex-col gap-3">
         <p className="text-sm text-gray-600">
-          Вставьте заметку о мероприятии. ИИ попробует определить дату, клиента,
+          Вставьте заметку о {terms.prepositional}. ИИ попробует определить дату, клиента,
           адрес, стоимость и другие данные, а затем откроет заполненную форму для
           проверки.
         </p>
@@ -112,7 +114,7 @@ const TextDraftModal = ({ open, onClose, onDraft }) => {
           autoFocus
           placeholder="Например: 15 сентября свадьба, клиент Анна, начало в 18:00, Красноярск, ресторан Маяк. Гонорар 50 000 ₽, задаток 10 000 ₽."
           className="min-h-56 w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-general focus:ring-2 focus:ring-general/20 disabled:cursor-wait disabled:bg-gray-50"
-          aria-label="Описание мероприятия свободным текстом"
+          aria-label={`Описание ${terms.genitive} свободным текстом`}
           aria-invalid={Boolean(errorMessage)}
         />
         <div className="flex items-start justify-between gap-3 text-xs">

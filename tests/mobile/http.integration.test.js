@@ -137,6 +137,44 @@ test(
         )
         return
       }
+      if (req.url === '/api/private-files/upload') {
+        cloudRequests.push(captured)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            success: true,
+            data: {
+              name: 'document.docx',
+              size: captured.bytes.length,
+              contentType:
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              checksum: 'sha256:integration',
+              createdAt: '2026-09-14T00:00:00.000Z',
+            },
+          })
+        )
+        return
+      }
+      if (req.url === '/api/private-files/access-url') {
+        cloudRequests.push(captured)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            success: true,
+            data: {
+              url: 'https://cloud.escalion.ru/api/private-files/content?signed=1',
+              expiresAt: '2026-09-14T00:05:00.000Z',
+            },
+          })
+        )
+        return
+      }
+      if (req.url === '/api/private-files' && req.method === 'DELETE') {
+        cloudRequests.push(captured)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ success: true, data: { deleted: true } }))
+        return
+      }
       providerRequests.push(captured)
       res.writeHead(200, { 'content-type': 'application/json' })
       if (req.url === '/avito/token/') {
@@ -3120,13 +3158,15 @@ test(
             JSON.stringify(eventAttachment.body)
           )
           assert.equal(
-            eventAttachment.body.data.file.mobileUploadId,
+            eventAttachment.body.data.document.id,
             'mobile-event-file-1'
           )
           assert.equal(cloudRequests.length, 2)
           assert.match(
             cloudRequests[1].body,
-            new RegExp(`artistcrm/${tenantB}/mobile/events/${taskEventB}`)
+            new RegExp(
+              `artistcrm/${tenantB}/events/${taskEventB}/documents/mobile-event-file-1`
+            )
           )
 
           const replayAttachment = await readJson(
@@ -3149,7 +3189,11 @@ test(
           const storedEventB = await db
             .collection('events')
             .findOne({ _id: taskEventB })
-          assert.equal(storedEventB.documentFiles.length, 1)
+          assert.equal(storedEventB.documents.length, 1)
+          assert.equal(
+            storedEventB.documents[0].file.storageKey,
+            `artistcrm/${tenantB}/events/${taskEventB}/documents/mobile-event-file-1`
+          )
 
           const foreignAttachment = await readJson(
             await apiRequest(

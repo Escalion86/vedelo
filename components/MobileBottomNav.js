@@ -22,6 +22,7 @@ import windowDimensionsTailwindSelector from '@state/selectors/windowDimensionsT
 import { additionalEventsOverdueCountAtom } from '@state/selectors/additionalEventsOverdueCountAtom'
 import { useSupportSummaryQuery } from '@helpers/useSupportTickets'
 import useEventCreateMenu from '@helpers/useEventCreateMenu'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const EVENTS_PAGES = ['events', 'eventsUpcoming', 'eventsPast']
 const ATTENTION_PAGE = 'attention'
@@ -42,7 +43,7 @@ const EVENTS_SUBMENU = [
   { key: 'eventsPast', label: 'Прошедшие', icon: faClock },
 ]
 
-const buildMenuSheetGroups = (role) =>
+const buildMenuSheetGroups = (role, workItemTerms) =>
   pagesGroups
     .reduce((acc, group) => {
       const items = pages.filter(
@@ -52,7 +53,13 @@ const buildMenuSheetGroups = (role) =>
           isPageAllowedForRole(page.accessRoles, role)
       )
       if (items.length > 0)
-        acc.push({ id: group.id, name: group.name, icon: group.icon, items })
+        acc.push({
+          id: group.id,
+          name:
+            group.id === 2 ? workItemTerms.pluralCapitalized : group.name,
+          icon: group.icon,
+          items,
+        })
       return acc
     }, [])
     .sort((a, b) => {
@@ -147,6 +154,7 @@ const MobileBottomNav = () => {
   const overdueCount = useAtomValue(additionalEventsOverdueCountAtom)
   const supportSummary = useSupportSummaryQuery()
   const { items: createItems, draftModals } = useEventCreateMenu()
+  const workItemTerms = useWorkItemTerminology()
   const [openPanel, setOpenPanel] = useState(null)
   const [expandedGroups, setExpandedGroups] = useState({})
   const [lastPathname, setLastPathname] = useState(pathname)
@@ -156,7 +164,10 @@ const MobileBottomNav = () => {
   const role = loggedUser?.role ?? 'user'
   const feedbackUnread = Number(supportSummary.data?.data?.unreadCount || 0)
 
-  const menuSheetGroups = useMemo(() => buildMenuSheetGroups(role), [role])
+  const menuSheetGroups = useMemo(
+    () => buildMenuSheetGroups(role, workItemTerms),
+    [role, workItemTerms]
+  )
 
   // Закрываем открытые подменю при смене страницы (в т.ч. по кнопке «назад»)
   if (pathname !== lastPathname) {
@@ -339,17 +350,17 @@ const MobileBottomNav = () => {
         />
         <BarItem
           icon={faCalendarCheck}
-          label="Мероприятия"
+          label={workItemTerms.pluralCapitalized}
           active={eventsActive}
           onClick={() => togglePanel('events')}
-          ariaLabel="Мероприятия: предстоящие и прошедшие"
+          ariaLabel={`${workItemTerms.pluralCapitalized}: предстоящие и прошедшие`}
         />
         <div className="relative flex flex-1 items-start justify-center">
           <motion.button
             type="button"
-            aria-label="Добавить заявку или мероприятие"
+            aria-label={`Добавить заявку или ${workItemTerms.accusative}`}
             aria-expanded={createOpen}
-            title="Добавить заявку или мероприятие"
+            title={`Добавить заявку или ${workItemTerms.accusative}`}
             animate={{ rotate: createOpen ? 45 : 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="mobile-bottomnav-fab"

@@ -1,4 +1,6 @@
 import { sendExpoPushToTenant } from '@server/expoPushNotifications'
+import SiteSettings from '@models/SiteSettings'
+import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
 
 const toDate = (value) => {
   if (!value) return null
@@ -22,10 +24,11 @@ const formatTimeLabel = (date) => {
   })
 }
 
-const buildTaskPushPayload = ({ event, task, triggerType }) => {
+const buildTaskPushPayload = ({ event, task, triggerType, siteSettings }) => {
   const eventId = String(event?._id || '')
   const taskId = String(task?._id || '')
-  const eventTitle = String(event?.eventType || 'Мероприятие').trim() || 'Мероприятие'
+  const terminology = resolveWorkItemTerminology(siteSettings)
+  const eventTitle = String(event?.eventType || terminology.labelCapitalized).trim() || terminology.labelCapitalized
   const taskTitle = String(task?.title || 'Задача').trim() || 'Задача'
   const taskDate = toDate(task?.date)
 
@@ -103,19 +106,22 @@ const buildTaskPushPayload = ({ event, task, triggerType }) => {
 
 const notifyTaskCreated = async ({ tenantId, event, task }) => {
   if (!tenantId || !event?._id || !task) return null
-  const payload = buildTaskPushPayload({ event, task, triggerType: 'task_created' })
+  const siteSettings = await SiteSettings.findOne({ tenantId }).select('custom').lean()
+  const payload = buildTaskPushPayload({ event, task, triggerType: 'task_created', siteSettings })
   return sendExpoPushToTenant({ tenantId, payload })
 }
 
 const notifyTaskCompleted = async ({ tenantId, event, task }) => {
   if (!tenantId || !event?._id || !task) return null
-  const payload = buildTaskPushPayload({ event, task, triggerType: 'task_completed' })
+  const siteSettings = await SiteSettings.findOne({ tenantId }).select('custom').lean()
+  const payload = buildTaskPushPayload({ event, task, triggerType: 'task_completed', siteSettings })
   return sendExpoPushToTenant({ tenantId, payload })
 }
 
 const notifyTaskUpdated = async ({ tenantId, event, task }) => {
   if (!tenantId || !event?._id || !task) return null
-  const payload = buildTaskPushPayload({ event, task, triggerType: 'task_updated' })
+  const siteSettings = await SiteSettings.findOne({ tenantId }).select('custom').lean()
+  const payload = buildTaskPushPayload({ event, task, triggerType: 'task_updated', siteSettings })
   return sendExpoPushToTenant({ tenantId, payload })
 }
 

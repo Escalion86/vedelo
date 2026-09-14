@@ -12,15 +12,13 @@ import {
   isTochkaConfigured,
   normalizeAmount,
 } from '@server/tochka'
+import { resolveTrustedRequestOrigin } from '@server/trustedOrigin'
 
 const MIN_TOPUP_AMOUNT = 100
 const MAX_TOPUP_AMOUNT = 300000
 
 const resolveReturnUrl = (req) => {
-  const url = new URL(req.url)
-  const origin = process.env.DOMAIN?.startsWith('http')
-    ? process.env.DOMAIN
-    : `https://${process.env.DOMAIN || url.host}`
+  const origin = resolveTrustedRequestOrigin(req)
   return `${origin.replace(/\/$/, '')}/cabinet/tariff-select?payment=tochka`
 }
 
@@ -53,7 +51,7 @@ export const POST = async (req) => {
   const purpose = body?.purpose === 'tariff' ? 'tariff' : 'balance'
   let tariff = null
   let amount = Number(body?.amount ?? 0)
-  let description = 'Пополнение баланса ArtistCRM'
+  let description = 'Пополнение баланса Ведело'
 
   if (purpose === 'tariff') {
     tariff = await Tariffs.findById(body?.tariffId).lean()
