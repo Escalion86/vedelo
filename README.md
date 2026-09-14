@@ -1,120 +1,83 @@
-# ArtistCRM
+# Ведело
 
-CRM-система для соло-артистов и агентств мероприятий.
+«Ведело» — CRM для малого бизнеса и частных специалистов. Продукт помогает вести заявки и заказы, клиентов, следующие контакты, оплаты, документы, календарь и входящие обращения из интеграций.
 
-## Продукты
+До ребрендинга продукт назывался ArtistCRM. Основной домен — `vedelo.ru`; `artistcrm.ru` используется как legacy-origin во время безопасного переноса установленной PWA.
 
-- **ArtistCRM**: основной продукт для управления заявками, мероприятиями, клиентами и финансами соло-артистов.
-- **PartyCRM**: отдельная подсистема для агентств и мероприятий (заказы), код расположен в `app/company`.
+## Состояние проекта
+
+- Web: `1.20.0`.
+- Android: `1.1.0`.
+- Основной Git-репозиторий: `https://github.com/Escalion86/vedelo.git`.
+- Основная ветка: `main`.
+- Внутренние контракты `/api/events`, `eventId`, package ID и исторические storage-префиксы сохранены для совместимости.
+
+Актуальные приоритеты и статус релиза находятся в `docs/ROADMAP.md`. Краткая передача контекста для разработчика или ИИ — в `docs/AI_HANDOFF.md`.
 
 ## Технологии
 
-- **Frontend**: Next.js (App Router), React, Jotai (состояние), MUI (Material UI) + Tailwind CSS (смешанный подход).
-- **Backend**: Next.js API Routes, MongoDB + Mongoose.
-- **PWA**: Настроен оффлайн-режим через `@ducanh2912/next-pwa`.
-- **Мобильное приложение**: планируется клиент на Expo/React Native (директория `mobile`).
+- Next.js App Router + React.
+- MongoDB + Mongoose.
+- NextAuth.
+- TanStack Query + Jotai.
+- MUI + Tailwind CSS.
+- Собственный PWA service worker.
+- Expo + React Native для Android-клиента.
 
 ## Быстрый старт
 
-```bash
+```powershell
 npm install
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
 npm run dev
 ```
 
-Открой [http://localhost:3000](http://localhost:3000).
+В `.env.local` минимум нужны `DOMAIN`, `MONGODB_URI`, `MONGODB_DBNAME` и `NEXTAUTH_SECRET`. Не коммитьте реальные секреты.
+
+Откройте `http://localhost:3000`.
+
+## Основные команды
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run test:mobile-server
+```
+
+Mobile:
+
+```bash
+cd mobile
+npm install
+npm run start
+npm run typecheck
+npm test
+```
+
+## Структура
+
+- `app/` — страницы и API Next.js.
+- `components/` — переиспользуемые компоненты.
+- `layouts/` — крупные экраны, карточки и модалки.
+- `helpers/` — клиентская и доменная логика.
+- `server/` — серверные сервисы и интеграции.
+- `models/`, `schemas/` — MongoDB/Mongoose.
+- `state/` — Jotai и compatibility bridge.
+- `mobile/` — Expo/React Native клиент.
+- `docs/` — roadmap, runbook и контракты.
 
 ## Документация
 
-- `AGENTS.md` — руководство для ИИ-агентов и разработчиков (архитектура, правила, roadmap).
-- `docs/ROADMAP.md` — план развития продукта.
+- `AGENTS.md` — обязательные правила для ИИ и разработчиков.
+- `docs/AI_HANDOFF.md` — архитектура и актуальная передача контекста.
+- `docs/ROADMAP.md` — единый рабочий план.
+- `docs/BRAND_AND_PWA_MIGRATION.md` — перенос ArtistCRM → «Ведело».
+- `docs/ENV_VARIABLES.md` — окружение.
+- `docs/MOBILE_APP_ARCHITECTURE.md` — Android/mobile.
+- `docs/PUBLIC_LEADS_API.md` — входящие лиды и Tilda.
+- `docs/DOCX_DOCUMENTS_GUIDE.md` — DOCX-шаблоны.
 
-## Переменные окружения
+## Production
 
-Используйте `.env.example` для локальной разработки и `.env.deploy.example` как production-шаблон.
-
-Минимум для запуска:
-- `DOMAIN`
-- `MONGODB_URI`, `MONGODB_DBNAME`
-- `NEXTAUTH_SECRET`
-
-Подробная раскладка по обязательным и опциональным переменным:
-- `docs/ENV_VARIABLES.md`
-
-## Биллинг (YooKassa и Tochka)
-
-### YooKassa
-
-Required production environment variables:
-
-```bash
-YOOKASSA_SHOP_ID=
-YOOKASSA_SECRET_KEY=
-YOOKASSA_RETURN_URL=https://artistcrm.ru/cabinet/tariff-select?payment=yookassa
-YOOKASSA_WEBHOOK_SECRET=
-```
-
-Webhook URL in YooKassa:
-
-```text
-https://artistcrm.ru/api/billing/yookassa/webhook?token=YOOKASSA_WEBHOOK_SECRET
-```
-
-For balance top-ups paid through SBP, the app credits an additional 2% bonus
-after YooKassa or Tochka returns a successful SBP payment only when enabled:
-
-```bash
-BILLING_SBP_BONUS_ENABLED=true
-```
-
-Leave unset or set to `false` to hide the SBP bonus notice and disable bonus
-accrual.
-
-Optional receipt variables, if YooKassa fiscalization is enabled:
-
-```bash
-YOOKASSA_SEND_RECEIPT=true
-YOOKASSA_VAT_CODE=1
-NEXT_PUBLIC_LEGAL_NAME=
-NEXT_PUBLIC_LEGAL_INN=
-NEXT_PUBLIC_SUPPORT_EMAIL=support@artistcrm.ru
-```
-
-### Tochka acquiring
-
-Required production environment variables:
-
-```bash
-TOCHKA_API_TOKEN=
-TOCHKA_CLIENT_ID=
-TOCHKA_CUSTOMER_CODE=302258794
-TOCHKA_MERCHANT_ID=200000000037708
-TOCHKA_RETURN_URL=https://artistcrm.ru/cabinet/tariff-select?payment=tochka
-TOCHKA_SEND_RECEIPT=true
-TOCHKA_TAX_SYSTEM_CODE=usn_income
-TOCHKA_VAT_TYPE=none
-TOCHKA_RECEIPT_ITEM_NAME=Оплата ArtistCRM
-TOCHKA_RECEIPT_EMAIL=support@artistcrm.ru
-```
-
-Tochka receipt API accepts `TOCHKA_TAX_SYSTEM_CODE` values:
-`osn`, `usn_income`, `usn_income_outcome`, `esn`, `patent`.
-`npd` is not accepted by `payments_with_receipt`; use
-`TOCHKA_SEND_RECEIPT=false` for Tochka payment-link tests without fiscal receipt.
-
-Webhook URL in Tochka:
-
-```text
-https://artistcrm.ru/api/billing/tochka/webhook
-```
-
-Use the local diagnostic command to check available companies and retailers:
-
-```bash
-npm run tochka:discover
-```
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [MUI Documentation](https://mui.com/material-ui/getting-started/)
-- [Jotai Documentation](https://jotai.org/)
+Production-настройки берутся из `.env.deploy.example`. До переключения трафика обязательно пройти `docs/BRAND_AND_PWA_MIGRATION.md` и `docs/PRODUCTION_ENV_CHECKLIST.md`, включая TLS, callbacks OAuth/платежей, webhooks, push и проверку установленной PWA на реальных устройствах.

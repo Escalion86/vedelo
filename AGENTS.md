@@ -1,163 +1,133 @@
-# AGENTS.md — руководство для Codex и других агентов
+# AGENTS.md — правила работы с проектом «Ведело»
 
-## Описание проекта
-- ArtistCRM: CRM для соло-артистов (основной продукт).
-- PartyCRM: отдельная система для агентств/мероприятий (заказы), код существует параллельно в `app/company`.
-- Ключевая ценность: не терять заявки, не забывать перезвоны, контролировать задатки/оплаты и сроки мероприятий.
+## Язык и назначение
 
-## Язык
-- Используй в ответах русский язык.
+- Всегда отвечай пользователю на русском языке.
+- «Ведело» — CRM для малого бизнеса и частных специалистов: заявки/заказы, клиенты, следующие контакты, оплаты, документы и интеграции.
+- Продукт ранее назывался ArtistCRM. Старое имя сохраняется только там, где оно нужно для обратной совместимости и переходного периода.
+- Перед любой содержательной работой полностью прочитай `docs/AI_HANDOFF.md`, затем релевантные разделы `docs/ROADMAP.md`.
 
-## Главный рабочий план
-- Файл: `docs/ROADMAP.md`.
-- Это единый источник правды по roadmap, backlog и статусам выполнения.
-- Перед началом крупных задач:
-  - проверь релевантные пункты в этом файле;
-  - если задача закрывает пункт плана, обнови чекбокс и кратко добавь запись в раздел `Выполнено` или `Журнал изменений плана`.
-- Статусы в плане:
-  - `[ ]` не начато
-  - `[-]` в работе
-  - `[x]` выполнено
-  - `[*]` отложено
+## Источники правды
 
-## Быстрый вход в проект (5-10 минут)
-- 1) Прочитай `docs/ROADMAP.md` (приоритеты, активные эпики, что уже сделано).
-- 2) Прочитай `app/cabinet/[page]/page.js` и `app/cabinet/[page]/cabinet.js` (основной entry в кабинет).
-- 3) Прочитай `components/StateLoader.js` (инициализация состояния, модалок и `itemsFunc`).
-- 4) Прочитай `state/itemsFuncGenerator.js` (CRUD-действия фронта и куда они отправляют запросы).
-- 5) Для задач по мероприятиям сразу смотри:
-  - `layouts/modals/modalsFunc/eventFunc.js` (редактор события),
-  - `layouts/modals/modalsFunc/eventViewFunc.js` (просмотр),
-  - `app/api/events/route.js` и `app/api/events/[id]/route.js` (серверная логика),
-  - `server/CRUD.js` (синхронизация Google Calendar).
-- 6) Для задач по UI-роутингу кабинета смотри `layouts/content/contentsMap.js` и `helpers/constants.js` (`pages`, `pagesGroups`).
+1. `docs/ROADMAP.md` — приоритеты, backlog и статусы.
+2. `docs/AI_HANDOFF.md` — актуальная архитектура, ограничения и карта кода.
+3. Специализированные документы в `docs/` — контракты интеграций и runbook.
+4. Код и тесты — окончательная истина, если старый документ расходится с реализацией.
 
-## Структура проекта
-- `/app`: исходные страницы
-- `/app/api`: API
-- `/components`: компоненты
-- `/schemas`: схемы БД
-- `/models`: модели БД
-- `/layouts`: крупные компоненты, модальные окна, карточки, листы, контент
-- `/svg`: svg-файлы
-- `/state`: atom/selectors Jotai и хелперы загрузок
-- `/server`: серверные компоненты/логика
-- `/helpers`: вспомогательные функции
-- `/docs`: документация и рабочие планы
-- `/mobile`: отдельный Expo/React Native клиент (параллельный трек, разработка запланирована на будущее, сохраняй обратную совместимость API)
+Статусы roadmap:
 
-## Текущая архитектура (кратко)
-- Web: Next.js App Router + client-side UI на React.
-- UI Stack: Смешанный подход. MUI (Material UI) используется для сложных виджетов, компонентов данных и форм; Tailwind CSS — для базовой верстки и утилитарных стилей.
-- State: Jotai (`state/atoms`, `state/selectors`, `state/store.js`).
-- PWA: Настроен через `@ducanh2912/next-pwa`. Оффлайн-режим и кэширование активны, соблюдай осторожность при изменении статических ассетов и API-роутов.
-- Данные в кабинет загружаются серверно через `server/fetchProps.js`, затем кладутся в атомы через `components/StateLoader.js`.
-- Модалки: централизованы через `modalsAtom` + `layouts/modals/ModalsPortal.js` + `layouts/modals/modalsFuncGenerator.js`.
-- API: `app/api/**/route.js` (tenant-aware через `server/getTenantContext.js`).
-- БД: MongoDB + Mongoose (`models/*`, `schemas/*`).
+- `[ ]` — не начато;
+- `[-]` — в работе;
+- `[x]` — выполнено;
+- `[*]` — отложено.
 
-## Текущие продуктовые приоритеты
-- P0:
-  - контроль следующего контакта по заявке (`nextContactAt` и просрочки);
-  - контроль задатка и финансовых статусов;
-  - напоминания артисту о важных действиях.
-- P1:
-  - документы (стандартный договор с автоподстановкой);
-  - входящие лиды через API/Tilda.
-- Mobile-first обязателен: основные действия должны быть удобны с телефона.
+Если задача закрывает пункт roadmap, обнови его и добавь короткую запись в `Выполнено` или `Журнал изменений плана`. При закрытии пункта обязательно повысить версию в `package.json`: patch по умолчанию, minor для совместимого функционального блока, major только после явного подтверждения пользователя.
 
-## Стиль кода
-- Следуй текущему стилю и принятым правилам именования.
-- Делай минимально достаточные изменения без лишних рефакторингов.
-- Не ломай существующие рабочие сценарии без явной причины.
+## Быстрый вход
 
-## Работа с компонентами
-- Используй React-функциональные компоненты и Next.js.
-- Применяй проп-тайпинг там, где это уже принято в контексте файла/модуля.
-- Для кнопок и интерактивных элементов обеспечивай `cursor: pointer`.
-- Для полноразмерных информационных плашек, предупреждений, ошибок и сообщений об успехе используй `components/Notice.js` с подходящим `tone`; не собирай такие плашки только из светлых Tailwind-классов `bg-*-50/text-*-700`, потому что они не гарантируют контраст в `theme-dark`.
-- Если для цветной плашки нужен уникальный вид и `Notice` не подходит, одновременно добавляй и проверяй явный стиль `body.theme-dark` в `app/globals.css`.
+Прочитай в таком порядке:
 
-## Куда вносить правки по типовым задачам
-- Мероприятия (форма/валидация/доп. поля): `layouts/modals/modalsFunc/eventFunc.js`.
-- Просмотр мероприятия и быстрые действия: `layouts/modals/modalsFunc/eventViewFunc.js`, `layouts/cards/EventCard.js`, `layouts/content/EventsContent.js`.
-- Логика дополнительных событий и виджетов сроков: `helpers/additionalEvents.js`.
-- Синхронизация события и доп. событий с Google Calendar: `server/CRUD.js` (`updateEventInCalendar`).
-- Настройки/статус Google Calendar: `app/api/google-calendar/*`, `server/googleUserCalendarClient.js`.
-- Импорт из Google Calendar: `app/api/events/google-sync/route.js`, парсинг в `helpers/googleCalendarParsers.js`.
-- Публичные лиды/API/Tilda: `app/api/public/lead/route.js`, `app/api/public/lead/tilda/route.js`, документация `docs/PUBLIC_LEADS_API.md`.
-- Документы DOCX: `helpers/generateContractTemplate.js`, `helpers/generateActTemplate.js`, `helpers/exportDocxFromTemplate.js`, `docs/DOCX_DOCUMENTS_GUIDE.md`.
-- Поле адреса/локации с DaData-подсказками: `components/AddressSuggestField.js`, `components/AddressPoolPicker.js`, `server/dadataSuggest.mjs`, `app/api/address/suggest/route.js` (без `DADATA_API_KEY` — graceful fallback на пул адресов и ручной ввод).
-- Страница «Важное» (`/cabinet/attention`) и мобильная нижняя навигация: `layouts/content/AttentionContent.js`, `layouts/modals/modalsFunc/upcomingEventsOverviewFunc.js` (общий компонент обзора), `components/MobileBottomNav.js`, `helpers/useEventCreateMenu.js`.
-- Базовые поля ввода (статичный лейбл `.input-label`, индикатор обязательности): `components/InputWrapper.js` — обёртка для `Input`, `ComboBox`, `DateInput`, `TimeInput`, `PhoneInput`, `Select`, `InputDuration` и др.
+1. `docs/AI_HANDOFF.md`.
+2. Актуальные части `docs/ROADMAP.md`.
+3. `app/cabinet/[page]/page.js` и `app/cabinet/[page]/cabinet.js`.
+4. `server/fetchProps.js` и `components/StateLoader.js`.
+5. `layouts/content/contentsMap.js`, `helpers/constants.js`.
+6. Для CRUD: `state/itemsFuncGenerator.js` и соответствующий `app/api/**/route.js`.
 
-## Важное по событиям и календарю
-- Каноничные статусы события: `draft`, `active`, `canceled`, `closed`.
-- Поле `additionalEvents[]` хранит задачи контактов/напоминания (title, description, date, done, googleCalendarEventId).
-- Флаг `calendarImportChecked` влияет на поведение синхронизации.
-- Ошибки синка хранятся в `calendarSyncError` (`''`, `calendar_sync_unavailable`, `calendar_sync_failed`).
-- При правках синка проверяй сразу две ветки:
-  - создание события: `app/api/events/route.js`,
-  - обновление/удаление: `app/api/events/[id]/route.js`.
+## Архитектура
 
-## Работа с API и данными
-- Для новых endpoint'ов придерживайся безопасного и единообразного JSON-формата ошибок.
-- Не логируй секреты, токены и чувствительные персональные данные.
-- Учитывай требования законодательства РФ по работе с персональными данными.
-- Любой защищенный API должен проверять tenant через `getTenantContext()`.
-- Все CRUD-операции должны учитывать `tenantId` в фильтрах БД.
+- Web: Next.js App Router, React, JavaScript.
+- UI: MUI для сложных контролов и Tailwind CSS для компоновки/утилит.
+- Server state: TanStack Query. Jotai остаётся для UI state и временного compatibility bridge.
+- Auth: NextAuth credentials/VK ID/служебные providers; защищённые серверные действия получают tenant через `server/getTenantContext.js`.
+- DB: MongoDB + Mongoose (`models/`, `schemas/`).
+- Mobile: активный Expo/React Native Android-клиент в `mobile/`.
+- PWA: собственный service worker из `server/serviceWorkerScript.js`, доступный через `/sw.js` и `/service-worker.js`. Не предполагай наличие `next-pwa`.
+- Модалки: `modalsAtom` → `layouts/modals/ModalsPortal.js` → `layouts/modals/modalsFuncGenerator.js`.
 
-## Запреты для ИИ
-- Запрещено создавать бинарные файлы (картинки, аудио и т.п.), если пользователь явно не запросил и это не согласовано.
+## Неизменяемые контракты ребрендинга
 
-## Практика обновления документации
-- При заметных изменениях UX/API обновляй соответствующие документы в `/docs`.
-- Если изменение относится к roadmap/backlog, синхронизируй `docs/ROADMAP.md` в этом же PR/коммите.
+- Не переименовывать внутренние `/api/events`, `eventId`, модели/коллекции Events и storage-префиксы `artistcrm` только ради UI-терминологии.
+- Не менять Android/iOS package ID `ru.escalion.artistcrm`.
+- Основной deep-link scheme — `vedelo://`; legacy `artistcrm://` продолжает приниматься.
+- Технический заголовок service worker `X-ArtistCRM-Service-Worker` сохранён намеренно.
+- База может продолжать называться `artistcrm`; исторические записи не переписывать без отдельного плана миграции.
+- В этом репозитории нет экранов и API PartyCRM (`app/company`, `app/party`, `app/api/party` отсутствуют). В `proxy.js`/`productContext` могут оставаться legacy-ветки совместимости. Не добавляй и не меняй PartyCRM без явной задачи.
 
-## Команды и проверка
-- Web dev: `npm run dev`
-- Mobile dev: `cd mobile && npm run start`
-- Точечная проверка измененных JS-файлов: `npx eslint <file1> <file2> ...`
-- Важно: в текущем состоянии `npm run lint` может работать нестабильно в локальной среде; при необходимости используй точечный `eslint` по измененным файлам.
+## Терминология «Мероприятия / Заказы»
 
-## Переменные окружения (минимум)
-- `MONGODB_URI`, `MONGODB_DBNAME`
-- `NEXTAUTH_SECRET` (или fallback через `LOGIN` + `PASSWORD`, но это нежелательно для production)
-- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`
-- `DOMAIN`
-- Дополнительно для телефонии/ботов: `TELEFONIP`, `PHONE_SMS_SEND_WEBHOOK`, `TELEGRAM_TOKEN`
-- Дополнительно для биллинга (YooKassa/Tochka): `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `TOCHKA_API_TOKEN`, `TOCHKA_MERCHANT_ID`
-- Дополнительно для подсказок адресов: `DADATA_API_KEY`
+- Настройка: `SiteSettings.custom.primaryEntityTerminology` со значениями `auto`, `events`, `orders`.
+- Resolver: `helpers/workItemTerminology.mjs`; React hook: `helpers/useWorkItemTerminology.js`; mobile resolver/hook находятся в `mobile/src/shared/domain` и `mobile/src/shared/hooks`.
+- В `auto`: специализация `events` → «мероприятия»; другие известные специализации → «заказы»; неизвестная/пустая → «мероприятия».
+- Используй формы из resolver, не собирай склонения вручную и не делай глобальный поиск-замену внутренних идентификаторов.
+- Публичный общий маркетинг говорит о заказах; артистические SEO-страницы могут говорить о мероприятиях.
 
-## Известные особенности кода
-- `server/CRUD.js` содержит рабочие экспортируемые функции календаря и legacy-обработчик; в App Router активно используются именно экспортируемые функции (`updateEventInCalendar`, `deleteEventFromCalendar`).
-- В проекте есть исторические слои/комментарии, поэтому делай минимальные точечные изменения без массовой «чистки».
-- Для удаления сущностей сначала часто вызываются `delete-check` endpoints (events/services/clients) из `modalsFuncGenerator`.
+## Ключевые области кода
 
-## Версионирование (обязательно)
-- Если в рамках задачи закрыт любой пункт roadmap (`[x]`) в `docs/ROADMAP.md`, обязательно обнови версию приложения в `package.json` в этом же наборе изменений.
-- По умолчанию используй patch-bump (например, `1.4.2 -> 1.4.3`), если пользователь явно не просил minor/major.
+- Список/карточка/форма работы: `layouts/content/EventsContent.js`, `layouts/cards/EventCard.js`, `layouts/modals/modalsFunc/eventFunc.js`, `eventViewFunc.js`.
+- API работы: `app/api/events/route.js`, `app/api/events/[id]/route.js`; всегда проверять create и update/delete ветки.
+- Клиенты: `app/api/clients/**`, `helpers/useClientsQuery.js`, клиентские модалки и карточки.
+- Статусы работы: `draft`, `active`, `canceled`, `closed`.
+- Следующие контакты/напоминания: `additionalEvents[]`; бизнес-логика в `helpers/additionalEvents.js` и push-сервисах.
+- Google Calendar: `server/CRUD.js`, `server/googleUserCalendarClient.js`, `app/api/google-calendar/**`, `app/api/events/google-*`.
+- Документы: `components/DocumentsEditor.js`, `helpers/entityDocuments.js`, `server/entityDocumentFiles.js`, `server/entityDocumentRouteHandlers.js`, `docs/DOCX_DOCUMENTS_GUIDE.md`.
+- Публичные лиды/Tilda: `app/api/public/lead/**`, `docs/PUBLIC_LEADS_API.md`.
+- PWA-переезд: `helpers/domainMigration.mjs`, `server/domainMigration.js`, `components/DomainMigrationBanner.js`, `app/migrate/**`, `proxy.js`, `docs/BRAND_AND_PWA_MIGRATION.md`.
+- Навигация кабинета: `layouts/content/contentsMap.js`, `helpers/constants.js`, `components/MobileBottomNav.js`.
 
-### SemVer правила
-- `patch` (`X.Y.Z -> X.Y.(Z+1)`):
-  - багфиксы, косметические UI/UX-правки, небольшие доработки без breaking changes.
-- `minor` (`X.Y.Z -> X.(Y+1).0`):
-  - новая функциональность с обратной совместимостью (новые экраны, виджеты, фильтры, интеграции без ломки текущих API/потоков).
-- `major` (`X.Y.Z -> (X+1).0.0`):
-  - любые несовместимые изменения (breaking changes): изменение контрактов API, обязательные миграции, удаление/ломка существующего поведения.
+## Tenant, безопасность и данные
 
-### Практика для roadmap
-- Закрыт один обычный roadmap-пункт без breaking changes: `patch`.
-- Закрыт крупный функциональный блок/эпик (несколько связанных задач с новой ценностью): `minor`.
-- Есть breaking changes: `major`.
-- Перед любым повышением `major` версии обязательно запросить подтверждение у пользователя и выполнить bump только после явного согласия.
+- Каждый защищённый API обязан проверять сессию/tenant через `getTenantContext()` или mobile-эквивалент.
+- Любой Mongo-фильтр пользовательских данных должен включать `tenantId`.
+- Не доверяй `tenantId`, владельцу, служебным полям и Mongo-операторам из клиентского payload.
+- Не логируй пароли, секреты, access/refresh токены, одноразовые migration-коды, персональные данные или полные webhook payload.
+- Не читай и не публикуй содержимое `.env.local`; используй только `.env.example` и `.env.deploy.example` как справочник.
+- Учитывай требования РФ по персональным данным.
+- Для файлов повторно проверяй tenant, тариф и принадлежность события/клиента перед upload, signed URL и delete.
 
-## Мини-чеклист перед завершением задачи
-- Изменения не ломают mobile-first сценарии (особенно модалки и карточки на узком экране).
-- Для API-правок учтен `tenantId` и авторизация.
-- Для изменений событий проверены:
-  - форма редактирования,
-  - карточка/просмотр,
-  - API update/create,
-  - синхронизация с Google Calendar (если затронута).
-- Если затронута документация/интеграции/roadmap — обновлены соответствующие файлы в `/docs`.
+## UI и mobile-first
+
+- Основные сценарии обязаны работать на узком экране.
+- React-компоненты функциональные; соблюдай существующий стиль файла.
+- Интерактивные элементы должны иметь понятные состояния и `cursor: pointer` в web.
+- Полноразмерные предупреждения/успех/ошибки делай через `components/Notice.js`; нестандартные цветные блоки должны иметь явную dark-theme проверку.
+- Базовые поля ввода строятся через `components/InputWrapper.js` и существующие контролы.
+- Не создавай бинарные ассеты без явного запроса пользователя.
+
+## Работа с git и чужими изменениями
+
+- Репозиторий: `https://github.com/Escalion86/vedelo.git`, основная ветка `main`.
+- Перед правками выполняй `git status --short`. Рабочая копия может быть грязной: сохраняй пользовательские и параллельные изменения.
+- Не применяй `git reset --hard`, `git checkout --`, массовое удаление или переписывание истории без явного запроса.
+- Делай минимально достаточные изменения; не проводи массовую «чистку» исторического кода вместе с продуктовой задачей.
+
+## Проверка
+
+Основные команды:
+
+```bash
+npm run dev
+npm run build
+npm run lint
+cd mobile && npm run typecheck
+cd mobile && npm test
+```
+
+Для точечных изменений предпочитай:
+
+```bash
+npx eslint path/to/file.js
+node --test path/to/test.mjs
+```
+
+`npm run lint` может показывать исторические предупреждения; новые ошибки в изменённых файлах недопустимы. Для API/данных добавляй tenant-negative test. Для UI проверяй desktop и mobile viewport, console и реальное взаимодействие. Для PWA отдельно проверяй оба origin, service worker, manifest и push.
+
+## Мини-чеклист завершения
+
+- Требование реализовано полностью, а не только описано.
+- Tenant isolation и авторизация проверены.
+- Внутренние `events`-контракты и legacy-совместимость не сломаны.
+- Mobile-first и dark theme проверены, если затронут UI.
+- Тесты/ESLint/build выполнены пропорционально риску.
+- Документация и roadmap синхронизированы.
+- PartyCRM не затронут.
