@@ -1,4 +1,4 @@
-appId: ru.escalion.artistcrm
+appId: ru.escalion.vedelo
 name: AI-черновик мероприятия из текста
 ---
 - launchApp:

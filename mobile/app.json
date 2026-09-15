@@ -1,8 +1,11 @@
 {
   "expo": {
     "name": "Ведело",
-    "slug": "artistcrm",
-    "scheme": ["vedelo", "artistcrm"],
+    "slug": "vedelo",
+    "scheme": [
+      "vedelo",
+      "artistcrm"
+    ],
     "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -57,7 +60,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ru.escalion.artistcrm",
+      "bundleIdentifier": "ru.escalion.vedelo",
       "buildNumber": "1",
       "infoPlist": {
         "UIBackgroundModes": [
@@ -70,7 +73,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#f7efe1"
       },
-      "package": "ru.escalion.artistcrm",
+      "package": "ru.escalion.vedelo",
       "versionCode": 17,
       "allowBackup": false,
       "permissions": [
@@ -94,7 +97,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7772a8bd-ffb8-4ee9-b4d6-53019cc3994f"
+        "projectId": "e7d84863-fe06-4058-a9c7-c381e5d3b98a"
       }
     }
   }

@@ -72,7 +72,7 @@ npm run release:validate
 
 ## Нативный проект и сборка
 
-Каталоги `android/` и `ios/` являются генерируемыми и не коммитятся. Конфигурация хранится в `app.json`; это исключает расхождение native-проекта и EAS Build. До переименования slug в панели Expo мобильный клиент остаётся привязан к EAS-проекту `@escalion/artistcrm` с постоянным project ID; после переименования slug должен стать `@escalion/vedelo` без создания нового проекта.
+Каталоги `android/` и `ios/` являются генерируемыми и не коммитятся. Конфигурация хранится в `app.json`; это исключает расхождение native-проекта и EAS Build. Мобильный клиент привязан к EAS-проекту `@escalion/vedelo` (`e7d84863-fe06-4058-a9c7-c381e5d3b98a`) с пакетом `ru.escalion.vedelo`; проект `@escalion/artistcrm` (`7772a8bd-…`) обслуживает ранее опубликованное приложение с пакетом `ru.escalion.artistcrm`.
 
 Корневой `.easignore` исключает локальные native/build-каталоги и зависимости из архива монорепозитория; `mobile/.easignore` сохраняет те же правила для автономного checkout приложения. Перед отправкой новой сборки размер архива можно проверить через `eas build:inspect --platform android --stage archive`.
 
@@ -82,7 +82,7 @@ npx eas-cli@latest build --platform android --profile production
 npx eas-cli@latest build --platform android --profile production-apk
 ```
 
-Профиль `production` собирает AAB для Google Play, а `production-apk` — подписанный APK для прямой установки. Оба профиля намеренно сохраняют `ru.escalion.artistcrm`: это идентификатор уже опубликованного приложения, необходимый для обновления существующих установок. Пользовательское имя приложения — «Ведело», основной deep-link scheme — `vedelo://`, а `artistcrm://` принимается для совместимости. Публичные production-переменные задаются в `eas.json`/EAS environment, секреты провайдеров остаются только на сервере.
+Профиль `production` собирает AAB для Google Play, а `production-apk` — подписанный APK для прямой установки. Оба профиля собирают приложение с пакетом `ru.escalion.vedelo` — это новое приложение с отдельной карточкой в Google Play. Пользовательское имя приложения — «Ведело», основной deep-link scheme — `vedelo://`, а `artistcrm://` принимается для совместимости. Публичные production-переменные задаются в `eas.json`/EAS environment, секреты провайдеров остаются только на сервере.
 
 ## Структура
 

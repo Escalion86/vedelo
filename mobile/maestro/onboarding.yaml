@@ -1,4 +1,4 @@
-appId: ru.escalion.artistcrm
+appId: ru.escalion.vedelo
 name: Новый пользователь завершает onboarding
 env:
   TEST_ONBOARDING_PHONE: "+79990000001"

@@ -48,7 +48,7 @@
 ## Неизменяемые контракты ребрендинга
 
 - Не переименовывать внутренние `/api/events`, `eventId`, модели/коллекции Events и storage-префиксы `artistcrm` только ради UI-терминологии.
-- Не менять Android/iOS package ID `ru.escalion.artistcrm`.
+- Не менять Android/iOS package ID без решения владельца. Актуальный production package — `ru.escalion.vedelo` (EAS-проект `@escalion/vedelo`, `e7d84863-fe06-4058-a9c7-c381e5d3b98a`); пакет `ru.escalion.artistcrm` остаётся только у ранее опубликованной карточки Google Play, новые сборки под ним не выпускаются.
 - Основной deep-link scheme — `vedelo://`; legacy `artistcrm://` продолжает приниматься.
 - Технический заголовок service worker `X-ArtistCRM-Service-Worker` сохранён намеренно.
 - База может продолжать называться `artistcrm`; исторические записи не переписывать без отдельного плана миграции.

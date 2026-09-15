@@ -1,4 +1,4 @@
-appId: ru.escalion.artistcrm
+appId: ru.escalion.vedelo
 name: Пользователь повторяет failed-операцию из очереди
 env:
   EXPECTED_QUEUE_ITEM: "Maestro очередь"

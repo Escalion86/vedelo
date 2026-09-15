@@ -1,4 +1,4 @@
-appId: ru.escalion.artistcrm
+appId: ru.escalion.vedelo
 name: Offline-заявка переживает перезапуск приложения
 ---
 - setAirplaneMode: enabled

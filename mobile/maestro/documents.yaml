@@ -1,4 +1,4 @@
-appId: ru.escalion.artistcrm
+appId: ru.escalion.vedelo
 name: Генерация DOCX из карточки мероприятия
 env:
   TEST_DOCUMENT_EVENT_ID: "replace-in-ci"

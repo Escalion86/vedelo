@@ -72,7 +72,7 @@ PWA-переезд:
 
 - `/api/events` и `/api/events/[id]`;
 - `eventId`, модель/коллекцию Events;
-- Android/iOS package ID `ru.escalion.artistcrm`;
+- Android/iOS package ID `ru.escalion.vedelo` (до 15.09.2026 — `ru.escalion.artistcrm`, пакет опубликованной карточки Play);
 - legacy deep-link `artistcrm://`;
 - MongoDB-структуру и исторические записи;
 - storage-префиксы `artistcrm/...`;
@@ -241,10 +241,10 @@ Redirect matrix:
 - Expo/React Native в `mobile/`.
 - Архитектура: `docs/MOBILE_APP_ARCHITECTURE.md`.
 - API: `/api/mobile/v1/**`.
-- Package ID остаётся `ru.escalion.artistcrm`.
+- Package ID нового приложения — `ru.escalion.vedelo`; `ru.escalion.artistcrm` сохранён только у ранее опубликованной карточки Play.
 - Dev package ID: `ru.escalion.vedelo.dev`.
 - Schemes: `vedelo`, `artistcrm`; dev schemes: `vedelo-dev`, `artistcrm-dev`.
-- EAS project ID: `7772a8bd-ffb8-4ee9-b4d6-53019cc3994f`. Remote slug пока `@escalion/artistcrm`; его нужно переименовать в панели Expo в `@escalion/vedelo`, сохранив тот же project ID, и только после этого синхронно изменить `expo.slug` и release validator.
+- EAS project ID нового приложения: `e7d84863-fe06-4058-a9c7-c381e5d3b98a` (`@escalion/vedelo`, slug `vedelo`). Проект `@escalion/artistcrm` (`7772a8bd-ffb8-4ee9-b4d6-53019cc3994f`) остаётся у опубликованного приложения с пакетом `ru.escalion.artistcrm` — там же лежит его upload-keystore.
 - Offline: локальное хранилище, очередь операций, tombstones, pull/push sync, retry/conflict presentation.
 - Перед изменением API сохраняй обратную совместимость с установленными версиями Android.
 

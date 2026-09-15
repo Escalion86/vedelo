@@ -31,7 +31,7 @@
 
 Android push требует Firebase-конфигурацию внутри APK/AAB:
 
-1. Откройте Firebase Console и зарегистрируйте Android-приложение с package `ru.escalion.artistcrm`.
+1. Откройте Firebase Console и зарегистрируйте Android-приложение с package `ru.escalion.vedelo`.
 2. Скачайте `google-services.json`.
 3. В EAS environments `production` и `preview` создайте переменную `GOOGLE_SERVICES_JSON` типа **File** и загрузите этот файл.
 4. Для локальной development-сборки положите файл в `mobile/google-services.json` (он исключён из Git).
@@ -75,7 +75,7 @@ Or manually dispatch from GitHub Actions tab.
 
 ## EAS Project
 
-- Project ID: `7772a8bd-ffb8-4ee9-b4d6-53019cc3994f`
+- Project ID: `e7d84863-fe06-4058-a9c7-c381e5d3b98a`
 - Android build profile: `production` (AAB for Play Store)
 - Android submit profile: `production` (Google Play track `internal`)
 
@@ -83,7 +83,7 @@ Or manually dispatch from GitHub Actions tab.
 
 Before the first TestFlight upload, you must:
 
-1. Create the app in App Store Connect with bundle ID `ru.escalion.artistcrm`
+1. Create the app in App Store Connect with bundle ID `ru.escalion.vedelo`
 2. Complete the app information (name, description, screenshots, icon)
 3. Complete the age rating questionnaire
 4. Fill out the Privacy section
@@ -97,7 +97,7 @@ Before the first TestFlight upload, you must:
 
 Before the first upload, you must:
 
-1. Create the app in Google Play Console with package `ru.escalion.artistcrm`
+1. Create the app in Google Play Console with package `ru.escalion.vedelo`
 2. Complete the store listing (name, description, screenshots, icon)
 3. Complete the content rating questionnaire
 4. Fill out the Data Safety section
