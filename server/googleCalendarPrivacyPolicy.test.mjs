@@ -16,7 +16,7 @@ test('политика подробно раскрывает обработку 
     /Данные Google Calendar/i,
     /OAuth/i,
     /токен/i,
-    /список календарей/i,
+    /список\s+календарей/i,
     /импорт/i,
     /создавать,\s+обновлять\s+и\s+удалять\s+события/i,
     /имя и контакты\s+клиента/i,
@@ -39,9 +39,12 @@ test('политика содержит требования Google Limited Use 
 })
 
 test('политика объясняет отключение Google Calendar и удаление данных', () => {
-  assert.match(privacySource, /независимо отключить синхронизацию или\s+импорт/i)
+  assert.match(
+    privacySource,
+    /независимо отключить синхронизацию или\s+импорт/i
+  )
   assert.match(privacySource, /отозвать доступ/i)
-  assert.match(privacySource, /Escalion86@gmail\.com/)
+  assert.match(privacySource, /NEXT_PUBLIC_SUPPORT_EMAIL/)
   assert.match(privacySource, /удален/i)
 })
 
@@ -60,15 +63,26 @@ test('описание отключения соответствует факт�
   }
 
   assert.match(disconnectRouteSource, /calendarName:\s*''/)
-  assert.match(privacySource, /После отключения удаляются\s+OAuth-токены/i)
-  assert.match(privacySource, /идентификатор календаря только\s+соответствующего подключения/i)
-  assert.match(privacySource, /второе подключение продолжает\s+работать/i)
+  assert.match(
+    privacySource,
+    /После\s+отключения\s+удаляются\s+OAuth-токены/i
+  )
+  assert.match(
+    privacySource,
+    /идентификатор календаря только\s+соответствующего подключения/i
+  )
+  assert.match(
+    privacySource,
+    /второе\s+подключение\s+продолжает\s+работать/i
+  )
   assert.doesNotMatch(disconnectRouteSource, /dbUser\.googleCalendarImport\s*=/)
 })
 
 test('политика правдиво раскрывает использование Яндекс Метрики', () => {
   assert.match(privacySource, /Яндекс Метрик/i)
   assert.match(privacySource, /Вебвизор/i)
+  assert.match(privacySource, /112668604/)
+  assert.match(privacySource, /не включ[её]н/i)
   assert.doesNotMatch(
     privacySource,
     /не использует аналитические системы и не ведет поведенческую аналитику/i

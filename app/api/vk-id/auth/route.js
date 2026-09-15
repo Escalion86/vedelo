@@ -46,6 +46,9 @@ export const POST = async (req) => {
   const mobileFlow = ['login', 'register'].includes(body?.mobileFlow)
     ? body.mobileFlow
     : ''
+  const webFlow = ['login', 'register'].includes(body?.mode) ? body.mode : ''
+  const authFlow = mobileFlow || webFlow || 'legacy'
+  const consentTerms = body?.consentTerms === true
   const consentPrivacyPolicy = body?.consentPrivacyPolicy === true
   const consentPersonalData = body?.consentPersonalData === true
   const registrationSource = getRegistrationSourceFromRequest(req)
@@ -65,10 +68,17 @@ export const POST = async (req) => {
   if (!limit.ok) return rateLimitResponse(NextResponse, limit)
 
   if ((!code || !deviceId) && !accessToken) {
+    return buildError('INVALID_VK_PAYLOAD', 400, 'Некорректные данные VK ID')
+  }
+
+  if (
+    authFlow === 'register' &&
+    (!consentTerms || !consentPrivacyPolicy || !consentPersonalData)
+  ) {
     return buildError(
-      'INVALID_VK_PAYLOAD',
+      'CONSENT_REQUIRED',
       400,
-      'Некорректные данные VK ID'
+      'Для регистрации требуется принять юридические документы'
     )
   }
 
@@ -119,11 +129,9 @@ export const POST = async (req) => {
     }
 
     await dbConnect()
-    const existingUser = mobileFlow
-      ? await findUserByPhone(userInfoResult.data.phone)
-      : null
+    const existingUser = await findUserByPhone(userInfoResult.data.phone)
 
-    if (mobileFlow === 'login' && !existingUser) {
+    if (authFlow === 'login' && !existingUser) {
       return buildError(
         'VK_PROFILE_NOT_FOUND',
         404,
@@ -132,9 +140,8 @@ export const POST = async (req) => {
     }
 
     if (
-      mobileFlow === 'register' &&
       !existingUser &&
-      (!consentPrivacyPolicy || !consentPersonalData)
+      (!consentTerms || !consentPrivacyPolicy || !consentPersonalData)
     ) {
       return buildError(
         'CONSENT_REQUIRED',
@@ -148,6 +155,9 @@ export const POST = async (req) => {
       referrerId,
       registrationSource,
       acquisition,
+      legalAcceptance: Boolean(
+        consentTerms && consentPrivacyPolicy && consentPersonalData
+      ),
     })
     if (!user?._id) {
       console.error('[vk-id/auth] ensureVkUser returned empty user', {
@@ -192,10 +202,6 @@ export const POST = async (req) => {
       code: error?.code,
     })
 
-    return buildError(
-      errorCode,
-      500,
-      'Не удалось авторизоваться через VK ID'
-    )
+    return buildError(errorCode, 500, 'Не удалось авторизоваться через VK ID')
   }
 }

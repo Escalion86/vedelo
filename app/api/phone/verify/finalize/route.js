@@ -20,6 +20,7 @@ import {
   getAcquisitionFromRequest,
   getRegistrationSourceFromRequest,
 } from '@helpers/registrationSource.mjs'
+import { buildLegalAcceptanceFields } from '@helpers/legalDocuments.mjs'
 
 const isExpired = (expiresAt) =>
   !expiresAt || new Date(expiresAt).getTime() <= Date.now()
@@ -54,6 +55,7 @@ const createRegisterUser = async (
   phone,
   hashedPassword,
   {
+    consentTerms = false,
     consentPrivacyPolicy = false,
     consentPersonalData = false,
     referrerId = null,
@@ -74,10 +76,9 @@ const createRegisterUser = async (
     registrationSource,
     registrationSourceCapturedAt: registrationSource ? now : null,
     acquisition: acquisition ? { ...acquisition, capturedAt: now } : null,
-    consentPrivacyPolicyAccepted: Boolean(consentPrivacyPolicy),
-    consentPersonalDataAccepted: Boolean(consentPersonalData),
-    privacyPolicyAcceptedAt: consentPrivacyPolicy ? now : null,
-    personalDataProcessingAcceptedAt: consentPersonalData ? now : null,
+    ...(consentTerms && consentPrivacyPolicy && consentPersonalData
+      ? buildLegalAcceptanceFields(now)
+      : {}),
   })
 
   if (!user.tenantId) {
@@ -100,6 +101,8 @@ export const POST = async (req) => {
       body?.consentPrivacyPolicy === true || legacyTermsAccepted
     const consentPersonalData =
       body?.consentPersonalData === true || legacyTermsAccepted
+    const consentTerms =
+      body?.consentTerms === true || legacyTermsAccepted
     const rawReferrerId = body?.referrerId ?? body?.ref ?? null
     const registrationSource = getRegistrationSourceFromRequest(req)
     const acquisition = getAcquisitionFromRequest(req)
@@ -113,14 +116,22 @@ export const POST = async (req) => {
 
     if (!isValidNormalizedPhone(phone)) {
       return NextResponse.json(
-        safeApiError('INVALID_PHONE', 'Введите корректный номер телефона', 'phone'),
+        safeApiError(
+          'INVALID_PHONE',
+          'Введите корректный номер телефона',
+          'phone'
+        ),
         { status: 400 }
       )
     }
 
     if (!password || String(password).length < 8) {
       return NextResponse.json(
-        safeApiError('INVALID_PASSWORD', 'Пароль должен быть не менее 8 символов', 'password'),
+        safeApiError(
+          'INVALID_PASSWORD',
+          'Пароль должен быть не менее 8 символов',
+          'password'
+        ),
         { status: 400 }
       )
     }
@@ -151,11 +162,11 @@ export const POST = async (req) => {
     const user = await findUserByPhone(phone)
 
     if (flow === 'register') {
-      if (!consentPrivacyPolicy || !consentPersonalData) {
+      if (!consentTerms || !consentPrivacyPolicy || !consentPersonalData) {
         return NextResponse.json(
           safeApiError(
             'CONSENT_REQUIRED',
-            'Для регистрации требуется согласие с Политикой конфиденциальности и обработкой персональных данных'
+            'Для регистрации требуется принять Пользовательское соглашение, ознакомиться с Политикой конфиденциальности и дать согласие на обработку персональных данных'
           ),
           { status: 400 }
         )
@@ -188,15 +199,13 @@ export const POST = async (req) => {
         if (!user.acquisition && acquisition) {
           user.acquisition = { ...acquisition, capturedAt: now }
         }
-        user.consentPrivacyPolicyAccepted = true
-        user.consentPersonalDataAccepted = true
-        user.privacyPolicyAcceptedAt = now
-        user.personalDataProcessingAcceptedAt = now
+        Object.assign(user, buildLegalAcceptanceFields(now))
         Object.assign(user, registrationTrial)
         await user.save()
       } else {
         const referrerId = await resolveReferrerId(rawReferrerId)
         const registeredUser = await createRegisterUser(phone, hashedPassword, {
+          consentTerms,
           consentPrivacyPolicy,
           consentPersonalData,
           referrerId,
@@ -225,7 +234,8 @@ export const POST = async (req) => {
     if (flow === 'register' && registrationSource) {
       response.cookies.delete(REGISTRATION_SOURCE_COOKIE)
     }
-    if (flow === 'register' && acquisition) response.cookies.delete(ACQUISITION_COOKIE)
+    if (flow === 'register' && acquisition)
+      response.cookies.delete(ACQUISITION_COOKIE)
     return response
   } catch (error) {
     if (error?.code === 11000) {

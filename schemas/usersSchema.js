@@ -52,6 +52,10 @@ const usersSchema = {
     type: Boolean,
     default: false,
   },
+  consentTermsAccepted: {
+    type: Boolean,
+    default: false,
+  },
   consentPersonalDataAccepted: {
     type: Boolean,
     default: false,
@@ -60,9 +64,25 @@ const usersSchema = {
     type: Date,
     default: null,
   },
+  termsAcceptedAt: {
+    type: Date,
+    default: null,
+  },
   personalDataProcessingAcceptedAt: {
     type: Date,
     default: null,
+  },
+  termsVersion: {
+    type: String,
+    default: '',
+  },
+  privacyPolicyVersion: {
+    type: String,
+    default: '',
+  },
+  personalDataConsentVersion: {
+    type: String,
+    default: '',
   },
   lastSeenNewsAt: {
     type: Date,

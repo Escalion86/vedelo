@@ -4,7 +4,7 @@ const siteUrl = rawDomain.startsWith('http')
   : `https://${rawDomain}`
 export const normalizedSiteUrl = siteUrl.replace(/\/$/, '')
 
-export const SEO_LAST_MODIFIED = new Date('2026-08-25')
+export const SEO_LAST_MODIFIED = new Date('2026-09-15')
 
 const commonFeatures = [
   'единый список заявок и мероприятий',

@@ -1,11 +1,15 @@
 'use client'
 
-export const YANDEX_METRIKA_ID = 108801563
-
-const METRIKA_QUEUE_KEY = '__artistcrmMetrikaGoalQueue'
+import {
+  METRIKA_QUEUE_KEY,
+  YANDEX_METRIKA_ID,
+  getAnalyticsConsent,
+} from '@helpers/metrikaConfig.mjs'
 
 const canSendMetrikaGoal = () =>
-  typeof window !== 'undefined' && typeof window.ym === 'function'
+  typeof window !== 'undefined' &&
+  getAnalyticsConsent() === 'granted' &&
+  typeof window.ym === 'function'
 
 const queueMetrikaGoal = (goalName, params) => {
   const queue = Array.isArray(window[METRIKA_QUEUE_KEY])
@@ -17,6 +21,7 @@ const queueMetrikaGoal = (goalName, params) => {
 
 export const reachGoal = (goalName, params) => {
   if (!goalName || typeof window === 'undefined') return false
+  if (getAnalyticsConsent() !== 'granted') return false
   if (!canSendMetrikaGoal()) {
     queueMetrikaGoal(goalName, params)
     return true

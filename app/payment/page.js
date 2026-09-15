@@ -8,12 +8,13 @@ export const metadata = {
 
 const legalName = process.env.NEXT_PUBLIC_LEGAL_NAME || 'Ведело'
 const legalInn = process.env.NEXT_PUBLIC_LEGAL_INN || ''
-const legalEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@vedelo.ru'
+const legalEmail =
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'Escalion86@gmail.com'
 
 const PaymentPage = () => (
   <main className="min-h-screen bg-[#f5f6f8] px-6 py-10 text-gray-800">
     <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-general">
+      <p className="text-general text-xs font-semibold tracking-[0.2em] uppercase">
         Ведело
       </p>
       <h1 className="mt-3 text-3xl font-semibold text-gray-900">
@@ -33,7 +34,9 @@ const PaymentPage = () => (
       </section>
 
       <section className="mt-6 grid gap-3 text-sm leading-6">
-        <h2 className="text-lg font-semibold text-gray-900">Что оплачивается</h2>
+        <h2 className="text-lg font-semibold text-gray-900">
+          Что оплачивается
+        </h2>
         <p>
           Пользователь оплачивает доступ к онлайн-сервису Ведело по выбранному
           тарифу или пополняет внутренний баланс для последующей оплаты тарифа.
@@ -45,9 +48,23 @@ const PaymentPage = () => (
         <h2 className="text-lg font-semibold text-gray-900">Способ оплаты</h2>
         <p>
           Оплата производится банковской картой и другими способами, доступными
-          на платежной странице ЮKassa. После успешной оплаты баланс
-          пользователя пополняется автоматически. При оплате тарифа система
-          пополняет баланс и списывает стоимость выбранного тарифа.
+          на странице подключенного платёжного партнёра — ЮKassa или Точки.
+          После успешной оплаты баланс пользователя пополняется автоматически.
+          При оплате тарифа система пополняет баланс и списывает стоимость
+          выбранного тарифа.
+        </p>
+      </section>
+
+      <section className="mt-6 grid gap-3 text-sm leading-6">
+        <h2 className="text-lg font-semibold text-gray-900">
+          Продление тарифа
+        </h2>
+        <p>
+          Платный тариф продлевается на следующий период за счёт внутреннего
+          баланса, если на дату продления средств достаточно. Автоматического
+          списания с банковской карты без отдельного подтверждения или отдельно
+          подключенного согласия на рекуррентные платежи нет. При недостатке
+          средств аккаунт может быть переведён на бесплатный тариф.
         </p>
       </section>
 
@@ -78,6 +95,9 @@ const PaymentPage = () => (
         </Link>
         <Link href="/privacy" className="text-general">
           Политика конфиденциальности
+        </Link>
+        <Link href="/personal-data-consent" className="text-general">
+          Согласие на обработку данных
         </Link>
         <Link href="/" className="text-general">
           На главную

@@ -1,4 +1,4 @@
-# Ведело Android 1.0.0 — release candidate
+# Ведело Android 1.1.0 — release candidate
 
 ## Что нового
 
@@ -14,9 +14,10 @@
 
 ## Выпускной статус
 
-- версия приложения: `1.0.0`;
-- APK-кандидат: `versionCode 14` (`71aa1deb-dc0b-4a12-a9b2-d74c033cabd7`);
-- Android package: `ru.escalion.artistcrm`;
+- версия приложения: `1.1.0`;
+- текущий `versionCode`: `18`;
+- Android package: `ru.escalion.vedelo`;
+- EAS project: `@escalion/vedelo` (`e7d84863-fe06-4058-a9c7-c381e5d3b98a`);
 - Expo SDK: `55`;
 - React Native: `0.83.6`;
 - минимальная версия: Android 10 / API 29;

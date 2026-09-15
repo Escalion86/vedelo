@@ -1,91 +1,87 @@
-# SEO и аналитика после публикации
+# Ведело: SEO и аналитика после публикации
 
-## 1. Автоматическая проверка production
+Актуально на 2026-09-15.
 
-```bash
-npm run seo:check -- https://artistcrm.ru
-```
-
-Проверяются главная, десять SEO-посадочных и пять практических материалов: HTTP 200, canonical, отсутствие
-`noindex`, наличие `title` и `h1`, а также `robots.txt` и `sitemap.xml`.
-
-Локальную production-сборку с production canonical можно проверить так:
+## 1. Автоматическая проверка
 
 ```bash
-npm run seo:check -- http://127.0.0.1:3000 https://artistcrm.ru
+npm run seo:check -- https://vedelo.ru
 ```
 
-## 2. Отправка изменённых страниц в Яндекс через IndexNow
+Локальную production-сборку с canonical нового домена проверять так:
 
-После публикации версии, содержащей файл IndexNow-ключа:
+```bash
+npm run seo:check -- http://127.0.0.1:3000 https://vedelo.ru
+```
+
+## 2. Индексация
+
+После публикации изменённых страниц:
 
 ```bash
 npm run seo:indexnow
 ```
 
-Команда отправляет только изменённые публичные страницы. Для отдельного URL:
+- в Google Search Console отправить `https://vedelo.ru/sitemap.xml` и проверить
+  главную, обновлённые юридические страницы и новые посадочные;
+- в Яндекс Вебмастере повторно обработать sitemap, включить обход по счётчику
+  Метрики 112668604 и отправить изменённые URL на переобход;
+- после запуска миграционной кампании проверить `301` старых публичных URL на
+  соответствующие URL `vedelo.ru` и применить инструменты переезда сайта в
+  панелях старого домена.
 
-```bash
-npm run seo:indexnow -- /crm-dlya-artistov
-```
+## 3. Яндекс Метрика
 
-## 3. Google Search Console
+Текущий счётчик: `112668604`. Код загружается приложением после согласия
+посетителя; вручную вставлять выданный `<script>` и `noscript` в страницы не
+нужно. Вебвизор не включён.
 
-1. Открыть свойство `artistcrm.ru`.
-2. В разделе **Файлы Sitemap** добавить `https://artistcrm.ru/sitemap.xml`.
-3. Через **Проверку URL** выполнить проверку опубликованной версии и нажать
-   **Запросить индексирование** для главной и пяти посадочных из списка ниже.
-4. Через 7–14 дней проверить отчёты **Индексирование страниц** и
-   **Эффективность**: запросы, показы, CTR, среднюю позицию и страницы входа.
+В новом счётчике создать цели типа **JavaScript-событие**:
 
-## 4. Яндекс Вебмастер
+| Этап | Идентификатор | Параметры |
+| --- | --- | --- |
+| Клик по CTA | `landing_cta_click` | `page`, `placement`, `tariff` |
+| Открытие регистрации | `registration_page_open` | `entry` |
+| Начало подтверждения | `registration_start` | `method` |
+| Телефон подтверждён | `registration_phone_verified` | `method` |
+| Регистрация завершена | `registration_success` | `method` |
+| Создана первая заявка/работа | `first_crm_item_created` | `itemType` |
 
-1. В **Индексирование → Файлы Sitemap** добавить
-   `https://artistcrm.ru/sitemap.xml` или запустить его повторную обработку.
-2. В **Индексирование → Переобход страниц** вставить список URL ниже.
-3. Связать счётчик Метрики `108801563` с сайтом и включить
-   **Индексирование → Обход по счётчикам**.
-4. Проверить результат IndexNow в соответствующем отчёте Вебмастера.
+Также перенести или создать цели `first_request_created`,
+`first_event_created`, `calendar_connected`, `tariff_page_open`,
+`payment_intent`, `transaction_created`, `activation_complete` и цели пилота,
+если они всё ещё используются. Старый счётчик 108801563 автоматически не
+передаёт цели новому.
 
-## 5. URL для переобхода
+Production-проверка в чистом профиле:
+
+1. До выбора в banner запросов к `mc.yandex.ru` нет.
+2. «Только обязательные» закрывает banner и не загружает счётчик.
+3. «Разрешить аналитику» загружает URL с `id=112668604`.
+4. CTA → регистрация → создание первой работы формируют ожидаемые цели.
+5. На `/privacy#analytics` выбор можно изменить; отключение перезагружает
+   страницу и прекращает новые обращения к счётчику.
+
+## 4. URL для переобхода
 
 ```text
-https://artistcrm.ru/
-https://artistcrm.ru/crm-dlya-fokusnikov
-https://artistcrm.ru/crm-dlya-artistov
-https://artistcrm.ru/crm-dlya-vedushchih
-https://artistcrm.ru/crm-dlya-vyezdnyh-masterov
-https://artistcrm.ru/crm-dlya-fotografov
-https://artistcrm.ru/crm-dlya-dekoratorov
-https://artistcrm.ru/crm-dlya-chastnyh-specialistov
-https://artistcrm.ru/crm-dlya-muzykantov
-https://artistcrm.ru/crm-dlya-tilda-zayavok
-https://artistcrm.ru/crm-s-google-calendar
-https://artistcrm.ru/kak-artistu-ne-teryat-zayavki-iz-messendzherov
-https://artistcrm.ru/kak-kontrolirovat-zadatki-za-vystupleniya
-https://artistcrm.ru/crm-ili-google-kalendar-dlya-artista
-https://artistcrm.ru/kak-vesti-zayavki-fokusniku
-https://artistcrm.ru/kak-ponyat-svobodna-li-data-meropriyatiya
+https://vedelo.ru/
+https://vedelo.ru/privacy
+https://vedelo.ru/terms
+https://vedelo.ru/personal-data-consent
+https://vedelo.ru/payment
+https://vedelo.ru/account-deletion
+https://vedelo.ru/crm-dlya-fokusnikov
+https://vedelo.ru/crm-dlya-artistov
+https://vedelo.ru/crm-dlya-vedushchih
+https://vedelo.ru/crm-dlya-vyezdnyh-masterov
+https://vedelo.ru/crm-dlya-fotografov
+https://vedelo.ru/crm-dlya-dekoratorov
+https://vedelo.ru/crm-dlya-chastnyh-specialistov
+https://vedelo.ru/crm-dlya-muzykantov
+https://vedelo.ru/crm-dlya-tilda-zayavok
+https://vedelo.ru/crm-s-google-calendar
 ```
 
-## 6. Цели Яндекс Метрики
-
-В счётчике `108801563` создать цели типа **JavaScript-событие** с идентификаторами:
-
-| Этап                                  | Идентификатор                 | Параметры                     |
-| ------------------------------------- | ----------------------------- | ----------------------------- |
-| Клик по CTA публичной страницы        | `landing_cta_click`           | `page`, `placement`, `tariff` |
-| Открытие регистрации                  | `registration_page_open`      | `entry`                       |
-| Начало подтверждения телефона         | `registration_start`          | `method`                      |
-| Телефон подтверждён                   | `registration_phone_verified` | `method`                      |
-| Регистрация завершена                 | `registration_success`        | `method`                      |
-| Создана первая заявка или мероприятие | `first_crm_item_created`      | `itemType`                    |
-
-Дополнительные уже существующие цели: `first_request_created`,
-`first_event_created`, `calendar_connected`, `tariff_page_open`,
-`payment_intent`, `transaction_created`.
-
-Основной отчёт строится по источникам трафика с последовательным сравнением
-конверсии между шестью этапами. Для CTA отдельно сравниваются `page` и
-`placement`, чтобы видеть, какая страница и кнопка приводят качественные
-регистрации.
+Практические материалы брать из актуального `sitemap.xml`, чтобы список не
+расходился с кодом.

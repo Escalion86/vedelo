@@ -1,58 +1,60 @@
-# ArtistCRM Production ENV Checklist
+# Ведело: production ENV checklist
 
-Документ фиксирует production-переменные для ArtistCRM.
+Актуально на 2026-09-15. Эталон состава переменных — `.env.deploy.example`.
+Реальные секреты нельзя добавлять в репозиторий, документацию или логи.
 
-Правило: в production env ArtistCRM держим только глобальные настройки продукта и инфраструктуры. Novofon, AITunnel и AI-ключи пользователей не должны лежать в `.env`, если пользователь подключает эти сервисы сам в `Настройки -> Интеграции`.
-
-## Обязательные базовые переменные
+## База и домен
 
 ```env
 NODE_ENV=production
-DOMAIN=https://artistcrm.ru
+DOMAIN=https://vedelo.ru
+NEXTAUTH_URL=https://vedelo.ru
+NEXTAUTH_URL_INTERNAL=http://127.0.0.1:3006
 
 MONGODB_URI=...
-MONGODB_DBNAME=...
-
+MONGODB_DBNAME=artistcrm
 NEXTAUTH_SECRET=...
-NEXTAUTH_URL=https://artistcrm.ru
-NEXTAUTH_URL_INTERNAL=http://127.0.0.1:3006
 ```
 
-Рекомендации:
+Имя исторической MongoDB `artistcrm` не меняется без отдельной миграции. У
+Mongo-пользователя должен быть `readWrite` только на рабочую базу.
 
-- `NEXTAUTH_SECRET` должен быть длинным случайным секретом, а не названием проекта.
-- `MONGODB_URI` и OAuth callback URL лучше указывать итоговыми строками без shell-подстановок `${...}`.
-- Для приложения достаточно `MONGODB_URI` и `MONGODB_DBNAME`; `MONGODB_SERVER`, `MONGODB_PORT`, `MONGODB_USER`, `MONGODB_PASSWORD` можно держать только в deploy-скриптах.
-- Использовать отдельного MongoDB-пользователя с `readWrite` только на базе `artistcrm`, а не административного пользователя MongoDB.
-
-## PartyCRM в ArtistCRM env
-
-Если этот же ArtistCRM runtime обслуживает домен `partycrm.ru`, нужны:
+Для 30-дневного переноса старой PWA один и тот же неизменный момент задаётся на
+всех инстансах:
 
 ```env
-PARTYCRM_DOMAIN=partycrm.ru
-PARTYCRM_MONGODB_URI=mongodb://partycrm_app:<password>@127.0.0.1:27017/?authSource=admin
-PARTYCRM_MONGODB_DBNAME=partycrm
+BRAND_MIGRATION_STARTED_AT=2026-10-01T00:00:00+07:00
 ```
 
-Если PartyCRM запускается отдельным проектом/процессом, эти переменные из ArtistCRM `.env` нужно убрать.
+Не копировать пример как фактическую дату. Сначала выполнить preflight из
+`docs/BRAND_AND_PWA_MIGRATION.md`.
 
-## Оплаты
-
-ЮKassa:
+## Публичные реквизиты, аналитика и поддержка
 
 ```env
-YOOKASSA_SECRET_KEY=...
+NEXT_PUBLIC_LEGAL_NAME=Ведело
+NEXT_PUBLIC_LEGAL_INN=...
+NEXT_PUBLIC_SUPPORT_EMAIL=<существующий проверенный ящик>
+NEXT_PUBLIC_YANDEX_METRIKA_ID=112668604
+NEXT_PUBLIC_YANDEX_SITE_VERIFICATION=
+```
+
+Подтверждение Яндекс Вебмастера уже сделано DNS-записью, поэтому meta-token
+необязателен. `NEXT_PUBLIC_SUPPORT_EMAIL` нельзя переключать на
+`support@vedelo.ru`, пока для домена не появились MX и рабочий приём писем.
+
+Яндекс Метрика загружается только после пользовательского выбора. Вебвизор в
+инициализации счётчика 112668604 не включён.
+
+## Оплата
+
+```env
 YOOKASSA_SHOP_ID=...
-YOOKASSA_RETURN_URL=https://artistcrm.ru/cabinet/tariff-select?payment=yookassa
+YOOKASSA_SECRET_KEY=...
 YOOKASSA_WEBHOOK_SECRET=...
 YOOKASSA_SEND_RECEIPT=false
 YOOKASSA_VAT_CODE=1
-```
 
-Точка:
-
-```env
 TOCHKA_API_TOKEN=...
 TOCHKA_CLIENT_ID=...
 TOCHKA_CUSTOMER_CODE=...
@@ -60,168 +62,96 @@ TOCHKA_MERCHANT_ID=...
 TOCHKA_SEND_RECEIPT=false
 TOCHKA_VAT_TYPE=none
 TOCHKA_RECEIPT_CLIENT_CONTACT=phone
-TOCHKA_RECEIPT_ITEM_NAME=Оплата ArtistCRM
-TOCHKA_RECEIPT_EMAIL=support@artistcrm.ru
+TOCHKA_RECEIPT_ITEM_NAME=Оплата Ведело
+TOCHKA_RECEIPT_EMAIL=<существующий проверенный ящик>
 ```
 
-Если включаются чеки Точки, дополнительно проверить:
+Если включаются чеки Точки, также проверить
+`TOCHKA_TAX_SYSTEM_CODE`, `TOCHKA_PAYMENT_METHOD`, `TOCHKA_PAYMENT_OBJECT`,
+`TOCHKA_MEASURE`, `TOCHKA_PAYMENT_TTL` и `TOCHKA_WEBHOOK_PUBLIC_JWK`.
 
-```env
-TOCHKA_TAX_SYSTEM_CODE=...
-TOCHKA_PAYMENT_METHOD=full_payment
-TOCHKA_PAYMENT_OBJECT=service
-TOCHKA_MEASURE=шт.
-TOCHKA_PAYMENT_TTL=1440
-TOCHKA_WEBHOOK_PUBLIC_JWK=...
-```
+Callback и webhook URL обоих провайдеров должны вести на `vedelo.ru`; URL
+старого домена сохраняются на время migration campaign и отвечают `308`.
 
-## Публичные юридические данные
-
-```env
-NEXT_PUBLIC_LEGAL_NAME=ArtistCRM
-NEXT_PUBLIC_LEGAL_INN=...
-NEXT_PUBLIC_SUPPORT_EMAIL=support@artistcrm.ru
-```
-
-## Push и cron
-
-Для фонового импорта XLSX/CSV/TXT/DOCX задайте `CRON_SECRET` и вызывайте каждую минуту `POST /api/events/file-import/worker` с заголовком `Authorization: Bearer <CRON_SECRET>`. Это продолжает большие импорты при закрытом браузере и очищает временные данные с истёкшим сроком хранения. Подробнее: `docs/FILE_AI_IMPORT.md`.
-
-```env
-BILLING_CRON_SECRET=...
-PUSH_REMINDERS_CRON_SECRET=...
-
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
-VAPID_SUBJECT=mailto:support@artistcrm.ru
-```
-
-Cron для `/api/push/reminders/additional-events` можно запускать каждые 15
-минут. Приложение само отфильтрует пользователей по времени ежедневных
-напоминаний из `Настройки -> Уведомления`; если время не задано, используется
-`10:00` в часовом поясе пользователя.
-
-## VK ID
+## VK ID и Google Calendar
 
 ```env
 VK_AUTH_ENABLED=true
 VK_ID_APP_ID=...
 VK_ID_CLIENT_SECRET=...
-VK_ID_REDIRECT_URI=https://artistcrm.ru/api/vk-id/callback
+VK_ID_REDIRECT_URI=https://vedelo.ru/api/vk-id/callback
 NEXT_PUBLIC_VK_ID_SCOPE=phone email
-```
 
-Опционально:
-
-```env
-VK_DEBUG_LOGS=false
-NEXT_PUBLIC_VK_DEBUG_LOGS=false
-VK_ID_DOMAIN=id.vk.ru
-```
-
-## Google Calendar
-
-```env
 GOOGLE_OAUTH_CLIENT_ID=...
 GOOGLE_OAUTH_CLIENT_SECRET=...
-GOOGLE_OAUTH_REDIRECT_URI=https://artistcrm.ru/api/google-calendar/callback
+GOOGLE_OAUTH_REDIRECT_URI=https://vedelo.ru/api/google-calendar/callback
 ```
 
-Опционально для service account сценариев:
+Production endpoint `/api/global/auth/vk-status` должен возвращать
+`allowVkAuth: true` и callback на `vedelo.ru`, но не секрет. Для Android
+отдельно заполняются поля нового package `ru.escalion.vedelo` в кабинете VK ID.
 
-```env
-GOOGLE_CALENDAR_CREDENTIALS_PATH=...
-```
-
-## Телефонная верификация и SMS
+## Телефон, push и cron
 
 ```env
 TELEFONIP=...
-```
-
-Опционально:
-
-```env
 TELEFONIP_API_BASE_URL=https://api.telefon-ip.ru
-PHONE_SMS_SEND_WEBHOOK=...
+PHONE_SMS_SEND_WEBHOOK=
+
+BILLING_CRON_SECRET=...
+PUSH_REMINDERS_CRON_SECRET=...
+CRON_SECRET=...
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:<существующий проверенный ящик>
 ```
 
-`TELEFONIP` используется для подтверждения телефона при регистрации и восстановлении доступа. `PHONE_SMS_SEND_WEBHOOK` нужен только для SMS fallback.
+Cron напоминаний запускается каждые 15 минут. Worker файлового AI-импорта
+вызывает `POST /api/events/file-import/worker` каждую минуту с Bearer
+`CRON_SECRET`.
 
-## Novofon и AI
-
-Общий ИИ ArtistCRM, оплачиваемый из баланса пользователя:
-
-```env
-AITUNNEL_KEY=...
-AITUNNEL_CALL_ANALYSIS_MODEL=gpt-4o-mini
-AITUNNEL_TRANSCRIPTION_MODEL=whisper-1
-```
-
-`AITUNNEL_KEY` обязателен для сервисного режима. Наценка задаётся developer-пользователем на странице `Настройки сайта -> ИИ и расходы` и не хранится в env.
-
-Следующие глобальные fallback-переменные не добавлять, если они не нужны для developer-сценариев:
-
-```env
-NOVOFON_WEBHOOK_SECRET
-AI_ANALYSIS_PROVIDER
-AI_TRANSCRIPTION_PROVIDER
-DEEPSEEK_API_KEY
-DEEPSEEK_CALL_ANALYSIS_MODEL
-OPENAI_CALL_ANALYSIS_MODEL
-OPENAI_TRANSCRIPTION_MODEL
-```
-
-Пользователь может подключить собственный AITunnel key в `SiteSettings.custom`. В этом режиме ArtistCRM не списывает стоимость запросов. DeepSeek оставлен только для developer-роли и работает с готовым текстом, без speech-to-text.
-
-Глобальный OpenAI-совместимый ключ можно оставить только как developer fallback:
-
-```env
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_BASE_URL=https://api.openai.com/v1
-```
-
-Если глобальный fallback не нужен, переменные `OPENAI_*` можно не задавать.
-
-## Почта и файлы
+## Файлы, Telegram и AI
 
 ```env
 ESCALIONCLOUD_PASSWORD=...
 TELEGRAM_TOKEN=...
-# Только если VPS не имеет прямого доступа к api.telegram.org
-TELEGRAM_PROXY_URL=http://user:password@proxy.example:3128
+TELEGRAM_PROXY_URL=
 
-SMTP_HOST=smtp.yandex.ru
+AITUNNEL_KEY=...
+AITUNNEL_CALL_ANALYSIS_MODEL=gpt-4o-mini
+AITUNNEL_TRANSCRIPTION_MODEL=whisper-1
+
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+`AITUNNEL_KEY` — сервисный режим с оплатой из баланса. Пользовательские ключи
+остаются tenant-aware в настройках. `OPENAI_*` — только developer fallback.
+Секреты интеграций нельзя отправлять mobile-клиенту или писать в offline-кэш.
+
+После изменений cloud API сначала разворачивается совместимый
+`cloud.escalion.ru`, затем Ведело.
+
+## SMTP
+
+После выбора и оплаты почтового провайдера:
+
+```env
+SMTP_HOST=...
 SMTP_PORT=465
 SMTP_SECURE=true
-SMTP_USER=support@artistcrm.ru
+SMTP_USER=support@vedelo.ru
 SMTP_PASSWORD=...
-MAIL_FROM=ArtistCRM <support@artistcrm.ru>
+MAIL_FROM=Ведело <support@vedelo.ru>
 ```
 
-`ESCALIONCLOUD_PASSWORD` и `TELEGRAM_TOKEN` нужны только если используются соответствующие функции проекта.
-`TELEGRAM_PROXY_URL` применяется только к исходящим запросам Telegram Business
-и может использовать `http://`, `https://` или `socks5://`. После изменения
-переменной перезапустите процесс приложения.
+До этого SMTP-переменные не задавать, а публичный email оставить на реально
+принимающем письма адресе.
 
-## Frontend diagnostics
+## Что удалить из production ENV
 
-```env
-NEXT_PUBLIC_ENABLE_SOURCE_MAPS=false
-```
-
-## Необязательная автоподстановка города
-
-- Установить актуальную локальную City MMDB по инструкции `docs/ONBOARDING_GEOIP.md`, вне репозитория и `public`.
-- Указать `GEOIP_CITY_DB_PATH` и включить `GEOIP_TRUST_PROXY=true` только после проверки, что Next.js недоступен напрямую, а proxy перезаписывает `X-Real-IP` реальным адресом клиента.
-- После деплоя проверить на новом аккаунте автоподстановку и ручное исправление; без базы/результата город остаётся пустым, переходы мастера работают как раньше.
-
-## Лишнее или подозрительное
-
-Эти переменные нужно убрать из ArtistCRM production env:
-
-```env
+```text
 LOGIN
 PASSWORD
 SECRET
@@ -231,19 +161,24 @@ PARTYCRM_AUTH_SECRET
 PARTYCRM_BOOTSTRAP_SECRET
 PARTYCRM_YOOKASSA_WEBHOOK_SECRET
 NODE_TLS_REJECT_UNAUTHORIZED
-```
-
-Если PartyCRM не обслуживается этим же runtime, также убрать:
-
-```env
 PARTYCRM_DOMAIN
 PARTYCRM_MONGODB_URI
 PARTYCRM_MONGODB_DBNAME
 ```
 
-Проверить кодировку:
+В этом deployment нет PartyCRM. `NOVOFON_WEBHOOK_SECRET`, глобальные
+`AI_ANALYSIS_PROVIDER`, `AI_TRANSCRIPTION_PROVIDER` и пользовательские AI-ключи
+тоже не добавляются без отдельного developer-сценария.
 
-```env
-TOCHKA_RECEIPT_EMAIL=support@artistcrm.ru
-TOCHKA_RECEIPT_ITEM_NAME=Оплата ArtistCRM
-```
+## Проверка после деплоя
+
+1. `https://vedelo.ru`, `/privacy`, `/terms`, `/personal-data-consent`,
+   `/account-deletion`, `/robots.txt` и `/sitemap.xml` отвечают `200`.
+2. До согласия нет запроса к `mc.yandex.ru`; после согласия загружается только
+   счётчик `112668604`; после отказа новые запросы не отправляются.
+3. VK ID показывает callback `https://vedelo.ru/api/vk-id/callback` и разделяет
+   вход/регистрацию; новая регистрация требует три отдельных отметки.
+4. Проверены Google OAuth, платежи, webhooks, push и оба origin по
+   `docs/BRAND_AND_PWA_MIGRATION.md`.
+5. В логах нет токенов, кодов подтверждения, полных webhook payload и
+   персональных данных.

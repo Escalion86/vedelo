@@ -93,6 +93,69 @@ async function postJson(url, body) {
   return { res, json }
 }
 
+const LegalConsent = ({ checked, onChange, children }) => (
+  <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-600">
+    <input
+      type="checkbox"
+      className="mt-1 h-4 w-4 cursor-pointer"
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+    />
+    <span>{children}</span>
+  </label>
+)
+
+const RegistrationLegalConsents = ({
+  termsAccepted,
+  onTermsAcceptedChange,
+  privacyAccepted,
+  onPrivacyAcceptedChange,
+  personalDataAccepted,
+  onPersonalDataAcceptedChange,
+}) => (
+  <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+    <LegalConsent checked={termsAccepted} onChange={onTermsAcceptedChange}>
+      Я принимаю{' '}
+      <Link
+        href="/terms"
+        className="text-general"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Пользовательское соглашение
+      </Link>
+      .
+    </LegalConsent>
+    <LegalConsent checked={privacyAccepted} onChange={onPrivacyAcceptedChange}>
+      Я ознакомился с{' '}
+      <Link
+        href="/privacy"
+        className="text-general"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Политикой обработки персональных данных
+      </Link>
+      .
+    </LegalConsent>
+    <LegalConsent
+      checked={personalDataAccepted}
+      onChange={onPersonalDataAcceptedChange}
+    >
+      Я отдельно даю{' '}
+      <Link
+        href="/personal-data-consent"
+        className="text-general"
+        target="_blank"
+        rel="noreferrer"
+      >
+        согласие на обработку персональных данных
+      </Link>
+      .
+    </LegalConsent>
+  </div>
+)
+
 function validate_login(
   event,
   phone,
@@ -150,7 +213,6 @@ const LoginInputs = ({
   const [mode, setMode] = useState(
     initialMode === 'register' ? 'register' : 'login'
   )
-  const canUseVkOneTap = mode === 'login' || mode === 'register'
   const vkAuthEnabled = vkConfig.loaded && vkConfig.allowVkAuth
   const [loginPhone, setLoginPhone] = useState(null)
   const [loginPassword, setLoginPassword] = useState('')
@@ -165,6 +227,7 @@ const LoginInputs = ({
   const [registerPassword, setRegisterPassword] = useState('')
   const [registerPasswordRepeat, setRegisterPasswordRepeat] = useState('')
   const [isRegisterLoading, setIsRegisterLoading] = useState(false)
+  const [registerTermsAccepted, setRegisterTermsAccepted] = useState(false)
   const [registerPrivacyAccepted, setRegisterPrivacyAccepted] = useState(false)
   const [registerPersonalDataAccepted, setRegisterPersonalDataAccepted] =
     useState(false)
@@ -173,6 +236,13 @@ const LoginInputs = ({
   const [loginPhoneHint, setLoginPhoneHint] = useState(false)
   const [resetPhoneHint, setResetPhoneHint] = useState(false)
   const [registerPhoneHint, setRegisterPhoneHint] = useState(false)
+
+  const hasRegistrationConsents =
+    registerTermsAccepted &&
+    registerPrivacyAccepted &&
+    registerPersonalDataAccepted
+  const canUseVkOneTap =
+    mode === 'login' || (mode === 'register' && hasRegistrationConsents)
 
   const loginPhoneDigits = String(normalizePhone(loginPhone)).length
   const resetPhoneDigits = String(normalizePhone(resetPhone)).length
@@ -424,6 +494,11 @@ const LoginInputs = ({
 
     if (!registerPassword || !registerPasswordRepeat) return
 
+    if (!registerTermsAccepted) {
+      alert('Необходимо принять Пользовательское соглашение')
+      return
+    }
+
     if (!registerPrivacyAccepted) {
       alert('Необходимо принять Политику конфиденциальности')
       return
@@ -451,6 +526,7 @@ const LoginInputs = ({
         phone: registerPhoneNormalized,
         password: registerPassword,
         flow: 'register',
+        consentTerms: registerTermsAccepted,
         consentPrivacyPolicy: registerPrivacyAccepted,
         consentPersonalData: registerPersonalDataAccepted,
         consentToMailing: false,
@@ -474,6 +550,7 @@ const LoginInputs = ({
         setRegisterPhone(null)
         setRegisterPassword('')
         setRegisterPasswordRepeat('')
+        setRegisterTermsAccepted(false)
         setRegisterPrivacyAccepted(false)
         setRegisterPersonalDataAccepted(false)
         setRegisterVerify(createVerifyState())
@@ -796,6 +873,14 @@ const LoginInputs = ({
                   idToken,
                   state: payload?.state || '',
                   mode,
+                  consentTerms:
+                    mode === 'register' ? registerTermsAccepted : undefined,
+                  consentPrivacyPolicy:
+                    mode === 'register' ? registerPrivacyAccepted : undefined,
+                  consentPersonalData:
+                    mode === 'register'
+                      ? registerPersonalDataAccepted
+                      : undefined,
                   referrerId:
                     mode === 'register'
                       ? initialReferrerId || undefined
@@ -862,6 +947,9 @@ const LoginInputs = ({
     canUseVkOneTap,
     initialReferrerId,
     mode,
+    registerPersonalDataAccepted,
+    registerPrivacyAccepted,
+    registerTermsAccepted,
     vkAuthEnabled,
     vkConfig,
     vkRenderNonce,
@@ -871,7 +959,13 @@ const LoginInputs = ({
     vkAuthEnabled ? (
       <div className="flex flex-col gap-2">
         <div className="text-center text-xs text-gray-500">{label}</div>
-        <div ref={vkOneTapContainerRef} className="w-full" />
+        {canUseVkOneTap ? (
+          <div ref={vkOneTapContainerRef} className="w-full" />
+        ) : (
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
+            Примите документы выше, чтобы зарегистрироваться через VK ID.
+          </div>
+        )}
         {vkLoading ? (
           <div className="text-center text-xs text-gray-500">
             Авторизация VK ID...
@@ -888,7 +982,7 @@ const LoginInputs = ({
       <div className="ring-general/30 relative z-10 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl ring-1">
         <div className="mb-6">
           <div className="text-general text-xs tracking-[0.2em] uppercase">
-            Ведело — ранее ArtistCRM
+            Ведело
           </div>
           <h1 className="mt-2 text-2xl font-semibold text-gray-900">
             {mode === 'login'
@@ -925,7 +1019,7 @@ const LoginInputs = ({
             }
             className="flex flex-col gap-4"
           >
-            <VkAuthBlock label="Войти или зарегистрироваться через VK ID" />
+            <VkAuthBlock label="Войти через VK ID" />
 
             {vkAuthEnabled ? (
               <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -1030,7 +1124,16 @@ const LoginInputs = ({
           </form>
         ) : (
           <form onSubmit={submitRegister} className="flex flex-col gap-4">
-            <VkAuthBlock label="Зарегистрироваться или войти через VK ID" />
+            <RegistrationLegalConsents
+              termsAccepted={registerTermsAccepted}
+              onTermsAcceptedChange={setRegisterTermsAccepted}
+              privacyAccepted={registerPrivacyAccepted}
+              onPrivacyAcceptedChange={setRegisterPrivacyAccepted}
+              personalDataAccepted={registerPersonalDataAccepted}
+              onPersonalDataAcceptedChange={setRegisterPersonalDataAccepted}
+            />
+
+            <VkAuthBlock label="Зарегистрироваться через VK ID" />
 
             {vkAuthEnabled ? (
               <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -1085,53 +1188,6 @@ const LoginInputs = ({
                   fullWidth
                   noMargin
                 />
-
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-600">
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 cursor-pointer"
-                    checked={registerPrivacyAccepted}
-                    onChange={(event) =>
-                      setRegisterPrivacyAccepted(event.target.checked)
-                    }
-                  />
-                  <span>
-                    Я принимаю{' '}
-                    <Link
-                      href="/privacy"
-                      className="text-general"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Политику конфиденциальности
-                    </Link>
-                    .
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-600">
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 cursor-pointer"
-                    checked={registerPersonalDataAccepted}
-                    onChange={(event) =>
-                      setRegisterPersonalDataAccepted(event.target.checked)
-                    }
-                  />
-                  <span>
-                    Даю согласие на обработку персональных данных в соответствии
-                    с{' '}
-                    <Link
-                      href="/privacy"
-                      className="text-general"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Политикой конфиденциальности
-                    </Link>
-                    .
-                  </span>
-                </label>
               </>
             )}
 
@@ -1146,6 +1202,7 @@ const LoginInputs = ({
                   (registerVerify.verified &&
                     (!registerPassword ||
                       !registerPasswordRepeat ||
+                      !registerTermsAccepted ||
                       !registerPrivacyAccepted ||
                       !registerPersonalDataAccepted))
                 }

@@ -74,7 +74,7 @@
         "backgroundColor": "#f7efe1"
       },
       "package": "ru.escalion.vedelo",
-      "versionCode": 17,
+      "versionCode": 18,
       "allowBackup": false,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",

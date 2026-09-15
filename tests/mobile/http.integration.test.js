@@ -838,7 +838,7 @@ test(
             VK_ID_BASE_URL: `http://127.0.0.1:${cloudPort}/vk-id`,
             VK_ID_APP_ID: 'mock-vk-app-id',
             VK_ID_CLIENT_SECRET: 'mock-vk-client-secret',
-            VK_ID_REDIRECT_URI: 'artistcrm://auth/vk',
+            VK_ID_REDIRECT_URI: 'vedelo://auth/vk',
             GOOGLE_OAUTH_CLIENT_ID: 'mock-google-client-id',
             GOOGLE_OAUTH_CLIENT_SECRET: 'mock-google-client-secret',
             GOOGLE_OAUTH_REDIRECT_URI: `${baseUrl}/api/google-calendar/callback`,
@@ -1920,18 +1920,16 @@ test(
           assert.equal(unchangedA.custom.aitunnelKey, 'aitunnel-secret-a')
           assert.equal(unchangedA.custom.publicLeadApiKey, 'lead-secret-a')
 
-          await db
-            .collection('tariffs')
-            .updateOne(
-              { _id: tariffId },
-              {
-                $set: {
-                  allowTelephony: false,
-                  allowAi: false,
-                  allowPublicLeadApi: false,
-                },
-              }
-            )
+          await db.collection('tariffs').updateOne(
+            { _id: tariffId },
+            {
+              $set: {
+                allowTelephony: false,
+                allowAi: false,
+                allowPublicLeadApi: false,
+              },
+            }
+          )
           const tariffDenied = await mutate(
             '/api/mobile/v1/integrations/ai',
             tokenB,
@@ -1970,18 +1968,16 @@ test(
           assert.equal(clearedB.custom.aitunnelEnabled, false)
           assert.equal(clearedB.custom.publicLeadEnabled, false)
 
-          await db
-            .collection('tariffs')
-            .updateOne(
-              { _id: tariffId },
-              {
-                $set: {
-                  allowTelephony: true,
-                  allowAi: true,
-                  allowPublicLeadApi: true,
-                },
-              }
-            )
+          await db.collection('tariffs').updateOne(
+            { _id: tariffId },
+            {
+              $set: {
+                allowTelephony: true,
+                allowAi: true,
+                allowPublicLeadApi: true,
+              },
+            }
+          )
         }
       )
 
@@ -2129,7 +2125,7 @@ test(
           assert.equal(callback.status, 307)
           assert.match(
             callback.headers.get('location') || '',
-            /^artistcrm:\/\/more\/integrations\?gc_connected=1/
+            /^vedelo:\/\/more\/integrations\?gc_connected=1/
           )
           const storedBAfterOAuth = await db
             .collection('users')
@@ -3259,9 +3255,21 @@ test(
           assert.equal(withoutConsent.response.status, 400)
           assert.equal(withoutConsent.body.error.code, 'CONSENT_REQUIRED')
 
+          const legacyTwoConsents = await post('/api/mobile/v1/auth/register', {
+            phone: registerPhone,
+            password: registerPassword,
+            consentPrivacyPolicy: true,
+            consentPersonalData: true,
+            deviceId: 'registered-device',
+            platform: 'android',
+          })
+          assert.equal(legacyTwoConsents.response.status, 400)
+          assert.equal(legacyTwoConsents.body.error.code, 'CONSENT_REQUIRED')
+
           const registered = await post('/api/mobile/v1/auth/register', {
             phone: registerPhone,
             password: registerPassword,
+            consentTerms: true,
             consentPrivacyPolicy: true,
             consentPersonalData: true,
             deviceId: 'registered-device',
@@ -3273,6 +3281,7 @@ test(
             JSON.stringify(registered.body)
           )
           assert.equal(registered.body.data.user.phone, registerPhone)
+          assert.equal(registered.body.data.user.consentTermsAccepted, true)
           assert.equal(
             registered.body.data.user.consentPrivacyPolicyAccepted,
             true
@@ -3343,11 +3352,25 @@ test(
             0
           )
 
+          const vkWithoutTerms = await post('/api/mobile/v1/auth/vk', {
+            code: 'vk-new-code',
+            device_id: 'vk-provider-device-new',
+            code_verifier: 'vk-pkce-verifier-new',
+            mode: 'register',
+            consentPrivacyPolicy: true,
+            consentPersonalData: true,
+            deviceId: 'android-vk-new',
+            platform: 'android',
+          })
+          assert.equal(vkWithoutTerms.response.status, 400)
+          assert.equal(vkWithoutTerms.body.error.code, 'CONSENT_REQUIRED')
+
           const vkRegistered = await post('/api/mobile/v1/auth/vk', {
             code: 'vk-new-code',
             device_id: 'vk-provider-device-new',
             code_verifier: 'vk-pkce-verifier-new',
             mode: 'register',
+            consentTerms: true,
             consentPrivacyPolicy: true,
             consentPersonalData: true,
             deviceId: 'android-vk-new',
@@ -3360,6 +3383,7 @@ test(
           )
           assert.equal(vkRegistered.body.data.user.phone, '79000000004')
           assert.equal(vkRegistered.body.data.user.registrationType, 'vk')
+          assert.equal(vkRegistered.body.data.user.consentTermsAccepted, true)
           assert.equal(
             vkRegistered.body.data.user.consentPrivacyPolicyAccepted,
             true
@@ -3453,7 +3477,9 @@ test(
           const vkRequests = providerRequests.filter((request) =>
             request.url.startsWith('/vk-id/')
           )
-          assert.equal(vkRequests.length, 8)
+          // Два запроса регистрации без полного набора согласий отклоняются
+          // до передачи authorization code провайдеру.
+          assert.equal(vkRequests.length, 6)
           const firstVkExchange = vkRequests.find((request) =>
             request.url.startsWith('/vk-id/oauth2/auth')
           )
@@ -3491,38 +3517,94 @@ test(
           }
         }
       )
-      await t.test('web credentials → клиент → заявка → оплаты → закрытие, tenant isolation', async () => {
-        const webTenantA = new mongoose.Types.ObjectId()
-        const webTenantB = new mongoose.Types.ObjectId()
-        const webTariffId = new mongoose.Types.ObjectId()
-        await db.collection('tariffs').insertOne({
-          _id: webTariffId, title: 'Web smoke', eventsPerMonth: 100, allowDocuments: true,
-        })
-        await db.collection('users').insertMany([
-          { _id: webTenantA, tenantId: webTenantA, phone: '79000000881', password: passwordHash, tariffId: webTariffId, role: 'user', archive: false },
-          { _id: webTenantB, tenantId: webTenantB, phone: '79000000882', password: passwordHash, tariffId: webTariffId, role: 'user', archive: false },
-        ])
-        await runWebCoreSmoke({ baseUrl, password, tenantA: webTenantA, tenantB: webTenantB, phoneA: '79000000881', phoneB: '79000000882' })
-      })
-      await t.test('browser: вход и гидратация на desktop и телефоне', {
-        skip: process.env.PLAYWRIGHT_MODULE ? false : 'PLAYWRIGHT_MODULE не настроен',
-      }, async () => {
-        await runBrowserSmoke({ baseUrl, phone: '79000000881', password })
-      })
-      await t.test('Public Leads и Tilda: ключи, tenant, дедупликация и очистка секретов', async () => {
-        await runPublicLeadSmoke({ baseUrl, db })
-      })
-      await t.test('browser: offline-очередь после перезапуска процесса', {
-        skip: process.env.PLAYWRIGHT_MODULE ? false : 'PLAYWRIGHT_MODULE не настроен',
-      }, async () => {
-        await runRestartSmoke({ baseUrl, phone: '79000000881', password })
-      })
-      await t.test('documents: договор/акт, реквизиты, tenant и тариф', async () => {
-        await runDocumentsHttpSmoke({ baseUrl, db, password, passwordHash, cloudRequests })
-      })
-      await t.test('billing: повтор, неверная сумма и параллельные начисления', async () => {
-        await runPaymentProcessingSmoke({ db })
-      })
+      await t.test(
+        'web credentials → клиент → заявка → оплаты → закрытие, tenant isolation',
+        async () => {
+          const webTenantA = new mongoose.Types.ObjectId()
+          const webTenantB = new mongoose.Types.ObjectId()
+          const webTariffId = new mongoose.Types.ObjectId()
+          await db.collection('tariffs').insertOne({
+            _id: webTariffId,
+            title: 'Web smoke',
+            eventsPerMonth: 100,
+            allowDocuments: true,
+          })
+          await db.collection('users').insertMany([
+            {
+              _id: webTenantA,
+              tenantId: webTenantA,
+              phone: '79000000881',
+              password: passwordHash,
+              tariffId: webTariffId,
+              role: 'user',
+              archive: false,
+            },
+            {
+              _id: webTenantB,
+              tenantId: webTenantB,
+              phone: '79000000882',
+              password: passwordHash,
+              tariffId: webTariffId,
+              role: 'user',
+              archive: false,
+            },
+          ])
+          await runWebCoreSmoke({
+            baseUrl,
+            password,
+            tenantA: webTenantA,
+            tenantB: webTenantB,
+            phoneA: '79000000881',
+            phoneB: '79000000882',
+          })
+        }
+      )
+      await t.test(
+        'browser: вход и гидратация на desktop и телефоне',
+        {
+          skip: process.env.PLAYWRIGHT_MODULE
+            ? false
+            : 'PLAYWRIGHT_MODULE не настроен',
+        },
+        async () => {
+          await runBrowserSmoke({ baseUrl, phone: '79000000881', password })
+        }
+      )
+      await t.test(
+        'Public Leads и Tilda: ключи, tenant, дедупликация и очистка секретов',
+        async () => {
+          await runPublicLeadSmoke({ baseUrl, db })
+        }
+      )
+      await t.test(
+        'browser: offline-очередь после перезапуска процесса',
+        {
+          skip: process.env.PLAYWRIGHT_MODULE
+            ? false
+            : 'PLAYWRIGHT_MODULE не настроен',
+        },
+        async () => {
+          await runRestartSmoke({ baseUrl, phone: '79000000881', password })
+        }
+      )
+      await t.test(
+        'documents: договор/акт, реквизиты, tenant и тариф',
+        async () => {
+          await runDocumentsHttpSmoke({
+            baseUrl,
+            db,
+            password,
+            passwordHash,
+            cloudRequests,
+          })
+        }
+      )
+      await t.test(
+        'billing: повтор, неверная сумма и параллельные начисления',
+        async () => {
+          await runPaymentProcessingSmoke({ db })
+        }
+      )
     } finally {
       await terminate(appProcess)
       await new Promise((resolve) => cloudServer.close(resolve))

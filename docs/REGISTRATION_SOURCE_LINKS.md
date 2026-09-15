@@ -1,17 +1,17 @@
 # Ссылки с источником регистрации
 
-ArtistCRM поддерживает специальные ссылки для атрибуции регистраций:
+Ведело поддерживает специальные ссылки для атрибуции регистраций:
 
 ```text
-https://artistcrm.ru/go/<source>
+https://vedelo.ru/go/<source>
 ```
 
 Примеры для разных профессиональных чатов:
 
 ```text
-https://artistcrm.ru/go/magicians_chat_main
-https://artistcrm.ru/go/magicians_chat_krasnoyarsk
-https://artistcrm.ru/go/musicians_chat_1
+https://vedelo.ru/go/magicians_chat_main
+https://vedelo.ru/go/magicians_chat_krasnoyarsk
+https://vedelo.ru/go/musicians_chat_1
 ```
 
 ## Требования к метке
@@ -23,7 +23,7 @@ https://artistcrm.ru/go/musicians_chat_1
 
 ## Как работает атрибуция
 
-1. Ссылка сохраняет первый источник перехода в защищенной cookie на 90 дней и перенаправляет посетителя на главную ArtistCRM.
+1. Ссылка сохраняет первый источник перехода в защищенной cookie на 90 дней и перенаправляет посетителя на главную Ведело.
 2. Следующие размеченные ссылки не перезаписывают первый источник.
 3. При регистрации по телефону или через VK ID источник сохраняется в карточке пользователя.
 4. После успешной регистрации attribution-cookie удаляется.

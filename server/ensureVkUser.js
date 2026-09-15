@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import Users from '@models/Users'
 import { buildRegistrationTrialUserFields } from '@server/registrationTrial'
 import { notifyDevelopersAboutNewUser } from '@server/registrationNotifications'
+import { buildLegalAcceptanceFields } from '@helpers/legalDocuments.mjs'
 import {
   findUserByPhone,
   isValidNormalizedPhone,
@@ -58,6 +59,7 @@ export const ensureVkUser = async ({
   referrerId = null,
   registrationSource = '',
   acquisition = null,
+  legalAcceptance = false,
 }) => {
   const normalizedVkId = String(vkId || '').trim()
   const normalizedPhone = normalizePhone(phone)
@@ -68,6 +70,8 @@ export const ensureVkUser = async ({
   let created = false
 
   if (!user) {
+    if (!legalAcceptance) return null
+
     if (normalizedVkId) {
       await Users.updateMany({ vkId: normalizedVkId }, { $unset: { vkId: 1 } })
     }
@@ -92,10 +96,7 @@ export const ensureVkUser = async ({
         registrationSourceCapturedAt: registrationSource ? now : null,
         acquisition: acquisition ? { ...acquisition, capturedAt: now } : null,
         ...registrationTrial,
-        consentPrivacyPolicyAccepted: true,
-        consentPersonalDataAccepted: true,
-        privacyPolicyAcceptedAt: now,
-        personalDataProcessingAcceptedAt: now,
+        ...buildLegalAcceptanceFields(now),
       })
       created = true
     } catch (error) {
@@ -133,6 +134,9 @@ export const ensureVkUser = async ({
     }
     if (!user.acquisition && acquisition) {
       patch.acquisition = { ...acquisition, capturedAt: new Date() }
+    }
+    if (legalAcceptance) {
+      Object.assign(patch, buildLegalAcceptanceFields(new Date()))
     }
 
     if (Object.keys(patch).length > 0) {

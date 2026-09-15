@@ -1,21 +1,29 @@
 const normalizeText = (value, maxLength) =>
-  String(value ?? '').trim().slice(0, maxLength)
+  String(value ?? '')
+    .trim()
+    .slice(0, maxLength)
 
 const normalizePhone = (value) => {
-  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 15)
+  const digits = String(value ?? '')
+    .replace(/\D/g, '')
+    .slice(0, 15)
   return digits ? Number(digits) : null
 }
 
 const normalizeHandle = (value, maxLength = 160) =>
   normalizeText(value, maxLength)
     .replace(/^@/, '')
-    .replace(/^https?:\/\/(?:www\.)?(?:t\.me|telegram\.me|vk\.com|instagram\.com)\//i, '')
+    .replace(
+      /^https?:\/\/(?:www\.)?(?:t\.me|telegram\.me|vk\.com|instagram\.com)\//i,
+      ''
+    )
     .replace(/^\/+|\/+$/g, '')
 
 export const normalizeMobileProfilePatch = (body = {}) => {
   const update = {}
   const assignText = (field, maxLength = 100) => {
-    if (body[field] !== undefined) update[field] = normalizeText(body[field], maxLength)
+    if (body[field] !== undefined)
+      update[field] = normalizeText(body[field], maxLength)
   }
   assignText('firstName', 302)
   assignText('secondName')
@@ -27,11 +35,14 @@ export const normalizeMobileProfilePatch = (body = {}) => {
     }
     update.email = email
   }
-  if (body.whatsapp !== undefined) update.whatsapp = normalizePhone(body.whatsapp)
+  if (body.whatsapp !== undefined)
+    update.whatsapp = normalizePhone(body.whatsapp)
   if (body.viber !== undefined) update.viber = normalizePhone(body.viber)
-  if (body.telegram !== undefined) update.telegram = normalizeHandle(body.telegram)
+  if (body.telegram !== undefined)
+    update.telegram = normalizeHandle(body.telegram)
   if (body.vk !== undefined) update.vk = normalizeHandle(body.vk)
-  if (body.instagram !== undefined) update.instagram = normalizeHandle(body.instagram)
+  if (body.instagram !== undefined)
+    update.instagram = normalizeHandle(body.instagram)
   if (body.images !== undefined) {
     update.images = Array.isArray(body.images)
       ? body.images
@@ -85,6 +96,7 @@ export const serializeMobileProfile = (user, tariff = null) => {
         }
       : null,
     registrationType: data.registrationType || 'phone',
+    consentTermsAccepted: Boolean(data.consentTermsAccepted),
     consentPrivacyPolicyAccepted: Boolean(data.consentPrivacyPolicyAccepted),
     consentPersonalDataAccepted: Boolean(data.consentPersonalDataAccepted),
   }

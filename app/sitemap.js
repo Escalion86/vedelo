@@ -38,6 +38,12 @@ export default function sitemap() {
       priority: 0.4,
     },
     {
+      url: `${normalizedSiteUrl}/personal-data-consent`,
+      lastModified: SEO_LAST_MODIFIED,
+      changeFrequency: 'yearly',
+      priority: 0.4,
+    },
+    {
       url: `${normalizedSiteUrl}/payment`,
       lastModified: SEO_LAST_MODIFIED,
       changeFrequency: 'yearly',

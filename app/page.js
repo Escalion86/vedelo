@@ -555,7 +555,6 @@ export default async function HomePage() {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: BRAND.name,
-    alternateName: BRAND.transitionSignature,
     url: homeUrl,
     inLanguage: 'ru-RU',
   }
@@ -588,11 +587,7 @@ export default async function HomePage() {
 
       <header className="landing-header">
         <div className="landing-container landing-header-inner">
-          <Link
-            href="/"
-            className="landing-logo"
-            aria-label="Ведело — главная"
-          >
+          <Link href="/" className="landing-logo" aria-label="Ведело — главная">
             <Image
               src="/brand/vedelo-mark.svg"
               alt=""
@@ -600,12 +595,7 @@ export default async function HomePage() {
               height={34}
               priority
             />
-            <span>
-              Ведело
-            </span>
-            <small className="hidden text-[10px] font-medium tracking-normal text-[#6e5a42] sm:inline">
-              ранее ArtistCRM
-            </small>
+            <span>Ведело</span>
           </Link>
           <nav className="landing-nav" aria-label="Основная навигация">
             <Link href="#features">Возможности</Link>
@@ -805,9 +795,7 @@ export default async function HomePage() {
 
       <section className="landing-cta landing-section-below">
         <div className="landing-container landing-cta-inner">
-          <h2>
-            Сосредоточьтесь на клиентах — порядок Ведело возьмёт на себя.
-          </h2>
+          <h2>Сосредоточьтесь на клиентах — порядок Ведело возьмёт на себя.</h2>
           <div>
             <MetrikaLink
               href={registerUrl}
@@ -828,9 +816,7 @@ export default async function HomePage() {
         <div className="landing-container landing-footer-grid">
           <div>
             <Link href="/" className="landing-logo">
-              <span>
-                Ведело
-              </span>
+              <span>Ведело</span>
             </Link>
             <p>
               CRM для мастеров, event-индустрии и специалистов, работающих на
@@ -855,6 +841,9 @@ export default async function HomePage() {
             <Link href="/crm-dlya-tilda-zayavok">Заявки с Tilda</Link>
             <Link href="/crm-s-google-calendar">CRM с Google Календарём</Link>
             <Link href="/privacy">Политика конфиденциальности</Link>
+            <Link href="/personal-data-consent">
+              Согласие на обработку данных
+            </Link>
             <Link href="/terms">Пользовательское соглашение</Link>
             <Link href="/payment">Оплата и возвраты</Link>
           </nav>
