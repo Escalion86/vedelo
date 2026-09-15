@@ -9,7 +9,7 @@ let isConfigured = false
 const getVapidConfig = () => {
   const publicKey = process.env.VAPID_PUBLIC_KEY || ''
   const privateKey = process.env.VAPID_PRIVATE_KEY || ''
-  const subject = process.env.VAPID_SUBJECT || 'mailto:support@vedelo.ru'
+  const subject = process.env.VAPID_SUBJECT || 'mailto:vedelo@inbox.ru'
   return {
     publicKey: String(publicKey).trim(),
     privateKey: String(privateKey).trim(),

@@ -287,7 +287,7 @@
 - [-] BRAND-T4 `vedelo.ru` зарегистрирован, делегирован и работает по HTTPS; проверить обозначение «Ведело» в МКТУ 9, 35 и 42
 - [ ] BRAND-T5 Провести device QA установленной PWA и production-проверку OAuth, платежей, webhooks, push и redirect matrix по `docs/BRAND_AND_PWA_MIGRATION.md`
 - [x] BRAND-T6 Завершить отделение пользовательских поверхностей нового origin: убрать переходную подпись, перевести Метрику на счётчик 112668604 с отдельным выбором, обновить юридические документы и раздельное принятие при web/Android/VK ID регистрации
-- [ ] BRAND-T7 Создать рабочий `support@vedelo.ru` у выбранного почтового провайдера, настроить MX/SPF/DKIM/DMARC и только после проверки переключить публичный контакт и SMTP
+- [-] BRAND-T7 Создан бесплатный внешний ящик `vedelo@inbox.ru`; переключить публичный production-контакт после проверки приёма/отправки, а SMTP — только после создания отдельного пароля приложения
 
 ### P0
 
@@ -472,6 +472,7 @@
 
 ## Журнал изменений плана
 
+- 2026-09-15: начат BRAND-T7 — вместо платного доменного ящика Яндекс 360 создан `vedelo@inbox.ru`; публичные fallback-контакты, demo-mailto, deploy-шаблон, VAPID subject и Google Play listing переключены на новый адрес. Для production остаются проверка приёма/отправки, применение фактического `NEXT_PUBLIC_SUPPORT_EMAIL` и, если нужна системная отправка, настройка `smtp.mail.ru:465` с отдельным паролем внешнего приложения. Версия 1.20.2.
 - 2026-09-15: после production-деплоя web 1.20.1 на `vedelo.ru` пройдены SEO-check 16 публичных страниц, robots.txt и sitemap.xml, desktop/mobile browser smoke главной, аналитического согласия и регистрации с тремя юридическими действиями; IndexNow принял 16 URL (`HTTP 202`). Lighthouse mobile: performance 96, accessibility 96, best practices 100, SEO 100, LCP 1,6 с, CLS 0,001. На `artistcrm.ru` обнаружена старая сборка: service worker `artistcrm-custom-sw-v3`, Метрика 108801563 и `404` для `/api/domain-migration/status`; это блокирует запуск `BRAND_MIGRATION_STARTED_AT` до выкладки migration-capable сборки на legacy-origin. GROWTH-T6 остаётся в работе до проверки production-целей и ручной отправки sitemap/URL в Search Console и Вебмастере.
 - 2026-09-15: ранний вариант сохранения production package `ru.escalion.artistcrm` отменён решением вынести Ведело в отдельный EAS-проект; актуальное состояние зафиксировано следующей записью. Dev package `ru.escalion.vedelo.dev`, scheme `vedelo://` с legacy `artistcrm://` и возврат Google OAuth в scheme конкретной сборки сохраняются.
 - 2026-09-15: приложение вынесено в собственный EAS-проект `@escalion/vedelo` (`e7d84863-fe06-4058-a9c7-c381e5d3b98a`) с production package `ru.escalion.vedelo`: обновлены `app.json` (slug/package/bundleId/projectId), гейты `scripts/validate-release.mjs`, maestro-сценарии, `mobile/README.md`, `mobile/GITHUB_SECRETS.md` и `AGENTS.md`. Keystore перенесён в новый проект (тот же upload-ключ, SHA-1 `92:16:…:2C`). Пакет `ru.escalion.artistcrm` остаётся у ранее опубликованной карточки Play. Осталось вручную: Android-приложение в Firebase под новый пакет и обновлённый `google-services.json` в EAS/GitHub secrets, новая карточка Play, поля Android в кабинете VK ID.

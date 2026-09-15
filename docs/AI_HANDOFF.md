@@ -63,7 +63,7 @@ PWA-переезд:
 - `BRAND-T4`: домен, DNS и TLS работают; остаётся проверка обозначения «Ведело» в МКТУ 9, 35, 42;
 - `BRAND-T5`: device QA уже установленной PWA и production E2E OAuth, платежей, webhooks, push и редиректов;
 - 30-дневная кампания ещё не запущена: на `artistcrm.ru` остаётся старая сборка с service worker `artistcrm-custom-sw-v3`, без `/api/domain-migration/status`; сначала на legacy-origin нужно развернуть ту же migration-capable сборку, что и на `vedelo.ru`, и только затем задать единый `BRAND_MIGRATION_STARTED_AT`;
-- у `vedelo.ru` нет MX; Яндекс 360 для бизнеса платный, поэтому рабочий `support@vedelo.ru` ещё не создан. В качестве бесплатного временного контакта рассматривается отдельный ящик Mail.ru, но публиковать адрес можно только после создания и проверки приёма/отправки;
+- Яндекс 360 для бизнеса платный; вместо него создан бесплатный внешний ящик `vedelo@inbox.ru`. Код и deploy-шаблон переключены на него, но перед production-деплоем остаётся проверить приём/отправку и применить `NEXT_PUBLIC_SUPPORT_EMAIL` в фактическом env;
 - Android production QA/release;
 - реальные E2E интеграций Avito, VK и Telegram Business;
 - завершение ухода server collections из Jotai bridge (`OPT-T9`);

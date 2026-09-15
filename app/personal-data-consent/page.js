@@ -4,7 +4,7 @@ import { LEGAL_DOCUMENTS_EFFECTIVE_DATE } from '@helpers/legalDocuments.mjs'
 const siteUrl = (process.env.DOMAIN || 'https://vedelo.ru').replace(/\/$/, '')
 const pageUrl = `${siteUrl}/personal-data-consent`
 const supportEmail =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'Escalion86@gmail.com'
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'vedelo@inbox.ru'
 
 export const metadata = {
   title: 'Согласие на обработку персональных данных — Ведело',

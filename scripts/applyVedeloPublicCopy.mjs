@@ -55,7 +55,7 @@ for (const relativePath of files) {
   source = source
     .replaceAll('ArtistCRM', 'Ведело')
     .replaceAll('https://artistcrm.ru', 'https://vedelo.ru')
-    .replaceAll('support@artistcrm.ru', 'support@vedelo.ru')
+    .replaceAll('support@artistcrm.ru', 'vedelo@inbox.ru')
   await fs.writeFile(filePath, source)
 }
 

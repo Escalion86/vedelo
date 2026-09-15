@@ -5,7 +5,7 @@ const siteUrl = (process.env.DOMAIN || 'https://vedelo.ru').replace(/\/$/, '')
 const pageUrl = `${siteUrl}/terms`
 const ogImage = `${siteUrl}/og-image.jpg`
 const supportEmail =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'Escalion86@gmail.com'
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'vedelo@inbox.ru'
 
 export const metadata = {
   title: 'Пользовательское соглашение — Ведело',

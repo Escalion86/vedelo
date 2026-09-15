@@ -34,14 +34,14 @@ BRAND_MIGRATION_STARTED_AT=2026-10-01T00:00:00+07:00
 ```env
 NEXT_PUBLIC_LEGAL_NAME=Ведело
 NEXT_PUBLIC_LEGAL_INN=...
-NEXT_PUBLIC_SUPPORT_EMAIL=<существующий проверенный ящик>
+NEXT_PUBLIC_SUPPORT_EMAIL=vedelo@inbox.ru
 NEXT_PUBLIC_YANDEX_METRIKA_ID=112668604
 NEXT_PUBLIC_YANDEX_SITE_VERIFICATION=
 ```
 
 Подтверждение Яндекс Вебмастера уже сделано DNS-записью, поэтому meta-token
-необязателен. `NEXT_PUBLIC_SUPPORT_EMAIL` нельзя переключать на
-`support@vedelo.ru`, пока для домена не появились MX и рабочий приём писем.
+необязателен. Публичный адрес переключать только после проверки приёма и отправки
+тестового письма; для внешнего ящика `inbox.ru` MX домена `vedelo.ru` не нужен.
 
 Яндекс Метрика загружается только после пользовательского выбора. Вебвизор в
 инициализации счётчика 112668604 не включён.
@@ -135,19 +135,19 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 
 ## SMTP
 
-После выбора и оплаты почтового провайдера:
+Для системной отправки через созданный ящик Mail.ru:
 
 ```env
-SMTP_HOST=...
+SMTP_HOST=smtp.mail.ru
 SMTP_PORT=465
 SMTP_SECURE=true
-SMTP_USER=support@vedelo.ru
-SMTP_PASSWORD=...
-MAIL_FROM=Ведело <support@vedelo.ru>
+SMTP_USER=vedelo@inbox.ru
+SMTP_PASSWORD=<отдельный пароль для внешнего приложения>
+MAIL_FROM=Ведело <vedelo@inbox.ru>
 ```
 
-До этого SMTP-переменные не задавать, а публичный email оставить на реально
-принимающем письма адресе.
+Обычный пароль ящика не использовать. До создания отдельного пароля приложения и
+проверки SMTP эти переменные не задавать.
 
 ## Что удалить из production ENV
 

@@ -35,7 +35,7 @@
 - Сайт: `https://vedelo.ru`
 - Политика: `https://vedelo.ru/privacy`
 - Удаление аккаунта: `https://vedelo.ru/account-deletion`
-- Поддержка: `Escalion86@gmail.com`
+- Поддержка: `vedelo@inbox.ru`
 
 ## Графические материалы
 

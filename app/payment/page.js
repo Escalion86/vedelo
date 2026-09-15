@@ -9,7 +9,7 @@ export const metadata = {
 const legalName = process.env.NEXT_PUBLIC_LEGAL_NAME || 'Ведело'
 const legalInn = process.env.NEXT_PUBLIC_LEGAL_INN || ''
 const legalEmail =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'Escalion86@gmail.com'
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'vedelo@inbox.ru'
 
 const PaymentPage = () => (
   <main className="min-h-screen bg-[#f5f6f8] px-6 py-10 text-gray-800">

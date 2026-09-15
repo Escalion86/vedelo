@@ -3,7 +3,7 @@ import AccountDeletionForm from './AccountDeletionForm'
 
 const siteUrl = (process.env.DOMAIN || 'https://vedelo.ru').replace(/\/$/, '')
 const supportEmail =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'Escalion86@gmail.com'
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'vedelo@inbox.ru'
 
 export const metadata = {
   title: 'Удаление аккаунта Ведело',
