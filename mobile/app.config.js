@@ -21,11 +21,11 @@ module.exports = ({ config }) => {
     scheme: ['vedelo-dev', 'artistcrm-dev'],
     ios: {
       ...resolved.ios,
-      bundleIdentifier: 'ru.escalion.artistcrm.dev',
+      bundleIdentifier: 'ru.escalion.vedelo.dev',
     },
     android: {
       ...android,
-      package: 'ru.escalion.artistcrm.dev',
+      package: 'ru.escalion.vedelo.dev',
     },
     extra: {
       ...resolved.extra,

@@ -10,7 +10,7 @@ test('registration push contains safe phone registration details and users link'
     phone: '79990000000',
   })
 
-  assert.equal(payload.title, 'Новый пользователь ArtistCRM')
+  assert.equal(payload.title, 'Новый пользователь Ведело')
   assert.equal(payload.body, 'Регистрация по телефону. Источник: focusnik-pilot')
   assert.equal(payload.data.type, 'new_user_registration')
   assert.equal(payload.data.userId, 'user-1')

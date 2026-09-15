@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as WebBrowser from 'expo-web-browser'
 import { api } from '../../shared/api/client'
+import { env } from '../../shared/config/env'
 import {
   Button,
   ErrorNotice,
@@ -45,7 +46,7 @@ type CalendarItem = {
   accessRole?: string
 }
 
-const authReturnUrl = 'artistcrm://more/integrations'
+const authReturnUrl = `${env.appScheme}://more/integrations`
 
 export function IntegrationsSection() {
   const [data, setData] = useState<IntegrationStatus | null>(null)
@@ -93,7 +94,7 @@ export function IntegrationsSection() {
     setMessage('')
     try {
       const response = await api.get<{ success: true; data: { url: string } }>(
-        '/mobile/v1/integrations/google-calendar/auth-url'
+        `/mobile/v1/integrations/google-calendar/auth-url?appScheme=${encodeURIComponent(env.appScheme)}`
       )
       const result = await WebBrowser.openAuthSessionAsync(response.data.url, authReturnUrl)
       if (result.type === 'success' && result.url.includes('gc_connected=1')) {

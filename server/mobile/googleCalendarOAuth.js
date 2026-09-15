@@ -16,8 +16,11 @@ import {
   verifyMobileOAuthState,
 } from './oauthState.js'
 
-const mobileRedirect = (params = {}) => {
-  const url = new URL('artistcrm://more/integrations')
+const mobileRedirect = (params = {}, appScheme = 'vedelo') => {
+  const allowedScheme = ['vedelo', 'vedelo-dev', 'artistcrm', 'artistcrm-dev'].includes(appScheme)
+    ? appScheme
+    : 'vedelo'
+  const url = new URL(`${allowedScheme}://more/integrations`)
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value))
   return new NextResponse(null, {
     status: 307,
@@ -49,15 +52,15 @@ export const handleMobileGoogleCalendarCallback = async ({ code, state }) => {
     },
     { returnDocument: 'after' }
   ).lean()
-  if (!session || !code) return mobileRedirect({ gc_error: 'state' })
+  if (!session || !code) return mobileRedirect({ gc_error: 'state' }, payload.appScheme)
 
   const access = await getUserTariffAccess(payload.userId)
   if (!access?.allowCalendarSync) {
-    return mobileRedirect({ gc_error: 'tariff' })
+    return mobileRedirect({ gc_error: 'tariff' }, payload.appScheme)
   }
 
   const oauth = getOAuthClient()
-  if (!oauth) return mobileRedirect({ gc_error: 'config' })
+  if (!oauth) return mobileRedirect({ gc_error: 'config' }, payload.appScheme)
 
   try {
     const { tokens } = await oauth.getToken(code)
@@ -66,7 +69,7 @@ export const handleMobileGoogleCalendarCallback = async ({ code, state }) => {
       tenantId: payload.tenantId,
       archive: { $ne: true },
     })
-    if (!user) return mobileRedirect({ gc_error: 'user' })
+    if (!user) return mobileRedirect({ gc_error: 'user' }, payload.appScheme)
     const previous = normalizeCalendarSettings(user)
     user.googleCalendar = {
       ...previous,
@@ -85,9 +88,9 @@ export const handleMobileGoogleCalendarCallback = async ({ code, state }) => {
       syncSettings: normalizeCalendarSyncSettings(previous.syncSettings),
     }
     await user.save()
-    return mobileRedirect({ gc_connected: '1' })
+    return mobileRedirect({ gc_connected: '1' }, payload.appScheme)
   } catch (error) {
     console.error('[mobile/google-calendar/callback]', error?.message || error)
-    return mobileRedirect({ gc_error: 'exchange' })
+    return mobileRedirect({ gc_error: 'exchange' }, payload.appScheme)
   }
 }

@@ -196,7 +196,7 @@ const Statistics = () => {
         ...data.transactions.map((transaction) => ['Транзакция', transaction._id, transaction.date || '', clientNames.get(transaction.clientId || '') || '', transaction.category || transaction.type, transaction.amount, transaction.type === 'income' ? transaction.amount : 0, transaction.type === 'expense' ? transaction.amount : 0, transaction.comment || '']),
       ]
       const csv = `\ufeff${rows.map((row) => row.map(csvCell).join(';')).join('\r\n')}`
-      destination = new File(Paths.cache, `artistcrm-statistics-${year || 'all'}.csv`)
+      destination = new File(Paths.cache, `vedelo-statistics-${year || 'all'}.csv`)
       destination.create({ overwrite: true, intermediates: true })
       destination.write(csv)
       await Sharing.shareAsync(destination.uri, { mimeType: 'text/csv', dialogTitle: 'Экспорт статистики Ведело' })

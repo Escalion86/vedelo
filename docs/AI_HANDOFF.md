@@ -242,7 +242,9 @@ Redirect matrix:
 - Архитектура: `docs/MOBILE_APP_ARCHITECTURE.md`.
 - API: `/api/mobile/v1/**`.
 - Package ID остаётся `ru.escalion.artistcrm`.
-- Schemes: `vedelo`, `artistcrm`; dev scheme может быть `vedelo-dev`.
+- Dev package ID: `ru.escalion.vedelo.dev`.
+- Schemes: `vedelo`, `artistcrm`; dev schemes: `vedelo-dev`, `artistcrm-dev`.
+- EAS project ID: `7772a8bd-ffb8-4ee9-b4d6-53019cc3994f`. Remote slug пока `@escalion/artistcrm`; его нужно переименовать в панели Expo в `@escalion/vedelo`, сохранив тот же project ID, и только после этого синхронно изменить `expo.slug` и release validator.
 - Offline: локальное хранилище, очередь операций, tombstones, pull/push sync, retry/conflict presentation.
 - Перед изменением API сохраняй обратную совместимость с установленными версиями Android.
 

@@ -3,9 +3,9 @@ name: Deep links открывают пользовательские формы
 ---
 - launchApp:
     clearState: false
-- openLink: artistcrm://events/edit/new
+- openLink: vedelo://events/edit/new
 - assertVisible: "Новая заявка"
-- openLink: artistcrm://clients/edit/new
+- openLink: vedelo://clients/edit/new
 - assertVisible: "Новый клиент"
-- openLink: artistcrm://finance/edit/new
+- openLink: vedelo://finance/edit/new
 - assertVisible: "Новая транзакция"

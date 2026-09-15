@@ -15,6 +15,7 @@ export const createMobileOAuthState = ({
   userId,
   tenantId,
   sessionId,
+  appScheme = 'vedelo',
   secret,
   now = Date.now(),
   ttlMs = DEFAULT_TTL_MS,
@@ -25,6 +26,9 @@ export const createMobileOAuthState = ({
     userId: String(userId),
     tenantId: String(tenantId),
     sessionId: String(sessionId),
+    appScheme: ['vedelo', 'vedelo-dev', 'artistcrm', 'artistcrm-dev'].includes(appScheme)
+      ? appScheme
+      : 'vedelo',
     nonce: crypto.randomBytes(16).toString('hex'),
     exp: now + ttlMs,
   }))

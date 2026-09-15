@@ -75,7 +75,7 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
       const form = new FormData()
       form.append('audio', {
         uri,
-        name: 'artistcrm-voice-draft.m4a',
+        name: 'vedelo-voice-draft.m4a',
         type: 'audio/mp4',
       } as unknown as Blob)
       const response = await api.upload<TranscriptResponse>('/mobile/v1/events/voice-transcript', form)

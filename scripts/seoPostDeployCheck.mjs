@@ -26,7 +26,7 @@ const normalizeSiteUrl = (value) => {
 }
 
 const rawFetchUrl =
-  process.argv[2] || process.env.DOMAIN || 'https://artistcrm.ru'
+  process.argv[2] || process.env.DOMAIN || 'https://vedelo.ru'
 const rawCanonicalUrl = process.argv[3] || rawFetchUrl
 const fetchSiteUrl = normalizeSiteUrl(rawFetchUrl)
 const canonicalSiteUrl = normalizeSiteUrl(rawCanonicalUrl)

@@ -16,7 +16,7 @@ Caller ID через Android `CallScreeningService`, виджеты и Share Tar
 
 ## Разработка на физическом Android-устройстве
 
-Для ежедневной разработки используется отдельное приложение `Ведело Dev` с package ID `ru.escalion.artistcrm.dev`. Оно устанавливается рядом с обычным `Ведело`, поэтому production-версия и её данные не затрагиваются.
+Для ежедневной разработки используется отдельное приложение `Ведело Dev` с package ID `ru.escalion.vedelo.dev`. Оно устанавливается рядом с обычным `Ведело`, поэтому production-версия и её данные не затрагиваются.
 
 Однократная подготовка после подключения телефона по USB с включённой отладкой:
 
@@ -53,7 +53,7 @@ Expo Go не поддерживает SQLCipher и другие нативные
 
 ```env
 EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000/api
-EXPO_PUBLIC_APP_SCHEME=artistcrm
+EXPO_PUBLIC_APP_SCHEME=vedelo
 EXPO_PUBLIC_VK_ID_APP_ID=...
 ```
 
@@ -72,7 +72,7 @@ npm run release:validate
 
 ## Нативный проект и сборка
 
-Каталоги `android/` и `ios/` являются генерируемыми и не коммитятся. Конфигурация хранится в `app.json`; это исключает расхождение native-проекта и EAS Build. Мобильный клиент привязан к отдельному EAS-проекту `@escalion/artistcrm`.
+Каталоги `android/` и `ios/` являются генерируемыми и не коммитятся. Конфигурация хранится в `app.json`; это исключает расхождение native-проекта и EAS Build. До переименования slug в панели Expo мобильный клиент остаётся привязан к EAS-проекту `@escalion/artistcrm` с постоянным project ID; после переименования slug должен стать `@escalion/vedelo` без создания нового проекта.
 
 Корневой `.easignore` исключает локальные native/build-каталоги и зависимости из архива монорепозитория; `mobile/.easignore` сохраняет те же правила для автономного checkout приложения. Перед отправкой новой сборки размер архива можно проверить через `eas build:inspect --platform android --stage archive`.
 
@@ -82,7 +82,7 @@ npx eas-cli@latest build --platform android --profile production
 npx eas-cli@latest build --platform android --profile production-apk
 ```
 
-Профиль `production` собирает AAB для Google Play, а `production-apk` — подписанный APK для прямой установки. Оба профиля используют `ru.escalion.artistcrm` и автоматически увеличивают `versionCode`. Публичные production-переменные задаются в `eas.json`/EAS environment, секреты провайдеров остаются только на сервере.
+Профиль `production` собирает AAB для Google Play, а `production-apk` — подписанный APK для прямой установки. Оба профиля намеренно сохраняют `ru.escalion.artistcrm`: это идентификатор уже опубликованного приложения, необходимый для обновления существующих установок. Пользовательское имя приложения — «Ведело», основной deep-link scheme — `vedelo://`, а `artistcrm://` принимается для совместимости. Публичные production-переменные задаются в `eas.json`/EAS environment, секреты провайдеров остаются только на сервере.
 
 ## Структура
 

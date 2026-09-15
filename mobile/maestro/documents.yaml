@@ -7,7 +7,7 @@ env:
 ---
 - launchApp:
     clearState: false
-- openLink: artistcrm://events/${TEST_DOCUMENT_EVENT_ID}/documents
+- openLink: vedelo://events/${TEST_DOCUMENT_EVENT_ID}/documents
 - assertVisible: "Документы мероприятия"
 - assertVisible: ${TEST_TEMPLATE_NAME}
 - tapOn: ${TEST_TEMPLATE_NAME}

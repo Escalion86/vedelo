@@ -2,8 +2,8 @@
  * Deep Link URL Parser & Builder
  *
  * Schema: {scheme}://{host}/{version}/{resource}?{params}
- *   scheme: artistcrm (mobile) | https (web)
- *   host: app (mobile) | crm.escalion.ru (web)
+ *   scheme: vedelo (mobile; artistcrm remains supported) | https (web)
+ *   host: app (mobile) | vedelo.ru (web)
  *   version: v1
  *   resource: request | event
  *
@@ -66,8 +66,8 @@ export const isValidDateParam = (value) => {
 
 /**
  * Parse a deep link URL into a structured object.
- * Supports both web URLs (https://crm.escalion.ru/v1/...)
- * and custom scheme URLs (artistcrm://app/v1/...).
+ * Supports both web URLs (https://vedelo.ru/v1/...)
+ * and custom scheme URLs (vedelo://app/v1/... or legacy artistcrm://app/v1/...).
  *
  * Returns: { version, resource, orgId, id, tab, action, date, error }
  *   id = request_id or event_id (normalized)
@@ -87,7 +87,7 @@ export const parseDeepLinkUrl = (url) => {
 
   // Validate scheme
   const scheme = parsed.protocol.replace(':', '')
-  if (!['https', 'artistcrm', 'http'].includes(scheme)) {
+  if (!['https', 'vedelo', 'artistcrm', 'http'].includes(scheme)) {
     return { error: `Unsupported scheme: ${scheme}`, version: null, resource: null, orgId: null, id: null, tab: null, action: null, date: null }
   }
 
@@ -200,7 +200,7 @@ export const parsePushNotificationUrl = (url) => {
 
   // Legacy format: extract openEvent param
   try {
-    const parsed = new URL(url, 'https://crm.escalion.ru')
+    const parsed = new URL(url, 'https://vedelo.ru')
     const openEvent = parsed.searchParams.get('openEvent')
     if (openEvent && isValidId(openEvent)) {
       return {

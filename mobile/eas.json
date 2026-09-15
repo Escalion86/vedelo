@@ -23,7 +23,7 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://vedelo.ru/api",
-        "EXPO_PUBLIC_APP_SCHEME": "artistcrm"
+        "EXPO_PUBLIC_APP_SCHEME": "vedelo"
       },
       "android": {
         "buildType": "app-bundle"
@@ -35,7 +35,7 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://vedelo.ru/api",
-        "EXPO_PUBLIC_APP_SCHEME": "artistcrm"
+        "EXPO_PUBLIC_APP_SCHEME": "vedelo"
       },
       "android": {
         "buildType": "apk"

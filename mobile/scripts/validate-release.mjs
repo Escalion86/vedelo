@@ -41,8 +41,11 @@ try {
 
 requireValue(app.name === 'Ведело', 'expo.name должен быть Ведело')
 requireValue(app.slug === 'artistcrm', 'Expo slug должен соответствовать EAS project')
-requireValue(app.version === '1.0.0', 'expo.version должен быть 1.0.0')
-requireValue(pkg.version === app.version, 'package и Expo версии должны совпадать')
+requireValue(app.version === pkg.version, 'package и Expo версии должны совпадать')
+requireValue(
+  app.scheme?.[0] === 'vedelo' && app.scheme?.includes('artistcrm'),
+  'Основной scheme должен быть vedelo, legacy scheme artistcrm должен сохраниться'
+)
 requireValue(
   app.android?.package === 'ru.escalion.artistcrm',
   'Некорректный Android package'

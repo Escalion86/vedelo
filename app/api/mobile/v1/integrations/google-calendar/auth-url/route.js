@@ -31,10 +31,12 @@ export const GET = async (req) => {
     return mobileError('GOOGLE_OAUTH_NOT_CONFIGURED', 'Google OAuth не настроен', 503)
   }
   const now = Date.now()
+  const requestedScheme = new URL(req.url).searchParams.get('appScheme') || 'vedelo'
   const state = createMobileOAuthState({
     userId: context.user._id,
     tenantId: context.tenantId,
     sessionId: context.mobileSessionId,
+    appScheme: requestedScheme,
     secret: getAuthSecret(),
     now,
     ttlMs: STATE_TTL_MS,

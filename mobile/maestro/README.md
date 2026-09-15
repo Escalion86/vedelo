@@ -1,6 +1,6 @@
 # Maestro-сценарии Android
 
-Сценарии рассчитаны на установленный development/production build с package id `ru.escalion.artistcrm`. Перед offline- и deep-link сценариями пользователь должен быть авторизован; `login.yaml` очищает состояние приложения и создаёт эту сессию.
+Production-сценарии рассчитаны на установленный build с сохранённым package ID `ru.escalion.artistcrm`; development build использует `ru.escalion.vedelo.dev`. Основные deep-link сценарии открываются через `vedelo://`, legacy `artistcrm://` проверяется отдельно при регрессионной QA. Перед offline- и deep-link сценариями пользователь должен быть авторизован; `login.yaml` очищает состояние приложения и создаёт эту сессию.
 
 Запуск основного smoke-набора на подключённом Android-устройстве:
 

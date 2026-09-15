@@ -19,7 +19,7 @@ const defaultPaths = [
   '/kak-ponyat-svobodna-li-data-meropriyatiya',
 ]
 
-const rawSiteUrl = process.env.DOMAIN || 'https://artistcrm.ru'
+const rawSiteUrl = process.env.DOMAIN || 'https://vedelo.ru'
 const siteUrl = new URL(
   rawSiteUrl.startsWith('http') ? rawSiteUrl : `https://${rawSiteUrl}`
 )

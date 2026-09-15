@@ -4,14 +4,14 @@ name: Состояние синхронизации переживает offline
 - setAirplaneMode: enabled
 - launchApp:
     clearState: false
-- openLink: artistcrm://sync
+- openLink: vedelo://sync
 - tapOn:
     id: "sync-now"
 - assertVisible: "Нет сети"
 - killApp
 - launchApp:
     stopApp: false
-- openLink: artistcrm://sync
+- openLink: vedelo://sync
 - assertVisible: "Нет сети"
 - setAirplaneMode: disabled
 - tapOn:

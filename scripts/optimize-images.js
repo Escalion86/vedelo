@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Image optimization script for ArtistCRM homepage
+ * Image optimization script for the Vedelo homepage
  * Uses sharp for fast WebP/AVIF generation
  */
 
@@ -68,7 +68,7 @@ function fmt(bytes) {
 }
 
 async function main() {
-  console.log('=== ArtistCRM Image Optimization ===\n');
+  console.log('=== Vedelo Image Optimization ===\n');
 
   // 1. Logo - the main homepage image (43KB PNG displayed at 36x36)
   // Generate properly sized WebP/AVIF versions

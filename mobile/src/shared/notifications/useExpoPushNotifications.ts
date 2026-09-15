@@ -212,10 +212,10 @@ const handleNotificationResponse = async (response: Notifications.NotificationRe
 
   const url = data.url
   if (url.includes('openEvent=')) {
-    const eventId = new URL(url, 'https://artistcrm.local').searchParams.get('openEvent')
+    const eventId = new URL(url, 'https://vedelo.local').searchParams.get('openEvent')
     router.push(eventId ? (`/events/${eventId}` as never) : '/(tabs)/events')
-  } else if (url.startsWith('artistcrm://')) {
-    router.push(url.replace('artistcrm://', '/') as never)
+  } else if (/^(?:vedelo|artistcrm):\/\//.test(url)) {
+    router.push(url.replace(/^(?:vedelo|artistcrm):\/\//, '/') as never)
   } else if (url.includes('/cabinet/')) {
     router.push('/(tabs)')
   } else {

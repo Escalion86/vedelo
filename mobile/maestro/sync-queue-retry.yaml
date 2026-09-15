@@ -5,7 +5,7 @@ env:
 ---
 - launchApp:
     clearState: false
-- openLink: artistcrm://sync
+- openLink: vedelo://sync
 - assertVisible: "Синхронизация"
 - scrollUntilVisible:
     element:

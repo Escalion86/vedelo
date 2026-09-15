@@ -3,7 +3,7 @@ name: Новый DOCX-шаблон требует файл
 ---
 - launchApp:
     clearState: false
-- openLink: artistcrm://more/documents/template/new
+- openLink: vedelo://more/documents/template/new
 - assertVisible: "Новый DOCX-шаблон"
 - tapOn:
     id: "template-name"
