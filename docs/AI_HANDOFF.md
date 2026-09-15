@@ -62,15 +62,15 @@ PWA-переезд:
 
 - `BRAND-T4`: домен, DNS и TLS работают; остаётся проверка обозначения «Ведело» в МКТУ 9, 35, 42;
 - `BRAND-T5`: device QA уже установленной PWA и production E2E OAuth, платежей, webhooks, push и редиректов;
-- 30-дневная кампания ещё не запущена: `artistcrm.ru` продолжает отдавать отдельную главную, пока не задан `BRAND_MIGRATION_STARTED_AT`;
-- у `vedelo.ru` нет MX; Яндекс 360 для бизнеса платный, поэтому рабочий `support@vedelo.ru` ещё не создан;
+- 30-дневная кампания ещё не запущена: на `artistcrm.ru` остаётся старая сборка с service worker `artistcrm-custom-sw-v3`, без `/api/domain-migration/status`; сначала на legacy-origin нужно развернуть ту же migration-capable сборку, что и на `vedelo.ru`, и только затем задать единый `BRAND_MIGRATION_STARTED_AT`;
+- у `vedelo.ru` нет MX; Яндекс 360 для бизнеса платный, поэтому рабочий `support@vedelo.ru` ещё не создан. В качестве бесплатного временного контакта рассматривается отдельный ящик Mail.ru, но публиковать адрес можно только после создания и проверки приёма/отправки;
 - Android production QA/release;
 - реальные E2E интеграций Avito, VK и Telegram Business;
 - завершение ухода server collections из Jotai bridge (`OPT-T9`);
-- Lighthouse/Core Web Vitals публичной главной (`SEO-T9`);
+- полевые Core Web Vitals публичной главной (`SEO-T9`); лабораторный Lighthouse mobile после деплоя 1.20.1: performance 96, accessibility 96, best practices 100, SEO 100, LCP 1,6 с, CLS 0,001;
 - CI-проверки web (`IMP-T4`).
 
-На 2026-09-15 `vedelo.ru` и `www.vedelo.ru` разрешаются в `5.129.192.130`, HTTPS работает, `www` перенаправляется на apex. DNS содержит подтверждения Google Search Console и Яндекс Вебмастера. VK ID web публикует callback нового домена. Остальные production E2E остаются обязательными.
+На 2026-09-15 `vedelo.ru` и `www.vedelo.ru` разрешаются в `5.129.192.130`, HTTPS работает, `www` перенаправляется на apex. DNS содержит подтверждения Google Search Console и Яндекс Вебмастера. VK ID web публикует callback нового домена. После деплоя 1.20.1 прошли SEO-check всех 16 публичных страниц, браузерные desktop/mobile проверки регистрации и согласия на Метрику; IndexNow принял 16 URL (`HTTP 202`). Остальные production E2E остаются обязательными.
 
 ## 4. Критические правила совместимости
 
