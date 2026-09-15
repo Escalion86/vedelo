@@ -184,7 +184,7 @@ const buildSummaryPayload = ({
   return {
     title,
     body,
-    icon: '/icons/AppImages/android/android-launchericon-192-192.png',
+    icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
     badge: '/icons/notification-badge.svg',
     tag: SUMMARY_TAG,
     renotify: false,

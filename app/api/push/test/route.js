@@ -19,7 +19,7 @@ export const POST = async () => {
     payload: {
       title: 'Тест push-уведомления',
       body: 'Проверка канала уведомлений для API-заявок',
-      icon: '/icons/AppImages/android/android-launchericon-192-192.png',
+      icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
       badge: '/icons/notification-badge.svg',
       tag: `push-test-${Date.now()}`,
       data: {

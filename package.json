@@ -1,6 +1,6 @@
 {
   "name": "vedelo",
-  "version": "1.20.2",
+  "version": "1.20.3",
   "private": true,
   "scripts": {
     "test:file-import": "node --test server/fileImport.test.mjs server/fileImportBudget.integration.test.mjs server/aiChatCompletion.test.js",

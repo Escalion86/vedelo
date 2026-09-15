@@ -503,7 +503,7 @@ const showLocalTestNotification = async () => {
 
   await registration.showNotification('Локальный тест push', {
     body: 'Проверка уведомления напрямую на устройстве',
-    icon: '/icons/AppImages/android/android-launchericon-192-192.png',
+    icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
     badge: '/icons/notification-badge.svg',
     tag: `push-local-test-${Date.now()}`,
     data: {
