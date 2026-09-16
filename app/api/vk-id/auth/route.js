@@ -152,7 +152,7 @@ export const POST = async (req) => {
 
     const user = await ensureVkUser({
       ...userInfoResult.data,
-      referrerId,
+      referrerId: authFlow === 'login' ? null : referrerId,
       registrationSource,
       acquisition,
       legalAcceptance: Boolean(

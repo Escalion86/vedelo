@@ -1,11 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { z } from 'zod'
 import * as ExpoAuthSession from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import { api } from '../../src/shared/api/client'
 import { useAuth } from '../../src/shared/auth/AuthProvider'
+import {
+  captureRegistrationReferrer,
+  normalizeRegistrationReferrer,
+} from '../../src/shared/auth/registrationReferral'
 import type { AuthSession } from '../../src/shared/auth/types'
 import { env } from '../../src/shared/config/env'
 import {
@@ -51,7 +55,17 @@ const LegalConsentRow = ({
 
 export default function LoginScreen() {
   const { completeSignIn } = useAuth()
-  const [mode, setMode] = useState<Mode>('login')
+  const params = useLocalSearchParams<{ mode?: string; ref?: string }>()
+  const referralId = normalizeRegistrationReferrer(params.ref)
+  const [mode, setMode] = useState<Mode>(() =>
+    params.mode === 'register' || referralId ? 'register' : 'login'
+  )
+  useEffect(() => {
+    if (referralId) {
+      setMode('register')
+      captureRegistrationReferrer(referralId).catch(() => undefined)
+    }
+  }, [referralId])
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [passwordRepeat, setPasswordRepeat] = useState('')
@@ -84,22 +98,26 @@ export default function LoginScreen() {
     if (vkResult?.type !== 'success' || !vkResult.params.code) return
     setLoading(true)
     setError('')
-    api
-      .post<{ success: true; data: AuthSession }>(
-        '/mobile/v1/auth/vk',
-        {
-          code: vkResult.params.code,
-          device_id: vkResult.params.device_id,
-          state: vkResult.params.state,
-          code_verifier: vkRequest?.codeVerifier,
-          mode,
-          consentTerms: mode === 'register' ? termsAccepted : undefined,
-          consentPrivacyPolicy:
-            mode === 'register' ? privacyAccepted : undefined,
-          consentPersonalData:
-            mode === 'register' ? personalDataAccepted : undefined,
-        },
-        { skipAuth: true, skipRefresh: true }
+    captureRegistrationReferrer(referralId)
+      .then((referrerId) =>
+        api.post<{ success: true; data: AuthSession }>(
+          '/mobile/v1/auth/vk',
+          {
+            code: vkResult.params.code,
+            device_id: vkResult.params.device_id,
+            state: vkResult.params.state,
+            code_verifier: vkRequest?.codeVerifier,
+            mode,
+            referrerId:
+              mode === 'register' ? referrerId || undefined : undefined,
+            consentTerms: mode === 'register' ? termsAccepted : undefined,
+            consentPrivacyPolicy:
+              mode === 'register' ? privacyAccepted : undefined,
+            consentPersonalData:
+              mode === 'register' ? personalDataAccepted : undefined,
+          },
+          { skipAuth: true, skipRefresh: true }
+        )
       )
       .then(async (response) => {
         await completeSignIn(response.data)
@@ -116,6 +134,7 @@ export default function LoginScreen() {
   }, [
     completeSignIn,
     mode,
+    referralId,
     personalDataAccepted,
     privacyAccepted,
     termsAccepted,
@@ -131,6 +150,7 @@ export default function LoginScreen() {
   }
 
   const finish = async () => {
+    const referrerId = await captureRegistrationReferrer(referralId)
     const path =
       mode === 'register'
         ? '/mobile/v1/auth/register'
@@ -140,6 +160,7 @@ export default function LoginScreen() {
       {
         phone: normalizeRussianPhone(phone),
         password,
+        referrerId: mode === 'register' ? referrerId || undefined : undefined,
         consentTerms: mode === 'register' ? termsAccepted : undefined,
         consentPrivacyPolicy: mode === 'register' ? privacyAccepted : undefined,
         consentPersonalData:

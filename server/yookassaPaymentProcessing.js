@@ -51,11 +51,26 @@ const logReferralRewardError = (paymentId, error) => {
   })
 }
 
+const completeReferralReward = async (payment) => {
+  if (!payment.referralRewardPending) return
+  try {
+    await createReferralRewardForBalanceTopup({
+      payment,
+      UsersModel: Users,
+      PaymentsModel: Payments,
+      SiteSettingsModel: SiteSettings,
+    })
+  } catch (error) {
+    logReferralRewardError(payment?._id, error)
+  }
+}
+
 const processSucceededYookassaPayment = async ({
   payment,
   providerPayment,
 }) => {
   if (payment.status === 'succeeded') {
+    await completeReferralReward(payment)
     return { ok: true, alreadyProcessed: true }
   }
 
@@ -91,6 +106,7 @@ const processSucceededYookassaPayment = async ({
   if (!lockedPayment) {
     const freshPayment = await Payments.findById(payment._id).lean()
     if (freshPayment?.status === 'succeeded') {
+      await completeReferralReward(freshPayment)
       return { ok: true, alreadyProcessed: true }
     }
     return {
@@ -132,6 +148,7 @@ const processSucceededYookassaPayment = async ({
   payment.paidAt = providerPayment?.captured_at
     ? new Date(providerPayment.captured_at)
     : new Date()
+  payment.referralRewardPending = payment.purpose === 'balance'
   await payment.save()
   recordPaymentSucceeded(payment.userId, payment.paidAt).catch((error) =>
     console.error('[acquisition] yookassa payment funnel update failed', {
@@ -156,18 +173,7 @@ const processSucceededYookassaPayment = async ({
     })
   }
 
-  if (payment.purpose === 'balance') {
-    try {
-      await createReferralRewardForBalanceTopup({
-        payment,
-        UsersModel: Users,
-        PaymentsModel: Payments,
-        SiteSettingsModel: SiteSettings,
-      })
-    } catch (error) {
-      logReferralRewardError(payment?._id, error)
-    }
-  }
+  await completeReferralReward(payment)
 
   if (payment.purpose === 'tariff' && payment.tariffId) {
     const result = await applyTariffPurchase({

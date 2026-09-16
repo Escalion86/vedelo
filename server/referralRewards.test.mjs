@@ -9,23 +9,48 @@ import {
 } from './referralRewards.js'
 
 const createQuery = (value) => ({
+  select() {
+    return this
+  },
+  then(resolve, reject) {
+    return Promise.resolve(value).then(resolve, reject)
+  },
   lean: async () => value,
 })
 
 const createUserModel = (users) => ({
-  findById: async (id) =>
-    users.find((user) => String(user._id) === String(id)) ?? null,
-  findByIdAndUpdate: async (id, update) => {
-    const user = users.find((item) => String(item._id) === String(id))
-    if (!user) return null
-    if (update?.$inc?.balance) {
-      user.balance = Number(user.balance ?? 0) + Number(update.$inc.balance)
-    }
-    return user
+  findById: (id) =>
+    createQuery(users.find((user) => String(user._id) === String(id)) ?? null),
+  findOne: async (query) =>
+    users.find(
+      (user) =>
+        user._id === query._id &&
+        Object.entries(query).every(
+          ([key, value]) =>
+            !key.startsWith('referralRewardCredits.') ||
+            user.referralRewardCredits?.[key.split('.')[1]] === value
+        )
+    ) ?? null,
+  updateOne: async (query, update) => {
+    const user = users.find((item) => String(item._id) === String(query._id))
+    if (!user || (user.tenantId ?? null) !== query.tenantId)
+      return { matchedCount: 0 }
+    const key = Object.keys(query)
+      .find((key) => key.startsWith('referralRewardCredits.'))
+      ?.split('.')[1]
+    if (key && user.referralRewardCredits?.[key]) return { matchedCount: 0 }
+    user.balance = Number(user.balance ?? 0) + Number(update.$inc.balance)
+    user.referralRewardCredits = { ...user.referralRewardCredits, [key]: true }
+    return { matchedCount: 1 }
   },
 })
 
 const createPaymentsModel = (payments) => ({
+  updateOne: async (query, update) => {
+    const payment = payments.find((item) => item._id === query._id)
+    if (payment) Object.assign(payment, update.$set)
+    return { matchedCount: payment ? 1 : 0 }
+  },
   findOne: async (query) => {
     const sourcePaymentId = query?.['referralReward.sourcePaymentId']
     const rewardFor = query?.['referralReward.rewardFor']
@@ -75,6 +100,7 @@ test('createReferralRewardForBalanceTopup ignores non-positive percent', async (
       userId: referred._id,
       tenantId: referred._id,
       amount: 1000,
+      status: 'succeeded',
       type: 'topup',
       source: 'manual',
       purpose: 'balance',
@@ -103,6 +129,7 @@ test('createReferralRewardForBalanceTopup credits referrer for provider payment'
       userId: referred._id,
       tenantId: referred._id,
       amount: 1000,
+      status: 'succeeded',
       type: 'topup',
       source: 'yookassa',
       purpose: 'balance',
@@ -147,6 +174,7 @@ test('createReferralRewardForBalanceTopup is idempotent by source payment id', a
       userId: referred._id,
       tenantId: referred._id,
       amount: 1000,
+      status: 'succeeded',
       type: 'topup',
       source: 'manual',
       purpose: 'balance',
@@ -173,6 +201,9 @@ test('createReferralRewardForBalanceTopup treats duplicate reward insert as idem
   const referred = { _id: 'user-1', referrerId: referrer._id, balance: 500 }
   const existingReward = {
     _id: 'reward-existing',
+    userId: 'referrer-1',
+    tenantId: 'referrer-1',
+    status: 'succeeded',
     referralReward: {
       sourcePaymentId: 'payment-1',
       rewardFor: 'balance_topup',
@@ -188,12 +219,14 @@ test('createReferralRewardForBalanceTopup treats duplicate reward insert as idem
       userId: referred._id,
       tenantId: referred._id,
       amount: 1000,
+      status: 'succeeded',
       type: 'topup',
       source: 'manual',
       purpose: 'balance',
     },
     UsersModel: createUserModel([referrer, referred]),
     PaymentsModel: {
+      updateOne: async () => ({}),
       findOne: async () => {
         findCalls += 1
         return findCalls === 1 ? null : existingReward
@@ -224,6 +257,7 @@ test('createReferralRewardForBalanceTopup ignores non-balance and system payment
     userId: referred._id,
     tenantId: referred._id,
     amount: 1000,
+    status: 'succeeded',
     type: 'topup',
     source: 'manual',
     purpose: 'tariff',
@@ -268,6 +302,7 @@ test('createReferralRewardForBalanceTopup requires explicit opt-in for manual to
     userId: referred._id,
     tenantId: referred._id,
     amount: 1000,
+    status: 'succeeded',
     type: 'topup',
     source: 'manual',
     purpose: 'balance',

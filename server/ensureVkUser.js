@@ -124,10 +124,7 @@ export const ensureVkUser = async ({
       secondName,
       image,
     })
-    if (!user.referrerId) {
-      const resolvedReferrerId = await resolveReferrerId(referrerId, user._id)
-      if (resolvedReferrerId) patch.referrerId = resolvedReferrerId
-    }
+    // Referral attribution belongs to account creation, never to a later login.
     if (!user.registrationSource && registrationSource) {
       patch.registrationSource = registrationSource
       patch.registrationSourceCapturedAt = new Date()

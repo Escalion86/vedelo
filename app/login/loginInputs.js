@@ -1250,6 +1250,14 @@ const LoginInputs = ({
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-2">
+            {mode === 'register' && initialReferrerId ? (
+              <a
+                href={`vedelo://login?mode=register&ref=${encodeURIComponent(initialReferrerId)}`}
+                className="text-general w-full cursor-pointer text-center text-sm font-medium underline"
+              >
+                Продолжить в установленном приложении Android
+              </a>
+            ) : null}
             <button
               type="button"
               className="text-general w-full cursor-pointer text-center text-sm font-medium transition hover:text-[#6f582f]"

@@ -21,6 +21,7 @@ const userSelect =
   '_id firstName secondName thirdName registrationType createdAt referrerId'
 
 const rewardQueryByReferrer = (referrerId) => ({
+  status: 'succeeded',
   'referralReward.referrerId': referrerId,
   'referralReward.rewardFor': REFERRAL_REWARD_FOR_BALANCE_TOPUP,
 })
@@ -58,10 +59,13 @@ export const GET = async (req) => {
 
     const [referrers, rewardPayments] = await Promise.all([
       referrerIds.length > 0
-        ? Users.find({ _id: { $in: referrerIds } }).select(userSelect).lean()
+        ? Users.find({ _id: { $in: referrerIds } })
+            .select(userSelect)
+            .lean()
         : Promise.resolve([]),
       referrerIds.length > 0
         ? Payments.find({
+            status: 'succeeded',
             'referralReward.referrerId': { $in: referrerIds },
             'referralReward.rewardFor': REFERRAL_REWARD_FOR_BALANCE_TOPUP,
           })

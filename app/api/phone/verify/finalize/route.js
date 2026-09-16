@@ -101,8 +101,7 @@ export const POST = async (req) => {
       body?.consentPrivacyPolicy === true || legacyTermsAccepted
     const consentPersonalData =
       body?.consentPersonalData === true || legacyTermsAccepted
-    const consentTerms =
-      body?.consentTerms === true || legacyTermsAccepted
+    const consentTerms = body?.consentTerms === true || legacyTermsAccepted
     const rawReferrerId = body?.referrerId ?? body?.ref ?? null
     const registrationSource = getRegistrationSourceFromRequest(req)
     const acquisition = getAcquisitionFromRequest(req)
@@ -191,7 +190,16 @@ export const POST = async (req) => {
         const referrerId = await resolveReferrerId(rawReferrerId, user._id)
         user.password = hashedPassword
         if (!user.tenantId) user.tenantId = user._id
-        if (!user.referrerId && referrerId) user.referrerId = referrerId
+        // A VK account without a password is already registered, not a placeholder.
+        if (
+          !user.referrerId &&
+          referrerId &&
+          !user.vkId &&
+          user.registrationType !== 'vk' &&
+          !user.consentTermsAccepted &&
+          !user.termsAcceptedAt
+        )
+          user.referrerId = referrerId
         if (!user.registrationSource && registrationSource) {
           user.registrationSource = registrationSource
           user.registrationSourceCapturedAt = now

@@ -168,7 +168,7 @@ const StateLoader = (props) => {
     if (!loggedUser?._id) return
     const access = getUserTariffAccess(loggedUser, props.tariffs ?? [])
     const needsTariff = !access.trialActive && !access.hasTariff
-    const allowedPages = ['tariff-select', 'tariffs']
+    const allowedPages = ['tariff-select', 'tariffs', 'billing-history']
     if (needsTariff && props.page && !allowedPages.includes(props.page)) {
       router.push('/cabinet/tariff-select')
     }

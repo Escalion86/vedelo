@@ -231,7 +231,17 @@ const TariffSelectContent = () => {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <ContentHeader />
+      <ContentHeader>
+        <div className="text-sm font-semibold text-gray-700">
+          Баланс:{' '}
+          {Number(loggedUser?.balance ?? 0).toLocaleString('ru-RU')} ₽
+        </div>
+        <Button
+          name="История операций"
+          className="h-9 px-4 text-sm"
+          onClick={() => router.push('/cabinet/billing-history')}
+        />
+      </ContentHeader>
       <SectionCard className="min-h-0 flex-1 overflow-auto p-4">
         {publicTariffs.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-2">

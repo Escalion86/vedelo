@@ -24,6 +24,7 @@ import SiteNewsContent from './SiteNewsContent'
 import TariffSelectContent from './TariffSelectContent'
 import HistoryContent from './HistoryContent'
 import FeedbackContent from './FeedbackContent'
+import BillingHistoryContent from './BillingHistoryContent'
 
 const UpcomingEventsContent = (props) => (
   <EventsContent filter="upcoming" {...props} />
@@ -126,6 +127,10 @@ export const CONTENTS = Object.freeze({
   'tariff-select': {
     Component: TariffSelectContent,
     name: 'Выбор тарифа',
+  },
+  'billing-history': {
+    Component: BillingHistoryContent,
+    name: 'Баланс и платежи',
   },
   services: {
     Component: ServicesContent,

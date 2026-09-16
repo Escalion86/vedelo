@@ -7,6 +7,7 @@ import {
   faSpinner,
   faTags,
   faUserAlt,
+  faWallet,
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 // import getParentDir from '@state/atoms/getParentDir'
@@ -286,6 +287,12 @@ const UserMenu = () => {
             href="/cabinet/tariff-select"
             icon={faTags}
             title="Смена тарифа"
+            onClick={() => setIsUserMenuOpened(false)}
+          />
+          <MenuItem
+            href="/cabinet/billing-history"
+            icon={faWallet}
+            title="Баланс и платежи"
             onClick={() => setIsUserMenuOpened(false)}
           />
           <MenuItem

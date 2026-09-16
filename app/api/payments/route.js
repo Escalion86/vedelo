@@ -4,7 +4,10 @@ import getTenantContext from '@server/getTenantContext'
 import Users from '@models/Users'
 import Payments from '@models/Payments'
 import SiteSettings from '@models/SiteSettings'
-import { createReferralRewardForBalanceTopup } from '@server/referralRewards'
+import {
+  createReferralRewardForBalanceTopup,
+  getReferralRewardId,
+} from '@server/referralRewards'
 import { supportsMongoTransactions } from '@server/mongoCapabilities'
 import mongoose from 'mongoose'
 
@@ -114,6 +117,7 @@ export const POST = async (req) => {
     type: 'topup',
     source: 'manual',
     purpose: 'balance',
+    referralRewardPending: body.rewardReferrer === true,
     comment: body.comment ?? '',
   })
 
@@ -202,6 +206,17 @@ export const DELETE = async (req) => {
         )
       : null
     const paymentsToDelete = [payment, linkedReward].filter(Boolean)
+    if (
+      paymentsToDelete.some(
+        (item) => item.status === 'pending' || item.referralRewardPending
+      )
+    ) {
+      const error = new Error(
+        'Начисление бонуса ещё не завершено. Повторите после обработки платежа.'
+      )
+      error.status = 409
+      throw error
+    }
     const deductions = new Map()
 
     paymentsToDelete.forEach((item) => {
@@ -235,9 +250,40 @@ export const DELETE = async (req) => {
     }
 
     for (const { balanceUser, amount } of balanceUpdates) {
-      balanceUser.balance = Number(balanceUser.balance ?? 0) - amount
-      await balanceUser.save(session ? { session } : undefined)
-      updatedUsers.push(sanitizeUser(balanceUser))
+      const receipts = {}
+      for (const item of paymentsToDelete) {
+        if (
+          String(item.userId) === String(balanceUser._id) &&
+          item.referralReward?.sourcePaymentId
+        ) {
+          receipts[
+            `referralRewardCredits.${getReferralRewardId(item.referralReward.sourcePaymentId)}`
+          ] = true
+        }
+      }
+      const updated = await withSession(
+        Users.findOneAndUpdate(
+          {
+            _id: balanceUser._id,
+            tenantId: balanceUser.tenantId ?? null,
+            balance: { $gte: amount },
+          },
+          {
+            $inc: { balance: -amount },
+            ...(Object.keys(receipts).length ? { $set: receipts } : {}),
+          },
+          { returnDocument: 'after' }
+        ),
+        session
+      )
+      if (!updated) {
+        const error = new Error(
+          'Баланс изменился. Повторите удаление пополнения.'
+        )
+        error.status = 409
+        throw error
+      }
+      updatedUsers.push(sanitizeUser(updated))
     }
 
     await withSession(

@@ -9,6 +9,7 @@ import useSnackbar from '@helpers/useSnackbar'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { useAtomValue } from 'jotai'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const DEFAULT_PERCENT = 5
@@ -22,6 +23,7 @@ const getUserName = (user) => {
 }
 
 const ReferralsContent = () => {
+  const router = useRouter()
   const loggedUser = useAtomValue(loggedUserAtom)
   const snackbar = useSnackbar()
   const [origin, setOrigin] = useState('')
@@ -249,11 +251,17 @@ const ReferralsContent = () => {
               </MutedText>
             </div>
             {referralsData ? (
-              <div className="text-sm text-gray-700 sm:text-right">
+              <div className="flex flex-col items-start gap-2 text-sm text-gray-700 sm:items-end sm:text-right">
                 <div>Рефералов: {referralsData.referralsCount ?? 0}</div>
                 <div>
                   Начислено: {formatMoney(referralsData.rewardsTotal ?? 0)}
                 </div>
+                <Button
+                  name="История начислений"
+                  thin
+                  className="px-3 text-xs"
+                  onClick={() => router.push('/cabinet/billing-history')}
+                />
               </div>
             ) : null}
           </div>

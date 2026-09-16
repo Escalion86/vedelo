@@ -86,8 +86,23 @@ const logReferralRewardError = (paymentId, error) => {
   })
 }
 
+const completeReferralReward = async (payment) => {
+  if (!payment.referralRewardPending) return
+  try {
+    await createReferralRewardForBalanceTopup({
+      payment,
+      UsersModel: Users,
+      PaymentsModel: Payments,
+      SiteSettingsModel: SiteSettings,
+    })
+  } catch (error) {
+    logReferralRewardError(payment?._id, error)
+  }
+}
+
 const processSucceededTochkaPayment = async ({ payment, providerPayment }) => {
   if (payment.status === 'succeeded') {
+    await completeReferralReward(payment)
     return { ok: true, alreadyProcessed: true }
   }
 
@@ -123,6 +138,7 @@ const processSucceededTochkaPayment = async ({ payment, providerPayment }) => {
   if (!lockedPayment) {
     const freshPayment = await Payments.findById(payment._id).lean()
     if (freshPayment?.status === 'succeeded') {
+      await completeReferralReward(freshPayment)
       return { ok: true, alreadyProcessed: true }
     }
     return {
@@ -164,6 +180,7 @@ const processSucceededTochkaPayment = async ({ payment, providerPayment }) => {
   payment.paidAt = providerPayment?.date
     ? new Date(providerPayment.date)
     : new Date()
+  payment.referralRewardPending = payment.purpose === 'balance'
   await payment.save()
   recordPaymentSucceeded(payment.userId, payment.paidAt).catch((error) =>
     console.error('[acquisition] tochka payment funnel update failed', {
@@ -188,18 +205,7 @@ const processSucceededTochkaPayment = async ({ payment, providerPayment }) => {
     })
   }
 
-  if (payment.purpose === 'balance') {
-    try {
-      await createReferralRewardForBalanceTopup({
-        payment,
-        UsersModel: Users,
-        PaymentsModel: Payments,
-        SiteSettingsModel: SiteSettings,
-      })
-    } catch (error) {
-      logReferralRewardError(payment?._id, error)
-    }
-  }
+  await completeReferralReward(payment)
 
   if (payment.purpose === 'tariff' && payment.tariffId) {
     const result = await applyTariffPurchase({

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native'
-import { Stack, useRouter, useSegments } from 'expo-router'
+import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import NetInfo from '@react-native-community/netinfo'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -14,12 +14,15 @@ import {
 } from '../src/shared/sync/backgroundSync'
 import { useExpoPushNotifications } from '../src/shared/notifications/useExpoPushNotifications'
 import { flushPendingLogout } from '../src/shared/auth/pendingLogout'
+import { normalizeRegistrationReferrer } from '../src/shared/auth/registrationReferral'
 import { colors } from '../src/shared/ui/theme'
 
 const RootNavigator = () => {
   const { authenticated, loading, onboardingRequired } = useAuth()
   const router = useRouter()
   const segments = useSegments()
+  const params = useGlobalSearchParams<{ ref?: string }>()
+  const referralId = normalizeRegistrationReferrer(params.ref)
   useExpoPushNotifications(authenticated)
 
   useEffect(() => {
@@ -55,7 +58,12 @@ const RootNavigator = () => {
     if (loading) return
     const inAuthGroup = segments[0] === '(auth)'
     const inOnboarding = segments[0] === 'onboarding'
-    if (!authenticated && !inAuthGroup) router.replace('/(auth)/login')
+    if (!authenticated && !inAuthGroup) {
+      router.replace({
+        pathname: '/(auth)/login',
+        params: referralId ? { mode: 'register', ref: referralId } : {},
+      })
+    }
     if (authenticated && onboardingRequired && !inOnboarding) {
       router.replace('/onboarding')
       return
@@ -69,6 +77,7 @@ const RootNavigator = () => {
     onboardingRequired,
     router,
     segments,
+    referralId,
   ])
 
   if (loading) {

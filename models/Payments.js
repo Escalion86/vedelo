@@ -16,7 +16,7 @@ PaymentsSchema.index(
   {
     unique: true,
     partialFilterExpression: {
-      'referralReward.sourcePaymentId': { $exists: true, $ne: null },
+      'referralReward.sourcePaymentId': { $type: 'objectId' },
       'referralReward.rewardFor': 'balance_topup',
     },
   }

@@ -107,6 +107,7 @@ const paymentsSchema = {
     },
     default: null,
   },
+  referralRewardPending: { type: Boolean, default: false },
   comment: {
     type: String,
     default: '',

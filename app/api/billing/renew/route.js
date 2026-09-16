@@ -3,6 +3,8 @@ import dbConnect from '@server/dbConnect'
 import Users from '@models/Users'
 import Tariffs from '@models/Tariffs'
 import Payments from '@models/Payments'
+import SiteSettings from '@models/SiteSettings'
+import { retryPendingReferralRewards } from '@server/referralRewards'
 import getTenantContext from '@server/getTenantContext'
 
 const addMonths = (date, count) => {
@@ -43,6 +45,12 @@ export const POST = async (req) => {
   }
 
   await dbConnect()
+
+  const referrals = await retryPendingReferralRewards({
+    UsersModel: Users,
+    PaymentsModel: Payments,
+    SiteSettingsModel: SiteSettings,
+  })
 
   const now = new Date()
   const dueUsers = await Users.find({
@@ -136,6 +144,7 @@ export const POST = async (req) => {
         renewed,
         movedToFree,
         skipped,
+        referrals,
       },
     },
     { status: 200 }

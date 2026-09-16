@@ -12,6 +12,7 @@ import {
   faClockRotateLeft,
   faComments,
   faAddressBook,
+  faWallet,
 } from '@fortawesome/free-solid-svg-icons'
 
 import {
@@ -695,6 +696,13 @@ export const pages = [
     name: 'Реферальная система',
     href: 'referrals',
     icon: faMoneyBill,
+  },
+  {
+    id: 36,
+    group: 6,
+    name: 'Баланс и платежи',
+    href: 'billing-history',
+    icon: faWallet,
   },
   {
     id: 33,

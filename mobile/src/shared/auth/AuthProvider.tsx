@@ -28,6 +28,7 @@ import {
   setStoredPushToken,
 } from '../notifications/preferences'
 import { clearPendingPushUnsubscribe } from '../notifications/pendingUnsubscribe'
+import { clearRegistrationReferrer } from './registrationReferral'
 
 type AuthContextValue = {
   loading: boolean
@@ -133,6 +134,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       queryClient.clear()
     }
     await setAuthSession(session)
+    await clearRegistrationReferrer().catch(() => undefined)
     setUser(session.user)
     setOnboardingRequired(
       !session.user.firstName?.trim()
