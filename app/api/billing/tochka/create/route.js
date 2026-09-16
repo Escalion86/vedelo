@@ -97,13 +97,6 @@ export const POST = async (req) => {
       idempotenceKey,
       returnUrl: resolveReturnUrl(req),
       user: dbUser,
-      metadata: {
-        paymentId: String(payment._id),
-        userId: String(dbUser._id),
-        tenantId: String(dbUser.tenantId ?? dbUser._id),
-        purpose,
-        tariffId: tariff?._id ? String(tariff._id) : '',
-      },
     })
 
     const operationId = getTochkaOperationId(tochkaPayment)

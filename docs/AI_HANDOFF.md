@@ -277,6 +277,10 @@ npm run doctor
 - Telegram Business: `app/api/integrations/telegram/**`, `server/telegramBusiness.js`, `docs/TELEGRAM_BUSINESS_INTEGRATION.md`.
 - Telephony/calls: `app/api/telephony/**`, `models/Calls.js`, `docs/TELEPHONY_AI_INTEGRATION_PLAN.md`.
 - Billing: `app/api/billing/**`, `server/yookassa.js`, `server/tochka.js`.
+- Точка использует сертификаты Минцифры; production-процесс Node должен
+  стартовать с `NODE_EXTRA_CA_CERTS`, указывающим на PEM bundle из Russian
+  Trusted Root CA и Russian Trusted Sub CA. Системного trust store для Node
+  недостаточно; не отключать TLS-проверку.
 - AI: общий AITunnel оплачивается из баланса; пользовательский ключ настраивается отдельно и не тарифицируется платформой.
 
 OAuth и payment callbacks во время миграции должны доверять обоим разрешённым host. Cookie между доменами не переносить.

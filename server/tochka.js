@@ -139,7 +139,6 @@ const createTochkaPayment = async ({
   idempotenceKey,
   returnUrl,
   user,
-  metadata,
 }) => {
   const value = normalizeAmount(amount)
   if (!value) throw new Error('Некорректная сумма платежа')
@@ -187,8 +186,7 @@ const createTochkaPayment = async ({
       preAuthorization: false,
     },
   }
-  if (metadata) body.Data.metadata = metadata
-  if (idempotenceKey) body.Data.orderId = idempotenceKey
+  if (idempotenceKey) body.Data.paymentLinkId = idempotenceKey
   if (process.env.TOCHKA_SEND_RECEIPT !== 'true') {
     delete body.Data.Client
     delete body.Data.Items

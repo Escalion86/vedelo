@@ -64,11 +64,24 @@ TOCHKA_VAT_TYPE=none
 TOCHKA_RECEIPT_CLIENT_CONTACT=phone
 TOCHKA_RECEIPT_ITEM_NAME=Оплата Ведело
 TOCHKA_RECEIPT_EMAIL=<существующий проверенный ящик>
+NODE_EXTRA_CA_CERTS=/абсолютный/путь/tochka-russian-ca-bundle.crt
 ```
 
 Если включаются чеки Точки, также проверить
 `TOCHKA_TAX_SYSTEM_CODE`, `TOCHKA_PAYMENT_METHOD`, `TOCHKA_PAYMENT_OBJECT`,
 `TOCHKA_MEASURE`, `TOCHKA_PAYMENT_TTL` и `TOCHKA_WEBHOOK_PUBLIC_JWK`.
+
+Точка использует цепочку `Russian Trusted Root CA` / `Russian Trusted Sub CA`.
+Оба сертификата должны находиться в одном PEM bundle. Переменную
+`NODE_EXTRA_CA_CERTS` нужно передать процессу Node **до его запуска** через
+PM2/systemd/start-команду: загрузка значения только из `.env` внутри уже
+запущенного Next.js недостаточна. После перезапуска проверить из того же
+окружения запрос `https://tls-test.tochka.com/api/`; ожидается
+`{"status":"ok"}` без отключения TLS-проверки.
+
+Штатный `deploy_timeweb.ps1` копирует каталог `certs` при локальном деплое и,
+если найден `certs/tochka-russian-ca-bundle.crt`, передаёт его процессу PM2
+автоматически.
 
 Callback и webhook URL обоих провайдеров должны вести на `vedelo.ru`; URL
 старого домена сохраняются на время migration campaign и отвечают `308`.
