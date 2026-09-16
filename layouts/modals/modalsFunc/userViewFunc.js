@@ -28,6 +28,7 @@ const LoginAsUserButton = ({ userId }) => {
   const [error, setError] = useState('')
 
   const handleClick = async () => {
+    if (loading) return
     setLoading(true)
     setError('')
     try {

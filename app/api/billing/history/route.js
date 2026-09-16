@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
+import mongoose from 'mongoose'
 import Payments from '@models/Payments'
+import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import {
   buildPaymentHistoryFilter,
+  canViewPaymentHistoryForUser,
   makePaymentHistoryCursor,
   parsePaymentHistoryCursor,
   parsePaymentHistoryLimit,
@@ -21,17 +24,55 @@ export const GET = async (req) => {
   }
 
   const { searchParams } = new URL(req.url)
+  const targetUserId = String(
+    searchParams.get('userId') || context.user._id
+  ).trim()
+  if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+    return NextResponse.json(
+      { success: false, error: 'Некорректный пользователь' },
+      { status: 400 }
+    )
+  }
+  if (
+    !canViewPaymentHistoryForUser({
+      viewerUserId: context.user._id,
+      viewerRole: context.user.role,
+      targetUserId,
+    })
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'Нет доступа' },
+      { status: 403 }
+    )
+  }
+
   const limit = parsePaymentHistoryLimit(searchParams.get('limit'))
   const cursor = parsePaymentHistoryCursor(searchParams.get('cursor'))
   const category = String(searchParams.get('category') || 'all')
+  await dbConnect()
+  const isSelf = String(context.user._id) === targetUserId
+  const targetUser = isSelf
+    ? context.user
+    : await Users.findById(targetUserId)
+        .select(
+          '_id tenantId balance billingStatus tariffId tariffActiveUntil nextChargeAt'
+        )
+        .lean()
+  if (!targetUser) {
+    return NextResponse.json(
+      { success: false, error: 'Пользователь не найден' },
+      { status: 404 }
+    )
+  }
+
+  const targetTenantId = String(targetUser.tenantId || targetUser._id)
   const filter = buildPaymentHistoryFilter({
-    userId: context.user._id,
-    tenantId: context.tenantId,
+    userId: targetUser._id,
+    tenantId: targetTenantId,
     category,
     cursor,
   })
 
-  await dbConnect()
   const rows = await Payments.find(filter)
     .select(
       'amount type source status purpose paidAt createdAt comment paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor'
@@ -48,7 +89,7 @@ export const GET = async (req) => {
     success: true,
     data: {
       items: items.map(serializePaymentHistoryItem),
-      account: serializePaymentHistoryAccount(context.user),
+      account: serializePaymentHistoryAccount(targetUser),
     },
     meta: {
       hasMore,

@@ -4,11 +4,12 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { apiJson } from '@helpers/apiClient'
 import { queryKeys } from '@helpers/queryKeys'
 
-const buildUrl = ({ category = 'all', limit = 30 }, cursor) => {
+const buildUrl = ({ category = 'all', limit = 30, userId = '' }, cursor) => {
   const search = new URLSearchParams({
     category,
     limit: String(limit),
   })
+  if (userId) search.set('userId', String(userId))
   if (cursor) search.set('cursor', cursor)
   return `/api/billing/history?${search.toString()}`
 }

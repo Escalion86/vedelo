@@ -12,7 +12,7 @@
 - GitHub: `https://github.com/Escalion86/vedelo.git`.
 - Локальная папка владельца: `D:\Programming\Projects\vedelo`.
 - Основная ветка: `main`.
-- На момент обновления handoff: web `1.21.2`, Android `1.1.0`.
+- На момент обновления handoff: web `1.21.3`, Android `1.1.0`.
 
 Ключевая ценность продукта: не терять заявки, фиксировать следующий контакт, контролировать задатки/оплаты, сроки работ и документы.
 
@@ -282,7 +282,14 @@ npm run doctor
 - Пользовательская история расчётов с сервисом находится на
   `/cabinet/billing-history`, получает безопасный cursor-paginated DTO из
   `/api/billing/history` и не смешивается с рабочими доходами/расходами из
-  `Transactions`. Сериализация и tenant-фильтр: `server/paymentHistory.js`.
+  `Transactions`. Администратор и разработчик могут открыть тот же безопасный
+  просмотр из меню карточки пользователя; изменение баланса остаётся отдельным
+  действием «Управление балансом». Сериализация, права и tenant-фильтр:
+  `server/paymentHistory.js`.
+- Вход разработчика в кабинет пользователя выполняется через одноразовый
+  impersonation ticket. После `signIn` переход должен оставаться относительным
+  (`/cabinet/eventsUpcoming`): абсолютный URL от `NEXTAUTH_URL` нельзя
+  использовать, иначе legacy PWA может сменить origin до применения cookie.
 - Точка использует сертификаты Минцифры; production-процесс Node должен
   стартовать с `NODE_EXTRA_CA_CERTS`, указывающим на PEM bundle из Russian
   Trusted Root CA и Russian Trusted Sub CA. Системного trust store для Node

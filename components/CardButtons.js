@@ -12,7 +12,9 @@ import {
   faPencilAlt,
   faKey,
   faLink,
+  faReceipt,
   faUser,
+  faUserSecret,
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { EVENT_STATUSES, SERVICE_USER_STATUSES } from '@helpers/constants'
@@ -27,6 +29,9 @@ import useCopyToClipboard from '@helpers/useCopyToClipboard'
 import { getAdditionalEventsSummary } from '@helpers/additionalEvents'
 import { shouldShowAdditionalEventsAction } from '@helpers/eventCardActions'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
+import switchImpersonation from '@helpers/switchImpersonation'
+import useSnackbar from '@helpers/useSnackbar'
+import { useRef } from 'react'
 
 const MENU_ITEM_TONE = {
   red: {
@@ -137,6 +142,8 @@ const CardButtons = ({
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const device = useAtomValue(windowDimensionsTailwindSelector)
+  const snackbar = useSnackbar()
+  const impersonationPendingRef = useRef(false)
 
   const canManageUsers = ['dev', 'admin'].includes(loggedUser?.role)
   const canCopyId =
@@ -222,18 +229,30 @@ const CardButtons = ({
           statusBtn: canEditStatus,
           deleteBtn:
             showDeleteButton && canManageItem && item.status !== 'closed',
+          userPaymentHistory: typeOfItem === 'user' && canManageUsers,
           userBilling: typeOfItem === 'user' && canManageUsers,
           userTariff: typeOfItem === 'user' && canManageUsers,
           setPasswordBtn: typeOfItem === 'user' && canManageUsers,
+          impersonateUser:
+            typeOfItem === 'user' &&
+            loggedUser?.role === 'dev' &&
+            loggedUser?.impersonation?.active !== true &&
+            String(loggedUser?._id) !== String(item?._id),
           userEvents: typeOfItem === 'client',
           contactMerge: typeOfItem === 'client',
         }
     : {
         copyId: canCopyId,
         userActionsHistory: typeOfItem === 'user',
+        userPaymentHistory: typeOfItem === 'user' && canManageUsers,
         userBilling: typeOfItem === 'user' && canManageUsers,
         userTariff: typeOfItem === 'user' && canManageUsers,
         setPasswordBtn: typeOfItem === 'user' && canManageUsers,
+        impersonateUser:
+          typeOfItem === 'user' &&
+          loggedUser?.role === 'dev' &&
+          loggedUser?.impersonation?.active !== true &&
+          String(loggedUser?._id) !== String(item?._id),
         addToCalendar: typeOfItem === 'event',
         openCalendar: typeOfItem === 'event' && Boolean(calendarLink),
         additionalEvents: showAdditionalEventsAction,
@@ -270,6 +289,17 @@ const CardButtons = ({
       return
     }
     if (calendarLink) window.open(calendarLink, '_blank', 'noreferrer')
+  }
+
+  const handleImpersonateUser = async () => {
+    if (impersonationPendingRef.current) return
+    impersonationPendingRef.current = true
+    try {
+      await switchImpersonation({ targetUserId: item._id })
+    } catch (error) {
+      impersonationPendingRef.current = false
+      snackbar.error(error?.message || 'Не удалось войти в кабинет')
+    }
   }
 
   const items = (
@@ -329,6 +359,16 @@ const CardButtons = ({
           tooltipText="Переместить ниже"
         />
       )}
+      {show.userPaymentHistory && (
+        <ItemComponent
+          icon={faReceipt}
+          onClick={() => {
+            modalsFunc[typeOfItem].paymentHistory(item._id)
+          }}
+          color="green"
+          tooltipText="Баланс и платежи"
+        />
+      )}
       {show.userBilling && (
         <ItemComponent
           icon={faMoneyBill}
@@ -336,7 +376,15 @@ const CardButtons = ({
             modalsFunc[typeOfItem].billing(item._id)
           }}
           color="green"
-          tooltipText="Баланс и платежи"
+          tooltipText="Управление балансом"
+        />
+      )}
+      {show.impersonateUser && (
+        <ItemComponent
+          icon={faUserSecret}
+          onClick={handleImpersonateUser}
+          color="purple"
+          tooltipText="Войти в кабинет пользователя"
         />
       )}
       {show.userTariff && (

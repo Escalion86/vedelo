@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   buildPaymentHistoryFilter,
+  canViewPaymentHistoryForUser,
   makePaymentHistoryCursor,
   parsePaymentHistoryCursor,
   serializePaymentHistoryItem,
@@ -9,6 +10,41 @@ import {
 
 const USER_ID = '66a000000000000000000001'
 const TENANT_ID = '66a000000000000000000002'
+
+test('историю чужих расчётов видят только developer и администратор', () => {
+  assert.equal(
+    canViewPaymentHistoryForUser({
+      viewerUserId: USER_ID,
+      viewerRole: 'user',
+      targetUserId: USER_ID,
+    }),
+    true
+  )
+  assert.equal(
+    canViewPaymentHistoryForUser({
+      viewerUserId: USER_ID,
+      viewerRole: 'user',
+      targetUserId: TENANT_ID,
+    }),
+    false
+  )
+  assert.equal(
+    canViewPaymentHistoryForUser({
+      viewerUserId: USER_ID,
+      viewerRole: 'admin',
+      targetUserId: TENANT_ID,
+    }),
+    true
+  )
+  assert.equal(
+    canViewPaymentHistoryForUser({
+      viewerUserId: USER_ID,
+      viewerRole: 'dev',
+      targetUserId: TENANT_ID,
+    }),
+    true
+  )
+})
 
 test('история платежей всегда ограничена пользователем и tenant', () => {
   const filter = buildPaymentHistoryFilter({

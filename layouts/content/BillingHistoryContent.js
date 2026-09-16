@@ -133,29 +133,47 @@ const PaymentRow = ({ item }) => {
   )
 }
 
-const BillingHistoryContent = () => {
+const BillingHistoryContent = ({
+  userId = '',
+  accountUser = null,
+  embedded = false,
+}) => {
   const router = useRouter()
   const loggedUser = useAtomValue(loggedUserAtom)
   const tariffs = useAtomValue(tariffsAtom)
   const [category, setCategory] = useState('all')
-  const filters = useMemo(() => ({ category, limit: 30 }), [category])
+  const filters = useMemo(
+    () => ({ category, limit: 30, userId }),
+    [category, userId]
+  )
   const query = usePaymentHistoryQuery(filters)
   const items = useMemo(
     () => query.data?.pages.flatMap((page) => page?.data?.items ?? []) ?? [],
     [query.data?.pages]
   )
   const account = query.data?.pages?.[0]?.data?.account
-  const balance = account?.balance ?? loggedUser?.balance ?? 0
-  const tariffId = account?.tariffId || loggedUser?.tariffId
+  const fallbackUser = accountUser || loggedUser
+  const balance = account?.balance ?? fallbackUser?.balance ?? 0
+  const tariffId = account?.tariffId || fallbackUser?.tariffId
   const currentTariff = tariffs.find(
     (tariff) => String(tariff?._id) === String(tariffId)
   )
   const tariffActiveUntil =
-    account?.tariffActiveUntil ?? loggedUser?.tariffActiveUntil
+    account?.tariffActiveUntil ?? fallbackUser?.tariffActiveUntil
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="laptop:p-4 min-h-0 flex-1 overflow-y-auto p-3">
+    <div
+      className={cn(
+        embedded
+          ? 'min-w-0'
+          : 'flex min-h-0 flex-1 flex-col overflow-hidden'
+      )}
+    >
+      <div
+        className={cn(
+          embedded ? 'pb-2' : 'laptop:p-4 min-h-0 flex-1 overflow-y-auto p-3'
+        )}
+      >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <SectionCard className="flex items-center gap-3 p-4">
@@ -185,14 +203,16 @@ const BillingHistoryContent = () => {
                     : 'Без установленной даты окончания'}
                 </div>
               </div>
-              <AppButton
-                variant="secondary"
-                size="sm"
-                className="shrink-0 rounded-md"
-                onClick={() => router.push('/cabinet/tariff-select')}
-              >
-                Тарифы
-              </AppButton>
+              {!userId ? (
+                <AppButton
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 rounded-md"
+                  onClick={() => router.push('/cabinet/tariff-select')}
+                >
+                  Тарифы
+                </AppButton>
+              ) : null}
             </SectionCard>
           </div>
 

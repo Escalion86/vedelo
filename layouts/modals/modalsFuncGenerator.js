@@ -37,6 +37,7 @@ import userFunc from './modalsFunc/userFunc'
 // import userSignedUpEventsFunc from './modalsFunc/userSignedUpEventsFunc'
 import userViewFunc from './modalsFunc/userViewFunc'
 import userBillingFunc from './modalsFunc/userBillingFunc'
+import userPaymentHistoryFunc from './modalsFunc/userPaymentHistoryFunc'
 import userTopupFunc from './modalsFunc/userTopupFunc'
 import userTopupInfoFunc from './modalsFunc/userTopupInfoFunc'
 import userOnboardingFunc from './modalsFunc/userOnboardingFunc'
@@ -331,6 +332,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
       view: (userId, params) => addModal(userViewFunc(userId, params)),
       billing: (userId) =>
         canManageUsers ? addModal(userBillingFunc(userId)) : null,
+      paymentHistory: (userId) =>
+        canManageUsers ? addModal(userPaymentHistoryFunc(userId)) : null,
       topup: (userId, onSuccess) =>
         canManageUsers ? addModal(userTopupFunc(userId, onSuccess)) : null,
       topupInfo: (userId) => addModal(userTopupInfoFunc(userId)),

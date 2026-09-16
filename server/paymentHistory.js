@@ -16,6 +16,18 @@ const normalizeText = (value, maxLength = 240) =>
 
 const toId = (value) => (value ? String(value) : '')
 
+export const canViewPaymentHistoryForUser = ({
+  viewerUserId,
+  viewerRole,
+  targetUserId,
+}) => {
+  const viewerId = toId(viewerUserId)
+  const targetId = toId(targetUserId)
+  if (!viewerId || !targetId) return false
+  if (viewerId === targetId) return true
+  return ['dev', 'admin'].includes(viewerRole)
+}
+
 const isReferralBonus = (payment) =>
   payment?.referralReward?.rewardFor === 'balance_topup'
 
