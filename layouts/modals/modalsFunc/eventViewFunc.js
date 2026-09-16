@@ -269,6 +269,7 @@ const getClientContactItems = (client) => {
     { key: 'telegram', label: 'Telegram', value: client.telegram },
     { key: 'instagram', label: 'Instagram', value: client.instagram },
     { key: 'vk', label: 'VK', value: client.vk },
+    { key: 'max', label: 'MAX', value: client.max },
     { key: 'email', label: 'Email', value: client.email },
   ].filter((item) => item.value)
 }

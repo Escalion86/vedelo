@@ -145,7 +145,7 @@ export const buildEntityDocumentStorageKey = ({
       400
     )
   }
-  return `artistcrm/${tenant}/${config.path}/${entity}/documents/${normalizedUploadId}`
+  return `vedelo/${tenant}/${config.path}/${entity}/documents/${normalizedUploadId}`
 }
 
 const getEntity = async ({ entityType, entityId, tenantId }) => {

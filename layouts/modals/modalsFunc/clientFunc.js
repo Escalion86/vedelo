@@ -2,14 +2,20 @@ import ErrorsList from '@components/ErrorsList'
 import DateInput from '@components/DateInput'
 import FormWrapper from '@components/FormWrapper'
 import CheckBox from '@components/CheckBox'
+import DocumentsEditor from '@components/DocumentsEditor'
 import Input from '@components/Input'
 import InputWrapper from '@components/InputWrapper'
 import LabeledContainer from '@components/LabeledContainer'
+import Notice from '@components/Notice'
 import PhoneInput from '@components/PhoneInput'
 import Textarea from '@components/Textarea'
 import { CLIENT_TYPES, DEFAULT_CLIENT } from '@helpers/constants'
 import { getCustomValue } from '@helpers/customSettings'
 import getPersonFullName from '@helpers/getPersonFullName'
+import {
+  isValidMaxContact,
+  normalizeMaxContactInput,
+} from '@helpers/maxContact'
 import { faChevronDown } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -18,9 +24,12 @@ import {
   normalizeVkInput,
 } from '@helpers/socialInput'
 import useErrors from '@helpers/useErrors'
+import { getUserTariffAccess } from '@helpers/tariffAccess'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
 import { modalsFuncAtom } from '@state/atoms'
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
+import tariffsAtom from '@state/atoms/tariffsAtom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useClientQuery, useClientsQuery } from '@helpers/useClientsQuery'
@@ -108,7 +117,9 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
     )
     const setClient = useAtomValue(itemsFuncAtom).client.set
     const modalsFunc = useAtomValue(modalsFuncAtom)
+    const loggedUser = useAtomValue(loggedUserAtom)
     const siteSettings = useAtomValue(siteSettingsAtom)
+    const tariffs = useAtomValue(tariffsAtom)
 
     const [fullName, setFullName] = useState(
       getPersonFullName(client ?? DEFAULT_CLIENT)
@@ -126,6 +137,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
       client?.instagram ?? DEFAULT_CLIENT.instagram
     )
     const [vk, setVk] = useState(client?.vk ?? DEFAULT_CLIENT.vk)
+    const [max, setMax] = useState(client?.max ?? DEFAULT_CLIENT.max)
     const [preferredContactChannel, setPreferredContactChannel] = useState(
       client?.preferredContactChannel ?? DEFAULT_CLIENT.preferredContactChannel
     )
@@ -208,6 +220,18 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
 
     const showMessengerNotificationSettings =
       enabledMessengerIntegrations.length > 0
+    const canUseDocuments = getUserTariffAccess(
+      loggedUser,
+      tariffs
+    )?.allowDocuments
+
+    const updateClientDocuments = useCallback(
+      async (documents) => {
+        if (!client?._id) return
+        await setClient({ ...client, documents })
+      },
+      [client, setClient]
+    )
 
     const normalizePhoneValue = useCallback((value) => {
       if (!value) return null
@@ -227,6 +251,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         (client?.telegram ?? DEFAULT_CLIENT.telegram) !== telegram ||
         (client?.instagram ?? DEFAULT_CLIENT.instagram) !== instagram ||
         (client?.vk ?? DEFAULT_CLIENT.vk) !== vk ||
+        (client?.max ?? DEFAULT_CLIENT.max) !== max ||
         (client?.preferredContactChannel ??
           DEFAULT_CLIENT.preferredContactChannel) !== preferredContactChannel ||
         (client?.preferredContactChannelOther ??
@@ -260,6 +285,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         telegram,
         instagram,
         vk,
+        max,
         preferredContactChannel,
         preferredContactChannelOther,
         messengerPushMuted,
@@ -288,17 +314,24 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         addError({ firstName: 'Укажите ФИО' })
         customError = true
       }
+      if (!isValidMaxContact(max)) {
+        addError({
+          max: 'Укажите ссылку max.ru на контакт или российский номер телефона',
+        })
+        customError = true
+      }
       const hasAnyContact =
         Boolean(normalizePhoneValue(phone)) ||
         Boolean(normalizePhoneValue(whatsapp)) ||
         Boolean(String(client?.email || '').trim()) ||
         Boolean(String(telegram || '').trim()) ||
         Boolean(String(instagram || '').trim()) ||
-        Boolean(String(vk || '').trim())
+        Boolean(String(vk || '').trim()) ||
+        Boolean(String(max || '').trim())
       if (!hasAnyContact) {
         addError({
           phone:
-            'Укажите хотя бы один контакт: телефон, WhatsApp, email, Telegram, Instagram или VK',
+            'Укажите хотя бы один контакт: телефон, WhatsApp, email, Telegram, Instagram, VK или MAX',
         })
         customError = true
       }
@@ -349,6 +382,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             telegram: telegram.trim(),
             instagram: instagram.trim(),
             vk: vk.trim(),
+            max: normalizeMaxContactInput(max),
             preferredContactChannel,
             preferredContactChannelOther:
               preferredContactChannel === 'other'
@@ -385,6 +419,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
       telegram,
       instagram,
       vk,
+      max,
       preferredContactChannel,
       preferredContactChannelOther,
       messengerPushMuted,
@@ -512,7 +547,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             Проверить
           </button>
         </div>
-        <div className="grid gap-0 sm:grid-cols-2">
+        <div className="grid gap-x-3 sm:grid-cols-2">
           <PhoneInput
             label="Whatsapp"
             value={whatsapp}
@@ -561,6 +596,23 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             smallMargin
             copyPasteButtons
             normalizePastedValue={normalizeVkInput}
+          />
+          <Input
+            label="MAX"
+            value={max}
+            onChange={(value) => {
+              removeError('phone')
+              removeError('max')
+              setMax(value)
+            }}
+            error={errors.max}
+            showErrorText
+            className="w-full"
+            smallMargin
+            copyPasteButtons
+            normalizePastedValue={normalizeMaxContactInput}
+            placeholder="Ссылка max.ru или +7 999 123-45-67"
+            maxLength={500}
           />
         </div>
         <InputWrapper label="Тип клиента" paddingY fitWidth>
@@ -635,6 +687,25 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
           rows={3}
           inputClassName="min-h-20 resize-y bg-transparent"
         />
+        {client?._id && !clone ? (
+          <div className="border-input mt-3.5 mb-1 rounded border-2 bg-white p-3">
+            {canUseDocuments ? (
+              <DocumentsEditor
+                documents={client.documents ?? []}
+                onChange={updateClientDocuments}
+                entityType="clients"
+                entityId={client._id}
+                entityLabel="клиента"
+                maxVisible={3}
+                noMargin
+              />
+            ) : (
+              <Notice tone="warning" className="rounded-md">
+                Файлы и документы недоступны на текущем тарифе.
+              </Notice>
+            )}
+          </div>
+        ) : null}
         <LabeledContainer label="Значимые даты">
           <div className="flex flex-col gap-3">
             {significantDates.map((item, index) => (
@@ -720,7 +791,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
           </button>
           {!isRequisitesCollapsed && (
             <div className="border-t border-gray-100 px-2 pb-2">
-              <div className="grid gap-0 sm:grid-cols-2">
+              <div className="grid gap-x-3 sm:grid-cols-2">
                 <Input
                   label="Наименование / ФИО"
                   value={legalName}

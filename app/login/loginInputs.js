@@ -1037,6 +1037,7 @@ const LoginInputs = ({
                 setLoginPhoneHint(false)
               }}
               className="w-full"
+              paddingY
               noMargin
             />
             {loginPhoneHint && loginPhoneDigits !== 11 && (
@@ -1074,6 +1075,7 @@ const LoginInputs = ({
                 setResetVerify(createVerifyState())
               }}
               className="w-full"
+              paddingY
               noMargin
             />
             {resetPhoneHint && resetPhoneDigits !== 11 && (
@@ -1152,6 +1154,7 @@ const LoginInputs = ({
                 setRegisterVerify(createVerifyState())
               }}
               className="w-full"
+              paddingY
               noMargin
             />
             {registerPhoneHint && registerPhoneDigits !== 11 && (

@@ -79,7 +79,9 @@ const PhoneInput = ({
   disabled,
   labelClassName,
   className,
+  paddingY = false,
   noMargin,
+  smallMargin,
   error,
   showErrorText,
   copyPasteButtons = false,
@@ -107,7 +109,9 @@ const PhoneInput = ({
       required={required}
       className={cn('w-60', className)}
       disabled={disabled}
+      paddingY={paddingY}
       noMargin={noMargin}
+      smallMargin={smallMargin}
       error={error}
       showErrorText={showErrorText}
       wrapperClassName={

@@ -282,6 +282,7 @@ export const DEFAULT_CLIENT = Object.freeze({
   telegram: '',
   instagram: '',
   vk: '',
+  max: '',
   preferredContactChannel: '',
   preferredContactChannelOther: '',
   messengerPushMuted: false,

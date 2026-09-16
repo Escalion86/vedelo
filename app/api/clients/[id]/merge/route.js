@@ -113,6 +113,7 @@ const mergeMissingClientFields = (target, duplicate) => {
     'telegramUserId',
     'instagram',
     'vk',
+    'max',
     'preferredContactChannel',
     'preferredContactChannelOther',
     'clientType',

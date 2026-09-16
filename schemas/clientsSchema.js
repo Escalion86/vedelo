@@ -1,4 +1,5 @@
 import { DEFAULT_USERS_NOTIFICATIONS } from '@helpers/constants'
+import { isValidMaxContact } from '@helpers/maxContact'
 import { Schema } from 'mongoose'
 import documentSchema from './documentSchema'
 
@@ -91,6 +92,15 @@ const clientsSchema = {
   },
   vk: {
     type: String,
+    default: '',
+  },
+  max: {
+    type: String,
+    maxlength: 500,
+    validate: {
+      validator: isValidMaxContact,
+      message: 'Укажите ссылку на контакт MAX или российский номер телефона',
+    },
     default: '',
   },
   preferredContactChannel: {

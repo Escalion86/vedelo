@@ -14,6 +14,7 @@ export type Client = {
   vk?: string
   viber?: number | string | null
   instagram?: string
+  max?: string
   preferredContactChannel?:
     | 'phone'
     | 'telegram'

@@ -3161,7 +3161,7 @@ test(
           assert.match(
             cloudRequests[1].body,
             new RegExp(
-              `artistcrm/${tenantB}/events/${taskEventB}/documents/mobile-event-file-1`
+              `vedelo/${tenantB}/events/${taskEventB}/documents/mobile-event-file-1`
             )
           )
 
@@ -3188,7 +3188,7 @@ test(
           assert.equal(storedEventB.documents.length, 1)
           assert.equal(
             storedEventB.documents[0].file.storageKey,
-            `artistcrm/${tenantB}/events/${taskEventB}/documents/mobile-event-file-1`
+            `vedelo/${tenantB}/events/${taskEventB}/documents/mobile-event-file-1`
           )
 
           const foreignAttachment = await readJson(

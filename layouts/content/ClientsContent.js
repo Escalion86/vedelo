@@ -110,6 +110,7 @@ const ClientsContent = ({ onHeaderCountChange }) => {
           client.telegram,
           client.instagram,
           client.vk,
+          client.max,
           client.phone ? `+${client.phone}` : '',
         ]
           .join(' ')
@@ -124,6 +125,7 @@ const ClientsContent = ({ onHeaderCountChange }) => {
           client.whatsapp,
           client.viber,
           client.telegram,
+          client.max,
         ]
           .map(normalizeDigits)
           .filter(Boolean)

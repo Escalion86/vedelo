@@ -178,7 +178,7 @@ export const runDocumentsHttpSmoke = async ({
     assert.match(String(uploadId), /^[a-zA-Z0-9-]{1,80}$/)
     assert.equal(
       form.get('storageKey'),
-      `artistcrm/${tenantId}/events/${eventId}/documents/${uploadId}`
+      `vedelo/${tenantId}/events/${eventId}/documents/${uploadId}`
     )
     const file = form.get('file')
     assert.match(file.name, /\.docx$/)
@@ -235,7 +235,7 @@ export const runDocumentsHttpSmoke = async ({
   assert.equal(draftUpload.body.data.document.type, 'other')
   assert.equal(
     draftUpload.body.data.document.file.storageKey,
-    `artistcrm/${tenantId}/events/${draftEventId}/documents/draft-xlsx-smoke`
+    `vedelo/${tenantId}/events/${draftEventId}/documents/draft-xlsx-smoke`
   )
   assert.equal(cloudRequests.length, beforeEntityUploads + 1)
   assert.equal(

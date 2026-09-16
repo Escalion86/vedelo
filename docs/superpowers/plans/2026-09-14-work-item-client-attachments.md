@@ -50,7 +50,7 @@
   url: '', // внешняя ссылка или legacy URL
   file: {
     name: 'dogovor-12.docx',
-    storageKey: 'artistcrm/...',
+    storageKey: 'vedelo/...',
     url: '', // legacy URL, не обязателен для новых приватных файлов
     path: '', // legacy path
     size: 12345,
@@ -91,12 +91,16 @@ storageKey    сформированный сервером ArtistCRM ключ/�
 uploadId      UUID/fileQueueId для идемпотентности
 ```
 
-ArtistCRM формирует ключ только после проверки сущности:
+Vedelo формирует ключ только после проверки сущности:
 
 ```text
-artistcrm/{tenantId}/events/{eventId}/documents/{uploadId}
-artistcrm/{tenantId}/clients/{clientId}/documents/{uploadId}
+vedelo/{tenantId}/events/{eventId}/documents/{uploadId}
+vedelo/{tenantId}/clients/{clientId}/documents/{uploadId}
 ```
+
+Новые загрузки после ребрендинга используют корень `vedelo`. Уже сохраненные
+ключи с корнем `artistcrm` остаются валидными для чтения и удаления без
+физического переноса файлов.
 
 Escalion Cloud дополнительно проверяет допустимый корень, длину сегментов и отсутствие `..`, обратных слэшей и управляющих символов.
 
@@ -106,7 +110,7 @@ Escalion Cloud дополнительно проверяет допустимы�
 {
   "success": true,
   "data": {
-    "storageKey": "artistcrm/...",
+    "storageKey": "vedelo/...",
     "name": "brief.xlsx",
     "size": 24831,
     "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -124,7 +128,7 @@ Escalion Cloud дополнительно проверяет допустимы�
 
 ```json
 {
-  "storageKey": "artistcrm/...",
+  "storageKey": "vedelo/...",
   "downloadName": "brief.xlsx",
   "disposition": "attachment"
 }
@@ -150,7 +154,7 @@ Escalion Cloud дополнительно проверяет допустимы�
 
 ```json
 {
-  "storageKey": "artistcrm/...",
+  "storageKey": "vedelo/...",
   "deleteId": "uuid"
 }
 ```

@@ -12,8 +12,28 @@ import { faPhone } from '@fortawesome/free-solid-svg-icons/faPhone'
 import { faSms } from '@fortawesome/free-solid-svg-icons/faSms'
 import ClientChatButton from '@components/ClientChatButton'
 import NovofonCallButton from '@components/NovofonCallButton'
+import { getMaxContactAction } from '@helpers/maxContact'
+import useSnackbar from '@helpers/useSnackbar'
 import { modalsFuncAtom } from '@state/atoms'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
+
+const copyTextToClipboard = async (text) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  if (!copied) throw new Error('Не удалось скопировать номер')
+}
 
 const ContactIconBtn = ({
   url,
@@ -88,6 +108,51 @@ const ContactIconBtnWithTitle = ({
   </div>
 )
 
+const MaxContactButton = ({ action, withTitle, buttonClassName, onOpen }) => {
+  const title =
+    action.type === 'link'
+      ? 'Открыть контакт в MAX'
+      : `Скопировать ${action.phone} и открыть MAX`
+  const badge = (
+    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-[#615cff] px-0.5 text-[7px] leading-none font-bold tracking-[-0.04em] text-white">
+      MAX
+    </span>
+  )
+
+  if (withTitle) {
+    return (
+      <button
+        type="button"
+        className="group flex cursor-pointer items-center gap-x-2 text-left"
+        onClick={onOpen}
+        aria-label={title}
+        title={title}
+      >
+        <span className="flex w-6 items-center justify-center transition duration-300 group-hover:scale-110">
+          {badge}
+        </span>
+        <span className="group-hover:text-toxic">{action.label}</span>
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        buttonClassName,
+        !buttonClassName &&
+          'inline-flex h-6 min-w-6 cursor-pointer items-center justify-center transition duration-300 hover:scale-110'
+      )}
+      onClick={onOpen}
+      aria-label={title}
+      title={title}
+    >
+      {badge}
+    </button>
+  )
+}
+
 const ContactsIconsButtons = ({
   user,
   withTitle,
@@ -103,7 +168,9 @@ const ContactsIconsButtons = ({
 }) => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const itemsFunc = useAtomValue(itemsFuncAtom)
+  const snackbar = useSnackbar()
   const Btn = withTitle ? ContactIconBtnWithTitle : ContactIconBtn
+  const maxAction = getMaxContactAction(user?.max)
   const compactButtonClassName = compactButtons
     ? 'contact-quick-button inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-primary)]/40'
     : ''
@@ -162,6 +229,23 @@ const ContactsIconsButtons = ({
           ),
       })
     }, 300)
+  }
+
+  const handleMaxOpen = (event) => {
+    event.stopPropagation()
+    if (!maxAction) return
+
+    if (maxAction.type === 'phone') {
+      copyTextToClipboard(maxAction.phone)
+        .then(() => snackbar.success('Номер скопирован. Вставьте его в поиск MAX'))
+        .catch(() =>
+          snackbar.warning(
+            `Не удалось скопировать номер. Введите его в MAX вручную: ${maxAction.phone}`
+          )
+        )
+    }
+
+    window.open(maxAction.url, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -257,6 +341,14 @@ const ContactsIconsButtons = ({
             />
           )
         ))}
+      {!message && maxAction && (
+        <MaxContactButton
+          action={maxAction}
+          withTitle={withTitle}
+          buttonClassName={compactButtonClassName}
+          onOpen={handleMaxOpen}
+        />
+      )}
       {!message && user?.instagram && (
         <Btn
           icon={faInstagram}

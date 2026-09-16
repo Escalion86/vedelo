@@ -186,6 +186,7 @@ ClientCard.propTypes = {
     secondName: PropTypes.string,
     thirdName: PropTypes.string,
     phone: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    max: PropTypes.string,
     preferredContactChannel: PropTypes.string,
     preferredContactChannelOther: PropTypes.string,
     messengerPushMuted: PropTypes.bool,

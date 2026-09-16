@@ -773,6 +773,92 @@ body.theme-dark .action-icon-button--danger {
   box-shadow: var(--surface-card-shadow);
 }
 
+.support-ticket-card {
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.support-ticket-card:hover {
+  border-color: rgba(154, 107, 39, 0.48);
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.09);
+  transform: translateY(-1px);
+}
+
+.support-ticket-card--unread {
+  border-color: rgba(154, 107, 39, 0.52);
+  background:
+    linear-gradient(90deg, rgba(201, 168, 106, 0.14), transparent 42%),
+    var(--surface-card-bg);
+  box-shadow:
+    inset 3px 0 0 #9a6b27,
+    var(--surface-card-shadow);
+}
+
+.support-ticket-card__arrow {
+  transition: transform 160ms ease;
+}
+
+.support-ticket-card:hover .support-ticket-card__arrow {
+  transform: translateX(2px);
+}
+
+.support-ticket-status-dot {
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.12);
+}
+
+.support-ticket-status-dot--open {
+  background-color: #0284c7;
+}
+
+.support-ticket-status-dot--in-progress {
+  background-color: #d97706;
+}
+
+.support-ticket-status-dot--resolved {
+  background-color: #059669;
+}
+
+.support-ticket-status-dot--neutral {
+  background-color: #9ca3af;
+}
+
+.support-ticket-unread-label {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(154, 107, 39, 0.38);
+  border-radius: 9999px;
+  background: rgba(201, 168, 106, 0.18);
+  color: #714c19;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+body.theme-dark .support-ticket-card:hover,
+body.theme-dark .support-ticket-card--unread {
+  border-color: rgba(235, 211, 165, 0.52);
+}
+
+body.theme-dark .support-ticket-card--unread {
+  background:
+    linear-gradient(90deg, rgba(201, 168, 106, 0.16), transparent 44%),
+    var(--surface-card-bg);
+  box-shadow:
+    inset 3px 0 0 #c9a86a,
+    var(--surface-card-shadow);
+}
+
+body.theme-dark .support-ticket-unread-label {
+  border-color: rgba(235, 211, 165, 0.48);
+  background: rgba(201, 168, 106, 0.18);
+  color: #f3ddb5;
+}
+
 .support-message-own {
   border-color: rgba(154, 107, 39, 0.34);
   background: rgba(154, 107, 39, 0.1);

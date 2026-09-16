@@ -1,6 +1,7 @@
 const CLIENT_FIELDS = [
   '_id', 'syncVersion', 'firstName', 'secondName', 'thirdName', 'phone',
   'whatsapp', 'viber', 'telegram', 'email', 'instagram', 'vk',
+  'max',
   'preferredContactChannel', 'preferredContactChannelOther',
   'messengerPushMuted', 'comment', 'clientType', 'town', 'significantDates',
   'legalName', 'inn', 'kpp', 'ogrn', 'bankName', 'bik', 'checkingAccount',

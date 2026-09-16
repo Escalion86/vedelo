@@ -86,7 +86,7 @@ PWA-переезд:
 - Android/iOS package ID `ru.escalion.vedelo` (до 15.09.2026 — `ru.escalion.artistcrm`, пакет опубликованной карточки Play);
 - legacy deep-link `artistcrm://`;
 - MongoDB-структуру и исторические записи;
-- storage-префиксы `artistcrm/...`;
+- legacy storage-ключи `artistcrm/...` (новые приватные вложения используют `vedelo/...`, оба префикса поддерживаются Cloud);
 - заголовок `X-ArtistCRM-Service-Worker`.
 
 Основной deep link — `vedelo://`, но оба scheme должны приниматься.

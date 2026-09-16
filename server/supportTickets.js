@@ -1,7 +1,11 @@
 import mongoose from 'mongoose'
 import Users from '@models/Users'
-import { uploadFilesToEscalionCloud, extractEscalionCloudUploadUrl } from './escalionCloud.js'
+import {
+  uploadFilesToEscalionCloud,
+  extractEscalionCloudUploadUrl,
+} from './escalionCloud.js'
 import { sendMultiChannelPushToTenant } from './multiChannelPush.js'
+import { buildSupportNotificationPayload } from './supportTicketCore.js'
 
 export * from './supportTicketCore.js'
 
@@ -12,15 +16,22 @@ const safeFileName = (name, index) => {
   return cleaned || `image-${index + 1}`
 }
 
-export const uploadSupportAttachments = async ({ files, tenantId, ticketId }) => {
+export const uploadSupportAttachments = async ({
+  files,
+  tenantId,
+  ticketId,
+}) => {
   if (!files.length) return []
-  const renamedFiles = files.map((file, index) =>
-    new File([file], safeFileName(file.name, index), { type: file.type }))
+  const renamedFiles = files.map(
+    (file, index) =>
+      new File([file], safeFileName(file.name, index), { type: file.type })
+  )
   const uploaded = await uploadFilesToEscalionCloud({
     files: renamedFiles,
     directory: `artistcrm/${tenantId}/support-tickets/${ticketId}`,
   })
-  if (uploaded.length !== files.length) throw new Error('CLOUD_FILE_COUNT_MISMATCH')
+  if (uploaded.length !== files.length)
+    throw new Error('CLOUD_FILE_COUNT_MISMATCH')
   return uploaded.map((row, index) => {
     const url = extractEscalionCloudUploadUrl(row)
     if (!url) throw new Error('CLOUD_FILE_URL_INVALID')
@@ -36,29 +47,31 @@ export const uploadSupportAttachments = async ({ files, tenantId, ticketId }) =>
 
 export const notifySupportMessage = async ({ ticket, actorRole }) => {
   const id = String(ticket._id)
-  const payload = {
-    title: actorRole === 'developer' ? 'Ответ разработчика' : 'Новое обращение в поддержку',
-    body: ticket.title,
-    tag: `support-ticket-${id}`,
-    data: {
-      type: 'support_ticket',
-      ticketId: id,
-      url: `/cabinet/feedback?ticketId=${id}`,
-      mobileUrl: `/support/${id}`,
-    },
-  }
+  const payload = buildSupportNotificationPayload({ ticket, actorRole })
   try {
     if (actorRole === 'developer') {
-      await sendMultiChannelPushToTenant({ tenantId: ticket.tenantId, payload, source: 'support' })
+      await sendMultiChannelPushToTenant({
+        tenantId: ticket.tenantId,
+        payload,
+        source: 'support',
+      })
       return
     }
     const developers = await Users.find({ role: 'dev', archive: { $ne: true } })
       .select('_id tenantId')
       .lean()
-    const tenantIds = [...new Set(developers.map((item) => String(item.tenantId || item._id)).filter(Boolean))]
-    await Promise.all(tenantIds.map((tenantId) =>
-      sendMultiChannelPushToTenant({ tenantId, payload, source: 'support' })
-    ))
+    const tenantIds = [
+      ...new Set(
+        developers
+          .map((item) => String(item.tenantId || item._id))
+          .filter(Boolean)
+      ),
+    ]
+    await Promise.all(
+      tenantIds.map((tenantId) =>
+        sendMultiChannelPushToTenant({ tenantId, payload, source: 'support' })
+      )
+    )
   } catch (error) {
     console.warn('support push failed', { ticketId: id, error: error?.message })
   }
