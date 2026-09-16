@@ -1,6 +1,6 @@
 # AI Handoff: «Ведело»
 
-Актуально на 2026-09-15. Этот документ — быстрый технический контекст для нового разработчика или ИИ. Перед работой также обязательно прочитать корневой `AGENTS.md` и релевантные части `docs/ROADMAP.md`.
+Актуально на 2026-09-16. Этот документ — быстрый технический контекст для нового разработчика или ИИ. Перед работой также обязательно прочитать корневой `AGENTS.md` и релевантные части `docs/ROADMAP.md`.
 
 ## 1. Идентичность проекта
 
@@ -12,7 +12,7 @@
 - GitHub: `https://github.com/Escalion86/vedelo.git`.
 - Локальная папка владельца: `D:\Programming\Projects\vedelo`.
 - Основная ветка: `main`.
-- На момент обновления handoff: web `1.21.1`, Android `1.1.0`.
+- На момент обновления handoff: web `1.21.2`, Android `1.1.0`.
 
 Ключевая ценность продукта: не терять заявки, фиксировать следующий контакт, контролировать задатки/оплаты, сроки работ и документы.
 
@@ -277,6 +277,7 @@ npm run doctor
 - Telegram Business: `app/api/integrations/telegram/**`, `server/telegramBusiness.js`, `docs/TELEGRAM_BUSINESS_INTEGRATION.md`.
 - Telephony/calls: `app/api/telephony/**`, `models/Calls.js`, `docs/TELEPHONY_AI_INTEGRATION_PLAN.md`.
 - Billing: `app/api/billing/**`, `server/yookassa.js`, `server/tochka.js`.
+- Основной web-провайдер пополнений и доплаты за тариф — Точка; кнопка ЮKassa в web доступна только разработчику.
 - Реферальные начисления: `server/referralRewards.js`, `docs/REFERRAL_SYSTEM.md`. Retry через webhook/sync и `/api/billing/renew`; скрытые отметки `Users.referralRewardCredits` обеспечивают однократное изменение баланса и должны сохраняться после удаления бонуса. VK присваивает реферера только при создании аккаунта; Android принимает приглашение через deep link.
 - Пользовательская история расчётов с сервисом находится на
   `/cabinet/billing-history`, получает безопасный cursor-paginated DTO из

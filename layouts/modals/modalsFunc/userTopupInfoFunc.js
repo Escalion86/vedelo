@@ -4,6 +4,10 @@ import FormWrapper from '@components/FormWrapper'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
 import UserName from '@components/UserName'
+import {
+  PRIMARY_WEB_BILLING_PROVIDER,
+  getVisibleWebBillingProviders,
+} from '@helpers/billingProviders.mjs'
 import useSnackbar from '@helpers/useSnackbar'
 import loggedUserActiveRoleSelector from '@state/selectors/loggedUserActiveRoleSelector'
 import userSelector from '@state/selectors/userSelector'
@@ -58,10 +62,13 @@ const userTopupInfoFunc = (userId) => {
       Number.isFinite(amountValue) && amountValue > 0
         ? amountValue + sbpBonus
         : 0
+    const visibleBillingProviders = getVisibleWebBillingProviders({
+      isDeveloper: loggedUserActiveRole?.dev === true,
+    })
 
     if (!user) return null
 
-    const handleTopup = async (provider = 'yookassa') => {
+    const handleTopup = async (provider = PRIMARY_WEB_BILLING_PROVIDER.id) => {
       const value = Number(amount)
       if (!Number.isFinite(value) || value <= 0) {
         snackbar.error('Укажите сумму пополнения')
@@ -93,7 +100,7 @@ const userTopupInfoFunc = (userId) => {
       <FormWrapper flex className="flex-col gap-3">
         <UserName user={user} className="text-lg font-bold" />
         <div className="text-sm text-gray-700">
-          Деньги зачислятся на баланс после подтверждения оплаты ЮKassa.
+          Деньги зачислятся на баланс после подтверждения оплаты Точкой.
         </div>
         {billingConfig.sbpBonusEnabled ? (
           <Notice tone="success" className="rounded">
@@ -115,22 +122,16 @@ const userTopupInfoFunc = (userId) => {
           step={100}
         />
         <div className="flex flex-wrap justify-end gap-2">
-          {loggedUserActiveRole?.dev ? (
+          {visibleBillingProviders.map((provider) => (
             <Button
-              name="Оплатить через Точку"
+              key={provider.id}
+              name={provider.paymentButtonLabel}
               className="h-9 px-4 text-sm"
-              onClick={() => handleTopup('tochka')}
+              onClick={() => handleTopup(provider.id)}
               disabled={isSaving}
               loading={isSaving}
             />
-          ) : null}
-          <Button
-            name="Оплатить через ЮKassa"
-            className="h-9 px-4 text-sm"
-            onClick={() => handleTopup('yookassa')}
-            disabled={isSaving}
-            loading={isSaving}
-          />
+          ))}
         </div>
       </FormWrapper>
     )
@@ -145,4 +146,3 @@ const userTopupInfoFunc = (userId) => {
 }
 
 export default userTopupInfoFunc
-

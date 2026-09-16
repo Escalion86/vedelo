@@ -7,6 +7,7 @@ import EmptyState from '@components/EmptyState'
 import IconCheckBox from '@components/IconCheckBox'
 import SectionCard from '@components/SectionCard'
 import tariffsAtom from '@state/atoms/tariffsAtom'
+import { PRIMARY_WEB_BILLING_PROVIDER } from '@helpers/billingProviders.mjs'
 import { isRegistrationOfferTariff } from '@helpers/tariffAccess'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
@@ -95,15 +96,18 @@ const TariffSelectContent = () => {
     if (!tariffId) return
     setIsSaving(true)
     try {
-      const response = await fetch('/api/billing/yookassa/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          purpose: 'tariff',
-          tariffId,
-          amount,
-        }),
-      })
+      const response = await fetch(
+        `/api/billing/${PRIMARY_WEB_BILLING_PROVIDER.id}/create`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            purpose: 'tariff',
+            tariffId,
+            amount,
+          }),
+        }
+      )
       const payload = await response.json().catch(() => ({}))
       const confirmationUrl = payload?.data?.confirmationUrl
       if (!response.ok || !payload?.success || !confirmationUrl) {
@@ -184,7 +188,7 @@ const TariffSelectContent = () => {
           onConfirm: true,
           showDecline: false,
           bottomLeftButtonProps: {
-            name: 'Оплатить через ЮKassa',
+            name: PRIMARY_WEB_BILLING_PROVIDER.paymentButtonLabel,
             classBgColor: 'bg-general',
             className: 'modal-action-button',
             onClick: () =>
