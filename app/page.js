@@ -1,10 +1,20 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
 import CallOutlinedIcon from '@mui/icons-material/CallOutlined'
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
+import FilterAltRoundedIcon from '@mui/icons-material/FilterAltRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded'
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded'
+import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
+import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded'
+import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded'
+import ViewListRoundedIcon from '@mui/icons-material/ViewListRounded'
+import WalletOutlinedIcon from '@mui/icons-material/WalletOutlined'
 import MetrikaLink from '@components/MetrikaLink'
 import dbConnect from '@server/dbConnect'
 import Tariffs from '@models/Tariffs'
@@ -12,6 +22,7 @@ import { getServerSession } from 'next-auth'
 import authOptions from './api/auth/[...nextauth]/_options'
 import { redirect } from 'next/navigation'
 import { BRAND, getCanonicalBaseUrl } from '@helpers/brand.mjs'
+import { getVisibleTariffFeatureRows } from '@helpers/publicTariffFeatures.mjs'
 
 const normalizedSiteUrl = getCanonicalBaseUrl(process.env.DOMAIN)
 const homeUrl = `${normalizedSiteUrl}/`
@@ -202,6 +213,95 @@ function CheckIcon() {
   return <CheckRoundedIcon aria-hidden="true" />
 }
 
+const productPreviewOrders = [
+  {
+    weekday: 'ПН',
+    day: '21',
+    month: 'сент',
+    time: '11:00',
+    title: 'Контент-съёмка • Каталог',
+    address: 'Студия «Свет»',
+    taskDate: 'Сегодня 16:00',
+    task: 'Подтвердить детали',
+    paid: '25 000',
+    total: '50 000',
+    client: 'Анна Смирнова',
+    tone: 'active',
+  },
+  {
+    weekday: 'СБ',
+    day: '26',
+    month: 'сент',
+    time: '15:30',
+    title: 'Семейная съёмка • Фотосессия',
+    address: 'Парк Центральный',
+    taskDate: 'Завтра 10:00',
+    task: 'Получить предоплату',
+    paid: '0',
+    total: '18 000',
+    client: 'Сергей Климов',
+    tone: 'draft',
+  },
+  {
+    weekday: 'ВС',
+    day: '04',
+    month: 'окт',
+    time: '18:00',
+    title: 'Репортаж • Корпоратив',
+    address: 'Отель «Енисей»',
+    taskDate: '28 сент',
+    task: 'Согласовать тайминг',
+    paid: '30 000',
+    total: '60 000',
+    client: 'Мария Орлова',
+    tone: 'active',
+  },
+]
+
+function ProductPreviewOrder({ order }) {
+  return (
+    <article className={`landing-order-card is-${order.tone}`}>
+      <span className="landing-order-marker" />
+      <div className="landing-order-head">
+        <strong>{order.title}</strong>
+        <MoreHorizRoundedIcon aria-hidden="true" />
+      </div>
+      <div className="landing-order-body">
+        <div className="landing-order-date">
+          <span>
+            {order.weekday} <strong>{order.day}</strong>
+          </span>
+          <b>{order.month}</b>
+          <small>{order.time}</small>
+        </div>
+        <div className="landing-order-details">
+          <span>{order.address}</span>
+          <div className={`landing-order-task is-${order.tone}`}>
+            <b>{order.taskDate}</b>
+            <span>{order.task}</span>
+          </div>
+        </div>
+        <div className="landing-order-money">
+          {order.paid !== '0' ? <b>{order.paid}</b> : null}
+          <span>
+            {order.paid !== '0' ? ' / ' : ''}
+            {order.total} ₽
+          </span>
+        </div>
+      </div>
+      <div className="landing-order-client">
+        <span>{order.client}</span>
+        <div>
+          <i>
+            <CallOutlinedIcon aria-hidden="true" />
+          </i>
+          <i className="is-chat" aria-hidden="true" />
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function ProductPreview() {
   return (
     <div
@@ -211,110 +311,97 @@ function ProductPreview() {
     >
       <div className="landing-product-outline" />
       <div className="landing-product">
+        <header className="landing-product-header">
+          <div className="landing-product-burger">
+            <MenuRoundedIcon aria-hidden="true" />
+          </div>
+          <div className="landing-product-brand">
+            <Image
+              src="/brand/vedelo-mark.svg"
+              width={28}
+              height={28}
+              alt=""
+            />
+            <strong>Ведело</strong>
+          </div>
+          <span className="landing-product-header-title">
+            Предстоящие заказы <b>3</b>
+          </span>
+          <div className="landing-product-header-actions">
+            <i>
+              <NotificationsNoneRoundedIcon aria-hidden="true" />
+              <span />
+            </i>
+            <b>АС</b>
+          </div>
+        </header>
+
         <aside className="landing-product-nav">
-          <div className="landing-product-brand">Ведело</div>
-          {['Сегодня', 'Заявки', 'Клиенты', 'Заказы', 'Финансы'].map(
-            (item, index) => (
-              <div
-                key={item}
-                className={`landing-product-nav-row ${index === 0 ? 'is-active' : ''}`}
-              >
-                <span className="landing-product-nav-dot" />
-                {item}
-              </div>
-            )
-          )}
+          <div className="landing-product-nav-row">
+            <PriorityHighRoundedIcon aria-hidden="true" />
+          </div>
+          <div className="landing-product-nav-row is-active">
+            <CalendarMonthRoundedIcon aria-hidden="true" />
+          </div>
+          <div className="landing-product-nav-row">
+            <PersonOutlineRoundedIcon aria-hidden="true" />
+          </div>
+          <div className="landing-product-nav-row">
+            <WalletOutlinedIcon aria-hidden="true" />
+          </div>
+          <div className="landing-product-nav-row">
+            <QueryStatsRoundedIcon aria-hidden="true" />
+          </div>
         </aside>
-        <div className="landing-product-agenda">
-          <div className="landing-product-title-row">
+
+        <main className="landing-product-content">
+          <div className="landing-product-toolbar">
+            <button type="button" tabIndex={-1}>
+              <FilterAltRoundedIcon aria-hidden="true" />
+              Фильтры
+            </button>
             <div>
-              <strong>Сегодня</strong>
-              <span>Пятница, 23 мая</span>
+              <i className="is-selected">
+                <ViewListRoundedIcon aria-hidden="true" />
+              </i>
+              <i>
+                <CalendarMonthRoundedIcon aria-hidden="true" />
+              </i>
             </div>
-            <span className="landing-product-select">
-              Неделя <KeyboardArrowDownRoundedIcon aria-hidden="true" />
-            </span>
           </div>
-          <div className="landing-agenda-item is-done">
-            <time>10:00</time>
-            <div>
-              <strong>Позвонить Анне</strong>
-              <span>Уточнить детали заказа</span>
-            </div>
+          <div className="landing-order-list">
+            {productPreviewOrders.map((order) => (
+              <ProductPreviewOrder key={order.title} order={order} />
+            ))}
+          </div>
+          <div className="landing-product-fab">
+            <AddRoundedIcon aria-hidden="true" />
+          </div>
+        </main>
+
+        <nav className="landing-product-mobile-nav">
+          <div>
+            <PriorityHighRoundedIcon aria-hidden="true" />
+            <span>Важное</span>
+          </div>
+          <div className="is-active">
+            <CalendarMonthRoundedIcon aria-hidden="true" />
+            <span>Заказы</span>
+          </div>
+          <div className="landing-product-mobile-add">
             <i>
-              <CheckIcon />
+              <AddRoundedIcon aria-hidden="true" />
             </i>
           </div>
-          <div className="landing-agenda-item is-done">
-            <time>12:30</time>
-            <div>
-              <strong>Проверить оплату</strong>
-              <span>Заказ · 24 августа</span>
-            </div>
-            <i>
-              <CheckIcon />
-            </i>
+          <div>
+            <PersonOutlineRoundedIcon aria-hidden="true" />
+            <span>Клиенты</span>
           </div>
-          <div className="landing-agenda-item is-current is-mobile-hidden">
-            <time>15:00</time>
-            <div>
-              <strong>Выезд к Сергею</strong>
-              <span>Замер · 31 мая</span>
-            </div>
-            <b>
-              <CallOutlinedIcon aria-hidden="true" />
-            </b>
+          <div>
+            <MenuRoundedIcon aria-hidden="true" />
+            <span>Меню</span>
           </div>
-          <div className="landing-agenda-item is-mobile-hidden">
-            <time>18:00</time>
-            <div>
-              <strong>Отправить расчёт</strong>
-              <span>Новый заказ · 7 июня</span>
-            </div>
-            <i />
-          </div>
-          <div className="landing-mobile-payment">
-            <i>
-              <CheckIcon />
-            </i>
-            <div>
-              <strong>Задаток получен · 45 000 ₽</strong>
-              <span>Заказ · 24 августа</span>
-            </div>
-          </div>
-        </div>
-        <div className="landing-product-event">
-          <div className="landing-product-event-head">
-            <strong>Заказ · 24 августа</strong>
-            <MoreHorizRoundedIcon aria-hidden="true" />
-          </div>
-          <div className="landing-payment-status">
-            <CheckIcon /> Задаток получен
-          </div>
-          <dl>
-            <div>
-              <dt>Дата</dt>
-              <dd>24 августа, 17:00</dd>
-            </div>
-            <div>
-              <dt>Клиент</dt>
-              <dd>Анна Смирнова</dd>
-            </div>
-            <div>
-              <dt>Бюджет</dt>
-              <dd>150 000 ₽</dd>
-            </div>
-          </dl>
-          <div className="landing-payment-row">
-            <span>Задаток</span>
-            <strong>45 000 ₽</strong>
-          </div>
-          <div className="landing-payment-row is-muted">
-            <span>Остаток</span>
-            <strong>105 000 ₽</strong>
-          </div>
-          <div className="landing-product-open">Открыть заказ</div>
-        </div>
+        </nav>
       </div>
     </div>
   )
@@ -356,6 +443,11 @@ function TariffComparison({ tariffs }) {
     )
   }
 
+  const visibleFeatureRows = getVisibleTariffFeatureRows(
+    tariffFeatureRows,
+    tariffs
+  )
+
   return (
     <>
       <div
@@ -378,7 +470,7 @@ function TariffComparison({ tariffs }) {
             </tr>
           </thead>
           <tbody>
-            {tariffFeatureRows.map((feature) => (
+            {visibleFeatureRows.map((feature) => (
               <tr key={feature.label}>
                 <th scope="row">{feature.label}</th>
                 {tariffs.map((tariff) => {
@@ -451,7 +543,7 @@ function TariffComparison({ tariffs }) {
               </summary>
               <div className="landing-tariff-mobile-body">
                 <dl>
-                  {tariffFeatureRows.map((feature) => {
+                  {visibleFeatureRows.map((feature) => {
                     const available =
                       feature.included || Boolean(tariff?.[feature.key])
                     return (
