@@ -46,6 +46,8 @@ const loadEnvFile = (filePath) => {
 
 const parseArgs = () => {
   const args = process.argv.slice(2)
+  if (args.some((arg) => arg !== '--apply' && !/^--tenant=[a-f\d]{24}$/i.test(arg)))
+    throw new Error('Некорректные аргументы')
   const tenantArg = args.find((arg) => arg.startsWith('--tenant='))
   return {
     apply: args.includes('--apply'),
@@ -53,34 +55,19 @@ const parseArgs = () => {
   }
 }
 
-const run = async () => {
-  const { apply, tenantId } = parseArgs()
-
-  loadEnvFile(path.join(__dirname, '..', '.env.local'))
-
-  const uri = process.env.MONGODB_URI
-  if (!uri) {
-    console.error('mergeClientFullNames: MONGODB_URI is missing')
-    process.exit(1)
-  }
-
-  await mongoose.connect(uri, { dbName: process.env.MONGODB_DBNAME })
-
-  const ClientsSchema = new mongoose.Schema({}, { collection: 'clients' })
-  const Clients =
-    mongoose.models.Clients || mongoose.model('Clients', ClientsSchema)
-
+const mergeClientFullNames = async (db, { apply = false, tenantId = null } = {}) => {
+  // Нативная коллекция: пустая strict-схема Mongoose удаляла все операторы обновления.
+  const Clients = db.collection('clients')
   const filter = {
+    tenantId: tenantId ? new mongoose.Types.ObjectId(tenantId) : { $type: 'objectId' },
     $or: [
       { secondName: { $regex: /\S/ } },
       { thirdName: { $regex: /\S/ } },
     ],
   }
-  if (tenantId) filter.tenantId = new mongoose.Types.ObjectId(tenantId)
-
   const clients = await Clients.find(filter)
-    .select('_id tenantId firstName secondName thirdName')
-    .lean()
+    .project({ _id: 1, tenantId: 1, firstName: 1, secondName: 1, thirdName: 1 })
+    .toArray()
 
   // Склейка с защитой от дублей: если часть уже является последним словом
   // накопленной строки (например firstName="Юлия Старостенко" и
@@ -110,49 +97,54 @@ const run = async () => {
     }))
     .filter(({ merged }) => merged)
 
-  console.log(
-    `mergeClientFullNames: клиентов с заполненными secondName/thirdName — ${clients.length}`
-  )
-  console.log(`  будет объединено: ${planned.length}`)
-  console.log('')
-
-  planned.forEach(({ client, merged }) => {
-    console.log(
-      `${apply ? 'UPDATE' : 'PLAN  '} ${client._id} (tenant ${
-        client.tenantId
-      }): "${[client.firstName, client.secondName, client.thirdName]
-        .map((part) => String(part ?? '').trim())
-        .filter(Boolean)
-        .join('" + "')}" -> firstName="${merged}"`
-    )
-  })
-
+  const summary = { mode: apply ? 'apply' : 'dry-run', planned: planned.length, modified: 0, conflicts: 0 }
   if (apply && planned.length) {
     const ops = planned.map(({ client, merged }) => ({
       updateOne: {
-        filter: { _id: client._id },
+        filter: {
+          _id: client._id,
+          tenantId: client.tenantId,
+          ...Object.fromEntries(['firstName', 'secondName', 'thirdName'].map((key) => [
+            key, client[key] === undefined ? { $exists: false } : { $eq: client[key] },
+          ])),
+        },
         update: {
-          $set: { firstName: merged, secondName: '', thirdName: '' },
+          $set: { firstName: merged, secondName: '', thirdName: '', updatedAt: new Date() },
           $inc: { syncVersion: 1 },
         },
       },
     }))
     const result = await Clients.bulkWrite(ops)
-    console.log('')
-    console.log(
-      `mergeClientFullNames: записано изменений — ${result.modifiedCount ?? 0}`
-    )
-  } else if (!apply) {
-    console.log('')
-    console.log(
-      'Это dry-run, база не изменена. Для применения запустите с флагом --apply'
-    )
+    summary.modified = result.modifiedCount ?? 0
+    summary.conflicts = planned.length - (result.matchedCount ?? 0)
   }
-
-  await mongoose.disconnect()
+  return summary
 }
 
-run().catch((error) => {
-  console.error('mergeClientFullNames: error', error)
-  process.exit(1)
+const run = async () => {
+  const options = parseArgs()
+  // Явные переменные/--env-file имеют приоритет над legacy-файлом.
+  if (!process.env.MONGODB_URI) loadEnvFile(path.join(__dirname, '..', '.env.local'))
+  if (!process.env.MONGODB_URI) {
+    console.error('mergeClientFullNames: MONGODB_URI is missing')
+    process.exitCode = 1
+    return
+  }
+  const client = new mongoose.mongo.MongoClient(process.env.MONGODB_URI, {
+    retryWrites: false, serverSelectionTimeoutMS: 10000,
+  })
+  try {
+    await client.connect()
+    const result = await mergeClientFullNames(client.db(process.env.MONGODB_DBNAME), options)
+    console.log(JSON.stringify(result, null, 2))
+    if (result.conflicts) process.exitCode = 2
+  } finally {
+    await client.close()
+  }
+}
+
+module.exports = { mergeClientFullNames }
+if (require.main === module) run().catch(() => {
+  console.error('mergeClientFullNames: ошибка. Проверьте аргументы, подключение и структуру данных. При сбое часть записей могла обновиться; повторный запуск безопасен.')
+  process.exitCode = 1
 })
