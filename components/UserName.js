@@ -1,4 +1,4 @@
-import upperCaseFirst from '@helpers/upperCaseFirst'
+import formatPersonName from '@helpers/formatPersonName'
 import cn from 'classnames'
 
 const UserName = ({ user, className, noWrap, thin, showStatus, trunc }) => {
@@ -20,17 +20,17 @@ const UserName = ({ user, className, noWrap, thin, showStatus, trunc }) => {
       >
         {user?.firstName && (
           <span className={cn(thin ? 'max-h-3 overflow-visible' : '')}>
-            {upperCaseFirst(user.firstName)}
+            {formatPersonName(user.firstName)}
           </span>
         )}
         {user?.thirdName && (
           <span className={cn(thin ? 'max-h-3 overflow-visible' : '')}>
-            {upperCaseFirst(user.thirdName)}
+            {formatPersonName(user.thirdName)}
           </span>
         )}
         {user?.secondName && (
           <span className={cn(thin ? 'max-h-3 overflow-visible' : '')}>
-            {upperCaseFirst(user.secondName)}
+            {formatPersonName(user.secondName)}
           </span>
         )}
       </div>
