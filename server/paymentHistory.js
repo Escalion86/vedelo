@@ -4,6 +4,7 @@ const PAYMENT_HISTORY_CATEGORIES = new Set([
   'topup',
   'bonus',
   'refund',
+  'charge',
 ])
 
 const PAYMENT_STATUSES = new Set(['pending', 'succeeded', 'canceled', 'failed'])
@@ -34,7 +35,14 @@ const isReferralBonus = (payment) =>
 const getPaymentKind = (payment) => {
   if (isReferralBonus(payment)) return 'referral_bonus'
   if (payment?.type === 'topup' && payment?.source === 'system') return 'bonus'
-  if (payment?.purpose === 'tariff') return 'tariff'
+  if (
+    payment?.purpose === 'tariff' ||
+    (payment?.type === 'charge' &&
+      payment?.source === 'system' &&
+      payment?.tariffId &&
+      payment?.purpose !== 'ai')
+  )
+    return 'tariff'
   if (payment?.type === 'refund') return 'refund'
   if (payment?.type === 'charge') return 'charge'
   return 'topup'
@@ -117,7 +125,16 @@ export const buildPaymentHistoryFilter = ({
     ? category
     : 'all'
 
-  if (normalizedCategory === 'tariff') filter.purpose = 'tariff'
+  if (normalizedCategory === 'tariff')
+    filter.$or = [
+      { purpose: 'tariff' },
+      {
+        type: 'charge',
+        source: 'system',
+        tariffId: { $ne: null },
+        purpose: { $ne: 'ai' },
+      },
+    ]
   if (normalizedCategory === 'topup') {
     filter.type = 'topup'
     filter.purpose = 'balance'
@@ -128,6 +145,7 @@ export const buildPaymentHistoryFilter = ({
     filter.source = 'system'
   }
   if (normalizedCategory === 'refund') filter.type = 'refund'
+  if (normalizedCategory === 'charge') filter.type = 'charge'
 
   if (cursor) {
     filter.$and = [
@@ -177,4 +195,21 @@ export const serializePaymentHistoryAccount = (user) => ({
   tariffId: toId(user?.tariffId),
   tariffActiveUntil: user?.tariffActiveUntil || null,
   nextChargeAt: user?.nextChargeAt || null,
+})
+
+export const paymentManagementActions = (payment) => ({
+  canDelete:
+    payment?.status === 'succeeded' &&
+    !payment?.referralRewardPending &&
+    ((payment.source === 'manual' &&
+      (payment.type === 'charge' ||
+        (payment.type === 'topup' && payment.purpose === 'balance'))) ||
+      (payment.type === 'topup' &&
+        payment.source === 'system' &&
+        isReferralBonus(payment))),
+  syncProvider:
+    payment?.status === 'pending' &&
+    ['tochka', 'yookassa'].includes(payment.source)
+      ? payment.source
+      : null,
 })

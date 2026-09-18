@@ -11,7 +11,8 @@ import {
   faWallet,
 } from '@fortawesome/free-solid-svg-icons'
 import { useMemo, useState } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import cn from 'classnames'
 import AppButton from '@components/AppButton'
@@ -23,6 +24,11 @@ import { formatMoney } from '@helpers/formatMoney'
 import { usePaymentHistoryQuery } from '@helpers/usePaymentHistoryQuery'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import tariffsAtom from '@state/atoms/tariffsAtom'
+import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
+import userEditSelector from '@state/selectors/userEditSelector'
+import ManualBalanceChargeForm from '@components/ManualBalanceChargeForm'
+import { apiJson } from '@helpers/apiClient'
+import useSnackbar from '@helpers/useSnackbar'
 
 const CATEGORY_OPTIONS = [
   { value: 'all', label: 'Все' },
@@ -30,6 +36,7 @@ const CATEGORY_OPTIONS = [
   { value: 'topup', label: 'Пополнения' },
   { value: 'bonus', label: 'Бонусы' },
   { value: 'refund', label: 'Возвраты' },
+  { value: 'charge', label: 'Списания' },
 ]
 
 const dateTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -69,7 +76,7 @@ const getOperationIcon = (kind, direction) => {
   return direction === 'out' ? faArrowUp : faArrowDown
 }
 
-const PaymentRow = ({ item }) => {
+const PaymentRow = ({ item, canManage, busy, onDelete, onSync }) => {
   const status = getStatusInfo(item.status)
   const isMuted = status.tone !== 'succeeded'
   const sign = isMuted ? '' : item.direction === 'out' ? '−' : '+'
@@ -108,7 +115,7 @@ const PaymentRow = ({ item }) => {
           </div>
         </div>
       </div>
-      <div className="flex shrink-0 items-end justify-between gap-4 pl-[52px] sm:flex-col sm:pl-0 sm:text-right">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-4 pl-[52px] sm:flex-col sm:pl-0 sm:text-right">
         <div
           className={cn(
             'text-base font-semibold tabular-nums',
@@ -128,6 +135,26 @@ const PaymentRow = ({ item }) => {
         >
           {formatDate(item.occurredAt)}
         </time>
+        {canManage && item.management?.canDelete ? (
+          <AppButton
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => onDelete(item)}
+          >
+            Удалить
+          </AppButton>
+        ) : null}
+        {canManage && item.management?.syncProvider ? (
+          <AppButton
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() => onSync(item)}
+          >
+            Проверить платёж
+          </AppButton>
+        ) : null}
       </div>
     </li>
   )
@@ -141,6 +168,15 @@ const BillingHistoryContent = ({
   const router = useRouter()
   const loggedUser = useAtomValue(loggedUserAtom)
   const tariffs = useAtomValue(tariffsAtom)
+  const modalsFunc = useAtomValue(modalsFuncAtom)
+  const setUser = useSetAtom(userEditSelector)
+  const queryClient = useQueryClient()
+  const snackbar = useSnackbar()
+  const canManage = Boolean(
+    userId && ['dev', 'admin'].includes(loggedUser?.role)
+  )
+  const [showCharge, setShowCharge] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [category, setCategory] = useState('all')
   const filters = useMemo(
     () => ({ category, limit: 30, userId }),
@@ -161,12 +197,58 @@ const BillingHistoryContent = ({
   const tariffActiveUntil =
     account?.tariffActiveUntil ?? fallbackUser?.tariffActiveUntil
 
+  const refreshHistory = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['paymentHistory'] }),
+      queryClient.invalidateQueries({ queryKey: ['users'] }),
+    ])
+  const handleChargeSuccess = (updatedUser) => {
+    setUser({ ...accountUser, ...updatedUser })
+    setShowCharge(false)
+    snackbar.success('Списание проведено')
+    refreshHistory()
+  }
+  const deletePayment = async (item) => {
+    const warning =
+      item.direction === 'out'
+        ? `Удалить списание ${formatMoney(item.amount)} и вернуть эту сумму на баланс? Срок тарифа не изменится.`
+        : `Удалить начисление ${formatMoney(item.amount)} и вычесть его из баланса? Связанный реферальный бонус также будет удалён.`
+    if (!window.confirm(warning)) return
+    setBusy(true)
+    try {
+      const result = await apiJson('/api/payments', {
+        method: 'DELETE',
+        body: JSON.stringify({ paymentId: item.id }),
+      })
+      result.data?.users?.forEach(setUser)
+      snackbar.success('Операция удалена, баланс пересчитан')
+    } catch (error) {
+      snackbar.error(error.message || 'Не удалось удалить операцию')
+    } finally {
+      await refreshHistory()
+      setBusy(false)
+    }
+  }
+  const syncPayment = async (item) => {
+    setBusy(true)
+    try {
+      await apiJson(`/api/billing/${item.management.syncProvider}/sync`, {
+        method: 'POST',
+        body: JSON.stringify({ paymentId: item.id }),
+      })
+      snackbar.success('Статус платежа обновлён')
+    } catch (error) {
+      snackbar.error(error.message || 'Не удалось проверить платёж')
+    } finally {
+      await refreshHistory()
+      setBusy(false)
+    }
+  }
+
   return (
     <div
       className={cn(
-        embedded
-          ? 'min-w-0'
-          : 'flex min-h-0 flex-1 flex-col overflow-hidden'
+        embedded ? 'min-w-0' : 'flex min-h-0 flex-1 flex-col overflow-hidden'
       )}
     >
       <div
@@ -215,6 +297,41 @@ const BillingHistoryContent = ({
               ) : null}
             </SectionCard>
           </div>
+
+          {canManage ? (
+            <div className="flex flex-wrap gap-2">
+              <AppButton
+                disabled={busy || showCharge}
+                onClick={() => modalsFunc.user?.topup(userId, refreshHistory)}
+              >
+                Пополнить баланс
+              </AppButton>
+              <AppButton
+                variant="secondary"
+                disabled={busy || showCharge}
+                onClick={() => setShowCharge(true)}
+              >
+                Списать с баланса
+              </AppButton>
+              <AppButton
+                variant="secondary"
+                disabled={busy || showCharge}
+                onClick={() =>
+                  modalsFunc.user?.tariffChange(userId, refreshHistory)
+                }
+              >
+                Сменить тариф
+              </AppButton>
+            </div>
+          ) : null}
+          {canManage && showCharge ? (
+            <ManualBalanceChargeForm
+              userId={userId}
+              balance={balance}
+              onSuccess={handleChargeSuccess}
+              onCancel={() => setShowCharge(false)}
+            />
+          ) : null}
 
           <SectionCard className="p-3">
             <div className="mb-3">
@@ -286,7 +403,14 @@ const BillingHistoryContent = ({
           ) : (
             <ul className="grid gap-2">
               {items.map((item) => (
-                <PaymentRow key={item.id} item={item} />
+                <PaymentRow
+                  key={item.id}
+                  item={item}
+                  canManage={canManage}
+                  busy={busy || showCharge}
+                  onDelete={deletePayment}
+                  onSync={syncPayment}
+                />
               ))}
             </ul>
           )}

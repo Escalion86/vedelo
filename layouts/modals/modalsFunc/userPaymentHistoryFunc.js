@@ -16,7 +16,7 @@ const userPaymentHistoryFunc = (userId) => {
     if (!user) return null
 
     return (
-      <FormWrapper flex className="flex-col gap-3">
+      <FormWrapper className="mx-auto flex max-w-5xl flex-col gap-3">
         <UserName user={user} className="text-lg font-bold" />
         <BillingHistoryContent
           userId={user._id}

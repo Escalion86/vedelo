@@ -12,6 +12,7 @@ import {
   parsePaymentHistoryLimit,
   serializePaymentHistoryAccount,
   serializePaymentHistoryItem,
+  paymentManagementActions,
 } from '@server/paymentHistory'
 
 export const GET = async (req) => {
@@ -75,7 +76,7 @@ export const GET = async (req) => {
 
   const rows = await Payments.find(filter)
     .select(
-      'amount type source status purpose paidAt createdAt comment paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor'
+      'amount type source status purpose tariffId paidAt createdAt comment paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
     )
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit + 1)
@@ -88,7 +89,12 @@ export const GET = async (req) => {
   return NextResponse.json({
     success: true,
     data: {
-      items: items.map(serializePaymentHistoryItem),
+      items: items.map((item) => ({
+        ...serializePaymentHistoryItem(item),
+        ...(['admin', 'dev'].includes(context.user.role)
+          ? { management: paymentManagementActions(item) }
+          : {}),
+      })),
       account: serializePaymentHistoryAccount(targetUser),
     },
     meta: {

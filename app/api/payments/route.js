@@ -33,7 +33,7 @@ const withSession = (query, session) =>
 
 export const GET = async (req) => {
   const { user, tenantId } = await getTenantContext()
-  if (!user) {
+  if (!user || !tenantId) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
       { status: 401 }
@@ -68,7 +68,7 @@ export const GET = async (req) => {
 export const POST = async (req) => {
   const body = await req.json().catch(() => ({}))
   const { user, tenantId } = await getTenantContext()
-  if (!user) {
+  if (!user || !tenantId) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
       { status: 401 }
@@ -82,7 +82,10 @@ export const POST = async (req) => {
   }
 
   const amount = Number(body.amount ?? 0)
-  if (!body.userId) {
+  if (
+    typeof body.userId !== 'string' ||
+    !mongoose.Types.ObjectId.isValid(body.userId)
+  ) {
     return NextResponse.json(
       { success: false, error: 'Не указан пользователь' },
       { status: 400 }
@@ -105,13 +108,15 @@ export const POST = async (req) => {
     )
   }
 
-  const balance = Number(userToUpdate.balance ?? 0)
-  userToUpdate.balance = balance + amount
-  await userToUpdate.save()
+  const updatedUser = await Users.findOneAndUpdate(
+    { _id: userToUpdate._id, tenantId: userToUpdate.tenantId ?? null },
+    { $inc: { balance: amount } },
+    { returnDocument: 'after' }
+  )
 
   const payment = await Payments.create({
     userId: userToUpdate._id,
-    tenantId: userToUpdate.tenantId ?? tenantId ?? userToUpdate._id,
+    tenantId: userToUpdate.tenantId || userToUpdate._id,
     tariffId: userToUpdate.tariffId ?? null,
     amount,
     type: 'topup',
@@ -134,15 +139,15 @@ export const POST = async (req) => {
   }
 
   return NextResponse.json(
-    { success: true, data: { user: sanitizeUser(userToUpdate), payment } },
+    { success: true, data: { user: sanitizeUser(updatedUser), payment } },
     { status: 201 }
   )
 }
 
 export const DELETE = async (req) => {
   const body = await req.json().catch(() => ({}))
-  const { user } = await getTenantContext()
-  if (!user) {
+  const { user, tenantId } = await getTenantContext()
+  if (!user || !tenantId) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
       { status: 401 }
@@ -154,9 +159,12 @@ export const DELETE = async (req) => {
       { status: 403 }
     )
   }
-  if (!body.paymentId) {
+  if (
+    typeof body.paymentId !== 'string' ||
+    !mongoose.Types.ObjectId.isValid(body.paymentId)
+  ) {
     return NextResponse.json(
-      { success: false, error: 'Не указано пополнение' },
+      { success: false, error: 'Некорректная операция' },
       { status: 400 }
     )
   }
@@ -173,11 +181,15 @@ export const DELETE = async (req) => {
       session
     )
     if (!payment) {
-      const error = new Error('Пополнение не найдено')
+      const error = new Error('Операция не найдена')
       error.status = 404
       throw error
     }
 
+    const isManualCharge =
+      payment.type === 'charge' &&
+      payment.source === 'manual' &&
+      payment.status === 'succeeded'
     const isManualTopup =
       payment.type === 'topup' &&
       payment.source === 'manual' &&
@@ -188,9 +200,9 @@ export const DELETE = async (req) => {
       payment.source === 'system' &&
       payment.referralReward?.rewardFor === 'balance_topup'
 
-    if (!isManualTopup && !isReferralReward) {
+    if (!isManualTopup && !isReferralReward && !isManualCharge) {
       const error = new Error(
-        'Можно удалять только ручные пополнения и реферальные бонусы'
+        'Можно удалять только ручные пополнения, ручные списания и реферальные бонусы'
       )
       error.status = 400
       throw error
@@ -208,7 +220,7 @@ export const DELETE = async (req) => {
     const paymentsToDelete = [payment, linkedReward].filter(Boolean)
     if (
       paymentsToDelete.some(
-        (item) => item.status === 'pending' || item.referralRewardPending
+        (item) => item.status !== 'succeeded' || item.referralRewardPending
       )
     ) {
       const error = new Error(
@@ -217,40 +229,41 @@ export const DELETE = async (req) => {
       error.status = 409
       throw error
     }
-    const deductions = new Map()
-
-    paymentsToDelete.forEach((item) => {
-      const userId = String(item.userId)
-      deductions.set(
-        userId,
-        Number(deductions.get(userId) ?? 0) + Number(item.amount ?? 0)
-      )
-    })
-
     const balanceUpdates = []
-    for (const [userId, amount] of deductions) {
-      const balanceUser = await withSession(Users.findById(userId), session)
-      if (!balanceUser) {
-        const error = new Error('Пользователь пополнения не найден')
+    for (const item of paymentsToDelete) {
+      const balanceUser = await withSession(
+        Users.findById(item.userId).select('+paymentReversals'),
+        session
+      )
+      if (
+        !balanceUser ||
+        String(item.tenantId) !==
+          String(balanceUser.tenantId || balanceUser._id)
+      ) {
+        const error = new Error('Пользователь операции не найден')
         error.status = 404
         throw error
       }
-      if (Number(balanceUser.balance ?? 0) < amount) {
+      const amount =
+        (item.type === 'charge' ? -1 : 1) * Number(item.amount ?? 0)
+      if (balanceUser.paymentReversals?.[String(item._id)]) continue
+      if (amount > 0 && Number(balanceUser.balance ?? 0) < amount) {
         const error = new Error(
-          `Недостаточно средств для отката у пользователя ${
-            [balanceUser.firstName, balanceUser.secondName]
-              .filter(Boolean)
-              .join(' ') || userId
-          }`
+          'Недостаточно средств для отката пополнения или связанного бонуса'
         )
         error.status = 409
         throw error
       }
-      balanceUpdates.push({ balanceUser, amount })
+      balanceUpdates.push({ balanceUser, amount, item })
     }
 
-    for (const { balanceUser, amount } of balanceUpdates) {
-      const receipts = {}
+    for (const {
+      balanceUser,
+      amount,
+      item: reversedPayment,
+    } of balanceUpdates) {
+      const reversalKey = `paymentReversals.${reversedPayment._id}`
+      const receipts = { [reversalKey]: true }
       for (const item of paymentsToDelete) {
         if (
           String(item.userId) === String(balanceUser._id) &&
@@ -266,7 +279,8 @@ export const DELETE = async (req) => {
           {
             _id: balanceUser._id,
             tenantId: balanceUser.tenantId ?? null,
-            balance: { $gte: amount },
+            ...(amount > 0 ? { balance: { $gte: amount } } : {}),
+            [reversalKey]: { $ne: true },
           },
           {
             $inc: { balance: -amount },
@@ -277,8 +291,17 @@ export const DELETE = async (req) => {
         session
       )
       if (!updated) {
+        const alreadyReversed = await withSession(
+          Users.exists({
+            _id: balanceUser._id,
+            tenantId: balanceUser.tenantId ?? null,
+            [reversalKey]: true,
+          }),
+          session
+        )
+        if (alreadyReversed) continue
         const error = new Error(
-          'Баланс изменился. Повторите удаление пополнения.'
+          'Баланс изменился. Повторите удаление операции.'
         )
         error.status = 409
         throw error
@@ -288,7 +311,11 @@ export const DELETE = async (req) => {
 
     await withSession(
       Payments.deleteMany({
-        _id: { $in: paymentsToDelete.map((item) => item._id) },
+        $or: paymentsToDelete.map((item) => ({
+          _id: item._id,
+          userId: item.userId,
+          tenantId: item.tenantId,
+        })),
       }),
       session
     )
@@ -301,7 +328,9 @@ export const DELETE = async (req) => {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || 'Не удалось удалить пополнение',
+        error: error?.status
+          ? error.message
+          : 'Не удалось удалить операцию. Повторите попытку.',
       },
       { status: error?.status || 500 }
     )

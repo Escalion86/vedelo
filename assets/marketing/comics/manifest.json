@@ -1,0 +1,132 @@
+{
+  "brand": "Ведело",
+  "date": "2026-09-17",
+  "comics": [
+    {
+      "slug": "fokusniki",
+      "title": "Фокусники",
+      "grid": {
+        "x": [
+          0,
+          340,
+          683,
+          1024
+        ],
+        "y": [
+          0,
+          721,
+          1403
+        ]
+      },
+      "legacyAiAsset": true
+    },
+    {
+      "slug": "vedushchie",
+      "title": "Ведущие",
+      "grid": {
+        "x": [
+          0,
+          338,
+          677,
+          1024
+        ],
+        "y": [
+          0,
+          683,
+          1371
+        ]
+      },
+      "legacyAiAsset": true
+    },
+    {
+      "slug": "muzykanty",
+      "title": "Музыканты",
+      "grid": {
+        "x": [
+          0,
+          340,
+          695,
+          1024
+        ],
+        "y": [
+          0,
+          688,
+          1372
+        ]
+      },
+      "legacyAiAsset": true
+    },
+    {
+      "slug": "fotografy",
+      "title": "Фотографы и видеографы",
+      "grid": {
+        "x": [
+          0,
+          352,
+          703,
+          1024
+        ],
+        "y": [
+          0,
+          676,
+          1376
+        ]
+      },
+      "legacyAiAsset": false
+    },
+    {
+      "slug": "beauty",
+      "title": "Бьюти-мастера",
+      "grid": {
+        "x": [
+          0,
+          344,
+          679,
+          1024
+        ],
+        "y": [
+          0,
+          699,
+          1368
+        ]
+      },
+      "legacyAiAsset": false
+    },
+    {
+      "slug": "remont",
+      "title": "Ремонт и бытовые услуги",
+      "grid": {
+        "x": [
+          0,
+          342,
+          683,
+          1024
+        ],
+        "y": [
+          0,
+          685,
+          1402
+        ]
+      },
+      "legacyAiAsset": false
+    },
+    {
+      "slug": "konditery",
+      "title": "Кондитеры и изделия на заказ",
+      "grid": {
+        "x": [
+          0,
+          334,
+          690,
+          1024
+        ],
+        "y": [
+          0,
+          686,
+          1368
+        ]
+      },
+      "legacyAiAsset": false
+    }
+  ]
+}

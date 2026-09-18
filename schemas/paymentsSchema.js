@@ -1,6 +1,8 @@
 import { Schema } from 'mongoose'
 
 const paymentsSchema = {
+  // Actual entry time for backdated manual charges; createdAt is the ledger date.
+  recordedAt: { type: Date, default: null },
   tenantId: {
     type: Schema.Types.ObjectId,
     ref: 'Users',

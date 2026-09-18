@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import useSnackbar from '@helpers/useSnackbar'
 import getPersonFullName from '@helpers/getPersonFullName'
 
-const userTariffChangeFunc = (userId) => {
+const userTariffChangeFunc = (userId, onSuccess) => {
   const UserTariffChangeModal = ({ closeModal }) => {
     const tariffs = useAtomValue(tariffsAtom)
     const user = useAtomValue(userSelector(userId))
@@ -107,6 +107,7 @@ const userTariffChangeFunc = (userId) => {
         if (data?.data?._id) {
           setUser(data.data)
           snackbar.success('Тариф обновлен')
+          onSuccess?.()
         }
         closeModal()
       } catch (err) {

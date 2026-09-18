@@ -343,8 +343,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
       changePassword: () => addModal(changePasswordFunc()),
       passwordChange: (userId) =>
         canManageUsers ? addModal(userPasswordChangeFunc(userId)) : null,
-      tariffChange: (userId) =>
-        canManageUsers ? addModal(userTariffChangeFunc(userId)) : null,
+      tariffChange: (userId, onSuccess) =>
+        canManageUsers ? addModal(userTariffChangeFunc(userId, onSuccess)) : null,
     },
     tariff: {
       add: (tariffId) =>

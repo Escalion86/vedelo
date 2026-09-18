@@ -12,6 +12,8 @@ const DEFAULT_GOOGLE_CALENDAR_STATUS_COLORS = Object.freeze({
 })
 
 const usersSchema = {
+  manualBalanceCharges: { type: Schema.Types.Mixed, default: {}, select: false },
+  paymentReversals: { type: Schema.Types.Mixed, default: {}, select: false },
   aiFileImportBudgets: { type: Schema.Types.Mixed, default: {}, select: false },
   // Written atomically with balance; retained after reward deletion to prevent replay.
   referralRewardCredits: { type: Schema.Types.Mixed, default: {}, select: false },

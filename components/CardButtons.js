@@ -5,7 +5,6 @@ import {
   faCalendarAlt,
   faClockRotateLeft,
   faCode,
-  faExchangeAlt,
   faEllipsisV,
   faExternalLinkAlt,
   faMoneyBill,
@@ -230,8 +229,6 @@ const CardButtons = ({
           deleteBtn:
             showDeleteButton && canManageItem && item.status !== 'closed',
           userPaymentHistory: typeOfItem === 'user' && canManageUsers,
-          userBilling: typeOfItem === 'user' && canManageUsers,
-          userTariff: typeOfItem === 'user' && canManageUsers,
           setPasswordBtn: typeOfItem === 'user' && canManageUsers,
           impersonateUser:
             typeOfItem === 'user' &&
@@ -245,8 +242,6 @@ const CardButtons = ({
         copyId: canCopyId,
         userActionsHistory: typeOfItem === 'user',
         userPaymentHistory: typeOfItem === 'user' && canManageUsers,
-        userBilling: typeOfItem === 'user' && canManageUsers,
-        userTariff: typeOfItem === 'user' && canManageUsers,
         setPasswordBtn: typeOfItem === 'user' && canManageUsers,
         impersonateUser:
           typeOfItem === 'user' &&
@@ -369,32 +364,12 @@ const CardButtons = ({
           tooltipText="Баланс и платежи"
         />
       )}
-      {show.userBilling && (
-        <ItemComponent
-          icon={faMoneyBill}
-          onClick={() => {
-            modalsFunc[typeOfItem].billing(item._id)
-          }}
-          color="green"
-          tooltipText="Управление балансом"
-        />
-      )}
       {show.impersonateUser && (
         <ItemComponent
           icon={faUserSecret}
           onClick={handleImpersonateUser}
           color="purple"
           tooltipText="Войти в кабинет пользователя"
-        />
-      )}
-      {show.userTariff && (
-        <ItemComponent
-          icon={faExchangeAlt}
-          onClick={() => {
-            modalsFunc[typeOfItem].tariffChange(item._id)
-          }}
-          color="blue"
-          tooltipText="Сменить тариф"
         />
       )}
       {show.setPasswordBtn && (

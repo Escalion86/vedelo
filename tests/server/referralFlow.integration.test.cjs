@@ -135,6 +135,120 @@ test(
         })
       const balance = async (id) => (await Users.findById(id)).balance
 
+      const charges = compile('server/manualBalanceCharge.js')
+      const adminId = new mongoose.Types.ObjectId()
+      let billingContext = { user: { _id: adminId, role: 'admin' }, tenantId: adminId }
+      const paymentRoutes = compile('app/api/payments/route.js', {
+        '@server/dbConnect': async () => {},
+        '@server/getTenantContext': async () => billingContext,
+        '@models/Users': Users, '@models/Payments': Payments, '@models/SiteSettings': SiteSettings,
+        '@server/referralRewards': rewards,
+        '@server/mongoCapabilities': { supportsMongoTransactions: () => false },
+      })
+      const removePayment = (paymentId) => paymentRoutes.DELETE(new Request('http://localhost/api/payments', {
+        method: 'DELETE', body: JSON.stringify({ paymentId: String(paymentId) }),
+      }))
+      const chargeInput = (userId, extra = {}) => ({
+        userId: String(userId), amount: 12.34, purpose: 'tariff', comment: 'Тариф за август',
+        paidAt: '2026-08-10T12:00:00.000Z', idempotenceKey: 'manual-charge-test-0001', ...extra,
+      })
+      const charge = (body, overrides = {}) => charges.createManualCharge({
+        context: billingContext, body, UsersModel: Users, PaymentsModel: Payments, ...overrides,
+      })
+
+      await t.test('manual charge: concurrent retries debit once; target tenant and historical date are preserved', async () => {
+        const { otherId, referredId } = await invite()
+        const input = chargeInput(otherId, { tenantId: referredId, type: 'topup', source: 'system' })
+        const results = await Promise.all(Array.from({ length: 10 }, () => charge(input)))
+        assert.equal(await balance(otherId), 64.66)
+        assert.equal(await balance(referredId), 0)
+        const payment = await Payments.findById(results[0].payment._id)
+        assert.equal(String(payment.tenantId), String(otherId))
+        assert.equal(payment.type, 'charge')
+        assert.equal(payment.source, 'manual')
+        assert.equal(payment.status, 'succeeded')
+        assert.equal(payment.createdAt.toISOString(), input.paidAt)
+        assert.equal(payment.paidAt.toISOString(), input.paidAt)
+        assert.equal(await Payments.countDocuments({ userId: otherId }), 1)
+        assert.equal((await Users.findById(otherId).lean()).manualBalanceCharges, undefined)
+        await assert.rejects(charge({ ...input, amount: 20 }), { status: 409 })
+        const responses = await Promise.all(Array.from({ length: 8 }, () => removePayment(payment._id)))
+        assert.ok(responses.every((result) => [200, 404].includes(result.status)))
+        assert.equal(await balance(otherId), 77)
+        assert.equal(await Payments.findById(payment._id), null)
+        await assert.rejects(charge(input), { status: 409 })
+        assert.equal(await balance(otherId), 77)
+      })
+
+      await t.test('manual charge: retry after failed payment finalization does not debit again', async () => {
+        const { otherId } = await invite()
+        const input = chargeInput(otherId)
+        await assert.rejects(charge(input, { PaymentsModel: {
+          findOneAndUpdate: (filter, update, options) => {
+            if (update.$set?.status === 'succeeded') throw Error('simulated write failure')
+            return Payments.findOneAndUpdate(filter, update, options)
+          },
+        } }), /simulated write failure/)
+        assert.equal(await balance(otherId), 64.66)
+        await charge(input)
+        assert.equal(await balance(otherId), 64.66)
+        assert.equal(await Payments.countDocuments({ userId: otherId, status: 'succeeded' }), 1)
+      })
+
+      await t.test('manual charge: insufficient balance, malformed amount/date/reason are rejected', async () => {
+        const { otherId } = await invite()
+        const input = chargeInput(otherId)
+        for (const extra of [{ amount: 0 }, { amount: -1 }, { amount: 1.234 }, { amount: Infinity },
+          { comment: '' }, { comment: { $ne: null } }, { paidAt: 'bad-date' },
+          { paidAt: '2099-01-01T00:00:00Z' }, { userId: { $ne: null } }, { purpose: 'ai' }])
+          await assert.rejects(charge({ ...input, ...extra }), { status: 400 })
+        await assert.rejects(charge({ ...input, amount: 78 }), { status: 409 })
+        assert.equal(await balance(otherId), 77)
+        const pending = await Payments.findOne({ userId: otherId })
+        assert.equal((await removePayment(pending._id)).status, 400)
+      })
+
+      await t.test('manual billing: ordinary users cannot debit or delete own/foreign payments; mismatched tenants cannot be reversed', async () => {
+        const { otherId, referredId } = await invite()
+        const { payment } = await charge(chargeInput(otherId))
+        const saved = billingContext
+        try {
+          for (const userId of [otherId, referredId]) {
+            billingContext = { user: { _id: userId, role: 'user' }, tenantId: userId }
+            await assert.rejects(charge(chargeInput(otherId)), { status: 403 })
+            assert.equal((await removePayment(payment._id)).status, 403)
+          }
+          billingContext = { user: saved.user, tenantId: null }
+          await assert.rejects(charge(chargeInput(otherId)), { status: 403 })
+          assert.equal((await removePayment(payment._id)).status, 401)
+        } finally { billingContext = saved }
+        await Payments.updateOne({ _id: payment._id }, { $set: { tenantId: referredId } })
+        assert.equal((await removePayment(payment._id)).status, 404)
+        assert.equal(await balance(otherId), 64.66)
+        assert.equal(await balance(referredId), 0)
+      })
+
+      await t.test('manual topup uses target tenant when legacy user has no tenant and cascaded deletion is applied once', async () => {
+        const { referrerId, referredId } = await invite()
+        await Users.updateOne({ _id: referredId }, { $set: { tenantId: null } })
+        const response = await paymentRoutes.POST(new Request('http://localhost/api/payments', {
+          method: 'POST', body: JSON.stringify({ userId: referredId, amount: 100, rewardReferrer: true }),
+        }))
+        assert.equal(response.status, 201)
+        const payload = await response.json()
+        assert.equal(payload.data.payment.tenantId, String(referredId))
+        assert.equal(await balance(referredId), 100)
+        assert.equal(await balance(referrerId), 105)
+        await Promise.all(Array.from({ length: 6 }, () => removePayment(payload.data.payment._id)))
+        assert.equal(await balance(referredId), 0)
+        assert.equal(await balance(referrerId), 100)
+        assert.equal(await Payments.countDocuments({ 'referralReward.sourcePaymentId': payload.data.payment._id }), 0)
+      })
+
+      // Clear only the manual-billing fixtures in this disposable test database.
+      await Payments.deleteMany({})
+      await Users.deleteMany({})
+
       await t.test(
         'concurrent rewards credit once, preserve tenants, and hide receipts from user payloads',
         async () => {
