@@ -6,6 +6,11 @@ import Payments from '@models/Payments'
 import SiteSettings from '@models/SiteSettings'
 import { retryPendingReferralRewards } from '@server/referralRewards'
 import getTenantContext from '@server/getTenantContext'
+import {
+  findAssignedTariff,
+  findVisibleFreeTariff,
+  isExpiredRegistrationOffer,
+} from '@server/billingRenewalState'
 
 const addMonths = (date, count) => {
   const next = new Date(date)
@@ -16,6 +21,11 @@ const addMonths = (date, count) => {
   }
   return next
 }
+
+const getUserIdentityFilter = (user) => ({
+  _id: user._id,
+  tenantId: user.tenantId ?? null,
+})
 
 const canRun = async (req) => {
   const secret = process.env.BILLING_CRON_SECRET || ''
@@ -53,20 +63,50 @@ export const POST = async (req) => {
   })
 
   const now = new Date()
-  const dueUsers = await Users.find({
-    tariffId: { $ne: null },
-    nextChargeAt: { $lte: now },
-    billingStatus: { $ne: 'cancelled' },
-  }).lean()
-
-  const tariffs = await Tariffs.find({ hidden: { $ne: true } }).lean()
-  const freeTariff =
-    tariffs.find((item) => Number(item?.price ?? 0) <= 0) ?? null
+  const [dueUsers, expiredOfferCandidates, tariffs] = await Promise.all([
+    Users.find({
+      tariffId: { $ne: null },
+      nextChargeAt: { $lte: now },
+      billingStatus: { $ne: 'cancelled' },
+    }).lean(),
+    Users.find({
+      tariffId: { $ne: null },
+      nextChargeAt: null,
+      'registrationOffer.endsAt': { $lte: now },
+    }).lean(),
+    Tariffs.find({}).lean(),
+  ])
+  const freeTariff = findVisibleFreeTariff(tariffs)
 
   let processed = 0
   let renewed = 0
   let movedToFree = 0
+  let normalizedFree = 0
+  let invalidTariffsResolved = 0
+  let expiredTrialsCleared = 0
   let skipped = 0
+
+  for (const user of expiredOfferCandidates) {
+    if (!isExpiredRegistrationOffer(user, now)) continue
+
+    const result = await Users.updateOne(
+      {
+        ...getUserIdentityFilter(user),
+        tariffId: user.tariffId,
+        nextChargeAt: null,
+        'registrationOffer.tariffId': user.tariffId,
+        'registrationOffer.endsAt': { $lte: now },
+      },
+      {
+        $set: {
+          tariffId: null,
+          tariffActiveUntil: null,
+          billingStatus: 'active',
+        },
+      }
+    )
+    expiredTrialsCleared += Number(result?.modifiedCount ?? 0)
+  }
 
   for (const user of dueUsers) {
     processed += 1
@@ -74,37 +114,51 @@ export const POST = async (req) => {
       skipped += 1
       continue
     }
-    const tariff = tariffs.find(
-      (item) => String(item?._id) === String(user.tariffId)
-    )
+    const tariff = findAssignedTariff(tariffs, user.tariffId)
     if (!tariff) {
-      skipped += 1
+      await Users.updateOne(
+        { ...getUserIdentityFilter(user), tariffId: user.tariffId },
+        {
+          $set: {
+            tariffId: freeTariff?._id ?? null,
+            tariffActiveUntil: null,
+            nextChargeAt: null,
+            billingStatus: 'debt',
+          },
+        }
+      )
+      invalidTariffsResolved += 1
+      if (freeTariff) movedToFree += 1
       continue
     }
     const price = Number(tariff.price ?? 0)
     if (!Number.isFinite(price) || price <= 0) {
-      await Users.findByIdAndUpdate(user._id, {
-        tariffActiveUntil: null,
-        nextChargeAt: null,
-        billingStatus: 'active',
+      await Users.updateOne(getUserIdentityFilter(user), {
+        $set: {
+          tariffActiveUntil: null,
+          nextChargeAt: null,
+          billingStatus: 'active',
+        },
       })
-      skipped += 1
+      normalizedFree += 1
       continue
     }
 
     const balance = Number(user.balance ?? 0)
     if (!Number.isFinite(balance) || balance < price) {
       if (freeTariff) {
-        await Users.findByIdAndUpdate(user._id, {
-          tariffId: freeTariff._id,
-          tariffActiveUntil: null,
-          nextChargeAt: null,
-          billingStatus: 'debt',
+        await Users.updateOne(getUserIdentityFilter(user), {
+          $set: {
+            tariffId: freeTariff._id,
+            tariffActiveUntil: null,
+            nextChargeAt: null,
+            billingStatus: 'debt',
+          },
         })
         movedToFree += 1
       } else {
-        await Users.findByIdAndUpdate(user._id, {
-          billingStatus: 'debt',
+        await Users.updateOne(getUserIdentityFilter(user), {
+          $set: { billingStatus: 'debt' },
         })
       }
       continue
@@ -116,12 +170,27 @@ export const POST = async (req) => {
         : now
     const nextChargeAt = addMonths(baseDate, 1)
 
-    await Users.findByIdAndUpdate(user._id, {
-      balance: balance - price,
-      tariffActiveUntil: nextChargeAt,
-      nextChargeAt,
-      billingStatus: 'active',
-    })
+    const renewal = await Users.updateOne(
+      {
+        ...getUserIdentityFilter(user),
+        tariffId: user.tariffId,
+        balance: user.balance,
+        nextChargeAt: { $lte: now },
+      },
+      {
+        $set: {
+          balance: balance - price,
+          tariffActiveUntil: nextChargeAt,
+          nextChargeAt,
+          billingStatus: 'active',
+        },
+      }
+    )
+
+    if (Number(renewal?.modifiedCount ?? 0) !== 1) {
+      skipped += 1
+      continue
+    }
 
     await Payments.create({
       userId: user._id,
@@ -143,6 +212,9 @@ export const POST = async (req) => {
         processed,
         renewed,
         movedToFree,
+        normalizedFree,
+        invalidTariffsResolved,
+        expiredTrialsCleared,
         skipped,
         referrals,
       },
