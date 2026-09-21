@@ -24,9 +24,7 @@ import {
   faGift,
   faNewspaper,
 } from '@fortawesome/free-solid-svg-icons'
-import {
-  faCalendarCheck,
-} from '@fortawesome/free-regular-svg-icons'
+import { faCalendarCheck } from '@fortawesome/free-regular-svg-icons'
 
 import {
   faInstagram,
@@ -734,6 +732,14 @@ export const pages = [
     name: 'ИИ и расходы',
     href: 'ai-usage',
     icon: faChartLine,
+    accessRoles: ['dev'],
+  },
+  {
+    id: 37,
+    group: 10,
+    name: 'Все операции',
+    href: 'billing-operations',
+    icon: faWallet,
     accessRoles: ['dev'],
   },
   {

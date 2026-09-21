@@ -25,4 +25,5 @@ export const queryKeys = {
   supportTicket: (ticketId) => ['supportTicket', ticketId],
   supportSummary: ['supportSummary'],
   paymentHistory: (params = {}) => ['paymentHistory', params],
+  paymentOperations: (params = {}) => ['paymentOperations', params],
 }
