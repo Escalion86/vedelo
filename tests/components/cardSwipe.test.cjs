@@ -14,7 +14,6 @@ const { createRoot } = require('react-dom/client')
 
 let SwipeableCard
 let motionProps
-const animationTargets = []
 
 test.before(async () => {
   await loadBindings()
@@ -47,12 +46,6 @@ test.before(async () => {
             )
           },
         },
-        useAnimationControls: () => ({
-          start: (target) => {
-            animationTargets.push(target)
-            return Promise.resolve()
-          },
-        }),
       }
     }
     return require(id)
@@ -67,7 +60,7 @@ test.before(async () => {
 
 test.after(() => dom.window.close())
 
-test('swipe immediately maps left to edit and right to delete', async () => {
+test('swipe maps actions and preserves a tap with minor pointer jitter', async () => {
   const container = document.createElement('div')
   const root = createRoot(container)
   let edits = 0
@@ -131,6 +124,13 @@ test('swipe immediately maps left to edit and right to delete', async () => {
     assert.equal(deletes, 1)
     assert.equal(opens, 1)
 
+    motionProps.onDragEnd(null, {
+      offset: { x: 2 },
+      velocity: { x: 0 },
+    })
+    await React.act(async () => card.click())
+    assert.equal(opens, 2)
+
     motionProps.onDragStart()
     motionProps.onDragEnd(null, {
       offset: { x: 20 },
@@ -139,8 +139,11 @@ test('swipe immediately maps left to edit and right to delete', async () => {
     await React.act(async () => card.click())
     assert.equal(edits, 1)
     assert.equal(deletes, 1)
-    assert.equal(opens, 1)
-    assert.equal(animationTargets.at(-1).x, 0)
+    assert.equal(opens, 2)
+    motionProps.onPointerDownCapture()
+    await React.act(async () => card.click())
+    assert.equal(opens, 3)
+    assert.equal(motionProps.dragSnapToOrigin, 'x')
     assert.match(container.textContent, /Удалить/)
     assert.match(container.textContent, /Изменить/)
   } finally {
@@ -157,6 +160,23 @@ test('swipe content has an opaque background in both themes', () => {
   assert.match(
     css,
     /body\.theme-dark\s+\.card-swipe-content\s*\{[^}]*background-color:\s*#18130d/s
+  )
+})
+
+test('hover lift is applied outside the clipped swipe content', () => {
+  const css = readFileSync(path.resolve('app/globals.css'), 'utf8')
+
+  assert.match(
+    css,
+    /\.card-swipe-row:hover\s*\{[^}]*box-shadow:\s*var\(--surface-card-hover-shadow\)[^}]*transform:\s*translateY\(-1px\)/s
+  )
+  assert.match(
+    css,
+    /\.card-swipe-row\s+\.ui-surface-card--interactive:hover\s*\{[^}]*transform:\s*none/s
+  )
+  assert.match(
+    css,
+    /\.ui-surface-card--interactive:hover\s*\{[^}]*border-color:\s*var\(--surface-card-hover-border\)/s
   )
 })
 

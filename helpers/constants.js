@@ -12,6 +12,7 @@ import {
   faClockRotateLeft,
   faComments,
   faAddressBook,
+  faBookOpen,
   faWallet,
 } from '@fortawesome/free-solid-svg-icons'
 
@@ -743,6 +744,14 @@ export const pages = [
     accessRoles: ['dev'],
   },
   {
+    id: 39,
+    group: 10,
+    name: 'Аналитика сервиса',
+    href: 'service-analytics',
+    icon: faChartLine,
+    accessRoles: ['dev'],
+  },
+  {
     id: 29,
     group: 10,
     name: 'Пробный тариф',
@@ -764,6 +773,13 @@ export const pages = [
     name: 'Обратная связь',
     href: 'feedback',
     icon: faComments,
+  },
+  {
+    id: 38,
+    group: 12,
+    name: 'Обучение',
+    href: 'learning',
+    icon: faBookOpen,
   },
   {
     id: 99,

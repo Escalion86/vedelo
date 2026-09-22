@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import Payments from '@models/Payments'
@@ -13,6 +12,11 @@ import {
   normalizeAmount,
 } from '@server/tochka'
 import { resolveTrustedRequestOrigin } from '@server/trustedOrigin'
+import {
+  claimPaymentIntent,
+  getReusablePaymentIntentData,
+  resolvePaymentIdempotenceKey,
+} from '@server/paymentIntent'
 
 const MIN_TOPUP_AMOUNT = 100
 const MAX_TOPUP_AMOUNT = 300000
@@ -75,20 +79,46 @@ export const POST = async (req) => {
     )
   }
 
-  const idempotenceKey = crypto.randomUUID()
-  const payment = await Payments.create({
+  const resolvedKey = resolvePaymentIdempotenceKey(body?.idempotenceKey)
+  if (!resolvedKey.key) {
+    return NextResponse.json(
+      { success: false, error: 'Некорректный ключ платёжного запроса' },
+      { status: 400 }
+    )
+  }
+  const idempotenceKey = resolvedKey.key
+  const tenantId = dbUser.tenantId ?? dbUser._id
+  const { payment, claimed } = await claimPaymentIntent({
+    PaymentsModel: Payments,
+    tenantId,
     userId: dbUser._id,
-    tenantId: dbUser.tenantId ?? dbUser._id,
-    tariffId: tariff?._id ?? null,
-    amount,
-    type: 'topup',
-    source: 'tochka',
-    status: 'pending',
-    purpose,
-    provider: 'tochka',
     idempotenceKey,
-    comment: description,
+    values: {
+      tariffId: tariff?._id ?? null,
+      amount,
+      type: 'topup',
+      source: 'tochka',
+      status: 'pending',
+      purpose,
+      provider: 'tochka',
+      comment: description,
+    },
   })
+
+  if (!claimed) {
+    const reusable = getReusablePaymentIntentData(payment, {
+      provider: 'tochka',
+      purpose,
+      tariffId: tariff?._id ?? null,
+      amount,
+    })
+    return reusable
+      ? NextResponse.json({ success: true, data: reusable })
+      : NextResponse.json(
+          { success: false, error: 'Платёж уже создаётся или был обработан' },
+          { status: 409 }
+        )
+  }
 
   try {
     const tochkaPayment = await createTochkaPayment({
@@ -103,6 +133,7 @@ export const POST = async (req) => {
     const confirmationUrl = getTochkaPaymentUrl(tochkaPayment)
     payment.providerPaymentId = operationId
     payment.rawProviderStatus = 'CREATED'
+    payment.confirmationUrl = confirmationUrl
     await payment.save()
 
     if (!operationId || !confirmationUrl) {

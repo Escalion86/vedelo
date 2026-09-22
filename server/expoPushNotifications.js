@@ -5,6 +5,7 @@ import {
   normalizePushDeviceId,
   persistDevicePushToken,
 } from './mobile/pushTokens.js'
+import { getActiveExpoPushTokensFilter } from './pushSubscriptionState.mjs'
 
 let expo = null
 
@@ -18,7 +19,10 @@ const getExpoClient = () => {
 const isExpoPushToken = (value) => {
   if (typeof value !== 'string') return false
   const trimmed = value.trim()
-  return trimmed.startsWith('ExponentPushToken[') || trimmed.startsWith('ExpoPushToken[')
+  return (
+    trimmed.startsWith('ExponentPushToken[') ||
+    trimmed.startsWith('ExpoPushToken[')
+  )
 }
 
 const normalizePushToken = (value) => {
@@ -56,10 +60,9 @@ const deactivateExpoPushToken = async ({ tenantId, pushToken, deviceId }) => {
     deviceId,
   })
   if (!filter) return 0
-  const result = await ExpoPushTokens.updateOne(
-    filter,
-    { $set: { isActive: false } }
-  )
+  const result = await ExpoPushTokens.updateOne(filter, {
+    $set: { isActive: false },
+  })
   return Number(result?.modifiedCount || 0)
 }
 
@@ -73,14 +76,26 @@ const deactivateExpoPushTokenByDevice = async ({ tenantId, deviceId }) => {
   return Number(result?.modifiedCount || 0)
 }
 
+const deactivateAllExpoPushTokens = async (tenantId) => {
+  if (!tenantId) return 0
+  const result = await ExpoPushTokens.updateMany(
+    getActiveExpoPushTokensFilter(tenantId),
+    { $set: { isActive: false } }
+  )
+  return Number(result?.modifiedCount || 0)
+}
+
+const countActiveExpoPushTokens = async (tenantId) => {
+  if (!tenantId) return 0
+  return ExpoPushTokens.countDocuments(getActiveExpoPushTokensFilter(tenantId))
+}
+
 const getActiveTokensForTenant = async (tenantId) => {
   if (!tenantId) return []
   const docs = await ExpoPushTokens.find({ tenantId, isActive: true })
     .select('pushToken')
     .lean()
-  return docs
-    .map((d) => normalizePushToken(d?.pushToken))
-    .filter(Boolean)
+  return docs.map((d) => normalizePushToken(d?.pushToken)).filter(Boolean)
 }
 
 const sendExpoPushToTenant = async ({ tenantId, payload }) => {
@@ -162,6 +177,8 @@ export {
   saveExpoPushToken,
   deactivateExpoPushToken,
   deactivateExpoPushTokenByDevice,
+  deactivateAllExpoPushTokens,
+  countActiveExpoPushTokens,
   getActiveTokensForTenant,
   sendExpoPushToTenant,
 }

@@ -2,6 +2,7 @@
 
 import { UpcomingEventsOverview } from '@layouts/modals/modalsFunc/upcomingEventsOverviewFunc'
 import FirstRequestPrompt from '@components/FirstRequestPrompt'
+import LearningTip from '@components/LearningTip'
 
 const noop = () => {}
 
@@ -18,6 +19,7 @@ const AttentionContent = () => (
     <div className="mx-auto w-full max-w-3xl">
       <FirstRequestPrompt />
       <UpcomingEventsOverview closeModal={noop} />
+      <LearningTip />
     </div>
   </div>
 )

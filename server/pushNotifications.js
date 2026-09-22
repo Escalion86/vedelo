@@ -3,6 +3,8 @@ import crypto from 'crypto'
 import PushDeliveryLogs from '@models/PushDeliveryLogs'
 import PushSubscriptions from '@models/PushSubscriptions'
 import { getDomainMigrationPhase } from '@helpers/domainMigration.mjs'
+import { getPushNotificationLogContent } from '@helpers/pushDeliveryPresentation.mjs'
+import { getActivePushSubscriptionsFilter } from '@server/pushSubscriptionState.mjs'
 
 let isConfigured = false
 
@@ -49,7 +51,11 @@ const getEndpointDetails = (endpoint = '') => {
     endpointHost = ''
   }
   return {
-    endpointHash: crypto.createHash('sha256').update(value).digest('hex').slice(0, 16),
+    endpointHash: crypto
+      .createHash('sha256')
+      .update(value)
+      .digest('hex')
+      .slice(0, 16),
     endpointHost,
   }
 }
@@ -94,7 +100,8 @@ const savePushSubscription = async ({
   const keysChanged =
     existing?.keys?.p256dh !== normalized.keys.p256dh ||
     existing?.keys?.auth !== normalized.keys.auth
-  const shouldLog = !existing || keysChanged || existing?.isActive !== Boolean(isActive)
+  const shouldLog =
+    !existing || keysChanged || existing?.isActive !== Boolean(isActive)
 
   const saved = await PushSubscriptions.findOneAndUpdate(
     {
@@ -148,12 +155,31 @@ const deactivatePushSubscription = async ({ tenantId, endpoint }) => {
   return Number(result?.modifiedCount || 0)
 }
 
+const deactivateAllPushSubscriptions = async (tenantId) => {
+  if (!tenantId) return 0
+  const result = await PushSubscriptions.updateMany(
+    getActivePushSubscriptionsFilter(tenantId),
+    { $set: { isActive: false } }
+  )
+  const deactivated = Number(result?.modifiedCount || 0)
+  if (deactivated > 0) {
+    await logPushDelivery({
+      tenantId,
+      source: 'settings',
+      eventType: 'subscription',
+      status: 'deactivated',
+      message: `Push отключён на всех Web/PWA-устройствах: ${deactivated}`,
+      deactivated,
+    })
+  }
+  return deactivated
+}
+
 const countActivePushSubscriptions = async (tenantId) => {
   if (!tenantId) return 0
-  return PushSubscriptions.countDocuments({
-    tenantId,
-    isActive: true,
-  })
+  return PushSubscriptions.countDocuments(
+    getActivePushSubscriptionsFilter(tenantId)
+  )
 }
 
 const normalizeWebPushTopic = (value) => {
@@ -175,13 +201,19 @@ const sendPushToTenant = async ({ tenantId, payload, source = 'unknown' }) => {
     return { ok: false, sent: 0, failed: 0, deactivated: 0 }
   }
   const payloadType = String(payload?.data?.type || payload?.type || '').trim()
+  const notificationContent = getPushNotificationLogContent(payload)
   if (!ensureWebPushConfigured()) {
     await logPushDelivery({
       tenantId,
       source,
-      eventType: 'send',
+      eventType: 'summary',
       status: 'skipped',
       payloadType,
+      ...notificationContent,
+      subscriptions: 0,
+      sent: 0,
+      failed: 1,
+      deactivated: 0,
       message: 'VAPID ключи не настроены',
     })
     return { ok: false, sent: 0, failed: 0, deactivated: 0, reason: 'no_vapid' }
@@ -204,9 +236,10 @@ const sendPushToTenant = async ({ tenantId, payload, source = 'unknown' }) => {
     await logPushDelivery({
       tenantId,
       source,
-      eventType: 'send',
+      eventType: 'summary',
       status: 'skipped',
       payloadType,
+      ...notificationContent,
       subscriptions: 0,
       sent: 0,
       failed: 0,
@@ -221,7 +254,8 @@ const sendPushToTenant = async ({ tenantId, payload, source = 'unknown' }) => {
   let deactivated = 0
   const body = JSON.stringify(payload)
   const resolvedTtl = Number(payload?.ttl)
-  const ttl = Number.isFinite(resolvedTtl) && resolvedTtl >= 0 ? resolvedTtl : 43200
+  const ttl =
+    Number.isFinite(resolvedTtl) && resolvedTtl >= 0 ? resolvedTtl : 43200
   const urgencyValue = String(payload?.urgency || 'high').toLowerCase()
   const urgency =
     urgencyValue === 'very-low' ||
@@ -286,6 +320,7 @@ const sendPushToTenant = async ({ tenantId, payload, source = 'unknown' }) => {
     eventType: 'summary',
     status: failed > 0 ? 'partial' : 'ok',
     payloadType,
+    ...notificationContent,
     subscriptions: docs.length,
     sent,
     failed,
@@ -383,7 +418,8 @@ const sendLegacyMigrationNoticeAndDeactivate = async ({ limit = 500 } = {}) => {
         status: 'failed',
         payloadType: 'domain_migration',
         statusCode: Number(error?.statusCode || 0) || null,
-        message: error?.body || error?.message || 'Ошибка отправки push о переезде',
+        message:
+          error?.body || error?.message || 'Ошибка отправки push о переезде',
       })
     }
 
@@ -421,6 +457,7 @@ export {
   parseSubscription,
   savePushSubscription,
   deactivatePushSubscription,
+  deactivateAllPushSubscriptions,
   countActivePushSubscriptions,
   sendPushToTenant,
   sendLegacyMigrationNoticeAndDeactivate,

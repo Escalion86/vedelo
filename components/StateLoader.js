@@ -32,6 +32,7 @@ import { shouldOpenFirstRunWizard } from '@helpers/firstRunWizard.mjs'
 import useCabinetStateHydration from '@helpers/useCabinetStateHydration'
 import useServerSync from '@helpers/useServerSync'
 import { reachGoalOnce } from '@helpers/metrikaGoals'
+import LearningVisitTracker from '@components/LearningVisitTracker'
 
 const StateLoader = (props) => {
   if (props.error && Object.keys(props.error).length > 0)
@@ -168,7 +169,7 @@ const StateLoader = (props) => {
     if (!loggedUser?._id) return
     const access = getUserTariffAccess(loggedUser, props.tariffs ?? [])
     const needsTariff = !access.trialActive && !access.hasTariff
-    const allowedPages = ['tariff-select', 'tariffs', 'billing-history']
+    const allowedPages = ['tariff-select', 'tariffs', 'billing-history', 'learning']
     if (needsTariff && props.page && !allowedPages.includes(props.page)) {
       router.push('/cabinet/tariff-select')
     }
@@ -259,7 +260,10 @@ const StateLoader = (props) => {
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-        <div className="relative w-full bg-transparent">{props.children}</div>
+        <div className="relative w-full bg-transparent">
+          <LearningVisitTracker />
+          {props.children}
+        </div>
       )}
       <ModalsPortal />
     </div>

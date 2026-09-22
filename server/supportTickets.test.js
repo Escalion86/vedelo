@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { File } from 'node:buffer'
 import {
+  buildSupportTicketCreationTarget,
   buildSupportNotificationPayload,
   buildSupportReplyTicketUpdate,
   buildSupportTicketAccessQuery,
@@ -35,6 +36,58 @@ test('support access is tenant scoped for users and global only for developer', 
       session: { user: { impersonation: { active: true } } },
     }),
     false
+  )
+})
+
+test('only developer can choose another tenant when creating a support ticket', () => {
+  const regularContext = {
+    tenantId: 'tenant-1',
+    user: { _id: 'user-1', role: 'user', firstName: 'Анна' },
+  }
+  assert.deepEqual(
+    buildSupportTicketCreationTarget({
+      context: regularContext,
+      targetUser: {
+        _id: 'user-2',
+        tenantId: 'tenant-2',
+        firstName: 'Подменённый пользователь',
+      },
+    }),
+    {
+      tenantId: 'tenant-1',
+      createdBy: 'user-1',
+      createdByLabel: 'Анна',
+      actorRole: 'user',
+    }
+  )
+
+  const developerContext = {
+    tenantId: 'developer-tenant',
+    user: { _id: 'developer', role: 'dev' },
+    session: { user: {} },
+  }
+  assert.deepEqual(
+    buildSupportTicketCreationTarget({
+      context: developerContext,
+      targetUser: {
+        _id: 'user-2',
+        tenantId: 'tenant-2',
+        firstName: 'Борис',
+      },
+    }),
+    {
+      tenantId: 'tenant-2',
+      createdBy: 'user-2',
+      createdByLabel: 'Борис',
+      actorRole: 'developer',
+    }
+  )
+  assert.equal(
+    buildSupportTicketCreationTarget({
+      context: developerContext,
+      targetUser: null,
+    }),
+    null
   )
 })
 
@@ -166,4 +219,15 @@ test('developer reply builds web and mobile push deep links to the ticket', () =
     url: '/cabinet/feedback?ticketId=ticket-42',
     mobileUrl: '/support/ticket-42',
   })
+})
+
+test('developer-created ticket has a distinct push title for the user', () => {
+  const payload = buildSupportNotificationPayload({
+    ticket: { _id: 'ticket-43', title: 'Важная информация' },
+    actorRole: 'developer',
+    isNewTicket: true,
+  })
+
+  assert.equal(payload.title, 'Новое обращение от Ведело')
+  assert.equal(payload.body, 'Важная информация')
 })

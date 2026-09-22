@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ContentHeader from '@components/ContentHeader'
 import Button from '@components/Button'
 import EmptyState from '@components/EmptyState'
@@ -40,6 +40,7 @@ const TariffSelectContent = () => {
   const loggedUserActiveRole = useAtomValue(loggedUserActiveRoleSelector)
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const [isSaving, setIsSaving] = useState(false)
+  const paymentRequestRef = useRef(null)
   const terms = useWorkItemTerminology()
 
   useEffect(() => {
@@ -93,8 +94,11 @@ const TariffSelectContent = () => {
   }
 
   const handleTariffPayment = async ({ tariffId, amount }) => {
-    if (!tariffId) return
+    if (!tariffId || paymentRequestRef.current) return
+    const idempotenceKey = crypto.randomUUID()
+    paymentRequestRef.current = idempotenceKey
     setIsSaving(true)
+    let redirectStarted = false
     try {
       const response = await fetch(
         `/api/billing/${PRIMARY_WEB_BILLING_PROVIDER.id}/create`,
@@ -105,6 +109,7 @@ const TariffSelectContent = () => {
             purpose: 'tariff',
             tariffId,
             amount,
+            idempotenceKey,
           }),
         }
       )
@@ -114,9 +119,13 @@ const TariffSelectContent = () => {
         snackbar.error(payload?.error || 'Не удалось создать платеж')
         return
       }
+      redirectStarted = true
       window.location.href = confirmationUrl
     } finally {
-      setIsSaving(false)
+      if (!redirectStarted) {
+        paymentRequestRef.current = null
+        setIsSaving(false)
+      }
     }
   }
 

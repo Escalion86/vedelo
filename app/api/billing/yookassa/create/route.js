@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import Payments from '@models/Payments'
@@ -11,6 +10,11 @@ import {
   normalizeAmount,
 } from '@server/yookassa'
 import { resolveTrustedRequestOrigin } from '@server/trustedOrigin'
+import {
+  claimPaymentIntent,
+  getReusablePaymentIntentData,
+  resolvePaymentIdempotenceKey,
+} from '@server/paymentIntent'
 
 const MIN_TOPUP_AMOUNT = 100
 const MAX_TOPUP_AMOUNT = 300000
@@ -73,20 +77,46 @@ export const POST = async (req) => {
     )
   }
 
-  const idempotenceKey = crypto.randomUUID()
-  const payment = await Payments.create({
+  const resolvedKey = resolvePaymentIdempotenceKey(body?.idempotenceKey)
+  if (!resolvedKey.key) {
+    return NextResponse.json(
+      { success: false, error: 'Некорректный ключ платёжного запроса' },
+      { status: 400 }
+    )
+  }
+  const idempotenceKey = resolvedKey.key
+  const tenantId = dbUser.tenantId ?? dbUser._id
+  const { payment, claimed } = await claimPaymentIntent({
+    PaymentsModel: Payments,
+    tenantId,
     userId: dbUser._id,
-    tenantId: dbUser.tenantId ?? dbUser._id,
-    tariffId: tariff?._id ?? null,
-    amount,
-    type: 'topup',
-    source: 'yookassa',
-    status: 'pending',
-    purpose,
-    provider: 'yookassa',
     idempotenceKey,
-    comment: description,
+    values: {
+      tariffId: tariff?._id ?? null,
+      amount,
+      type: 'topup',
+      source: 'yookassa',
+      status: 'pending',
+      purpose,
+      provider: 'yookassa',
+      comment: description,
+    },
   })
+
+  if (!claimed) {
+    const reusable = getReusablePaymentIntentData(payment, {
+      provider: 'yookassa',
+      purpose,
+      tariffId: tariff?._id ?? null,
+      amount,
+    })
+    return reusable
+      ? NextResponse.json({ success: true, data: reusable })
+      : NextResponse.json(
+          { success: false, error: 'Платёж уже создаётся или был обработан' },
+          { status: 409 }
+        )
+  }
 
   try {
     const yookassaPayment = await createYookassaPayment({
@@ -106,6 +136,8 @@ export const POST = async (req) => {
 
     payment.providerPaymentId = yookassaPayment.id || ''
     payment.rawProviderStatus = yookassaPayment.status || ''
+    payment.confirmationUrl =
+      yookassaPayment?.confirmation?.confirmation_url || ''
     await payment.save()
 
     return NextResponse.json(

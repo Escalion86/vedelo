@@ -1,4 +1,5 @@
 import Users from '@models/Users'
+import ServiceActivityDays from '@models/ServiceActivityDays'
 
 const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 const DISTINCT_VISIT_MS = 6 * 60 * 60 * 1000
@@ -73,6 +74,20 @@ export const recordCabinetVisit = async (userId, now = new Date()) => {
   if (!userId) return { activatedNow: false, returnedNow: false }
   const user = await Users.findById(userId)
   if (!user) return { activatedNow: false, returnedNow: false }
+
+  if (!['dev', 'admin'].includes(user.role)) {
+    try {
+      await ServiceActivityDays.updateOne(
+        { tenantId: user.tenantId || user._id, userId: user._id, day: now.toISOString().slice(0, 10) },
+        { $setOnInsert: { firstSeenAt: now } },
+        { upsert: true }
+      )
+    } catch (error) {
+      // Concurrent first visits may race on the unique index. Analytics must
+      // not prevent normal cabinet use if its storage is unavailable.
+      if (error?.code !== 11000) console.warn('Service activity recording unavailable')
+    }
+  }
 
   user.acquisitionFunnel ??= {}
   const funnel = user.acquisitionFunnel

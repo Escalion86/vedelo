@@ -19,6 +19,26 @@ export const getSupportActorLabel = (user) =>
   [user?.firstName, user?.secondName].filter(Boolean).join(' ').trim() ||
   String(user?.email || user?.phone || 'Пользователь').slice(0, 200)
 
+export const buildSupportTicketCreationTarget = ({ context, targetUser }) => {
+  if (!isSupportDeveloper(context)) {
+    return {
+      tenantId: context?.tenantId,
+      createdBy: context?.user?._id,
+      createdByLabel: getSupportActorLabel(context?.user),
+      actorRole: 'user',
+    }
+  }
+
+  if (!targetUser?._id) return null
+
+  return {
+    tenantId: targetUser.tenantId || targetUser._id,
+    createdBy: targetUser._id,
+    createdByLabel: getSupportActorLabel(targetUser),
+    actorRole: 'developer',
+  }
+}
+
 export const buildSupportTicketAccessQuery = (context, id) => ({
   ...(id ? { _id: id } : {}),
   ...(isSupportDeveloper(context) ? {} : { tenantId: context.tenantId }),
@@ -140,13 +160,19 @@ export const buildSupportReplyTicketUpdate = ({
     : {}),
 })
 
-export const buildSupportNotificationPayload = ({ ticket, actorRole }) => {
+export const buildSupportNotificationPayload = ({
+  ticket,
+  actorRole,
+  isNewTicket = false,
+}) => {
   const id = String(ticket._id)
 
   return {
     title:
       actorRole === 'developer'
-        ? 'Ответ разработчика'
+        ? isNewTicket
+          ? 'Новое обращение от Ведело'
+          : 'Ответ разработчика'
         : 'Новое обращение в поддержку',
     body: ticket.title,
     tag: `support-ticket-${id}`,

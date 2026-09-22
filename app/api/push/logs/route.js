@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import PushDeliveryLogs from '@models/PushDeliveryLogs'
+import { toPushDeliveryLogDto } from '@helpers/pushDeliveryPresentation.mjs'
 
 const normalizeLimit = (value) => {
   const limit = Number(value)
@@ -22,7 +23,7 @@ export const GET = async (req) => {
   const limit = normalizeLimit(url.searchParams.get('limit'))
 
   await dbConnect()
-  const logs = await PushDeliveryLogs.find({ tenantId })
+  const logs = await PushDeliveryLogs.find({ tenantId, eventType: 'summary' })
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean()
@@ -30,22 +31,7 @@ export const GET = async (req) => {
   return NextResponse.json(
     {
       success: true,
-      data: logs.map((item) => ({
-        _id: String(item._id),
-        source: item.source || '',
-        eventType: item.eventType || '',
-        status: item.status || '',
-        message: item.message || '',
-        payloadType: item.payloadType || '',
-        endpointHash: item.endpointHash || '',
-        endpointHost: item.endpointHost || '',
-        statusCode: item.statusCode ?? null,
-        subscriptions: item.subscriptions ?? null,
-        sent: item.sent ?? null,
-        failed: item.failed ?? null,
-        deactivated: item.deactivated ?? null,
-        createdAt: item.createdAt ?? null,
-      })),
+      data: logs.map(toPushDeliveryLogDto),
     },
     { status: 200 }
   )

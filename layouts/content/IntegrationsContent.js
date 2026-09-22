@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { useAtom, useAtomValue } from 'jotai'
 import {
   faChevronDown,
@@ -311,6 +312,17 @@ const ApiKeyEditorModal = ({
   )
 }
 
+const NovofonGuideImage = ({ src, alt, width, height }) => (
+  <Image
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    loading="lazy"
+    className="h-auto w-full rounded-lg border border-gray-200 shadow-sm"
+  />
+)
+
 const NovofonGuide = () => (
   <div className="flex flex-col gap-3 text-sm leading-6 text-gray-700">
     <p>
@@ -328,30 +340,58 @@ const NovofonGuide = () => (
         tenantId и секрет, отдельно их вводить в Novofon не нужно.
       </li>
       <li>
-        В личном кабинете Novofon откройте интеграцию Уведомления о событиях или
-        раздел Настройки → Уведомления и добавьте HTTP-уведомление.
+        В личном кабинете Novofon откройте <b>Интеграции → HTTP-уведомления</b>.
+        <NovofonGuideImage
+          src="/integrations/novofon/01-open-http-notifications.png"
+          alt="В личном кабинете Novofon выбран раздел Интеграции и пункт HTTP-уведомления"
+          width={475}
+          height={375}
+        />
       </li>
       <li>
-        Вставьте скопированный адрес в поле URL для уведомлений о звонках в АТС.
-        Если есть отдельное поле URL для уведомлений о событиях, вставьте туда
-        тот же адрес.
+        Нажмите <b>Добавить HTTP-уведомление</b>.
+        <NovofonGuideImage
+          src="/integrations/novofon/02-add-http-notification.png"
+          alt="Кнопка Добавить HTTP-уведомление в Novofon"
+          width={997}
+          height={252}
+        />
       </li>
       <li>
-        Если Novofon предлагает выбрать метод, выберите POST. Ведело
-        принимает JSON и form-urlencoded данные от Novofon.
+        Включите уведомление, задайте понятное название, например «Запись для
+        Ведело», и выберите тип события <b>Записанный разговор</b>. Это
+        обязательное уведомление: по нему Ведело получает ссылку на запись.
+        <NovofonGuideImage
+          src="/integrations/novofon/03-select-recorded-call.png"
+          alt="Основные параметры HTTP-уведомления: включено уведомление и выбран тип Записанный разговор"
+          width={626}
+          height={370}
+        />
       </li>
       <li>
-        Для журнала звонков включите события NOTIFY_START, NOTIFY_ANSWER,
-        NOTIFY_END, NOTIFY_OUT_START, NOTIFY_OUT_END и NOTIFY_RECORD.
-        NOTIFY_INTERNAL включайте только если нужно видеть внутренние звонки
-        между сотрудниками АТС.
+        В блоке <b>Настройка HTTP</b> выберите <b>POST</b> и вставьте
+        скопированный из Ведело адрес в поле URL. Не меняйте автоматически
+        предложенное Novofon тело запроса: в нём передаются данные звонка и
+        ссылка на запись.
+        <NovofonGuideImage
+          src="/integrations/novofon/04-set-post-and-url.png"
+          alt="В настройке HTTP в Novofon выбран метод POST и указан URL Ведело"
+          width={387}
+          height={180}
+        />
+      </li>
+      <li>
+        Сохраните уведомление. Для журнала всех звонков рекомендуем создать
+        второе HTTP-уведомление с типом <b>Завершение разговора</b>: используйте
+        тот же метод POST, адрес и стандартное тело запроса. Если нужны только
+        записи разговоров, это уведомление можно не добавлять.
       </li>
       <li>
         Переключатель Использовать ключи API в Novofon для приема уведомлений
         обычно не нужен. Поле Ключ Novofon в Ведело можно оставить пустым:
         текущий прием звонков защищен секретом в webhook-адресе.
       </li>
-      <li>Сохраните настройки в Novofon и сделайте тестовый звонок.</li>
+      <li>Сделайте тестовый звонок и дождитесь появления записи.</li>
     </ol>
     <p>
       Если звонок появился в CRM, подключение работает. Запись разговора

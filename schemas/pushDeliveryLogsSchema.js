@@ -32,6 +32,16 @@ const pushDeliveryLogsSchema = {
     default: '',
     trim: true,
   },
+  notificationTitle: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  notificationBody: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   endpointHash: {
     type: String,
     default: '',

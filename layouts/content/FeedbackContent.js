@@ -226,7 +226,7 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
   )
 }
 
-const FeedbackContent = () => {
+const FeedbackContent = ({ users = [] }) => {
   const loggedUser = useAtomValue(loggedUserAtom)
   const developer =
     loggedUser?.role === 'dev' && loggedUser?.impersonation?.active !== true
@@ -240,6 +240,21 @@ const FeedbackContent = () => {
   const { createMutation } = useSupportTicketMutations()
   const tickets =
     ticketsQuery.data?.pages.flatMap((page) => page?.data || []) || []
+  const recipients = useMemo(
+    () =>
+      users
+        .filter((user) => !user?.archive && user?.role !== 'dev')
+        .toSorted((left, right) => {
+          const leftName = [left?.firstName, left?.secondName]
+            .filter(Boolean)
+            .join(' ')
+          const rightName = [right?.firstName, right?.secondName]
+            .filter(Boolean)
+            .join(' ')
+          return leftName.localeCompare(rightName, 'ru')
+        }),
+    [users]
+  )
 
   const openTicket = (id) => router.replace(`/cabinet/feedback?ticketId=${id}`)
   const closeTicket = () => router.replace('/cabinet/feedback')
@@ -262,6 +277,8 @@ const FeedbackContent = () => {
           onSubmit={createTicket}
           onCancel={() => setCreating(false)}
           loading={createMutation.isPending}
+          developer={developer}
+          recipients={developer ? recipients : []}
         />
       ) : (
         <>
@@ -286,15 +303,13 @@ const FeedbackContent = () => {
               <option value="idea">Идеи</option>
               <option value="question">Вопросы</option>
             </select>
-            {!developer ? (
-              <button
-                type="button"
-                onClick={() => setCreating(true)}
-                className="filter-control filter-control--primary ml-auto cursor-pointer"
-              >
-                Новое обращение
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="filter-control filter-control--primary ml-auto cursor-pointer"
+            >
+              {developer ? 'Новый тикет пользователю' : 'Новое обращение'}
+            </button>
           </div>
           {ticketsQuery.error ? (
             <Notice tone="error">{ticketsQuery.error.message}</Notice>

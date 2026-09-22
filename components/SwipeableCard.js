@@ -2,32 +2,24 @@
 
 import { faPencilAlt, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { motion, useAnimationControls } from 'framer-motion'
+import { motion } from 'framer-motion'
 import PropTypes from 'prop-types'
-import { useCallback, useRef } from 'react'
+import { useRef } from 'react'
 
 const SWIPE_LIMIT = 112
 const SWIPE_TRIGGER_DISTANCE = 64
 const SWIPE_TRIGGER_VELOCITY = 450
 
 const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, className }) => {
-  const controls = useAnimationControls()
-  const suppressClickUntil = useRef(0)
+  const suppressClick = useRef(false)
   const swipeEnabled = Boolean(onSwipeLeft || onSwipeRight)
 
-  const resetPosition = useCallback(() => {
-    controls.start({
-      x: 0,
-      transition: { type: 'spring', stiffness: 520, damping: 38 },
-    })
-  }, [controls])
-
-  const suppressNextClick = () => {
-    suppressClickUntil.current = Date.now() + 600
+  const handlePointerDownCapture = () => {
+    suppressClick.current = false
   }
 
   const handleDragStart = () => {
-    suppressNextClick()
+    suppressClick.current = true
   }
 
   const handleDragEnd = (_, info) => {
@@ -41,11 +33,6 @@ const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, className }) => {
       Boolean(onSwipeRight) &&
       (distance >= SWIPE_TRIGGER_DISTANCE || velocity >= SWIPE_TRIGGER_VELOCITY)
 
-    if (swipedLeft || swipedRight || Math.abs(distance) > 4) {
-      suppressNextClick()
-    }
-    resetPosition()
-
     const swipeAction = swipedLeft
       ? onSwipeLeft
       : swipedRight
@@ -57,8 +44,8 @@ const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, className }) => {
   }
 
   const handleClickCapture = (event) => {
-    if (Date.now() > suppressClickUntil.current) return
-    suppressClickUntil.current = 0
+    if (!suppressClick.current) return
+    suppressClick.current = false
     event.preventDefault()
     event.stopPropagation()
     event.nativeEvent?.stopImmediatePropagation?.()
@@ -96,7 +83,9 @@ const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, className }) => {
         dragDirectionLock
         dragElastic={0.08}
         dragMomentum={false}
-        animate={controls}
+        dragSnapToOrigin="x"
+        dragTransition={{ bounceStiffness: 520, bounceDamping: 38 }}
+        onPointerDownCapture={handlePointerDownCapture}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onClickCapture={handleClickCapture}

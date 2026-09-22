@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import SupportTickets from '@models/SupportTickets'
 import SupportTicketMessages from '@models/SupportTicketMessages'
+import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
 import {
   SUPPORT_CATEGORIES,
   SUPPORT_STATUSES,
+  buildSupportTicketCreationTarget,
   buildSupportTicketAccessQuery,
   createSupportObjectId,
   getSupportActorLabel,
@@ -27,7 +29,9 @@ const errorResponse = (code, message, status = 400) =>
 
 const parseLimit = (value) => {
   const number = Number(value)
-  return Number.isFinite(number) ? Math.min(100, Math.max(1, Math.trunc(number))) : 30
+  return Number.isFinite(number)
+    ? Math.min(100, Math.max(1, Math.trunc(number)))
+    : 30
 }
 
 const parseCursor = (value) => {
@@ -35,7 +39,11 @@ const parseCursor = (value) => {
   try {
     const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
     const date = new Date(parsed?.date)
-    if (Number.isNaN(date.getTime()) || !mongoose.Types.ObjectId.isValid(parsed?.id)) return null
+    if (
+      Number.isNaN(date.getTime()) ||
+      !mongoose.Types.ObjectId.isValid(parsed?.id)
+    )
+      return null
     return { date, id: new mongoose.Types.ObjectId(parsed.id) }
   } catch {
     return null
@@ -43,11 +51,14 @@ const parseCursor = (value) => {
 }
 
 const makeCursor = (ticket) =>
-  Buffer.from(JSON.stringify({ date: ticket.lastMessageAt, id: String(ticket._id) })).toString('base64url')
+  Buffer.from(
+    JSON.stringify({ date: ticket.lastMessageAt, id: String(ticket._id) })
+  ).toString('base64url')
 
 export const GET = async (req) => {
   const context = await getRequestContext(req)
-  if (!context?.tenantId) return errorResponse('UNAUTHORIZED', 'Не авторизован', 401)
+  if (!context?.tenantId)
+    return errorResponse('UNAUTHORIZED', 'Не авторизован', 401)
 
   const { searchParams } = new URL(req.url)
   const status = String(searchParams.get('status') || '')
@@ -105,32 +116,68 @@ export const POST = async (req) => {
   })
   if (!validation.ok) return errorResponse('VALIDATION_ERROR', validation.error)
   const fileValidation = await validateSupportFiles(files)
-  if (!fileValidation.ok) return errorResponse('FILE_VALIDATION_ERROR', fileValidation.error)
+  if (!fileValidation.ok)
+    return errorResponse('FILE_VALIDATION_ERROR', fileValidation.error)
 
   await dbConnect()
+  const developer = isSupportDeveloper(context)
+  let targetUser = null
+  if (developer) {
+    const targetUserId = String(form.get('targetUserId') || '')
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return errorResponse('VALIDATION_ERROR', 'Выберите пользователя')
+    }
+    targetUser = await Users.findOne({
+      _id: targetUserId,
+      archive: { $ne: true },
+    })
+      .select('_id tenantId firstName secondName email phone')
+      .lean()
+    if (!targetUser) {
+      return errorResponse(
+        'TARGET_USER_NOT_FOUND',
+        'Пользователь не найден',
+        404
+      )
+    }
+  }
+  const creationTarget = buildSupportTicketCreationTarget({
+    context,
+    targetUser,
+  })
+  if (!creationTarget?.tenantId || !creationTarget?.createdBy) {
+    return errorResponse(
+      'VALIDATION_ERROR',
+      'Не удалось определить пользователя'
+    )
+  }
   const ticketId = createSupportObjectId()
   let attachments = []
   try {
     attachments = await uploadSupportAttachments({
       files,
-      tenantId: context.tenantId,
+      tenantId: creationTarget.tenantId,
       ticketId,
     })
   } catch (error) {
     console.warn('support attachment upload failed', { error: error?.message })
-    return errorResponse('FILE_UPLOAD_FAILED', 'Не удалось загрузить изображения', 502)
+    return errorResponse(
+      'FILE_UPLOAD_FAILED',
+      'Не удалось загрузить изображения',
+      502
+    )
   }
 
   const now = new Date()
-  const actorRole = isSupportDeveloper(context) ? 'developer' : 'user'
+  const actorRole = creationTarget.actorRole
   const actorLabel = getSupportActorLabel(context.user)
   let ticket = null
   try {
     ticket = await SupportTickets.create({
       _id: ticketId,
-      tenantId: context.tenantId,
-      createdBy: context.user._id,
-      createdByLabel: actorLabel,
+      tenantId: creationTarget.tenantId,
+      createdBy: creationTarget.createdBy,
+      createdByLabel: creationTarget.createdByLabel,
       category: validation.category,
       title: validation.title,
       status: 'open',
@@ -141,26 +188,31 @@ export const POST = async (req) => {
     })
     const message = await SupportTicketMessages.create({
       ticketId,
-      tenantId: context.tenantId,
+      tenantId: creationTarget.tenantId,
       authorId: context.user._id,
       authorRole: actorRole,
       authorLabel: actorLabel,
       body: validation.body,
       attachments,
     })
-    await notifySupportMessage({ ticket: ticket.toObject(), actorRole })
+    await notifySupportMessage({
+      ticket: ticket.toObject(),
+      actorRole,
+      isNewTicket: true,
+    })
     return NextResponse.json(
       {
         success: true,
         data: {
-          ticket: serializeSupportTicket(ticket.toObject(), isSupportDeveloper(context)),
+          ticket: serializeSupportTicket(ticket.toObject(), developer),
           message: serializeSupportMessage(message.toObject()),
         },
       },
       { status: 201 }
     )
   } catch (error) {
-    if (ticket) await SupportTickets.deleteOne({ _id: ticketId }).catch(() => null)
+    if (ticket)
+      await SupportTickets.deleteOne({ _id: ticketId }).catch(() => null)
     console.error('support ticket create failed', { error: error?.message })
     return errorResponse('CREATE_FAILED', 'Не удалось создать обращение', 500)
   }

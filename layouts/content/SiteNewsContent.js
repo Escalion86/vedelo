@@ -56,7 +56,13 @@ const SiteNewsContent = () => {
   }, [])
 
   useEffect(() => {
-    if (canEdit) void loadNews()
+    if (!canEdit) return undefined
+
+    const timeoutId = window.setTimeout(() => {
+      void loadNews()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [canEdit, loadNews])
 
   const handleTogglePublish = (item) => {
@@ -80,10 +86,8 @@ const SiteNewsContent = () => {
       title: 'Удаление новости',
       text: `Удалить новость «${item.title}»? Действие необратимое.`,
       onConfirm: () =>
-        deleteData(
-          `/api/news/${item._id}`,
-          loadNews,
-          () => setErrorText('Не удалось удалить новость')
+        deleteData(`/api/news/${item._id}`, loadNews, () =>
+          setErrorText('Не удалось удалить новость')
         ),
     })
   }
@@ -119,7 +123,7 @@ const SiteNewsContent = () => {
         />
       </ContentHeader>
       {errorText ? <Notice tone="error">{errorText}</Notice> : null}
-      <SectionCard className="min-h-0 flex-1 overflow-y-auto">
+      <SectionCard className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-4">
         {isLoading ? (
           <MutedText>Загрузка…</MutedText>
         ) : newsList.length > 0 ? (
@@ -166,7 +170,9 @@ const SiteNewsContent = () => {
                     type="button"
                     onClick={() => handleTogglePublish(item)}
                     className="flex h-8 w-8 cursor-pointer items-center justify-center rounded border border-gray-200 text-gray-500 transition hover:bg-gray-50"
-                    title={item.isPublished ? 'Снять с публикации' : 'Опубликовать'}
+                    title={
+                      item.isPublished ? 'Снять с публикации' : 'Опубликовать'
+                    }
                     aria-label={`${item.isPublished ? 'Снять с публикации' : 'Опубликовать'} новость «${item.title}»`}
                   >
                     <FontAwesomeIcon

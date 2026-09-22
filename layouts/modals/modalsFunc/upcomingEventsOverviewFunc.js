@@ -1,4 +1,5 @@
 import AppButton from '@components/AppButton'
+import LoadingSpinner from '@components/LoadingSpinner'
 import ModalSection from '@components/ModalSection'
 import QuickActionButtons from '@components/QuickActionButtons'
 import StatusChip from '@components/StatusChip'
@@ -102,12 +103,13 @@ const getInitials = (name) =>
     .toUpperCase()
 
 export const UpcomingEventsOverview = ({ closeModal }) => {
-  const { data: eventsPayload } = useEventsQuery({
+  const { data: eventsPayload, isPending: isEventsPending } = useEventsQuery({
     scope: 'upcoming',
   })
   const events = useMemo(() => eventsPayload?.data ?? [], [eventsPayload?.data])
-  const { data: transactions = [] } = useTransactionsQuery()
-  const { data: clients = [] } = useClientsQuery()
+  const { data: transactions = [], isPending: isTransactionsPending } =
+    useTransactionsQuery()
+  const { data: clients = [], isPending: isClientsPending } = useClientsQuery()
   const {
     data: messengerSummary,
     isLoading: isMessengerSummaryLoading,
@@ -117,7 +119,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
   const itemsFunc = useAtomValue(itemsFuncAtom)
   const router = useRouter()
   const [savingKey, setSavingKey] = useState('')
-  const [pastClosableCount, setPastClosableCount] = useState(0)
+  const [pastClosableCount, setPastClosableCount] = useState(null)
   const [queueSummary, setQueueSummary] = useState(readQueueSummary)
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine
@@ -547,6 +549,28 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
         : 'upcoming'
   const syncButtonDisabled =
     !isOnline || queueSummary.ready === 0 || queueSummary.syncing > 0
+  const isOverviewPending =
+    isEventsPending ||
+    isTransactionsPending ||
+    isClientsPending ||
+    isMessengerSummaryLoading ||
+    pastClosableCount === null
+
+  if (isOverviewPending) {
+    return (
+      <div
+        className="flex min-h-56 items-center justify-center rounded-lg border border-gray-200 p-4"
+        role="status"
+        aria-live="polite"
+      >
+        <LoadingSpinner
+          size="sm"
+          heightClassName="h-auto"
+          text="Проверяем важные дела…"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-3 pb-2">

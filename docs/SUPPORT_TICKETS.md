@@ -16,14 +16,14 @@
 
 ## Для разработчика
 
-Роль `dev` видит на той же странице общую очередь всех tenant, автора обращения, переписку и переключатель статуса. Открытие тикета отмечает его прочитанным для стороны, которая его открыла.
+Роль `dev` видит на той же странице общую очередь всех tenant, автора обращения, переписку и переключатель статуса. Разработчик также может нажать `Новый тикет пользователю`, выбрать активную учётную запись и начать диалог первым. Такой тикет сразу появляется у tenant выбранного пользователя как непрочитанный, а на подключённые Web/PWA и Android-устройства отправляется push. Открытие тикета отмечает его прочитанным для стороны, которая его открыла.
 
 ## API
 
 Все endpoints принимают web-сессию NextAuth или Android Bearer-токен и возвращают JSON `{ success, data, meta? }`. Пользовательские запросы всегда ограничены текущим `tenantId`; глобальная очередь доступна только роли `dev` вне impersonation-режима.
 
 - `GET /api/support-tickets?status=&category=&cursor=&limit=30` — список тикетов.
-- `POST /api/support-tickets` — multipart: `category`, `title`, `message`, `files[]`.
+- `POST /api/support-tickets` — multipart: `category`, `title`, `message`, `files[]`; роль `dev` дополнительно обязана передать `targetUserId`, обычный пользователь не может менять адресата или tenant.
 - `GET /api/support-tickets/{id}?cursor=` — тикет и сообщения, по 50 сообщений от новых к более ранним страницам.
 - `POST /api/support-tickets/{id}/messages` — multipart: `message`, `files[]`.
 - `PATCH /api/support-tickets/{id}` — только `dev`, JSON `{ "status": "open|in_progress|resolved" }`.

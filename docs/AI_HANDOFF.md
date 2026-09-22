@@ -277,6 +277,7 @@ npm run doctor
 - Telegram Business: `app/api/integrations/telegram/**`, `server/telegramBusiness.js`, `docs/TELEGRAM_BUSINESS_INTEGRATION.md`.
 - Telephony/calls: `app/api/telephony/**`, `models/Calls.js`, `docs/TELEPHONY_AI_INTEGRATION_PLAN.md`.
 - Billing: `app/api/billing/**`, `server/yookassa.js`, `server/tochka.js`.
+- Аналитика сервиса: `/cabinet/service-analytics` и `/api/developer/analytics`, только `dev`; вкладки «Обзор», «Деньги», «Рост». Поступления не смешиваются со списаниями и бонусами. `ServiceActivityDays` собирает дневные посещения Web/PWA для будущего удержания. Формулы, границы покрытия и проверки: `docs/SERVICE_ANALYTICS.md`.
 - Основной web-провайдер пополнений и доплаты за тариф — Точка; кнопка ЮKassa в web доступна только разработчику.
 - Реферальные начисления: `server/referralRewards.js`, `docs/REFERRAL_SYSTEM.md`. Retry через webhook/sync и `/api/billing/renew`; скрытые отметки `Users.referralRewardCredits` обеспечивают однократное изменение баланса и должны сохраняться после удаления бонуса. VK присваивает реферера только при создании аккаунта; Android принимает приглашение через deep link.
 - Пользовательская история расчётов с сервисом находится на
@@ -369,6 +370,7 @@ npx eslint path/to/changed-file.js
 - Public API: `docs/PUBLIC_LEADS_API.md`.
 - DOCX: `docs/DOCX_DOCUMENTS_GUIDE.md`.
 - Support: `docs/SUPPORT_TICKETS.md`.
+- Обучение Web/PWA (22.09.2026): `docs/LEARNING.md`; `/cabinet/learning`, каталог `helpers/learningCatalog.mjs`, персональный прогресс `LearningProgress` через `/api/learning`. Советы после рабочего обзора в «Важном» выбираются с интервалом три активных дня, прогресс изолирован по tenant/user. Отдельно от новостей и общих настроек организации.
 - SEO: `docs/SEO_POST_DEPLOY.md`, `docs/SEO_MONITORING_CHECKLIST.md`.
 - Финальное отделение бренда: `docs/VEDELO_FINAL_SEPARATION_CHECKLIST.md`.
 

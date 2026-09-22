@@ -26,6 +26,8 @@ import HistoryContent from './HistoryContent'
 import FeedbackContent from './FeedbackContent'
 import BillingHistoryContent from './BillingHistoryContent'
 import BillingOperationsContent from './BillingOperationsContent'
+import ServiceAnalyticsContent from './ServiceAnalyticsContent'
+import LearningContent from './LearningContent'
 
 const UpcomingEventsContent = (props) => (
   <EventsContent filter="upcoming" {...props} />
@@ -33,6 +35,14 @@ const UpcomingEventsContent = (props) => (
 const PastEventsContent = (props) => <EventsContent filter="past" {...props} />
 
 export const CONTENTS = Object.freeze({
+  'service-analytics': {
+    Component: ServiceAnalyticsContent,
+    name: 'Аналитика сервиса',
+  },
+  learning: {
+    Component: LearningContent,
+    name: 'Обучение',
+  },
   eventsUpcoming: {
     Component: UpcomingEventsContent,
     name: 'Предстоящие мероприятия',

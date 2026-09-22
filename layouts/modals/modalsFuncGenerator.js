@@ -309,8 +309,13 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
           })
         }
       },
-      view: (eventId, options) =>
-        addModal(eventViewFunc(eventId, { ...options, siteSettings })),
+      view: (eventId, viewOptions) =>
+        addModal(
+          eventViewFunc(eventId, {
+            ...viewOptions,
+            siteSettings: options?.siteSettings,
+          })
+        ),
       additionalEvents: (eventId) =>
         addModal(eventAdditionalEventsFunc(eventId)),
       upcomingOverview: () => addModal(upcomingEventsOverviewFunc()),

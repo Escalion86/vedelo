@@ -11,7 +11,7 @@ import {
 import useSnackbar from '@helpers/useSnackbar'
 import loggedUserActiveRoleSelector from '@state/selectors/loggedUserActiveRoleSelector'
 import userSelector from '@state/selectors/userSelector'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 
 const SBP_BONUS_RATE = 0.02
@@ -23,6 +23,7 @@ const userTopupInfoFunc = (userId) => {
     const snackbar = useSnackbar()
     const [amount, setAmount] = useState('')
     const [isSaving, setIsSaving] = useState(false)
+    const paymentRequestRef = useRef(null)
     const [billingConfig, setBillingConfig] = useState({
       sbpBonusEnabled: false,
       sbpBonusRate: SBP_BONUS_RATE,
@@ -74,7 +75,11 @@ const userTopupInfoFunc = (userId) => {
         snackbar.error('Укажите сумму пополнения')
         return
       }
+      if (paymentRequestRef.current) return
+      const idempotenceKey = crypto.randomUUID()
+      paymentRequestRef.current = idempotenceKey
       setIsSaving(true)
+      let redirectStarted = false
       try {
         const response = await fetch(`/api/billing/${provider}/create`, {
           method: 'POST',
@@ -82,6 +87,7 @@ const userTopupInfoFunc = (userId) => {
           body: JSON.stringify({
             purpose: 'balance',
             amount: value,
+            idempotenceKey,
           }),
         })
         const payload = await response.json().catch(() => ({}))
@@ -90,9 +96,13 @@ const userTopupInfoFunc = (userId) => {
           snackbar.error(payload?.error || 'Не удалось создать платеж')
           return
         }
+        redirectStarted = true
         window.location.href = confirmationUrl
       } finally {
-        setIsSaving(false)
+        if (!redirectStarted) {
+          paymentRequestRef.current = null
+          setIsSaving(false)
+        }
       }
     }
 

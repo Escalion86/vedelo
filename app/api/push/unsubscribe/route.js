@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
-import { deactivatePushSubscription, parseSubscription } from '@server/pushNotifications'
+import {
+  countActivePushSubscriptions,
+  deactivateAllPushSubscriptions,
+  deactivatePushSubscription,
+  parseSubscription,
+} from '@server/pushNotifications'
+import { deactivateAllExpoPushTokens } from '@server/expoPushNotifications'
 
 const resolveEndpoint = (body) => {
   if (typeof body?.endpoint === 'string') return body.endpoint
@@ -19,6 +25,26 @@ export const POST = async (req) => {
     )
   }
 
+  await dbConnect()
+  if (body?.all === true) {
+    const [webDeactivated, mobileDeactivated] = await Promise.all([
+      deactivateAllPushSubscriptions(tenantId),
+      deactivateAllExpoPushTokens(tenantId),
+    ])
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          deactivated: webDeactivated + mobileDeactivated,
+          webDeactivated,
+          mobileDeactivated,
+          activeSubscriptions: 0,
+        },
+      },
+      { status: 200 }
+    )
+  }
+
   const endpoint = String(resolveEndpoint(body) || '').trim()
   if (!endpoint) {
     return NextResponse.json(
@@ -27,7 +53,10 @@ export const POST = async (req) => {
     )
   }
 
-  await dbConnect()
   await deactivatePushSubscription({ tenantId, endpoint })
-  return NextResponse.json({ success: true }, { status: 200 })
+  const activeSubscriptions = await countActivePushSubscriptions(tenantId)
+  return NextResponse.json(
+    { success: true, data: { activeSubscriptions } },
+    { status: 200 }
+  )
 }

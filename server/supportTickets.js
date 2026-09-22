@@ -45,9 +45,17 @@ export const uploadSupportAttachments = async ({
   })
 }
 
-export const notifySupportMessage = async ({ ticket, actorRole }) => {
+export const notifySupportMessage = async ({
+  ticket,
+  actorRole,
+  isNewTicket = false,
+}) => {
   const id = String(ticket._id)
-  const payload = buildSupportNotificationPayload({ ticket, actorRole })
+  const payload = buildSupportNotificationPayload({
+    ticket,
+    actorRole,
+    isNewTicket,
+  })
   try {
     if (actorRole === 'developer') {
       await sendMultiChannelPushToTenant({

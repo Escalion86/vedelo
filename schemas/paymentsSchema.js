@@ -53,6 +53,12 @@ const paymentsSchema = {
     trim: true,
     index: true,
   },
+  confirmationUrl: {
+    type: String,
+    default: '',
+    trim: true,
+    select: false,
+  },
   idempotenceKey: {
     type: String,
     default: '',
