@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  MAX_HOME_URL,
+  MAX_APP_URL,
   getMaxContactAction,
   isValidMaxContact,
   normalizeMaxContactInput,
@@ -24,10 +24,11 @@ test('нормализует ссылку на контакт MAX', () => {
   })
 })
 
-test('для телефона возвращает копирование и главную MAX', () => {
+test('для телефона возвращает копирование и запуск приложения MAX', () => {
+  assert.equal(MAX_APP_URL, 'max://max.ru/')
   assert.deepEqual(getMaxContactAction('+7 999 123-45-67'), {
     type: 'phone',
-    url: MAX_HOME_URL,
+    url: MAX_APP_URL,
     phone: '+79991234567',
     label: '+79991234567',
   })
@@ -39,4 +40,3 @@ test('не принимает произвольные ссылки и глав�
   assert.equal(isValidMaxContact('https://max.ru/'), false)
   assert.equal(getMaxContactAction('https://example.com/user'), null)
 })
-

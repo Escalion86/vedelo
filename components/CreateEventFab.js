@@ -43,6 +43,18 @@ const CreateEventFab = ({ items = [], title }) => {
         className="create-event-fab fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex flex-col items-end gap-2"
       >
         <AnimatePresence>
+          {open ? (
+            <motion.p
+              key="create-title"
+              initial={{ opacity: 0, y: 12, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="px-3 py-1 text-sm font-semibold text-[#ebd3a5] [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]"
+            >
+              {`Создать ${terms.accusative}`}
+            </motion.p>
+          ) : null}
           {open
             ? items.map((item, index) => (
                 <motion.button

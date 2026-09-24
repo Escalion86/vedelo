@@ -1,7 +1,5 @@
 import { faArrowDown } from '@fortawesome/free-solid-svg-icons/faArrowDown'
 import { faArrowUp } from '@fortawesome/free-solid-svg-icons/faArrowUp'
-import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy'
-import { faPaste } from '@fortawesome/free-solid-svg-icons/faPaste'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
 import { forwardRef } from 'react'
@@ -14,6 +12,7 @@ import {
 } from '@helpers/numberInput'
 import copyToClipboard from '@helpers/copyToClipboard'
 import InputWrapper from './InputWrapper'
+import ClipboardActionButton from './ClipboardActionButton'
 
 const toPhoneValue = (digits) => {
   if (!digits) return null
@@ -302,9 +301,8 @@ const Input = forwardRef(
         )}
         {copyPasteButtons && !disabled && type !== 'number' && !isPhone && (
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50"
+            <ClipboardActionButton
+              action="paste"
               onClick={() => {
                 if (!navigator?.clipboard) return
                 navigator.clipboard.readText().then((text) => {
@@ -316,19 +314,14 @@ const Input = forwardRef(
                 })
               }}
               title="Вставить"
-            >
-              <FontAwesomeIcon icon={faPaste} className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50"
+            />
+            <ClipboardActionButton
+              action="copy"
               onClick={() => {
                 copyToClipboard(String(value ?? ''))
               }}
               title="Скопировать"
-            >
-              <FontAwesomeIcon icon={faCopy} className="h-3.5 w-3.5" />
-            </button>
+            />
           </div>
         )}
         {showArrows && type === 'number' && !disabled && (

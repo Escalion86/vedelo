@@ -3,7 +3,6 @@ import { faBan } from '@fortawesome/free-solid-svg-icons/faBan'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
 import { forwardRef } from 'react'
-import InputAffixDivider from './InputAffixDivider'
 
 const InputWrapper = forwardRef(
   (
@@ -20,6 +19,7 @@ const InputWrapper = forwardRef(
       paddingX = true,
       postfix,
       postfixClassName,
+      insetPostfix = false,
       prefix,
       prefixClassName,
       wrapperClassName,
@@ -102,11 +102,15 @@ const InputWrapper = forwardRef(
         <div
           className={cn(
             'relative flex h-fit items-stretch bg-white',
-            paddingX === 'small' ? 'px-1' : paddingX ? 'px-2' : 'px-0',
+            insetPostfix
+              ? 'pl-2 pr-1'
+              : paddingX === 'small' ? 'px-1' : paddingX ? 'px-2' : 'px-0',
             noBorder
               ? 'min-h-[36px]'
               : `[&:not(:focus-within)]:hover:border-opacity-50 min-h-[40px] rounded border-2 ${borderColorClass} ${focusBorderClass}`,
-            paddingY === 'small'
+            insetPostfix
+              ? 'py-1'
+              : paddingY === 'small'
               ? 'pt-1.5 pb-1'
               : paddingY === 'big'
                 ? 'pt-2.5 pb-2'
@@ -140,11 +144,10 @@ const InputWrapper = forwardRef(
             {(postfix || disabled) && (
               <div
                 className={cn(
-                  'text-disabled flex items-center gap-x-1 self-stretch',
+                  'text-disabled ml-1 flex items-center gap-x-1 self-stretch',
                   postfixClassName
                 )}
               >
-                {postfix && <InputAffixDivider />}
                 {postfix && <span className="flex items-center">{postfix}</span>}
                 {disabled && showDisabledIcon && (
                   <FontAwesomeIcon

@@ -1,4 +1,4 @@
-export const MAX_HOME_URL = 'https://max.ru/'
+export const MAX_APP_URL = 'max://max.ru/'
 
 const normalizeMaxPhone = (value) => {
   const digits = String(value ?? '').replace(/\D/g, '')
@@ -57,9 +57,8 @@ export const getMaxContactAction = (value) => {
 
   return {
     type: 'phone',
-    url: MAX_HOME_URL,
+    url: MAX_APP_URL,
     phone: normalizedValue,
     label: normalizedValue,
   }
 }
-

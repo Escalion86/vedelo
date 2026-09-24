@@ -30,64 +30,64 @@ const OtherContactsPicker = ({
         return (
           <div
             key={`other-contact-${index}`}
-            className="tablet:flex-row tablet:items-start flex gap-2 rounded border border-gray-200 bg-gray-50 p-2"
+            className="flex min-w-0 flex-col gap-2 rounded border border-gray-200 bg-gray-50 p-2"
           >
-            <div className="tablet:grid tablet:grid-cols-2 flex w-full flex-1 flex-col gap-2">
-              <button
-                type="button"
-                className="hover:shadow-card flex w-full cursor-pointer items-center justify-between gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-left text-sm shadow-sm transition"
-                onClick={() =>
-                  contactClient
-                    ? onViewContact?.(index)
-                    : onSelectContact?.(index)
-                }
-                title={
-                  contactClient
-                    ? 'Открыть карточку клиента'
-                    : 'Выбрать клиента'
-                }
-              >
-                <span className="font-semibold text-gray-900">
-                  {contactName}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {contactClient?.phone
-                    ? `+${contactClient.phone}`
-                    : 'Телефон не указан'}
-                </span>
-              </button>
+            <button
+              type="button"
+              className="hover:shadow-card tablet:flex-row tablet:items-center tablet:justify-between flex w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded border border-gray-300 bg-white px-3 py-2 text-left text-sm shadow-sm transition"
+              onClick={() =>
+                contactClient
+                  ? onViewContact?.(index)
+                  : onSelectContact?.(index)
+              }
+              title={
+                contactClient ? 'Открыть карточку клиента' : 'Выбрать клиента'
+              }
+            >
+              <span className="min-w-0 font-semibold break-words text-gray-900">
+                {contactName}
+              </span>
+              <span className="text-xs text-gray-500">
+                {contactClient?.phone
+                  ? `+${contactClient.phone}`
+                  : 'Телефон не указан'}
+              </span>
+            </button>
+            <div className="flex w-full min-w-0 items-end gap-2">
               <Input
                 label="Кем является"
                 value={contact.comment}
                 onChange={(value) => onChangeComment?.(index, value)}
+                className="min-w-0 flex-1"
+                inputClassName="min-w-0"
                 noMargin
                 fullWidth
               />
-            </div>
-            <div className="flex items-center gap-2">
-              {contactClient && (
+              <div className="flex shrink-0 items-center gap-1.5 pb-0.5">
+                {contactClient && (
+                  <IconActionButton
+                    icon={faPencilAlt}
+                    onClick={() => onEditContact?.(index)}
+                    title="Редактировать клиента"
+                    variant="warning"
+                    size="sm"
+                  />
+                )}
                 <IconActionButton
-                  icon={faPencilAlt}
-                  onClick={() => onEditContact?.(index)}
-                  title="Редактировать клиента"
-                  variant="warning"
+                  icon={faExchangeAlt}
+                  onClick={() => onSelectContact?.(index)}
+                  title="Выбрать другого клиента"
+                  variant="neutral"
                   size="sm"
                 />
-              )}
-              <IconActionButton
-                icon={faExchangeAlt}
-                onClick={() => onSelectContact?.(index)}
-                title="Выбрать другого клиента"
-                variant="neutral"
-                size="sm"
-              />
-              <IconActionButton
-                icon={faTrashAlt}
-                onClick={() => onRemoveContact?.(index)}
-                title="Удалить"
-                variant="danger"
-                size="sm"
-              />
+                <IconActionButton
+                  icon={faTrashAlt}
+                  onClick={() => onRemoveContact?.(index)}
+                  title="Удалить контакт"
+                  variant="danger"
+                  size="sm"
+                />
+              </div>
             </div>
           </div>
         )

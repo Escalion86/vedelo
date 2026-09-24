@@ -596,13 +596,9 @@ const DocumentsEditor = ({
         </button>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {safeDocuments.length === 0 ? (
-          <div className="rounded border border-gray-200 p-3 text-sm text-gray-500">
-            Документы пока не добавлены.
-          </div>
-        ) : (
-          visibleDocuments.map((document) => (
+      {safeDocuments.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {visibleDocuments.map((document) => (
             <div
               key={document.id}
               className="tablet:flex-row tablet:items-center tablet:justify-between flex flex-col gap-2 rounded border border-gray-200 p-3"
@@ -631,9 +627,9 @@ const DocumentsEditor = ({
                 Удалить
               </button>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      ) : null}
       {Number(maxVisible) > 0 && safeDocuments.length > Number(maxVisible) ? (
         <button
           type="button"

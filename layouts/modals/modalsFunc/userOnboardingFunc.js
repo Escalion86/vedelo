@@ -319,7 +319,7 @@ export const FirstRunWizardModal = ({
         ? titles[stepIndex]
         : phase === 'choice'
           ? 'Всё готово к работе'
-          : 'Знакомство с CRM'
+          : 'Первые шаги в Ведело'
     )
     setConfirmButtonName(
       phase === 'choice'

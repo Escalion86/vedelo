@@ -48,6 +48,11 @@ const PRIMARY_ENTITY_TERMINOLOGY_OPTIONS = [
   { value: 'orders', name: 'Заказы' },
 ]
 
+const EVENT_FORM_VARIANT_OPTIONS = [
+  { value: 'classic', name: 'Классическая' },
+  { value: 'compact', name: 'Компактная' },
+]
+
 const SettingsContent = () => {
   const modals = useAtomValue(modalsFuncAtom)
   const { data: siteSettings = {} } = useSiteSettingsQuery()
@@ -259,6 +264,16 @@ const SettingsContent = () => {
           использует выбранную в мастере сферу работы.
         </MutedText>
         <ComboBox
+          label={`Форма создания и редактирования ${workItemTerms.genitive}`}
+          items={EVENT_FORM_VARIANT_OPTIONS}
+          value={customSettings?.eventFormVariant === 'classic' ? 'classic' : 'compact'}
+          onChange={(value) =>
+            saveSiteSettingsPatch({ custom: { eventFormVariant: value } })
+          }
+          fullWidth
+          noMargin
+        />
+        <ComboBox
           label="Часовой пояс"
           items={TIME_ZONE_OPTIONS}
           value={siteSettingsState?.timeZone ?? 'Asia/Krasnoyarsk'}
@@ -320,7 +335,7 @@ const SettingsContent = () => {
                 className="min-h-11 cursor-pointer"
                 onClick={() => modals.user?.firstRunTour?.()}
               >
-                Знакомство с CRM
+                Первые шаги в Ведело
               </AppButton>
             </div>
           </div>

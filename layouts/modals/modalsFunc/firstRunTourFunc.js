@@ -38,6 +38,7 @@ export const FirstRunTourModal = ({ closeModal }) => {
     <>
       <FirstRunTour
         presetKey={settings?.custom?.onboardingActivityPreset}
+        terminology={settings?.custom?.primaryEntityTerminology}
         onExit={exit}
         busy={busy}
       />
@@ -63,7 +64,7 @@ export const FirstRunTourModal = ({ closeModal }) => {
 
 export default function firstRunTourFunc() {
   return {
-    title: 'Знакомство с CRM',
+    title: 'Первые шаги в Ведело',
     Children: FirstRunTourModal,
     closeButtonShow: false,
     declineButtonShow: false,

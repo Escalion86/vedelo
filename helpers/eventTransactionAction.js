@@ -12,10 +12,7 @@ export const getEventTransactionAction = ({
   }
 
   if (status === 'draft') {
-    return {
-      type: 'blocked',
-      error: 'Транзакции недоступны для заявки',
-    }
+    return { type: 'autosave', promoteDraft: true }
   }
 
   if (!sourceEventId || isFormChanged) {

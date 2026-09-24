@@ -103,6 +103,10 @@ const clientsSchema = {
     },
     default: '',
   },
+  maxPhoneUnavailable: {
+    type: Boolean,
+    default: false,
+  },
   preferredContactChannel: {
     type: String,
     enum: ['phone', 'telegram', 'whatsapp', 'max', 'vk', 'other', ''],

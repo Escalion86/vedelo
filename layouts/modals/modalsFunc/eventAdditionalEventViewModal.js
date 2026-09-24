@@ -227,7 +227,6 @@ const openEventAdditionalEventViewModal = ({
           alwaysCompact
           dropDownPlacement="left"
           showAdditionalEventsButton={false}
-          showCopyIdButton={false}
           showCloneButton={false}
           showHistoryButton={false}
           showStatusButton={false}

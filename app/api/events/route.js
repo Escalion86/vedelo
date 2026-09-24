@@ -370,12 +370,6 @@ export const POST = async (req) => {
       { status: 400 }
     )
   }
-  if (!eventTypeValue) {
-    return NextResponse.json(
-      { success: false, error: 'Поле "Что за событие" обязательно' },
-      { status: 400 }
-    )
-  }
   if (!access?.allowDocuments && hasDocuments(body)) {
     return NextResponse.json(
       { success: false, error: 'Доступ к документам недоступен' },

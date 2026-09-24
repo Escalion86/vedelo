@@ -59,6 +59,7 @@ const ComboBox = ({
       required={required}
       value={value}
       postfix={postfix}
+      insetPostfix={Boolean(postfix)}
       postfixClassName={postfixClassName}
     >
       <NativeSelect

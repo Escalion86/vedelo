@@ -1490,7 +1490,7 @@ const EventsContent = ({
                 </div>
               </div>
             </SectionCard>
-            <div className="event-month-calendar min-h-0 flex-1 overflow-auto rounded-lg border bg-white pb-24">
+            <div className="event-month-calendar min-h-0 flex-1 overflow-auto rounded-lg border bg-white pb-8 sm:pb-24">
               <div className="event-month-calendar__weekdays sticky top-0 z-10 grid grid-cols-7 border-b shadow-sm backdrop-blur">
                 {DAYS_OF_WEEK_MONDAY_START.map((dayName) => (
                   <div
@@ -1501,7 +1501,7 @@ const EventsContent = ({
                   </div>
                 ))}
               </div>
-              <div className="grid auto-rows-auto grid-cols-7">
+              <div className="event-month-calendar__grid grid grid-cols-7">
                 {monthGridDays.map((day) => {
                   const dayItems = monthItemsByDay.get(day.key) || []
                   const hasDayContent = dayItems.length > 0

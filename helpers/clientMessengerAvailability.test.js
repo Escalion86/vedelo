@@ -16,9 +16,45 @@ test('resets Telegram phone availability when client phone changes', () => {
     {
       phone: 79997654321,
       telegramPhone: null,
+      maxPhoneUnavailable: false,
       telegramPhoneUnavailable: false,
     }
   )
+})
+
+test('resets a confirmed MAX phone and its availability when the client phone changes', () => {
+  assert.deepEqual(
+    resetClientMessengerAvailability(
+      { phone: 79991234567, max: '+79991234567', maxPhoneUnavailable: true },
+      { phone: 79997654321 }
+    ),
+    { phone: 79997654321, telegramPhone: null, maxPhoneUnavailable: false, max: '', telegramPhoneUnavailable: false }
+  )
+})
+
+test('keeps an explicit MAX profile link when the client phone changes', () => {
+  const update = resetClientMessengerAvailability(
+    { phone: 79991234567, max: 'https://max.ru/u/client' },
+    { phone: 79997654321 }
+  )
+  assert.equal(update.max, undefined)
+  assert.equal(update.maxPhoneUnavailable, false)
+})
+
+test('keeps an explicitly edited MAX contact when the client phone changes', () => {
+  const update = resetClientMessengerAvailability(
+    { phone: 79991234567, max: '+79991234567' },
+    { phone: 79997654321, max: 'https://max.ru/u/client' }
+  )
+  assert.equal(update.max, 'https://max.ru/u/client')
+})
+
+test('resets an unchanged MAX phone submitted with the full client form', () => {
+  const update = resetClientMessengerAvailability(
+    { phone: 79991234567, max: '+79991234567' },
+    { phone: 79997654321, max: '+79991234567' }
+  )
+  assert.equal(update.max, '')
 })
 
 test('resets availability when Telegram username changes', () => {

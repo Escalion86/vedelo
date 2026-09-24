@@ -56,10 +56,10 @@ const ClientPicker = ({
       fullWidth={fullWidth}
       disabled={disabled}
     >
-      <div className="flex w-full flex-wrap items-center gap-2">
+      <div className="tablet:flex-row tablet:items-center flex w-full flex-col gap-2">
         <div
           className={cn(
-            'flex flex-1 cursor-pointer justify-between rounded border bg-white shadow-sm transition',
+            'tablet:flex-row tablet:items-center tablet:justify-between tablet:flex-1 flex w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded border bg-white shadow-sm transition',
             'hover:shadow-card border-gray-300',
             compact ? 'px-3 py-2 text-sm' : 'p-3'
           )}
@@ -73,7 +73,7 @@ const ClientPicker = ({
         >
           <div
             className={cn(
-              'font-semibold text-gray-900',
+              'min-w-0 font-semibold break-words text-gray-900',
               compact ? 'text-sm' : 'text-base'
             )}
           >
@@ -89,31 +89,33 @@ const ClientPicker = ({
             </>
           )}
         </div>
-        {selectedClientId && !disabled && (
-          <IconActionButton
-            icon={faPencilAlt}
-            onClick={handleEdit}
-            title="Редактировать клиента"
-            variant="warning"
-            size={compact ? 'sm' : 'lg'}
-          />
-        )}
-        {selectedClientId && !disabled && showSelectButton && onSelectClick && (
-          <IconActionButton
-            icon={faExchangeAlt}
-            onClick={onSelectClick}
-            title="Выбрать другого клиента"
-            variant="neutral"
-            size={compact ? 'sm' : 'lg'}
-          />
-        )}
         {!disabled && (
-          <AddIconButton
-            onClick={handleCreate}
-            title="Создать нового клиента"
-            size={compact ? 'sm' : 'lg'}
-            variant="success"
-          />
+          <div className="tablet:w-auto flex w-full items-center justify-end gap-2">
+            {selectedClientId && (
+              <IconActionButton
+                icon={faPencilAlt}
+                onClick={handleEdit}
+                title="Редактировать клиента"
+                variant="warning"
+                size={compact ? 'sm' : 'lg'}
+              />
+            )}
+            {selectedClientId && showSelectButton && onSelectClick && (
+              <IconActionButton
+                icon={faExchangeAlt}
+                onClick={onSelectClick}
+                title="Выбрать другого клиента"
+                variant="neutral"
+                size={compact ? 'sm' : 'lg'}
+              />
+            )}
+            <AddIconButton
+              onClick={handleCreate}
+              title="Создать нового клиента"
+              size={compact ? 'sm' : 'lg'}
+              variant="success"
+            />
+          </div>
         )}
       </div>
     </InputWrapper>

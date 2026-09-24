@@ -13,7 +13,7 @@ test('returns autosave action when form is active but event id is still missing'
   assert.deepEqual(result, { type: 'autosave' })
 })
 
-test('returns blocked action for draft request', () => {
+test('returns autosave and promotion action for saved draft request', () => {
   const result = getEventTransactionAction({
     clone: false,
     status: 'draft',
@@ -21,10 +21,16 @@ test('returns blocked action for draft request', () => {
     isFormChanged: true,
   })
 
-  assert.deepEqual(result, {
-    type: 'blocked',
-    error: 'Транзакции недоступны для заявки',
+  assert.deepEqual(result, { type: 'autosave', promoteDraft: true })
+})
+
+test('returns autosave and promotion action for new draft request', () => {
+  const result = getEventTransactionAction({
+    status: 'draft',
+    sourceEventId: null,
   })
+
+  assert.deepEqual(result, { type: 'autosave', promoteDraft: true })
 })
 
 test('returns open action for saved unchanged active event', () => {

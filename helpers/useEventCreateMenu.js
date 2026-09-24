@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
-import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import MicIcon from '@mui/icons-material/Mic'
 import NoteAddIcon from '@mui/icons-material/NoteAdd'
 import TextSnippetIcon from '@mui/icons-material/TextSnippet'
@@ -16,7 +15,7 @@ import { getUserTariffAccess } from '@helpers/tariffAccess'
 import { queryKeys } from '@helpers/queryKeys'
 
 /**
- * Общее меню создания заявки/мероприятия (Заявка, Подтверждено, Голосом,
+ * Общее меню создания заказа/мероприятия (Форма, Голосом,
  * Свободным текстом) + модалки голосового и текстового черновиков.
  * Используется и в списке мероприятий (FAB), и в нижней мобильной навигации.
  */
@@ -37,10 +36,6 @@ const useEventCreateMenu = () => {
 
   const handleCreateRequest = useCallback(() => {
     modalsFunc.event?.create?.('draft')
-  }, [modalsFunc])
-
-  const handleCreateActiveEvent = useCallback(() => {
-    modalsFunc.event?.create?.('active')
   }, [modalsFunc])
 
   const handleCreateByVoice = useCallback(() => {
@@ -113,15 +108,9 @@ const useEventCreateMenu = () => {
     const result = [
       {
         key: 'request',
-        label: 'Заявка',
+        label: 'Форма',
         icon: <NoteAddIcon fontSize="small" />,
         onClick: handleCreateRequest,
-      },
-      {
-        key: 'active',
-        label: 'Подтверждено',
-        icon: <EventAvailableIcon fontSize="small" />,
-        onClick: handleCreateActiveEvent,
       },
     ]
     if (allowVoiceDraft) {
@@ -143,7 +132,6 @@ const useEventCreateMenu = () => {
     createDisabled,
     allowVoiceDraft,
     handleCreateRequest,
-    handleCreateActiveEvent,
     handleCreateByVoice,
     handleCreateByText,
   ])

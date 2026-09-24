@@ -1,10 +1,8 @@
 import cn from 'classnames'
 import { useLayoutEffect, useRef } from 'react'
 import InputWrapper from './InputWrapper'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy'
-import { faPaste } from '@fortawesome/free-solid-svg-icons/faPaste'
 import copyToClipboard from '@helpers/copyToClipboard'
+import ClipboardActionButton from './ClipboardActionButton'
 
 const toPhoneValue = (digits) => {
   if (!digits) return null
@@ -215,9 +213,8 @@ const PhoneInput = ({
         />
         {copyPasteButtons && !disabled && (
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50"
+            <ClipboardActionButton
+              action="paste"
               onClick={() => {
                 if (!navigator?.clipboard) return
                 navigator.clipboard.readText().then((text) => {
@@ -234,12 +231,9 @@ const PhoneInput = ({
                 })
               }}
               title="Вставить номер"
-            >
-              <FontAwesomeIcon icon={faPaste} className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50"
+            />
+            <ClipboardActionButton
+              action="copy"
               onClick={() => {
                 if (!value) return
                 const raw = String(value).replace(/[^\d]/g, '')
@@ -255,9 +249,7 @@ const PhoneInput = ({
                 copyToClipboard(formatted)
               }}
               title="Скопировать номер"
-            >
-              <FontAwesomeIcon icon={faCopy} className="h-3.5 w-3.5" />
-            </button>
+            />
           </div>
         )}
       </div>

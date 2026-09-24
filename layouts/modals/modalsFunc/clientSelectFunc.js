@@ -1,6 +1,5 @@
 import Input from '@components/Input'
-import { faPaste } from '@fortawesome/free-solid-svg-icons/faPaste'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import ClipboardActionButton from '@components/ClipboardActionButton'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
   formatPhoneWithPlus,
@@ -61,7 +60,7 @@ const clientSelectFunc = (onSelect, title = 'Выбор клиента', options
 
     return (
       <div className="flex h-full flex-col gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-end gap-2">
           <Input
             label="Поиск клиента"
             value={search}
@@ -71,15 +70,12 @@ const clientSelectFunc = (onSelect, title = 'Выбор клиента', options
             fullWidth
             noMargin
           />
-          <button
-            type="button"
-            className="action-icon-button action-icon-button--neutral flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center rounded"
+          <ClipboardActionButton
+            action="paste"
+            large
             onClick={handlePasteSearch}
             title="Вставить из буфера обмена"
-            aria-label="Вставить из буфера обмена в поиск клиента"
-          >
-            <FontAwesomeIcon icon={faPaste} className="h-4 w-4" />
-          </button>
+          />
         </div>
         <button
           type="button"

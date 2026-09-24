@@ -138,6 +138,7 @@ const EventCard = ({
   const error = useAtomValue(errorAtom('event' + eventId))
   const siteSettings = useAtomValue(siteSettingsAtom)
   const terms = resolveWorkItemTerminology(siteSettings)
+  const useClassicForm = siteSettings?.custom?.eventFormVariant === 'classic'
 
   const calendarLink = useMemo(() => {
     return getGoogleCalendarLinkFromText(event?.description)
@@ -349,16 +350,20 @@ const EventCard = ({
           compactTriggerClassName="card-menu-trigger h-10 min-h-10 w-10"
           calendarLink={calendarLink}
           onEdit={() => modalsFunc.event?.edit(event._id)}
-          onEditClientContacts={() =>
-            modalsFunc.event?.edit(event._id, {
-              initialTab: 'Клиент и Контакты',
-            })
+          onEditClientContacts={
+            useClassicForm
+              ? () =>
+                  modalsFunc.event?.edit(event._id, {
+                    initialTab: 'Клиент и Контакты',
+                  })
+              : undefined
           }
           onEditFinanceDocs={() =>
             modalsFunc.event?.edit(event._id, {
-              initialTab: 'Финансы и Документы',
+              initialTab: useClassicForm ? 'Финансы и Документы' : 'Финансы',
             })
           }
+          editFinanceLabel={useClassicForm ? 'Финансы и документы' : 'Финансы'}
           showEditButton={!isClosed}
         />
       </CardActions>
@@ -566,7 +571,7 @@ const EventCard = ({
                 }
                 placement="right"
                 menuPadding="sm"
-                menuClassName="w-[min(340px,calc(100vw-24px))] items-stretch justify-start !border-gray-200 !bg-white"
+                menuClassName="w-[min(340px,calc(100vw-24px))] items-stretch justify-start"
                 renderInPortal
                 turnOffAutoClose="inside"
               >

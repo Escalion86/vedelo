@@ -4,7 +4,6 @@ import {
   faArrowUp,
   faCalendarAlt,
   faClockRotateLeft,
-  faCode,
   faEllipsisV,
   faExternalLinkAlt,
   faMoneyBill,
@@ -24,7 +23,6 @@ import cn from 'classnames'
 import { useAtomValue } from 'jotai'
 import CardButton from './CardButton'
 import DropDown from './DropDown'
-import useCopyToClipboard from '@helpers/useCopyToClipboard'
 import { getAdditionalEventsSummary } from '@helpers/additionalEvents'
 import { shouldShowAdditionalEventsAction } from '@helpers/eventCardActions'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
@@ -129,9 +127,9 @@ const CardButtons = ({
   onOpenCalendar,
   onEditClientContacts,
   onEditFinanceDocs,
+  editFinanceLabel = 'Финансы и документы',
   onAdditionalEvents,
   showAdditionalEventsButton = true,
-  showCopyIdButton = true,
   showCloneButton = true,
   showHistoryButton = true,
   showStatusButton = true,
@@ -145,11 +143,6 @@ const CardButtons = ({
   const impersonationPendingRef = useRef(false)
 
   const canManageUsers = ['dev', 'admin'].includes(loggedUser?.role)
-  const canCopyId =
-    showCopyIdButton &&
-    loggedUser?.role === 'dev' &&
-    ['event', 'transaction', 'user', 'client'].includes(typeOfItem) &&
-    Boolean(item?._id)
   const canManageItem =
     typeOfItem !== 'user' && typeOfItem !== 'tariff' ? true : canManageUsers
   const isEventEditTabsMenu =
@@ -160,7 +153,6 @@ const CardButtons = ({
   const canEditStatus =
     showStatusButton && ['event', 'serviceUser'].includes(typeOfItem)
 
-  const copyId = useCopyToClipboard(item?._id, 'ID скопирован в буфер обмена')
 
   // Keep hooks unconditional while the item is loading or has been removed.
   if (!item?._id) return null
@@ -204,7 +196,6 @@ const CardButtons = ({
   const show = minimalActions
     ? isEventEditTabsMenu
       ? {
-          copyId: canCopyId,
           editBtn: showEditButton,
           editClientContacts: showEditButton && Boolean(onEditClientContacts),
           editFinanceDocs: showEditButton && Boolean(onEditFinanceDocs),
@@ -218,7 +209,6 @@ const CardButtons = ({
             showDeleteButton && canManageItem && item.status !== 'closed',
         }
       : {
-          copyId: canCopyId,
           editBtn: showEditButton && canManageItem,
           cloneBtn:
             showCloneButton && typeOfItem !== 'user' && typeOfItem !== 'tariff',
@@ -239,7 +229,6 @@ const CardButtons = ({
           contactMerge: typeOfItem === 'client',
         }
     : {
-        copyId: canCopyId,
         userActionsHistory: typeOfItem === 'user',
         userPaymentHistory: typeOfItem === 'user' && canManageUsers,
         setPasswordBtn: typeOfItem === 'user' && canManageUsers,
@@ -323,15 +312,7 @@ const CardButtons = ({
           icon={faMoneyBill}
           onClick={() => onEditFinanceDocs?.()}
           color="green"
-          tooltipText="Финансы и документы"
-        />
-      )}
-      {show.copyId && (
-        <ItemComponent
-          icon={faCode}
-          onClick={() => copyId(item._id)}
-          color="blue"
-          tooltipText="Скопировать ID"
+          tooltipText={editFinanceLabel}
         />
       )}
       {show.upBtn && (
@@ -458,7 +439,7 @@ const CardButtons = ({
           icon={faMoneyBill}
           onClick={() => onEditFinanceDocs?.()}
           color="green"
-          tooltipText="Финансы и документы"
+          tooltipText={editFinanceLabel}
         />
       )}
       {show.cloneBtn && (

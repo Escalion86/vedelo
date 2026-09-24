@@ -22,7 +22,18 @@ export const resetClientMessengerAvailability = (
     normalizeTelegram(update.telegram) !==
       normalizeTelegram(existingClient?.telegram)
 
-  if (phoneChanged) update.telegramPhone = null
+  if (phoneChanged) {
+    update.telegramPhone = null
+    update.maxPhoneUnavailable = false
+    if (
+      String(existingClient?.max ?? '').startsWith('+') &&
+      normalizePhone(existingClient.max) === normalizePhone(existingClient?.phone) &&
+      (!hasOwn(update, 'max') ||
+        normalizePhone(update.max) === normalizePhone(existingClient.max))
+    ) {
+      update.max = ''
+    }
+  }
   if (phoneChanged || telegramChanged) {
     update.telegramPhoneUnavailable = false
   }

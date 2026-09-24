@@ -1,3 +1,5 @@
+import CompactEventForm from '@components/CompactEventForm'
+import { EVENT_STATUSES } from '@helpers/constants'
 import DateTimePicker from '@components/DateTimePicker'
 import AiFieldHighlight from '@components/AiFieldHighlight'
 import ErrorsList from '@components/ErrorsList'
@@ -40,6 +42,8 @@ import EventProposalsSection from '@components/EventProposalsSection'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import ServiceMultiSelect from '@components/ServiceMultiSelect'
+import ActionIconButton from '@components/ActionIconButton'
+import selectEventServicesFunc from './selectEventServicesFunc'
 import serviceFunc from './serviceFunc'
 import openEventAdditionalEventEditorModal from './eventAdditionalEventEditorModal'
 import servicesAtom from '@state/atoms/servicesAtom'
@@ -167,6 +171,8 @@ const eventFunc = (
     setComponentInFooter,
     setConfirmButtonName,
     setTitle,
+    setDeclineButtonShow,
+    setCloseButtonShow,
   }) => {
     const { data: eventFromQuery } = useEventQuery(eventId)
     const event = eventId ? eventFromQuery : (options?.initialEvent ?? null)
@@ -175,7 +181,9 @@ const eventFunc = (
     const setEvent = itemsFunc?.event?.set
     const { data: clients = [] } = useClientsQuery()
     const loggedUser = useAtomValue(loggedUserAtom)
+    const [validationAttempt, setValidationAttempt] = useState(0)
     const [siteSettings, setSiteSettings] = useAtom(siteSettingsAtom)
+    const useCompactForm = siteSettings?.custom?.eventFormVariant !== 'classic'
     const workItemTerms = resolveWorkItemTerminology(siteSettings)
     const colleagues = useMemo(
       () => clients.filter((client) => client.clientType === 'colleague'),
@@ -219,13 +227,19 @@ const eventFunc = (
         importAiMetadataLoadedRef.current ||
         !eventId ||
         (!event?.importedFromCalendar && !event?.importedFromFile) ||
-        (event?.importedFromFile ? event.fileImportChecked : event?.calendarImportChecked)
+        (event?.importedFromFile
+          ? event.fileImportChecked
+          : event?.calendarImportChecked)
       ) {
         return
       }
       importAiMetadataLoadedRef.current = true
-      const importedFields = event.importedFromFile ? event.fileImportAiFields : event.calendarImportAiFields
-      const importedWarnings = event.importedFromFile ? event.fileImportWarnings : event.calendarImportWarnings
+      const importedFields = event.importedFromFile
+        ? event.fileImportAiFields
+        : event.calendarImportAiFields
+      const importedWarnings = event.importedFromFile
+        ? event.fileImportWarnings
+        : event.calendarImportWarnings
       if (Array.isArray(importedFields)) {
         setAiHighlightedFields(new Set(importedFields))
       }
@@ -338,7 +352,9 @@ const eventFunc = (
       event?.calendarImportChecked ??
         (eventId ? (DEFAULT_EVENT.calendarImportChecked ?? false) : true)
     )
-    const [fileImportChecked, setFileImportChecked] = useState(event?.fileImportChecked ?? false)
+    const [fileImportChecked, setFileImportChecked] = useState(
+      event?.fileImportChecked ?? false
+    )
     const [servicesIds, setServicesIds] = useState(
       event?.servicesIds ?? DEFAULT_EVENT.servicesIds ?? []
     )
@@ -510,10 +526,36 @@ const eventFunc = (
       : (persistedEventId ?? event?._id ?? null)
 
     useEffect(() => {
-      if (clone || !sourceEventId) return
-      setTitle?.(`Редактирование ${workItemTerms.genitive}`)
-      setConfirmButtonName?.('Применить')
-    }, [setConfirmButtonName, setTitle, sourceEventId, workItemTerms.genitive])
+      const editing = !clone && Boolean(sourceEventId)
+      setTitle?.(
+        editing
+          ? `Редактирование ${workItemTerms.genitive}`
+          : useCompactForm
+            ? isDraft
+              ? workItemTerms.newLabel
+              : `Создание ${workItemTerms.genitive}`
+            : 'Создание рабочей карточки'
+      )
+      setConfirmButtonName?.(
+        editing
+          ? 'Применить'
+          : useCompactForm && isDraft
+            ? 'Создать заявку'
+            : 'Создать'
+      )
+      setDeclineButtonShow?.(!useCompactForm)
+      setCloseButtonShow?.(!useCompactForm)
+    }, [
+      setConfirmButtonName,
+      setTitle,
+      setDeclineButtonShow,
+      setCloseButtonShow,
+      sourceEventId,
+      workItemTerms.genitive,
+      workItemTerms.newLabel,
+      useCompactForm,
+      isDraft,
+    ])
 
     const eventTransactions = useMemo(
       () =>
@@ -573,17 +615,21 @@ const eventFunc = (
     const missingFields = useMemo(() => {
       const fields = []
       if (!clientId) fields.push('Клиент')
-      if (!eventDate) fields.push('Дата начала')
-      if (!eventType?.trim()) fields.push('Что за событие')
-      if (!servicesIds || servicesIds.length === 0) fields.push('Услуги')
+      if (!(useCompactForm && isDraft) && !eventDate) fields.push('Дата начала')
+      if (
+        !(useCompactForm && isDraft) &&
+        (!servicesIds || servicesIds.length === 0)
+      )
+        fields.push('Услуги')
       if (showColleagueTransferControls && isTransferred && !colleagueId) {
         fields.push('Коллега')
       }
       return fields
     }, [
+      useCompactForm,
+      isDraft,
       clientId,
       eventDate,
-      eventType,
       servicesIds,
       isTransferred,
       colleagueId,
@@ -606,7 +652,6 @@ const eventFunc = (
     const tabErrorCounts = useMemo(() => {
       const generalCount =
         (eventDate ? 0 : 1) +
-        (eventType?.trim() ? 0 : 1) +
         (servicesIds && servicesIds.length > 0 ? 0 : 1) +
         (showColleagueTransferControls && isTransferred && !colleagueId
           ? 1
@@ -619,7 +664,6 @@ const eventFunc = (
       colleagueId,
       dateRangeError,
       eventDate,
-      eventType,
       isTransferred,
       servicesIds,
       showColleagueTransferControls,
@@ -638,7 +682,10 @@ const eventFunc = (
     const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
     const canUseProposals = canUseProposalBuilder(loggedUser)
     const handleProposalApplied = useCallback(
-      ({ contractSum: appliedContractSum, servicesIds: appliedServicesIds }) => {
+      ({
+        contractSum: appliedContractSum,
+        servicesIds: appliedServicesIds,
+      }) => {
         setContractSum(appliedContractSum)
         setServicesIds(appliedServicesIds)
       },
@@ -810,10 +857,11 @@ const eventFunc = (
       setLastSavedPayloadKey(currentSavePayloadKey)
     }, [currentSavePayloadKey, lastSavedPayloadKey, sourceEventId])
 
-    const saveEvent = useCallback(async () => {
+    const saveEvent = useCallback(async (statusOverride = null) => {
       const { payload, isCreatingDraftRequest, hasAdditionalEvents } =
         buildEventSaveContext()
-      const savedEvent = await setEvent(payload, clone)
+      const savePayload = statusOverride ? { ...payload, status: statusOverride } : payload
+      const savedEvent = await setEvent(savePayload, clone)
       const nextEventId = savedEvent?._id ?? payload?._id ?? null
       if (!nextEventId) {
         throw new Error(`Не удалось создать ${workItemTerms.accusative}`)
@@ -824,19 +872,20 @@ const eventFunc = (
       }
       setLastSavedPayloadKey(
         JSON.stringify(
-          payload?._id || !nextEventId
-            ? payload
-            : { ...payload, _id: nextEventId }
+          savePayload?._id || !nextEventId
+            ? savePayload
+            : { ...savePayload, _id: nextEventId }
         )
       )
+      if (statusOverride) setStatus(statusOverride)
       if (typeof options?.onSaved === 'function') {
         await options.onSaved(savedEvent)
       }
 
       return {
         savedEvent,
-        payload,
-        isCreatingDraftRequest,
+        payload: savePayload,
+        isCreatingDraftRequest: statusOverride ? false : isCreatingDraftRequest,
         hasAdditionalEvents,
       }
     }, [buildEventSaveContext, setEvent, workItemTerms.accusative])
@@ -997,7 +1046,8 @@ const eventFunc = (
       ]
     )
 
-    const validateEventForm = useCallback(() => {
+    const validateEventForm = useCallback((targetStatus = status) => {
+      setValidationAttempt((value) => value + 1)
       clearErrorsRef.current()
       let hasError = false
 
@@ -1005,16 +1055,17 @@ const eventFunc = (
         addErrorRef.current({ clientId: 'Выберите клиента' })
         hasError = true
       }
-      if (!eventDate) {
-        addErrorRef.current({ eventDate: `Укажите дату ${workItemTerms.genitive}` })
+      if (!(useCompactForm && targetStatus === 'draft') && !eventDate) {
+        addErrorRef.current({
+          eventDate: `Укажите дату ${workItemTerms.genitive}`,
+        })
         hasError = true
       }
-      if (!servicesIds || servicesIds.length === 0) {
+      if (
+        !(useCompactForm && targetStatus === 'draft') &&
+        (!servicesIds || servicesIds.length === 0)
+      ) {
         addErrorRef.current({ servicesIds: 'Выберите услугу' })
-        hasError = true
-      }
-      if (!eventType?.trim()) {
-        addErrorRef.current({ eventType: 'Укажите, что за событие' })
         hasError = true
       }
       if (showColleagueTransferControls && isTransferred && !colleagueId) {
@@ -1022,16 +1073,18 @@ const eventFunc = (
         hasError = true
       }
       if (dateRangeError) {
+        addErrorRef.current({ dateEnd: dateRangeError })
         hasError = true
       }
 
       return !hasError
     }, [
+      useCompactForm,
+      status,
       clientId,
       colleagueId,
       dateRangeError,
       eventDate,
-      eventType,
       isTransferred,
       servicesIds,
       showColleagueTransferControls,
@@ -1167,7 +1220,11 @@ const eventFunc = (
     useEffect(() => {
       setOnShowOnCloseConfirmDialog(isFormChanged)
       setDisableConfirm(false)
-      setOnConfirmFunc(isFormChanged ? () => onClickConfirmRef.current() : null)
+      setOnConfirmFunc(
+        isFormChanged || useCompactForm
+          ? () => onClickConfirmRef.current()
+          : null
+      )
       setOnDeclineFunc(
         isFormChanged ? () => handleDismissRequestRef.current() : null
       )
@@ -1178,6 +1235,7 @@ const eventFunc = (
       }
     }, [
       isFormChanged,
+      useCompactForm,
       setDisableConfirm,
       setOnConfirmFunc,
       setOnCloseButtonFunc,
@@ -1187,7 +1245,10 @@ const eventFunc = (
 
     useEffect(() => {
       if (!setComponentInFooter) return
-      if (!requiredMissing && !dateRangeError) {
+      if (
+        (useCompactForm && !validationAttempt) ||
+        (!requiredMissing && !dateRangeError)
+      ) {
         setComponentInFooter(null)
         return
       }
@@ -1199,21 +1260,25 @@ const eventFunc = (
           {dateRangeError && <div>{dateRangeError}</div>}
         </div>
       )
-    }, [dateRangeError, missingFields, requiredMissing, setComponentInFooter])
+    }, [
+      dateRangeError,
+      missingFields,
+      requiredMissing,
+      setComponentInFooter,
+      useCompactForm,
+      validationAttempt,
+    ])
 
-    const selectedClient = useMemo(
-      () => {
-        if (!clientId) return null
-        const clientFromList = clients.find(
-          (client) => String(client._id) === String(clientId)
-        )
-        if (clientFromList) return clientFromList
-        return String(options?.initialClient?._id) === String(clientId)
-          ? options.initialClient
-          : null
-      },
-      [clientId, clients]
-    )
+    const selectedClient = useMemo(() => {
+      if (!clientId) return null
+      const clientFromList = clients.find(
+        (client) => String(client._id) === String(clientId)
+      )
+      if (clientFromList) return clientFromList
+      return String(options?.initialClient?._id) === String(clientId)
+        ? options.initialClient
+        : null
+    }, [clientId, clients])
     const selectedServiceTitles = useMemo(
       () =>
         (services ?? [])
@@ -1351,7 +1416,12 @@ const eventFunc = (
       [siteSettings?.custom]
     )
     const buildDocumentTemplateVariables = useCallback(
-      (template, documentNumber, documentDate, currentSettings = siteSettings) => {
+      (
+        template,
+        documentNumber,
+        documentDate,
+        currentSettings = siteSettings
+      ) => {
         const buildVariables =
           template?.type === DOCUMENT_TYPES.ACT
             ? buildActTemplateVariables
@@ -1578,7 +1648,9 @@ const eventFunc = (
 
         if (transactionAction.type === 'autosave') {
           setFinanceLoading(true)
-          const { savedEvent } = await saveEvent()
+          const { savedEvent } = await saveEvent(
+            transactionAction.promoteDraft ? 'active' : null
+          )
           targetEventId = savedEvent?._id ?? targetEventId
           targetContractSum = savedEvent?.contractSum ?? targetContractSum
         }
@@ -1599,7 +1671,7 @@ const eventFunc = (
       } catch (error) {
         setFinanceError(
           error?.message ||
-            'Не удалось сохранить мероприятие перед добавлением транзакции'
+            `Не удалось сохранить ${workItemTerms.accusative} перед добавлением транзакции`
         )
       } finally {
         setFinanceLoading(false)
@@ -1621,803 +1693,982 @@ const eventFunc = (
         return
       }
 
+      const confirmTransactionAction = () => {
+        if (
+          transactionAction.type === 'autosave' &&
+          !validateEventForm(transactionAction.promoteDraft ? 'active' : status)
+        ) {
+          setFinanceError(
+            `Заполните обязательные поля ${workItemTerms.genitive} перед добавлением транзакции`
+          )
+          return
+        }
+        return performTransactionAction(transactionAction, transactionId)
+      }
+
+      if (transactionAction.promoteDraft) {
+        modalsFunc.add({
+          title: 'Добавить транзакцию к заявке?',
+          text: `Чтобы добавить транзакцию, статус ${workItemTerms.genitive} будет изменён на «Подтверждено» перед открытием формы.${sourceEventId ? '' : ' Карточка будет сохранена.'} Продолжить?`,
+          confirmButtonName: 'Подтвердить и добавить',
+          closeButtonName: 'Отмена',
+          waitForConfirm: true,
+          onConfirm: confirmTransactionAction,
+        })
+        return
+      }
+
       if (transactionAction.type === 'autosave' && !validateEventForm()) {
         setFinanceError(
-          'Заполните обязательные поля мероприятия перед добавлением транзакции'
+          `Заполните обязательные поля ${workItemTerms.genitive} перед добавлением транзакции`
         )
         return
       }
 
       if (transactionAction.type === 'autosave' && !sourceEventId) {
         modalsFunc.add({
-          title: 'Создать мероприятие для транзакции?',
-          text: 'Чтобы привязать транзакцию, текущее мероприятие будет создано. После закрытия транзакции вы вернётесь к его редактированию.',
+          title: `Создать ${workItemTerms.accusative} для транзакции?`,
+          text: `Чтобы привязать транзакцию, будет создана карточка ${workItemTerms.genitive}. После закрытия транзакции вы вернётесь к её редактированию.`,
           confirmButtonName: 'Создать и продолжить',
           closeButtonName: 'Отмена',
           waitForConfirm: true,
-          onConfirm: () =>
-            performTransactionAction(transactionAction, transactionId),
+          onConfirm: confirmTransactionAction,
         })
         return
       }
 
-      performTransactionAction(transactionAction, transactionId)
+      confirmTransactionAction()
     }
 
-    return (
-      <TabContext
-        value={initialTab}
-        variant="fullWidth"
-        scrollButtons={false}
-        allowScrollButtonsMobile={false}
-      >
-        <TabPanel tabName="Общие" tabBadge={tabErrorCounts.general}>
-          <FormWrapper>
-            {hasAiHighlightedFields ? (
-              <div className="ai-filled-hint mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800">
-                Поля с фиолетовой подсветкой заполнены ИИ. Проверьте их —
-                подсветка отдельного поля исчезнет после вашего изменения.
+    const openServicesSelection = () => modalsFunc.add(
+      selectEventServicesFunc(servicesIds, (ids) => {
+        clearAiFields('servicesIds')
+        setServicesIds(ids)
+        removeError('servicesIds')
+      })
+    )
+
+    const fields = {
+      hints: (
+        <>
+          {hasAiHighlightedFields ? (
+            <div className="ai-filled-hint mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800">
+              Поля с фиолетовой подсветкой заполнены ИИ. Проверьте их —
+              подсветка отдельного поля исчезнет после вашего изменения.
+            </div>
+          ) : null}
+          {(!calendarImportChecked ||
+            (event?.importedFromFile && !fileImportChecked)) &&
+          aiWarnings.length > 0 ? (
+            <Notice tone="warning" className="ai-draft-warning mb-3">
+              <div className="font-medium">
+                ИИ не смог определить всё однозначно:
               </div>
-            ) : null}
-            {(!calendarImportChecked || (event?.importedFromFile && !fileImportChecked)) && aiWarnings.length > 0 ? (
-              <Notice
-                tone="warning"
-                className="ai-draft-warning mb-3"
-              >
-                <div className="font-medium">
-                  ИИ не смог определить всё однозначно:
-                </div>
-                <ul className="mt-1 list-disc space-y-1 pl-5">
-                  {aiWarnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {aiWarnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </Notice>
+          ) : null}
+        </>
+      ),
+      status: (
+        <>
+          <div className="event-status-picker">
+            <EventStatusPicker
+              status={status}
+              onChange={setStatus}
+              disabledValues={canSetClosedStatus || isClosed ? [] : ['closed']}
+              disabledReasons={{ closed: closeStatusDisabledReason }}
+            />
+            {status !== 'closed' &&
+            !canSetClosedStatus &&
+            (!useCompactForm || sourceEventId) ? (
+              <Notice tone="warning" className="mt-2 text-xs">
+                {closeStatusDisabledReason}
               </Notice>
             ) : null}
-            <div className="event-status-picker">
-              <EventStatusPicker
-                status={status}
-                onChange={setStatus}
-                disabledValues={
-                  canSetClosedStatus || isClosed ? [] : ['closed']
+            {isClosed ? (
+              <Notice tone="error" className="mt-2 text-xs">
+                Статус «Закрыто»: редактирование полей мероприятия недоступно.
+              </Notice>
+            ) : null}
+          </div>
+        </>
+      ),
+      services: (
+        <>
+          <AiFieldHighlight active={isAiFieldHighlighted('servicesIds')}>
+            {useCompactForm ? (
+              servicesIds.length ? (
+                <AddIconButton
+                  title="Выбрать услуги"
+                  size="sm"
+                  onClick={openServicesSelection}
+                />
+              ) : (
+                <ActionIconButton
+                  variant="success"
+                  size="sm"
+                  className="px-3 text-sm"
+                  onClick={openServicesSelection}
+                >
+                  Выбрать услуги
+                </ActionIconButton>
+              )
+            ) : <ServiceMultiSelect
+              value={servicesIds}
+              onChange={(value) => {
+                clearAiFields('servicesIds')
+                setServicesIds(value)
+              }}
+              onCreate={openServiceCreateModal}
+              onEdit={openServiceEditModal}
+              error={errors.servicesIds}
+              required={!(useCompactForm && isDraft)}
+              onClearError={() => removeError('servicesIds')}
+            />}
+          </AiFieldHighlight>
+        </>
+      ),
+      eventType: (
+        <>
+          <AiFieldHighlight active={isAiFieldHighlighted('eventType')}>
+            <div className="mt-4">
+              <ComboBox
+                label="Тип события"
+                items={eventTypeOptions}
+                value={eventType}
+                onChange={(value) => {
+                  clearAiFields('eventType')
+                  removeError('eventType')
+                  setEventType(value ?? '')
+                }}
+                placeholder="Выберите тип события"
+                fullWidth
+                noMargin
+                className="min-w-38 flex-1"
+                error={errors.eventType}
+                postfix={
+                  <AddIconButton
+                    onClick={handleCreateEventType}
+                    title="Добавить тип события"
+                    size="sm"
+                  />
                 }
-                disabledReasons={{ closed: closeStatusDisabledReason }}
               />
-              {status !== 'closed' && !canSetClosedStatus ? (
-                <Notice tone="warning" className="mt-2 text-xs">
-                  {closeStatusDisabledReason}
-                </Notice>
-              ) : null}
-              {isClosed ? (
-                <Notice tone="error" className="mt-2 text-xs">
-                  Статус «Закрыто»: редактирование полей мероприятия
-                  недоступно.
-                </Notice>
-              ) : null}
             </div>
-            <div className={formLockedClassName}>
-              <AiFieldHighlight
-                active={isAiFieldHighlighted('servicesIds')}
-              >
-                <ServiceMultiSelect
-                  value={servicesIds}
-                  onChange={(value) => {
-                    clearAiFields('servicesIds')
-                    setServicesIds(value)
-                  }}
-                  onCreate={openServiceCreateModal}
-                  onEdit={openServiceEditModal}
-                  error={errors.servicesIds}
-                  required
-                  onClearError={() => removeError('servicesIds')}
-                />
-              </AiFieldHighlight>
-              <AiFieldHighlight active={isAiFieldHighlighted('eventType')}>
-                <div className="mt-4">
-                  <ComboBox
-                    label="Что за событие?"
-                    items={eventTypeOptions}
-                    value={eventType}
-                    onChange={(value) => {
-                      clearAiFields('eventType')
-                      removeError('eventType')
-                      setEventType(value ?? '')
-                    }}
-                    placeholder="Выберите тип события"
-                    fullWidth
-                    noMargin
-                    className="min-w-38 flex-1"
-                    error={errors.eventType}
-                    required
-                    postfix={
-                      <AddIconButton
-                        onClick={handleCreateEventType}
-                        title="Добавить тип события"
-                        size="sm"
-                      />
-                    }
-                  />
-                </div>
-              </AiFieldHighlight>
-
-              <div className="flex flex-wrap items-center gap-x-1">
-                <AiFieldHighlight active={isAiFieldHighlighted('eventDate')}>
-                  <DateTimePicker
-                    value={eventDate}
-                    onChange={(value) => {
-                      clearAiFields('eventDate', 'dateEnd')
-                      removeError('eventDate')
-                      const nextStart = value ?? null
-                      setDateEnd(
-                        (prevEnd) =>
-                          shiftEndByStartChange(
-                            eventDate,
-                            nextStart,
-                            prevEnd
-                          ) ?? prevEnd
-                      )
-                      setEventDate(nextStart)
-                    }}
-                    label="Дата начала"
-                    error={errors.eventDate}
-                  />
-                </AiFieldHighlight>
-                <AiFieldHighlight active={isAiFieldHighlighted('dateEnd')}>
-                  <DateTimePicker
-                    value={dateEnd}
-                    onChange={(value) => {
-                      clearAiFields('dateEnd')
-                      setDateEndTouched(true)
-                      setDateEnd(value ?? null)
-                    }}
-                    label="Дата окончания"
-                  />
-                </AiFieldHighlight>
-              </div>
-              <AiFieldHighlight active={isAiFieldHighlighted('address')}>
-                <AddressPoolPicker
-                  address={address}
-                  onChange={(value) => {
-                    clearAiFields('address')
-                    setAddress(value)
-                  }}
-                  label="Локация"
-                  required={false}
-                  errors={errors}
-                  townOptions={townOptions}
-                  onCreateTown={handleCreateTown}
-                />
-              </AiFieldHighlight>
-              <AiFieldHighlight active={isAiFieldHighlighted('description')}>
-                <Textarea
-                  label="Описание"
-                  onChange={(value) => {
-                    clearAiFields('description')
-                    setDescription(value)
-                  }}
-                  value={description}
-                  rows={3}
-                />
-              </AiFieldHighlight>
-              {showColleagueTransferControls && (
-                <>
-                  <IconCheckBox
-                    checked={isTransferred}
-                    onClick={() => {
-                      setIsTransferred((prev) => !prev)
-                      removeError('colleagueId')
-                    }}
-                    label="Передано коллеге"
-                    checkedIcon={faCircleCheck}
-                    checkedIconColor="#F97316"
-                  />
-                  {isTransferred && (
-                    <ColleaguePicker
-                      selectedColleague={selectedColleague}
-                      selectedColleagueId={colleagueId}
-                      onSelectClick={openColleagueSelectModal}
-                      label="Коллега"
-                      required={isTransferred}
-                      error={errors.colleagueId}
-                      compact
-                      paddingY
-                      fullWidth
-                    />
-                  )}
-                </>
-              )}
-              {event?.importedFromFile && !clone ? (
-                <div className="space-y-2">
-                  <IconCheckBox checked={fileImportChecked} onClick={() => setFileImportChecked((value) => !value)} label="Импорт из файла проверен" checkedIcon={faCircleCheck} checkedIconColor="#10B981" />
-                  <details className="text-sm"><summary className="cursor-pointer">Источник: {event.fileImportName || 'файл'}</summary><pre className="mt-2 whitespace-pre-wrap break-words text-xs">{event.fileImportSource}</pre></details>
-                </div>
-              ) : !calendarImportChecked && (
-                <IconCheckBox
-                  checked={calendarImportChecked}
-                  onClick={() => setCalendarImportChecked(true)}
-                  label={
-                    importedFromCalendar
-                      ? 'Импорт из календаря проверен'
-                      : 'Проверка мероприятия завершена'
-                  }
-                  checkedIcon={faCircleCheck}
-                  checkedIconColor="#10B981"
-                />
-              )}
+          </AiFieldHighlight>
+        </>
+      ),
+      dates: (
+        <>
+          <div className="flex flex-wrap items-center gap-x-1">
+            <AiFieldHighlight active={isAiFieldHighlighted('eventDate')}>
               <DateTimePicker
-                value={requestCreatedAt}
-                onChange={(value) => setRequestCreatedAt(value ?? null)}
-                label="Дата заявки"
+                value={eventDate}
+                onChange={(value) => {
+                  clearAiFields('eventDate', 'dateEnd')
+                  removeError(errors.dateEnd ? 'dateEnd' : 'eventDate')
+                  const nextStart = value ?? null
+                  setDateEnd(
+                    (prevEnd) =>
+                      shiftEndByStartChange(eventDate, nextStart, prevEnd) ??
+                      prevEnd
+                  )
+                  setEventDate(nextStart)
+                }}
+                label="Дата начала"
+                error={errors.eventDate}
               />
-              <ErrorsList errors={errors} />
-            </div>
-          </FormWrapper>
-        </TabPanel>
-
-        <TabPanel
-          tabName="Клиент и Контакты"
-          tabBadge={tabErrorCounts.client}
-        >
-          <FormWrapper>
-            <div className={formLockedClassName}>
-              <AiFieldHighlight active={isAiFieldHighlighted('clientId')}>
-                <ClientPicker
-                  selectedClient={selectedClient}
-                  selectedClientId={clientId}
-                  onSelectClick={openClientSelectModal}
-                  onViewClick={() => modalsFunc.client?.view(clientId)}
-                  onEditClick={() => modalsFunc.client?.edit(clientId)}
-                  onCreateClick={() =>
-                    modalsFunc.client?.add((newClient) => {
-                      if (!newClient?._id) return
-                      clearAiFields('clientId')
-                      setClientId(newClient._id)
-                      removeError('clientId')
-                    })
-                  }
-                  label="Клиент"
-                  required
-                  error={errors.clientId}
+            </AiFieldHighlight>
+            <AiFieldHighlight active={isAiFieldHighlighted('dateEnd')}>
+              <DateTimePicker
+                value={dateEnd}
+                onChange={(value) => {
+                  clearAiFields('dateEnd')
+                  removeError('dateEnd')
+                  setDateEndTouched(true)
+                  setDateEnd(value ?? null)
+                }}
+                label="Дата окончания"
+              />
+            </AiFieldHighlight>
+          </div>
+        </>
+      ),
+      address: (
+        <>
+          <AiFieldHighlight active={isAiFieldHighlighted('address')}>
+            <AddressPoolPicker
+              address={address}
+              onChange={(value) => {
+                clearAiFields('address')
+                setAddress(value)
+              }}
+              label="Локация"
+              required={false}
+              errors={errors}
+              townOptions={townOptions}
+              onCreateTown={handleCreateTown}
+            />
+          </AiFieldHighlight>
+        </>
+      ),
+      description: (
+        <>
+          <AiFieldHighlight active={isAiFieldHighlighted('description')}>
+            <Textarea
+              label={useCompactForm ? 'Запрос клиента' : 'Описание'}
+              onChange={(value) => {
+                clearAiFields('description')
+                setDescription(value)
+              }}
+              value={description}
+              rows={3}
+            />
+          </AiFieldHighlight>
+        </>
+      ),
+      other: (
+        <>
+          {showColleagueTransferControls && (
+            <>
+              <IconCheckBox
+                checked={isTransferred}
+                onClick={() => {
+                  setIsTransferred((prev) => !prev)
+                  removeError('colleagueId')
+                }}
+                label="Передано коллеге"
+                checkedIcon={faCircleCheck}
+                checkedIconColor="#F97316"
+              />
+              {isTransferred && (
+                <ColleaguePicker
+                  selectedColleague={selectedColleague}
+                  selectedColleagueId={colleagueId}
+                  onSelectClick={openColleagueSelectModal}
+                  label="Коллега"
+                  required={isTransferred}
+                  error={errors.colleagueId}
+                  compact
                   paddingY
                   fullWidth
-                  compact
-                  showSelectButton
                 />
-              </AiFieldHighlight>
-              <OtherContactsPicker
-                contacts={otherContacts}
-                clients={clients}
-                onSelectContact={handleOtherContactSelect}
-                onChangeComment={handleOtherContactCommentChange}
-                onRemoveContact={handleOtherContactRemove}
-                onEditContact={(index) => {
-                  const contact = otherContacts[index]
-                  if (contact?.clientId)
-                    modalsFunc.client?.edit(contact.clientId)
-                }}
-                onViewContact={(index) => {
-                  const contact = otherContacts[index]
-                  if (contact?.clientId)
-                    modalsFunc.client?.view(contact.clientId)
-                }}
-                onAddContact={handleOtherContactAdd}
+              )}
+            </>
+          )}
+          {event?.importedFromFile && !clone ? (
+            <div className="space-y-2">
+              <IconCheckBox
+                checked={fileImportChecked}
+                onClick={() => setFileImportChecked((value) => !value)}
+                label="Импорт из файла проверен"
+                checkedIcon={faCircleCheck}
+                checkedIconColor="#10B981"
               />
-              <LabeledContainer label="Задачи/События">
-                <div className="flex w-full flex-col gap-2">
-                  <div className="flex w-full justify-end">
-                    <AddIconButton
-                      onClick={() => handleAdditionalEventAdd()}
-                      title="Добавить событие"
-                      size="sm"
-                    />
-                  </div>
-                  {hasDoneAdditionalEvents ? (
-                    <IconCheckBox
-                      checked={showDoneAdditionalEvents}
-                      onClick={() =>
-                        setShowDoneAdditionalEvents((prev) => !prev)
-                      }
-                      label="Показывать выполненные"
-                      checkedIcon={faCircleCheck}
-                      checkedIconColor="#16A34A"
-                      noMargin
-                    />
-                  ) : null}
+              <details className="text-sm">
+                <summary className="cursor-pointer">
+                  Источник: {event.fileImportName || 'файл'}
+                </summary>
+                <pre className="mt-2 text-xs break-words whitespace-pre-wrap">
+                  {event.fileImportSource}
+                </pre>
+              </details>
+            </div>
+          ) : (
+            !calendarImportChecked && (
+              <IconCheckBox
+                checked={calendarImportChecked}
+                onClick={() => setCalendarImportChecked(true)}
+                label={
+                  importedFromCalendar
+                    ? 'Импорт из календаря проверен'
+                    : 'Проверка мероприятия завершена'
+                }
+                checkedIcon={faCircleCheck}
+                checkedIconColor="#10B981"
+              />
+            )
+          )}
+          <DateTimePicker
+            value={requestCreatedAt}
+            onChange={(value) => setRequestCreatedAt(value ?? null)}
+            label="Дата заявки"
+          />
+        </>
+      ),
+      client: (
+        <>
+          <AiFieldHighlight active={isAiFieldHighlighted('clientId')}>
+            <ClientPicker
+              selectedClient={selectedClient}
+              selectedClientId={clientId}
+              onSelectClick={openClientSelectModal}
+              onViewClick={() => modalsFunc.client?.view(clientId)}
+              onEditClick={() => modalsFunc.client?.edit(clientId)}
+              onCreateClick={() =>
+                modalsFunc.client?.add((newClient) => {
+                  if (!newClient?._id) return
+                  clearAiFields('clientId')
+                  setClientId(newClient._id)
+                  removeError('clientId')
+                })
+              }
+              label="Клиент"
+              required
+              error={errors.clientId}
+              paddingY
+              fullWidth
+              compact
+              showSelectButton
+            />
+          </AiFieldHighlight>
+        </>
+      ),
+      contacts: (
+        <>
+          <OtherContactsPicker
+            contacts={otherContacts}
+            clients={clients}
+            onSelectContact={handleOtherContactSelect}
+            onChangeComment={handleOtherContactCommentChange}
+            onRemoveContact={handleOtherContactRemove}
+            onEditContact={(index) => {
+              const contact = otherContacts[index]
+              if (contact?.clientId) modalsFunc.client?.edit(contact.clientId)
+            }}
+            onViewContact={(index) => {
+              const contact = otherContacts[index]
+              if (contact?.clientId) modalsFunc.client?.view(contact.clientId)
+            }}
+            onAddContact={handleOtherContactAdd}
+          />
+        </>
+      ),
+      reminders: (
+        <>
+          <LabeledContainer label="Задачи/События">
+            <div className="flex w-full flex-col gap-2">
+              <div className="flex w-full justify-end">
+                <AddIconButton
+                  onClick={() => handleAdditionalEventAdd()}
+                  title="Добавить событие"
+                  size="sm"
+                />
+              </div>
+              {hasDoneAdditionalEvents ? (
+                <IconCheckBox
+                  checked={showDoneAdditionalEvents}
+                  onClick={() => setShowDoneAdditionalEvents((prev) => !prev)}
+                  label="Показывать выполненные"
+                  checkedIcon={faCircleCheck}
+                  checkedIconColor="#16A34A"
+                  noMargin
+                />
+              ) : null}
 
-                  {additionalEvents.length ===
-                  0 ? null : filteredAdditionalEvents.length === 0 ? (
-                    <div className="text-sm text-gray-500">
-                      Нет событий для выбранного фильтра
-                    </div>
-                  ) : (
-                    <div className="tablet:grid-cols-2 laptop:grid-cols-3 grid grid-cols-1 gap-2">
-                      {filteredAdditionalEvents.map(({ item, index }) => (
-                        <div
-                          key={`additional-event-${index}`}
-                          className={`w-full rounded border p-2 ${
+              {additionalEvents.length ===
+              0 ? null : filteredAdditionalEvents.length === 0 ? (
+                <div className="text-sm text-gray-500">
+                  Нет событий для выбранного фильтра
+                </div>
+              ) : (
+                <div className="tablet:grid-cols-2 laptop:grid-cols-3 grid grid-cols-1 gap-2">
+                  {filteredAdditionalEvents.map(({ item, index }) => (
+                    <div
+                      key={`additional-event-${index}`}
+                      className={`w-full rounded border p-2 ${
+                        item?.done
+                          ? 'border-emerald-200 bg-emerald-50/70'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAdditionalEventToggleDone(index)}
+                          title={
                             item?.done
-                              ? 'border-emerald-200 bg-emerald-50/70'
-                              : 'border-gray-200'
+                              ? 'Отметить как не выполнено'
+                              : 'Отметить как выполнено'
+                          }
+                          aria-label={
+                            item?.done
+                              ? 'Отметить как не выполнено'
+                              : 'Отметить как выполнено'
+                          }
+                          className={`mt-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border transition ${
+                            item?.done
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
+                              : 'border-gray-300 bg-white text-gray-400 hover:border-emerald-400 hover:text-emerald-500'
                           }`}
                         >
-                          <div className="flex items-start gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleAdditionalEventToggleDone(index)
-                              }
-                              title={
+                          <FontAwesomeIcon icon={faCircleCheck} />
+                        </button>
+                        <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div
+                              className={`truncate text-sm font-semibold ${
                                 item?.done
-                                  ? 'Отметить как не выполнено'
-                                  : 'Отметить как выполнено'
-                              }
-                              aria-label={
-                                item?.done
-                                  ? 'Отметить как не выполнено'
-                                  : 'Отметить как выполнено'
-                              }
-                              className={`mt-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border transition ${
-                                item?.done
-                                  ? 'border-emerald-500 bg-emerald-500 text-white'
-                                  : 'border-gray-300 bg-white text-gray-400 hover:border-emerald-400 hover:text-emerald-500'
+                                  ? 'text-emerald-700'
+                                  : 'text-gray-900'
                               }`}
                             >
-                              <FontAwesomeIcon icon={faCircleCheck} />
-                            </button>
-                            <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div
-                                  className={`truncate text-sm font-semibold ${
-                                    item?.done
-                                      ? 'text-emerald-700'
-                                      : 'text-gray-900'
-                                  }`}
-                                >
-                                  {item?.done ? '✓ ' : ''}
-                                  {item?.title || `Событие #${index + 1}`}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {item?.date
-                                    ? new Date(item.date).toLocaleString(
-                                        'ru-RU',
-                                        {
-                                          day: '2-digit',
-                                          month: '2-digit',
-                                          year: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        }
-                                      )
-                                    : 'Дата не указана'}
-                                </div>
-                                {item?.description ? (
-                                  <div className="text-xs text-gray-700">
-                                    {item.description}
-                                  </div>
-                                ) : null}
-                              </div>
-                              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                                <IconActionButton
-                                  icon={faPencilAlt}
-                                  onClick={() =>
-                                    handleAdditionalEventEdit(index)
-                                  }
-                                  title="Редактировать событие"
-                                  variant="warning"
-                                  size="xs"
-                                  className="min-h-8 min-w-8"
-                                />
-                                <IconActionButton
-                                  icon={faTrashAlt}
-                                  onClick={() =>
-                                    handleAdditionalEventRemove(index)
-                                  }
-                                  title="Удалить событие"
-                                  variant="danger"
-                                  size="xs"
-                                  className="min-h-8 min-w-8"
-                                />
-                              </div>
+                              {item?.done ? '✓ ' : ''}
+                              {item?.title || `Событие #${index + 1}`}
                             </div>
+                            <div className="text-xs text-gray-600">
+                              {item?.date
+                                ? new Date(item.date).toLocaleString('ru-RU', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : 'Дата не указана'}
+                            </div>
+                            {item?.description ? (
+                              <div className="text-xs text-gray-700">
+                                {item.description}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                            <IconActionButton
+                              icon={faPencilAlt}
+                              onClick={() => handleAdditionalEventEdit(index)}
+                              title="Редактировать событие"
+                              variant="warning"
+                              size="xs"
+                              className="min-h-8 min-w-8"
+                            />
+                            <IconActionButton
+                              icon={faTrashAlt}
+                              onClick={() => handleAdditionalEventRemove(index)}
+                              title="Удалить событие"
+                              variant="danger"
+                              size="xs"
+                              className="min-h-8 min-w-8"
+                            />
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
+              )}
+            </div>
+          </LabeledContainer>
+        </>
+      ),
+      finance: (
+        <>
+          <AiFieldHighlight active={isAiFieldHighlighted('contractSum')}>
+            <Input
+              label="Договорная сумма"
+              type="number"
+              value={contractSum}
+              onChange={(value) => {
+                clearAiFields('contractSum')
+                setContractSum(value)
+              }}
+              min={0}
+              step={1000}
+              noMargin
+            />
+          </AiFieldHighlight>
+          {!hasDepositTransaction ? (
+            <div className="flex flex-col gap-2">
+              <AiFieldHighlight active={isAiFieldHighlighted('waitDeposit')}>
+                <IconCheckBox
+                  checked={waitDeposit}
+                  onClick={() => {
+                    clearAiFields('waitDeposit', 'depositExpectedAmount')
+                    setWaitDeposit((prev) => {
+                      const next = !prev
+                      if (!next) {
+                        setDepositDueAt(null)
+                        setDepositExpectedAmount(null)
+                      } else if (!depositDueAt) {
+                        setDepositDueAt(
+                          new Date(
+                            Date.now() + 24 * 60 * 60 * 1000
+                          ).toISOString()
+                        )
+                      }
+                      return next
+                    })
+                  }}
+                  label="Ждем задаток"
+                  checkedIcon={faCircleCheck}
+                  checkedIconColor="#F97316"
+                  noMargin
+                />
+              </AiFieldHighlight>
+              {waitDeposit ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+                  <AiFieldHighlight
+                    active={isAiFieldHighlighted('depositExpectedAmount')}
+                  >
+                    <Input
+                      label="Сумма задатка"
+                      type="number"
+                      value={depositExpectedAmount}
+                      onChange={(value) => {
+                        clearAiFields('depositExpectedAmount')
+                        setDepositExpectedAmount(value)
+                      }}
+                      min={0}
+                      step={1000}
+                      noMargin
+                      className="w-[140px]"
+                      inputClassName="w-[60px]"
+                    />
+                  </AiFieldHighlight>
+                  <AiFieldHighlight
+                    active={isAiFieldHighlighted('depositDueAt')}
+                  >
+                    <DateTimePicker
+                      value={depositDueAt}
+                      onChange={(value) => {
+                        clearAiFields('depositDueAt')
+                        setDepositDueAt(value ?? null)
+                      }}
+                      label="Дата ожидания задатка"
+                      noMargin
+                    />
+                  </AiFieldHighlight>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <AiFieldHighlight active={isAiFieldHighlighted('financeComment')}>
+            <Textarea
+              label="Комментарий по финансам"
+              value={financeComment}
+              onChange={(value) => {
+                clearAiFields('financeComment')
+                setFinanceComment(value)
+              }}
+              rows={2}
+              wrapperClassName="mt-2"
+              noMargin
+            />
+          </AiFieldHighlight>
+          <AiFieldHighlight active={isAiFieldHighlighted('isByContract')}>
+            <IconCheckBox
+              checked={isByContract}
+              onClick={() => {
+                clearAiFields('isByContract')
+                setIsByContract((prev) => !prev)
+              }}
+              label="По договору"
+              checkedIcon={faCircleCheck}
+              checkedIconColor="#2563EB"
+              noMargin
+            />
+          </AiFieldHighlight>
+        </>
+      ),
+      documents: (
+        <>
+          {canUseDocuments && (
+            <div className="mt-3">
+              <LabeledContainer label="Файлы и документы" noMargin>
+                <DocumentsEditor
+                  documents={documents}
+                  onChange={setDocuments}
+                  entityType="events"
+                  entityId={sourceEventId}
+                  entityLabel={workItemTerms.accusative}
+                  documentTemplates={documentTemplates}
+                  buildTemplateVariables={buildDocumentTemplateVariables}
+                  noMargin
+                />
               </LabeledContainer>
             </div>
-          </FormWrapper>
-        </TabPanel>
-
-        <TabPanel tabName="Финансы и Документы">
-          <div className={`flex flex-col gap-2 ${formLockedClassName}`}>
-            <AiFieldHighlight active={isAiFieldHighlighted('contractSum')}>
-              <Input
-                label="Договорная сумма"
-                type="number"
-                value={contractSum}
-                onChange={(value) => {
-                  clearAiFields('contractSum')
-                  setContractSum(value)
-                }}
-                min={0}
-                step={1000}
-                noMargin
-              />
-            </AiFieldHighlight>
-            {!hasDepositTransaction ? (
-              <div className="flex flex-col gap-2">
-                <AiFieldHighlight
-                  active={isAiFieldHighlighted('waitDeposit')}
-                >
-                  <IconCheckBox
-                    checked={waitDeposit}
-                    onClick={() => {
-                      clearAiFields('waitDeposit', 'depositExpectedAmount')
-                      setWaitDeposit((prev) => {
-                        const next = !prev
-                        if (!next) {
-                          setDepositDueAt(null)
-                          setDepositExpectedAmount(null)
-                        } else if (!depositDueAt) {
-                          setDepositDueAt(
-                            new Date(
-                              Date.now() + 24 * 60 * 60 * 1000
-                            ).toISOString()
-                          )
-                        }
-                        return next
-                      })
-                    }}
-                    label="Ждем задаток"
-                    checkedIcon={faCircleCheck}
-                    checkedIconColor="#F97316"
-                    noMargin
+          )}
+        </>
+      ),
+      proposals: (
+        <>
+          {canUseProposals ? (
+            <div className="mt-3">
+              <LabeledContainer label="Коммерческие предложения" noMargin>
+                {persistedEventId ? (
+                  <EventProposalsSection
+                    eventId={persistedEventId}
+                    onApplied={handleProposalApplied}
                   />
-                </AiFieldHighlight>
-                {waitDeposit ? (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
-                    <AiFieldHighlight
-                      active={isAiFieldHighlighted('depositExpectedAmount')}
-                    >
-                      <Input
-                        label="Сумма задатка"
-                        type="number"
-                        value={depositExpectedAmount}
-                        onChange={(value) => {
-                          clearAiFields('depositExpectedAmount')
-                          setDepositExpectedAmount(value)
-                        }}
-                        min={0}
-                        step={1000}
-                        noMargin
-                        className="w-[140px]"
-                        inputClassName="w-[60px]"
-                      />
-                    </AiFieldHighlight>
-                    <AiFieldHighlight
-                      active={isAiFieldHighlighted('depositDueAt')}
-                    >
-                      <DateTimePicker
-                        value={depositDueAt}
-                        onChange={(value) => {
-                          clearAiFields('depositDueAt')
-                          setDepositDueAt(value ?? null)
-                        }}
-                        label="Дата ожидания задатка"
-                        noMargin
-                      />
-                    </AiFieldHighlight>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <AiFieldHighlight
-              active={isAiFieldHighlighted('financeComment')}
-            >
-              <Textarea
-                label="Комментарий по финансам"
-                value={financeComment}
-                onChange={(value) => {
-                  clearAiFields('financeComment')
-                  setFinanceComment(value)
-                }}
-                rows={2}
-                wrapperClassName="mt-2"
-                noMargin
-              />
-            </AiFieldHighlight>
-            <AiFieldHighlight active={isAiFieldHighlighted('isByContract')}>
-              <IconCheckBox
-                checked={isByContract}
-                onClick={() => {
-                  clearAiFields('isByContract')
-                  setIsByContract((prev) => !prev)
-                }}
-                label="По договору"
-                checkedIcon={faCircleCheck}
-                checkedIconColor="#2563EB"
-                noMargin
-              />
-            </AiFieldHighlight>
-            {isDraft ? (
-              <Notice tone="warning" className="rounded-md">
-                {`Для заявки финансовые операции и транзакции недоступны. Файлы и документы можно добавить уже сейчас.`}
-              </Notice>
-            ) : null}
-            {canUseDocuments && (
-              <div className="mt-3">
-                <LabeledContainer label="Файлы и документы" noMargin>
-                  <DocumentsEditor
-                    documents={documents}
-                    onChange={setDocuments}
-                    entityType="events"
-                    entityId={sourceEventId}
-                    entityLabel={workItemTerms.accusative}
-                    documentTemplates={documentTemplates}
-                    buildTemplateVariables={buildDocumentTemplateVariables}
-                    noMargin
-                  />
-                </LabeledContainer>
-              </div>
-            )}
-            {canUseProposals ? (
-              <div className="mt-3">
-                <LabeledContainer label="Коммерческие предложения" noMargin>
-                  {persistedEventId ? (
-                    <EventProposalsSection
-                      eventId={persistedEventId}
-                      onApplied={handleProposalApplied}
-                    />
-                  ) : (
-                    <Notice tone="info" className="rounded-md">
-                      Сначала сохраните мероприятие. После сохранения откройте
-                      его редактирование снова — здесь появится создание
-                      коммерческого предложения.
-                    </Notice>
-                  )}
-                </LabeledContainer>
-              </div>
-            ) : null}
-
-            {!isDraft && (
-              <>
-                {closeState.hasObligations ? (
-                  <Notice tone="warning" role="alert" className="rounded-md">
-                    {getCloseBlockedByObligationsMessage()}
-                  </Notice>
-                ) : null}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-base font-semibold text-gray-900">
-                    Транзакции
-                  </div>
-                  <AddIconButton
-                    onClick={() => openTransactionModal()}
-                    disabled={isDraft || clone || financeLoading}
-                    title="Добавить транзакцию"
-                    size="sm"
-                    className="disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-                </div>
-
-                {financeError && (
-                  <Notice tone="error" role="alert" className="rounded-md">
-                    {financeError}
+                ) : (
+                  <Notice tone="info" className="rounded-md">
+                    Сначала сохраните мероприятие. После сохранения откройте его
+                    редактирование снова — здесь появится создание коммерческого
+                    предложения.
                   </Notice>
                 )}
-
-                <div className="rounded border border-gray-200 bg-white shadow-sm">
-                  {eventTransactions.length === 0 ? (
-                    <div className="px-3 py-4 text-sm text-gray-500">
-                      Пока никаких транзакций не было
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                        Поступления
-                      </div>
-                      {incomeTransactions.length === 0 ? (
-                        <div className="px-3 pb-3 text-sm text-gray-500">
-                          Поступлений нет
-                        </div>
-                      ) : (
-                        incomeTransactions.map((transaction) => (
-                          <div
-                            key={transaction._id}
-                            className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
-                          >
-                            <div className="flex flex-1 flex-wrap gap-3 text-sm">
-                              <span className="font-semibold text-gray-900">
-                                {transaction.amount.toLocaleString()} руб.
-                              </span>
-                              <span className="text-emerald-700">
-                                {TRANSACTION_TYPES.find(
-                                  (item) => item.value === transaction.type
-                                )?.name ?? transaction.type}
-                              </span>
-                              {transaction.category && (
-                                <span className="text-gray-600">
-                                  {
-                                    TRANSACTION_CATEGORIES.find(
-                                      (item) =>
-                                        item.value === transaction.category
-                                    )?.name
-                                  }
-                                </span>
-                              )}
-                              {transaction.paymentMethod ===
-                              OBLIGATION_PAYMENT_METHOD ? (
-                                <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                  Обязательство
-                                </span>
-                              ) : null}
-                              <span className="text-gray-600">
-                                {getTransactionDateLabel(
-                                  transaction.paymentMethod
-                                )}
-                                {': '}
-                                {transaction.date
-                                  ? new Date(transaction.date).toLocaleString(
-                                      'ru-RU',
-                                      {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      }
-                                    )
-                                  : ''}
-                              </span>
-                              {transaction.comment && (
-                                <span className="text-gray-700">
-                                  {transaction.comment}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <IconActionButton
-                                icon={faPencilAlt}
-                                onClick={() =>
-                                  openTransactionModal(transaction._id)
-                                }
-                                disabled={financeLoading}
-                                title="Редактировать транзакцию"
-                                variant="warning"
-                                size="sm"
-                              />
-                              <IconActionButton
-                                icon={faTrashAlt}
-                                onClick={() =>
-                                  handleDeleteTransaction(transaction._id)
-                                }
-                                disabled={financeLoading}
-                                title="Удалить транзакцию"
-                                variant="danger"
-                                size="sm"
-                              />
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                        Расходы
-                      </div>
-                      {expenseTransactions.length === 0 ? (
-                        <div className="px-3 pb-3 text-sm text-gray-500">
-                          Расходов нет
-                        </div>
-                      ) : (
-                        expenseTransactions.map((transaction) => (
-                          <div
-                            key={transaction._id}
-                            className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
-                          >
-                            <div className="flex flex-1 flex-wrap gap-3 text-sm">
-                              <span className="font-semibold text-gray-900">
-                                {transaction.amount.toLocaleString()} руб.
-                              </span>
-                              <span className="text-red-700">
-                                {TRANSACTION_TYPES.find(
-                                  (item) => item.value === transaction.type
-                                )?.name ?? transaction.type}
-                              </span>
-                              {transaction.category && (
-                                <span className="text-gray-600">
-                                  {
-                                    TRANSACTION_CATEGORIES.find(
-                                      (item) =>
-                                        item.value === transaction.category
-                                    )?.name
-                                  }
-                                </span>
-                              )}
-                              {transaction.paymentMethod ===
-                              OBLIGATION_PAYMENT_METHOD ? (
-                                <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                  Обязательство
-                                </span>
-                              ) : null}
-                              <span className="text-gray-600">
-                                {getTransactionDateLabel(
-                                  transaction.paymentMethod
-                                )}
-                                {': '}
-                                {transaction.date
-                                  ? new Date(transaction.date).toLocaleString(
-                                      'ru-RU',
-                                      {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      }
-                                    )
-                                  : ''}
-                              </span>
-                              {transaction.comment && (
-                                <span className="text-gray-700">
-                                  {transaction.comment}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <IconActionButton
-                                icon={faPencilAlt}
-                                onClick={() =>
-                                  openTransactionModal(transaction._id)
-                                }
-                                disabled={financeLoading}
-                                title="Редактировать транзакцию"
-                                variant="warning"
-                                size="sm"
-                              />
-                              <IconActionButton
-                                icon={faTrashAlt}
-                                onClick={() =>
-                                  handleDeleteTransaction(transaction._id)
-                                }
-                                disabled={financeLoading}
-                                title="Удалить транзакцию"
-                                variant="danger"
-                                size="sm"
-                              />
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </TabPanel>
-        {googleCalendarResponseText ? (
-          <TabPanel tabName="Ответ Google Calendar">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-gray-800">
-                Ответ Google Calendar
-              </div>
-              <button
-                type="button"
-                className="h-8 rounded border border-gray-300 px-3 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                onClick={() => {
-                  if (!navigator?.clipboard) return
-                  navigator.clipboard.writeText(googleCalendarResponseText)
-                }}
-              >
-                Скопировать
-              </button>
+              </LabeledContainer>
             </div>
-            <pre className="max-h-72 w-full overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-800">
-              {googleCalendarResponseText}
-            </pre>
+          ) : null}
+        </>
+      ),
+      transactions: (
+        <>
+          <>
+              {closeState.hasObligations ? (
+                <Notice tone="warning" role="alert" className="rounded-md">
+                  {getCloseBlockedByObligationsMessage()}
+                </Notice>
+              ) : null}
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-base font-semibold text-gray-900">
+                  Транзакции
+                </div>
+                <AddIconButton
+                  onClick={() => openTransactionModal()}
+                  disabled={clone || financeLoading}
+                  title="Добавить транзакцию"
+                  size="sm"
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </div>
+
+              {financeError && (
+                <Notice tone="error" role="alert" className="rounded-md">
+                  {financeError}
+                </Notice>
+              )}
+
+              <div className="rounded border border-gray-200 bg-white shadow-sm">
+                {eventTransactions.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-gray-500">
+                    Пока никаких транзакций не было
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                      Поступления
+                    </div>
+                    {incomeTransactions.length === 0 ? (
+                      <div className="px-3 pb-3 text-sm text-gray-500">
+                        Поступлений нет
+                      </div>
+                    ) : (
+                      incomeTransactions.map((transaction) => (
+                        <div
+                          key={transaction._id}
+                          className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
+                        >
+                          <div className="flex flex-1 flex-wrap gap-3 text-sm">
+                            <span className="font-semibold text-gray-900">
+                              {transaction.amount.toLocaleString()} руб.
+                            </span>
+                            <span className="text-emerald-700">
+                              {TRANSACTION_TYPES.find(
+                                (item) => item.value === transaction.type
+                              )?.name ?? transaction.type}
+                            </span>
+                            {transaction.category && (
+                              <span className="text-gray-600">
+                                {
+                                  TRANSACTION_CATEGORIES.find(
+                                    (item) =>
+                                      item.value === transaction.category
+                                  )?.name
+                                }
+                              </span>
+                            )}
+                            {transaction.paymentMethod ===
+                            OBLIGATION_PAYMENT_METHOD ? (
+                              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                Обязательство
+                              </span>
+                            ) : null}
+                            <span className="text-gray-600">
+                              {getTransactionDateLabel(
+                                transaction.paymentMethod
+                              )}
+                              {': '}
+                              {transaction.date
+                                ? new Date(transaction.date).toLocaleString(
+                                    'ru-RU',
+                                    {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    }
+                                  )
+                                : ''}
+                            </span>
+                            {transaction.comment && (
+                              <span className="text-gray-700">
+                                {transaction.comment}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <IconActionButton
+                              icon={faPencilAlt}
+                              onClick={() =>
+                                openTransactionModal(transaction._id)
+                              }
+                              disabled={financeLoading}
+                              title="Редактировать транзакцию"
+                              variant="warning"
+                              size="sm"
+                            />
+                            <IconActionButton
+                              icon={faTrashAlt}
+                              onClick={() =>
+                                handleDeleteTransaction(transaction._id)
+                              }
+                              disabled={financeLoading}
+                              title="Удалить транзакцию"
+                              variant="danger"
+                              size="sm"
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                      Расходы
+                    </div>
+                    {expenseTransactions.length === 0 ? (
+                      <div className="px-3 pb-3 text-sm text-gray-500">
+                        Расходов нет
+                      </div>
+                    ) : (
+                      expenseTransactions.map((transaction) => (
+                        <div
+                          key={transaction._id}
+                          className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
+                        >
+                          <div className="flex flex-1 flex-wrap gap-3 text-sm">
+                            <span className="font-semibold text-gray-900">
+                              {transaction.amount.toLocaleString()} руб.
+                            </span>
+                            <span className="text-red-700">
+                              {TRANSACTION_TYPES.find(
+                                (item) => item.value === transaction.type
+                              )?.name ?? transaction.type}
+                            </span>
+                            {transaction.category && (
+                              <span className="text-gray-600">
+                                {
+                                  TRANSACTION_CATEGORIES.find(
+                                    (item) =>
+                                      item.value === transaction.category
+                                  )?.name
+                                }
+                              </span>
+                            )}
+                            {transaction.paymentMethod ===
+                            OBLIGATION_PAYMENT_METHOD ? (
+                              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                Обязательство
+                              </span>
+                            ) : null}
+                            <span className="text-gray-600">
+                              {getTransactionDateLabel(
+                                transaction.paymentMethod
+                              )}
+                              {': '}
+                              {transaction.date
+                                ? new Date(transaction.date).toLocaleString(
+                                    'ru-RU',
+                                    {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    }
+                                  )
+                                : ''}
+                            </span>
+                            {transaction.comment && (
+                              <span className="text-gray-700">
+                                {transaction.comment}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <IconActionButton
+                              icon={faPencilAlt}
+                              onClick={() =>
+                                openTransactionModal(transaction._id)
+                              }
+                              disabled={financeLoading}
+                              title="Редактировать транзакцию"
+                              variant="warning"
+                              size="sm"
+                            />
+                            <IconActionButton
+                              icon={faTrashAlt}
+                              onClick={() =>
+                                handleDeleteTransaction(transaction._id)
+                              }
+                              disabled={financeLoading}
+                              title="Удалить транзакцию"
+                              variant="danger"
+                              size="sm"
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+          </>
+        </>
+      ),
+      google: (
+        <>
+          {googleCalendarResponseText ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm">
+                Ответ Google Calendar
+              </summary>
+              <pre className="max-h-72 overflow-auto text-xs break-words whitespace-pre-wrap">
+                {googleCalendarResponseText}
+              </pre>
+            </details>
+          ) : null}
+        </>
+      ),
+    }
+    if (useCompactForm)
+      return (
+        <>
+          <CompactEventForm
+            fields={fields}
+            errors={errors}
+            validationAttempt={validationAttempt}
+            initialTab={initialTab}
+            isClosed={isClosed}
+            isDraft={isDraft}
+            isNew={!sourceEventId}
+            selectedClient={selectedClient}
+            clientHighlighted={isAiFieldHighlighted('clientId')}
+            onSelectClient={openClientSelectModal}
+            onCreateClient={() =>
+              modalsFunc.client?.add((newClient) => {
+                if (!newClient?._id) return
+                clearAiFields('clientId')
+                setClientId(newClient._id)
+                removeError('clientId')
+              })
+            }
+            services={services ?? []}
+            servicesIds={servicesIds}
+            onRemoveService={(id) => {
+              clearAiFields('servicesIds')
+              setServicesIds((ids) => ids.filter((value) => value !== id))
+            }}
+            eventType={eventType}
+            eventDate={eventDate}
+            dateEnd={dateEnd}
+            address={address}
+            contractSum={contractSum}
+            paidAmount={sourceEventId ? incomeTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0}
+            expenseAmount={sourceEventId ? expenseTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0}
+            waitDeposit={waitDeposit}
+            depositExpectedAmount={depositExpectedAmount}
+            additionalEvents={additionalEvents}
+            otherContacts={otherContacts}
+            documents={documents}
+            statusLabel={
+              EVENT_STATUSES.find((item) => item.value === status)?.name ||
+              status
+            }
+            status={status}
+            onClearDates={() => {
+              clearAiFields('eventDate', 'dateEnd')
+              setEventDate(null)
+              setDateEnd(null)
+              removeError('eventDate')
+              removeError('dateEnd')
+            }}
+          />
+        </>
+      )
+    return (
+      <>
+        <TabContext
+          value={initialTab}
+          variant="fullWidth"
+          scrollButtons={false}
+          allowScrollButtonsMobile={false}
+        >
+          <TabPanel tabName="Общие" tabBadge={tabErrorCounts.general}>
+            <FormWrapper>
+              {fields.hints}
+              {fields.status}
+              <div className={formLockedClassName}>
+                {fields.services}
+                {fields.eventType}
+                {fields.dates}
+                {fields.address}
+                {fields.description}
+                {fields.other}
+                <ErrorsList errors={errors} />
+              </div>
+            </FormWrapper>
           </TabPanel>
-        ) : null}
-      </TabContext>
+
+          <TabPanel
+            tabName="Клиент и Контакты"
+            tabBadge={tabErrorCounts.client}
+          >
+            <FormWrapper>
+              <div className={formLockedClassName}>
+                {fields.client}
+                {fields.contacts}
+                {fields.reminders}
+              </div>
+            </FormWrapper>
+          </TabPanel>
+
+          <TabPanel tabName="Финансы и Документы">
+            <div className={`flex flex-col gap-2 ${formLockedClassName}`}>
+              {fields.finance}
+              {fields.documents}
+              {fields.proposals}
+              {fields.transactions}
+            </div>
+          </TabPanel>
+          {googleCalendarResponseText ? (
+            <TabPanel tabName="Ответ Google Calendar">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-gray-800">
+                  Ответ Google Calendar
+                </div>
+                <button
+                  type="button"
+                  className="h-8 rounded border border-gray-300 px-3 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    if (!navigator?.clipboard) return
+                    navigator.clipboard.writeText(googleCalendarResponseText)
+                  }}
+                >
+                  Скопировать
+                </button>
+              </div>
+              <pre className="max-h-72 w-full overflow-auto rounded border border-gray-200 bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-800">
+                {googleCalendarResponseText}
+              </pre>
+            </TabPanel>
+          ) : null}
+        </TabContext>
+      </>
     )
   }
 

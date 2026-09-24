@@ -9,12 +9,10 @@ import Notice from '@components/Notice'
 import SurfaceCard from '@components/SurfaceCard'
 import TextLine from '@components/TextLine'
 import formatAddress from '@helpers/formatAddress'
-import formatDateTime from '@helpers/formatDateTime'
+import { formatEventDateRange } from '@helpers/formatEventDateRange.mjs'
 import { formatMoney } from '@helpers/formatMoney'
-import formatMinutes from '@helpers/formatMinutes'
 import { formatPhoneWithPlus } from '@helpers/phoneUi'
 import getGoogleCalendarLinkFromText from '@helpers/getGoogleCalendarLinkFromText'
-import getEventDuration from '@helpers/getEventDuration'
 import getPersonFullName from '@helpers/getPersonFullName'
 import { getEventTransferDisplay } from '@helpers/eventTransferDisplay'
 import Image from 'next/image'
@@ -349,7 +347,6 @@ const eventViewFunc = (eventId, options = {}) => {
     const [pendingAdditionalEventIndex, setPendingAdditionalEventIndex] =
       useState(null)
 
-    const duration = getEventDuration(event)
     const additionalEvents = useMemo(
       () =>
         Array.isArray(event?.additionalEvents) ? event.additionalEvents : [],
@@ -432,6 +429,17 @@ const eventViewFunc = (eventId, options = {}) => {
       if (normalizedTown !== normalizedDefaultTown) return address
       return { ...address, town: '' }
     }, [event?.address, siteSettings?.defaultTown])
+    const navigationAddress =
+      event?.address?.town && event?.address?.street
+        ? encodeURIComponent(
+            [
+              `${event.address.town}, ${event.address.street}`,
+              event.address.house,
+            ]
+              .filter(Boolean)
+              .join(' ')
+          )
+        : null
 
     const updateAdditionalEvents = async (nextItems) => {
       if (!event?._id) return
@@ -607,8 +615,9 @@ const eventViewFunc = (eventId, options = {}) => {
                   </div>
                   <div className="mt-1 text-xs text-gray-500">
                     Создано:{' '}
-                    {formatDateTime(
-                      event?.requestCreatedAt ?? event?.createdAt
+                    {formatEventDateRange(
+                      event?.requestCreatedAt ?? event?.createdAt,
+                      null
                     )}
                   </div>
                 </div>
@@ -618,23 +627,11 @@ const eventViewFunc = (eventId, options = {}) => {
                   {statusMeta.label}
                 </div>
               </div>
-              <div className="tablet:grid-cols-3 mt-3 grid grid-cols-1 gap-2 text-sm">
+              <div className="mt-3 text-sm">
                 <div className="event-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
-                  <div className="text-[11px] text-gray-500">Начало</div>
+                  <div className="text-[11px] text-gray-500">Дата и время</div>
                   <div className="font-semibold text-gray-900">
-                    {formatDateTime(event?.eventDate)}
-                  </div>
-                </div>
-                <div className="event-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
-                  <div className="text-[11px] text-gray-500">Завершение</div>
-                  <div className="font-semibold text-gray-900">
-                    {formatDateTime(event?.dateEnd)}
-                  </div>
-                </div>
-                <div className="event-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
-                  <div className="text-[11px] text-gray-500">Длительность</div>
-                  <div className="font-semibold text-gray-900">
-                    {formatMinutes(duration ?? 60)}
+                    {formatEventDateRange(event?.eventDate, event?.dateEnd)}
                   </div>
                 </div>
               </div>
@@ -670,9 +667,44 @@ const eventViewFunc = (eventId, options = {}) => {
             <SectionBlock title="Подробности">
               <TextLine label="ID">{event?._id}</TextLine>
               {event?.address && (
-                <TextLine label="Адрес">
-                  {formatAddress(displayAddress, '[не указан]')}
-                </TextLine>
+                <div className="flex flex-wrap items-center gap-x-1 leading-5">
+                  <span className="font-bold">Адрес:</span>
+                  <span className="break-words">
+                    {formatAddress(displayAddress, '[не указан]')}
+                  </span>
+                  {navigationAddress && (
+                    <span className="inline-flex items-center gap-1">
+                      <a
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center"
+                        data-tip="Открыть адрес в 2ГИС"
+                        aria-label="Открыть адрес в 2ГИС"
+                        href={`https://2gis.ru/search/${navigationAddress}`}
+                      >
+                        <Image
+                          className="h-6 w-6 object-contain"
+                          src="/img/navigators/2gis.webp"
+                          alt=""
+                          width={24}
+                          height={24}
+                        />
+                      </a>
+                      <a
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center"
+                        data-tip="Открыть адрес в Яндекс Навигаторе"
+                        aria-label="Открыть адрес в Яндекс Навигаторе"
+                        href={`yandexnavi://map_search?text=${navigationAddress}`}
+                      >
+                        <Image
+                          className="h-6 w-6 object-contain"
+                          src="/img/navigators/yandex.webp"
+                          alt=""
+                          width={24}
+                          height={24}
+                        />
+                      </a>
+                    </span>
+                  )}
+                </div>
               )}
               {serviceTitles.length > 0 && (
                 <TextLine label="Услуги">{serviceTitles.join(', ')}</TextLine>
@@ -826,42 +858,6 @@ const eventViewFunc = (eventId, options = {}) => {
                     </section>
                   ))}
                 </div>
-              </SectionBlock>
-            )}
-            {event?.address && event.address?.town && event.address?.street && (
-              <SectionBlock title="Навигация">
-                <TextLine label="Ссылки для навигатора">
-                  <a
-                    data-tip="Открыть адрес в 2ГИС"
-                    href={`https://2gis.ru/search/${event.address.town},%20${
-                      event.address.street
-                    }%20${event.address.house.replaceAll('/', '%2F')}`}
-                  >
-                    <Image
-                      className="h-6 min-h-6 w-6 min-w-6 object-contain"
-                      src="/img/navigators/2gis.webp"
-                      alt="2gis"
-                      width={24}
-                      height={24}
-                    />
-                  </a>
-                  <a
-                    data-tip="Открыть адрес в Яндекс Навигаторе"
-                    href={`yandexnavi://map_search?text=${
-                      event.address.town
-                    },%20${
-                      event.address.street
-                    }%20${event.address.house.replaceAll('/', '%2F')}`}
-                  >
-                    <Image
-                      className="h-6 min-h-6 w-6 min-w-6 object-contain"
-                      src="/img/navigators/yandex.webp"
-                      alt="yandex"
-                      width={24}
-                      height={24}
-                    />
-                  </a>
-                </TextLine>
               </SectionBlock>
             )}
           </div>

@@ -233,12 +233,6 @@ export const PUT = async (req, { params }) => {
       )
     }
   }
-  if (body.eventType !== undefined && !normalizeEventType(body.eventType)) {
-    return NextResponse.json(
-      { success: false, error: 'Поле "Что за событие" обязательно' },
-      { status: 400 }
-    )
-  }
 
   const update = {}
   update.syncVersion = Number(oldEvent?.syncVersion || 1) + 1

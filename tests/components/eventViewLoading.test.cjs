@@ -42,6 +42,7 @@ const mocks = {
   '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: emptyList }) },
   '@helpers/useCopyToClipboard': (value) => React.useCallback(() => value, [value]),
   '@helpers/useWorkItemTerminology': () => eventTerms,
+  '@helpers/switchImpersonation': async () => {},
   '@helpers/workItemTerminology.mjs': {
     resolveWorkItemTerminology: () => eventTerms,
   },
@@ -69,7 +70,10 @@ function loadComponent(file) {
     if (id === '@components/CardButtons') return loadComponent('components/CardButtons.js')
     if (id === '@components/Notice') return loadComponent('components/Notice.js')
     if (id.startsWith('@components/') || id === 'next/image') return Box
-    if (id.startsWith('@helpers/')) return loadComponent(`helpers/${id.slice(9)}.js`)
+    if (id.startsWith('@helpers/')) {
+      const helperFile = `helpers/${id.slice(9)}`
+      return loadComponent(path.extname(helperFile) ? helperFile : `${helperFile}.js`)
+    }
     if (id === './CardButton') {
       return ({ tooltipText, onClick }) => React.createElement('button', { onClick }, tooltipText)
     }
@@ -104,6 +108,51 @@ test('CardButtons survives missing → loaded → removed items without changing
       assert.equal(Boolean(container.querySelector('button')), Boolean(item?._id))
     }
   } finally {
+    await React.act(async () => root.unmount())
+  }
+})
+
+test('event card menu shows edit shortcuts for the selected form', async () => {
+  const CardButtons = loadComponent('components/CardButtons.js').default
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  const item = { _id: 'event-test', status: 'active' }
+  const edit = () => {}
+  try {
+    await React.act(async () => root.render(React.createElement(CardButtons, {
+      item, typeOfItem: 'event', minimalActions: true, alwaysCompact: true,
+      onEdit: edit, onEditClientContacts: edit, onEditFinanceDocs: edit,
+    })))
+    assert.match(container.textContent, /Клиент и контакты/)
+    assert.match(container.textContent, /Финансы и документы/)
+
+    await React.act(async () => root.render(React.createElement(CardButtons, {
+      item, typeOfItem: 'event', minimalActions: true, alwaysCompact: true,
+      onEdit: edit, onEditFinanceDocs: edit, editFinanceLabel: 'Финансы',
+    })))
+    assert.doesNotMatch(container.textContent, /Клиент и контакты/)
+    assert.match(container.textContent, /Финансы/)
+    assert.doesNotMatch(container.textContent, /Финансы и документы/)
+  } finally {
+    await React.act(async () => root.unmount())
+  }
+})
+
+test('card menus have no copy ID action for developers', async () => {
+  const CardButtons = loadComponent('components/CardButtons.js').default
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  atoms.loggedUserAtom.role = 'dev'
+  try {
+    for (const typeOfItem of ['event', 'client', 'transaction', 'user']) {
+      await React.act(async () => root.render(React.createElement(CardButtons, {
+        item: { _id: 'test-id', status: 'active' }, typeOfItem,
+        alwaysCompact: true,
+      })))
+      assert.doesNotMatch(container.textContent, /Скопировать ID/)
+    }
+  } finally {
+    atoms.loggedUserAtom.role = 'user'
     await React.act(async () => root.unmount())
   }
 })
