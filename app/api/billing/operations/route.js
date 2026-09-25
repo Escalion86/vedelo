@@ -6,6 +6,7 @@ import getRequestContext from '@server/getRequestContext'
 import {
   parsePaymentHistoryLimit,
   serializePaymentHistoryItem,
+  paymentManagementActions,
 } from '@server/paymentHistory'
 import {
   buildPaymentOperationsFilter,
@@ -52,7 +53,7 @@ export const GET = async (req) => {
     Payments.countDocuments(filter),
     Payments.find(filter)
       .select(
-        'userId amount type source status purpose tariffId paidAt createdAt comment paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
+        'userId amount type source status purpose tariffId paidAt createdAt comment receiptUrl paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
       )
       .sort(getPaymentOperationsSort(params.sort))
       .skip((page - 1) * limit)
@@ -73,6 +74,7 @@ export const GET = async (req) => {
     success: true,
     data: payments.map((payment) => ({
       ...serializePaymentHistoryItem(payment),
+      management: paymentManagementActions(payment),
       user: serializePaymentOperationsUser(
         usersById.get(String(payment.userId))
       ),

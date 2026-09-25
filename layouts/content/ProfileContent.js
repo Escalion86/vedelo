@@ -5,6 +5,8 @@ import Input from '@components/Input'
 import InputImages from '@components/InputImages'
 import PhoneInput from '@components/PhoneInput'
 import compareArrays from '@helpers/compareArrays'
+import getPersonFullName from '@helpers/getPersonFullName'
+import { buildSingleNamePatch } from '@helpers/personName.mjs'
 import { DEFAULT_USER } from '@helpers/constants'
 import {
   normalizeEmailInput,
@@ -29,9 +31,7 @@ const ProfileContent = () => {
   const setUser = useAtomValue(itemsFuncAtom).user.set
   const modalsFunc = useAtomValue(modalsFuncAtom)
 
-  const [firstName, setFirstName] = useState(DEFAULT_USER.firstName)
-  const [secondName, setSecondName] = useState(DEFAULT_USER.secondName)
-  const [thirdName, setThirdName] = useState(DEFAULT_USER.thirdName)
+  const [fullName, setFullName] = useState(getPersonFullName(DEFAULT_USER))
 
   const [email, setEmail] = useState(DEFAULT_USER.email)
   const [phone, setPhone] = useState(DEFAULT_USER.phone)
@@ -46,9 +46,7 @@ const ProfileContent = () => {
 
   useEffect(() => {
     if (!loggedUser) return
-    setFirstName(loggedUser.firstName ?? DEFAULT_USER.firstName)
-    setSecondName(loggedUser.secondName ?? DEFAULT_USER.secondName)
-    setThirdName(loggedUser.thirdName ?? DEFAULT_USER.thirdName)
+    setFullName(getPersonFullName(loggedUser))
     setEmail(loggedUser.email ?? DEFAULT_USER.email)
     setPhone(loggedUser.phone ?? DEFAULT_USER.phone)
     setWhatsapp(loggedUser.whatsapp ?? DEFAULT_USER.whatsapp)
@@ -62,9 +60,7 @@ const ProfileContent = () => {
   const isFormChanged = useMemo(() => {
     if (!loggedUser) return false
     return (
-      loggedUser.firstName !== firstName ||
-      loggedUser.secondName !== secondName ||
-      loggedUser.thirdName !== thirdName ||
+      getPersonFullName(loggedUser) !== fullName ||
       loggedUser.email !== email ||
       loggedUser.phone !== phone ||
       loggedUser.whatsapp !== whatsapp ||
@@ -75,9 +71,7 @@ const ProfileContent = () => {
     )
   }, [
     loggedUser,
-    firstName,
-    secondName,
-    thirdName,
+    fullName,
     email,
     phone,
     whatsapp,
@@ -89,6 +83,10 @@ const ProfileContent = () => {
 
   const handleSave = async () => {
     if (!loggedUser || isSaving) return
+    if (!fullName.trim()) {
+      addError({ firstName: 'Укажите ФИО' })
+      return
+    }
     const normalizedPhone = normalizePhone(phone)
     if (normalizedPhone) {
       const existedUser = users.find(
@@ -116,9 +114,7 @@ const ProfileContent = () => {
     setIsSaving(true)
     const result = await setUser({
       _id: loggedUser._id,
-      firstName,
-      secondName,
-      thirdName,
+      ...buildSingleNamePatch(fullName),
       email,
       phone,
       whatsapp,
@@ -165,37 +161,17 @@ const ProfileContent = () => {
           error={errors.images}
         />
         <Input
-          label="Имя"
-          type="text"
-          value={firstName}
+          label="ФИО"
+          value={fullName}
           onChange={(value) => {
             removeError('firstName')
-            setFirstName(value)
+            setFullName(value)
           }}
           error={errors.firstName}
-          autoComplete="one-time-code"
-        />
-        <Input
-          label="Фамилия"
-          type="text"
-          value={secondName}
-          onChange={(value) => {
-            removeError('secondName')
-            setSecondName(value)
-          }}
-          error={errors.secondName}
-          autoComplete="one-time-code"
-        />
-        <Input
-          label="Отчество"
-          type="text"
-          value={thirdName}
-          onChange={(value) => {
-            removeError('thirdName')
-            setThirdName(value)
-          }}
-          error={errors.thirdName}
-          autoComplete="one-time-code"
+          showErrorText
+          required
+          fullWidth
+          autoComplete="name"
         />
         <FormWrapper grid>
           <PhoneInput
@@ -261,4 +237,3 @@ const ProfileContent = () => {
 }
 
 export default ProfileContent
-

@@ -59,6 +59,11 @@ const paymentsSchema = {
     trim: true,
     select: false,
   },
+  receiptUrl: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   idempotenceKey: {
     type: String,
     default: '',

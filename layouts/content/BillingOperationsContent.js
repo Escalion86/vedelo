@@ -17,11 +17,13 @@ import LoadingSpinner from '@components/LoadingSpinner'
 import NativeSelect from '@components/NativeSelect'
 import Notice from '@components/Notice'
 import SectionCard from '@components/SectionCard'
+import PaymentReceiptControl from '@components/PaymentReceiptControl'
 import { formatMoney } from '@helpers/formatMoney'
 import { usePaymentOperationsQuery } from '@helpers/usePaymentOperationsQuery'
 
 const CATEGORY_OPTIONS = [
   ['all', 'Все операции'],
+  ['receipt_missing', 'Без чека'],
   ['tariff', 'Тарифы'],
   ['topup', 'Пополнения'],
   ['bonus', 'Бонусы'],
@@ -86,7 +88,7 @@ const PaymentOperationRow = ({ item }) => {
   const sign = muted ? '' : item.direction === 'out' ? '−' : '+'
   return (
     <li className="ui-surface-card grid gap-3 rounded-xl p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(180px,.8fr)_auto] lg:items-center">
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex w-full min-w-0 items-start gap-3">
         <div
           className={cn(
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
@@ -99,7 +101,7 @@ const PaymentOperationRow = ({ item }) => {
         >
           <FontAwesomeIcon icon={getIcon(item)} className="h-4 w-4" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-semibold text-gray-900">{item.title}</div>
           {item.details ? (
             <div className="mt-0.5 text-sm text-gray-600">{item.details}</div>
@@ -109,6 +111,11 @@ const PaymentOperationRow = ({ item }) => {
               .filter(Boolean)
               .join(' • ')}
           </div>
+          <PaymentReceiptControl
+            item={item}
+            userId={item.user?.id}
+            canEdit={item.management?.canEditReceipt && Boolean(item.user?.id)}
+          />
         </div>
       </div>
       <div className="min-w-0 border-t border-gray-100 pt-3 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-4">

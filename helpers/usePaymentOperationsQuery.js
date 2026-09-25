@@ -21,3 +21,13 @@ export const usePaymentOperationsQuery = (filters) =>
     staleTime: 0,
     refetchOnMount: 'always',
   })
+
+export const useMissingPaymentReceiptsCountQuery = (enabled) =>
+  useQuery({
+    queryKey: queryKeys.missingPaymentReceiptsCount,
+    queryFn: () => apiJson('/api/billing/receipts/pending-count'),
+    enabled,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 15_000,
+  })

@@ -8,6 +8,52 @@ const PAYMENT_HISTORY_CATEGORIES = new Set([
 ])
 
 const PAYMENT_STATUSES = new Set(['pending', 'succeeded', 'canceled', 'failed'])
+const RECEIPT_SOURCES = new Set(['manual', 'tochka', 'yookassa'])
+
+export const buildMissingPaymentReceiptFilter = () => ({
+  type: 'topup',
+  purpose: 'balance',
+  status: 'succeeded',
+  source: { $in: [...RECEIPT_SOURCES] },
+  $or: [
+    { receiptUrl: { $exists: false } },
+    { receiptUrl: null },
+    { receiptUrl: '' },
+  ],
+})
+
+export const canAttachPaymentReceipt = (payment) =>
+  payment?.type === 'topup' &&
+  payment?.purpose === 'balance' &&
+  payment?.status === 'succeeded' &&
+  RECEIPT_SOURCES.has(payment?.source)
+
+export const normalizePaymentReceiptUrl = (value) => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.length > 2048 || /[\u0000-\u001f\u007f]/.test(trimmed))
+    return null
+  try {
+    const url = new URL(trimmed)
+    if (
+      url.protocol !== 'https:' ||
+      !url.hostname ||
+      url.username ||
+      url.password
+    )
+      return null
+    return url.href
+  } catch {
+    return null
+  }
+}
+
+export const buildPaymentReceiptFilter = ({ paymentId, user }) => ({
+  _id: paymentId,
+  userId: user._id,
+  tenantId: user.tenantId || user._id,
+})
 
 const normalizeText = (value, maxLength = 240) =>
   String(value || '')
@@ -185,6 +231,9 @@ export const serializePaymentHistoryItem = (payment) => {
     details: getPaymentDetails(payment, kind),
     sourceTitle: getSourceTitle(payment?.source),
     methodTitle: normalizeText(payment?.paymentMethodTitle, 80),
+    receiptUrl: canAttachPaymentReceipt(payment)
+      ? normalizePaymentReceiptUrl(payment?.receiptUrl) || ''
+      : '',
     occurredAt: payment?.paidAt || payment?.createdAt || null,
   }
 }
@@ -198,6 +247,7 @@ export const serializePaymentHistoryAccount = (user) => ({
 })
 
 export const paymentManagementActions = (payment) => ({
+  canEditReceipt: canAttachPaymentReceipt(payment),
   canDelete:
     payment?.status === 'succeeded' &&
     !payment?.referralRewardPending &&

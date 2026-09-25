@@ -1,5 +1,11 @@
 .root {
   display: grid;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  align-content: start;
+  overflow-y: auto;
+  overflow-x: hidden;
   gap: 18px;
   padding: 16px;
   min-width: 0;
@@ -18,6 +24,13 @@
   align-items: end;
   gap: 12px;
   flex-wrap: wrap;
+}
+.dateRange {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: min(100%, 440px);
+  min-width: 0;
 }
 .metrics {
   display: grid;
@@ -122,8 +135,9 @@
   .root {
     padding: 10px;
   }
-  .filters > div {
+  .dateRange {
     width: 100%;
+    gap: 8px;
   }
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));

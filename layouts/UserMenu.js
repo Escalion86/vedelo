@@ -298,7 +298,7 @@ const UserMenu = () => {
           <MenuItem
             href="/cabinet/profile"
             icon={faUserAlt}
-            title="Профиль"
+            title="Личный профиль"
             onClick={() => setIsUserMenuOpened(false)}
           />
           {/* {getParentDir(router.asPath) === 'cabinet' && (

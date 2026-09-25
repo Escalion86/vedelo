@@ -648,6 +648,13 @@ export const pages = [
     icon: faCog,
   },
   {
+    id: 40,
+    group: 6,
+    name: 'Личный профиль',
+    href: 'profile',
+    icon: faUser,
+  },
+  {
     id: 6,
     group: 6,
     name: 'Мои услуги',

@@ -7,6 +7,10 @@ import {
   parsePaymentHistoryCursor,
   serializePaymentHistoryItem,
   paymentManagementActions,
+  buildPaymentReceiptFilter,
+  buildMissingPaymentReceiptFilter,
+  canAttachPaymentReceipt,
+  normalizePaymentReceiptUrl,
 } from './paymentHistory.js'
 
 const USER_ID = '66a000000000000000000001'
@@ -201,6 +205,82 @@ test('удаление разрешено только завершённым р
       source: 'tochka',
       status: 'pending',
     }),
-    { canDelete: false, syncProvider: 'tochka' }
+    { canDelete: false, syncProvider: 'tochka', canEditReceipt: false }
   )
+})
+
+test('ссылку на чек можно прикрепить только к проведённому пополнению', () => {
+  const payment = {
+    type: 'topup',
+    purpose: 'balance',
+    source: 'tochka',
+    status: 'succeeded',
+    receiptUrl: 'https://receipts.example.com/check/1',
+  }
+  assert.equal(canAttachPaymentReceipt(payment), true)
+  assert.equal(paymentManagementActions(payment).canEditReceipt, true)
+  assert.equal(
+    serializePaymentHistoryItem(payment).receiptUrl,
+    payment.receiptUrl
+  )
+  assert.equal(
+    canAttachPaymentReceipt({ ...payment, status: 'pending' }),
+    false
+  )
+  assert.equal(canAttachPaymentReceipt({ ...payment, type: 'charge' }), false)
+  assert.equal(canAttachPaymentReceipt({ ...payment, source: 'system' }), false)
+  assert.equal(
+    serializePaymentHistoryItem({ ...payment, status: 'pending' }).receiptUrl,
+    ''
+  )
+})
+
+test('ссылка на чек допускает только безопасный HTTPS URL', () => {
+  assert.equal(
+    normalizePaymentReceiptUrl(' https://example.com/check '),
+    'https://example.com/check'
+  )
+  assert.equal(normalizePaymentReceiptUrl(''), '')
+  assert.equal(normalizePaymentReceiptUrl('javascript:alert(1)'), null)
+  assert.equal(normalizePaymentReceiptUrl('http://example.com/check'), null)
+  assert.equal(
+    normalizePaymentReceiptUrl('https://user:pass@example.com/check'),
+    null
+  )
+  assert.equal(normalizePaymentReceiptUrl('https://example.com/\ncheck'), null)
+})
+
+test('обновление чека фильтрует одновременно платёж, пользователя и tenant', () => {
+  const user = { _id: USER_ID, tenantId: TENANT_ID }
+  assert.deepEqual(
+    buildPaymentReceiptFilter({ paymentId: 'payment-id', user }),
+    {
+      _id: 'payment-id',
+      userId: USER_ID,
+      tenantId: TENANT_ID,
+    }
+  )
+  assert.notEqual(
+    buildPaymentReceiptFilter({
+      paymentId: 'payment-id',
+      user: { ...user, tenantId: '66a000000000000000000099' },
+    }).tenantId,
+    TENANT_ID
+  )
+})
+
+test('счётчик чеков учитывает только проведённые пополнения и старые записи без поля', () => {
+  const filter = buildMissingPaymentReceiptFilter()
+  assert.equal(filter.type, 'topup')
+  assert.equal(filter.purpose, 'balance')
+  assert.equal(filter.status, 'succeeded')
+  assert.deepEqual(
+    filter.source.$in.sort(),
+    ['manual', 'tochka', 'yookassa'].sort()
+  )
+  assert.deepEqual(filter.$or, [
+    { receiptUrl: { $exists: false } },
+    { receiptUrl: null },
+    { receiptUrl: '' },
+  ])
 })

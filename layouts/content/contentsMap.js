@@ -161,7 +161,7 @@ export const CONTENTS = Object.freeze({
   },
   profile: {
     Component: ProfileContent,
-    name: 'Профиль',
+    name: 'Личный профиль',
   },
   questionnaire: {
     Component: ProfileContent,

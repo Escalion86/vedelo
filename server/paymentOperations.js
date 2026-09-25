@@ -1,5 +1,8 @@
+import { buildMissingPaymentReceiptFilter } from './paymentHistory.js'
+
 const PAYMENT_CATEGORIES = new Set([
   'all',
+  'receipt_missing',
   'tariff',
   'topup',
   'bonus',
@@ -91,6 +94,8 @@ export const buildPaymentOperationsFilter = ({
   }
   if (category === 'refund') conditions.push({ type: 'refund' })
   if (category === 'charge') conditions.push({ type: 'charge' })
+  if (category === 'receipt_missing')
+    conditions.push(buildMissingPaymentReceiptFilter())
 
   if (dateFrom || dateTo) {
     const createdAt = {}

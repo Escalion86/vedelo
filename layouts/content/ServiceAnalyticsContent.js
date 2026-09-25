@@ -254,23 +254,29 @@ export default function ServiceAnalyticsContent({ loggedUser }) {
             update({ from: draftFrom, to: draftTo })
           }}
         >
-          <Input
-            label="С даты (UTC)"
-            type="date"
-            value={draftFrom}
-            onChange={setDraftFrom}
-            max={draftTo || today}
-            required
-          />
-          <Input
-            label="По дату (UTC)"
-            type="date"
-            value={draftTo}
-            onChange={setDraftTo}
-            min={draftFrom}
-            max={today}
-            required
-          />
+          <div className={styles.dateRange}>
+            <Input
+              label="С даты (UTC)"
+              type="date"
+              value={draftFrom}
+              onChange={setDraftFrom}
+              max={draftTo || today}
+              className="min-w-0"
+              inputClassName="min-w-0 w-full"
+              required
+            />
+            <Input
+              label="По дату (UTC)"
+              type="date"
+              value={draftTo}
+              onChange={setDraftTo}
+              min={draftFrom}
+              max={today}
+              className="min-w-0"
+              inputClassName="min-w-0 w-full"
+              required
+            />
+          </div>
           <AppButton type="submit">Применить</AppButton>
           <AppButton
             variant="secondary"

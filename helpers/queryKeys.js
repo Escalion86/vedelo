@@ -26,4 +26,5 @@ export const queryKeys = {
   supportSummary: ['supportSummary'],
   paymentHistory: (params = {}) => ['paymentHistory', params],
   paymentOperations: (params = {}) => ['paymentOperations', params],
+  missingPaymentReceiptsCount: ['missingPaymentReceiptsCount'],
 }

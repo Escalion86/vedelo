@@ -2,7 +2,13 @@ import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy'
 import { faPaste } from '@fortawesome/free-solid-svg-icons/faPaste'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
-const ClipboardActionButton = ({ action, onClick, title, large = false }) => (
+const ClipboardActionButton = ({
+  action,
+  onClick,
+  title,
+  ariaLabel = title,
+  large = false,
+}) => (
   <button
     type="button"
     className={
@@ -12,7 +18,7 @@ const ClipboardActionButton = ({ action, onClick, title, large = false }) => (
     }
     onClick={onClick}
     title={title}
-    aria-label={title}
+    aria-label={ariaLabel}
   >
     <FontAwesomeIcon
       icon={action === 'copy' ? faCopy : faPaste}

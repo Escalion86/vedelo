@@ -27,6 +27,7 @@ import tariffsAtom from '@state/atoms/tariffsAtom'
 import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
 import userEditSelector from '@state/selectors/userEditSelector'
 import ManualBalanceChargeForm from '@components/ManualBalanceChargeForm'
+import PaymentReceiptControl from '@components/PaymentReceiptControl'
 import { apiJson } from '@helpers/apiClient'
 import useSnackbar from '@helpers/useSnackbar'
 
@@ -76,7 +77,15 @@ const getOperationIcon = (kind, direction) => {
   return direction === 'out' ? faArrowUp : faArrowDown
 }
 
-const PaymentRow = ({ item, canManage, busy, onDelete, onSync }) => {
+const PaymentRow = ({
+  item,
+  userId,
+  canManage,
+  canEditReceipt,
+  busy,
+  onDelete,
+  onSync,
+}) => {
   const status = getStatusInfo(item.status)
   const isMuted = status.tone !== 'succeeded'
   const sign = isMuted ? '' : item.direction === 'out' ? '−' : '+'
@@ -86,7 +95,7 @@ const PaymentRow = ({ item, canManage, busy, onDelete, onSync }) => {
 
   return (
     <li className="ui-surface-card flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex w-full min-w-0 items-start gap-3">
         <div
           className={cn(
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
@@ -103,7 +112,7 @@ const PaymentRow = ({ item, canManage, busy, onDelete, onSync }) => {
             className="h-4 w-4"
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-semibold text-gray-900">{item.title}</div>
           {item.details ? (
             <div className="mt-0.5 text-sm leading-5 text-gray-600">
@@ -113,6 +122,11 @@ const PaymentRow = ({ item, canManage, busy, onDelete, onSync }) => {
           <div className="mt-1 text-xs text-gray-500">
             {metadata.join(' • ')}
           </div>
+          <PaymentReceiptControl
+            item={item}
+            userId={userId}
+            canEdit={canEditReceipt && item.management?.canEditReceipt}
+          />
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-4 pl-[52px] sm:flex-col sm:pl-0 sm:text-right">
@@ -201,6 +215,9 @@ const BillingHistoryContent = ({
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ['paymentHistory'] }),
       queryClient.invalidateQueries({ queryKey: ['users'] }),
+      queryClient.invalidateQueries({
+        queryKey: ['missingPaymentReceiptsCount'],
+      }),
     ])
   const handleChargeSuccess = (updatedUser) => {
     setUser({ ...accountUser, ...updatedUser })
@@ -406,7 +423,9 @@ const BillingHistoryContent = ({
                 <PaymentRow
                   key={item.id}
                   item={item}
+                  userId={userId}
                   canManage={canManage}
+                  canEditReceipt={loggedUser?.role === 'dev' && Boolean(userId)}
                   busy={busy || showCharge}
                   onDelete={deletePayment}
                   onSync={syncPayment}

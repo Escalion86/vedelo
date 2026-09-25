@@ -16,6 +16,7 @@ import { useAtom, useAtomValue } from 'jotai'
 import { additionalEventsOverdueCountAtom } from '@state/selectors/additionalEventsOverdueCountAtom'
 import ImpersonationReturnButton from '@components/ImpersonationReturnButton'
 import { useSupportSummaryQuery } from '@helpers/useSupportTickets'
+import { useMissingPaymentReceiptsCountQuery } from '@helpers/usePaymentOperationsQuery'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const menuCfg = (role, workItemTerms) => {
@@ -55,8 +56,7 @@ const menuCfg = (role, workItemTerms) => {
       }, [])
       if (pagesItems.length > 0)
         totalGroups.push({
-          name:
-            group.id === 2 ? workItemTerms.pluralCapitalized : group.name,
+          name: group.id === 2 ? workItemTerms.pluralCapitalized : group.name,
           icon: group.icon,
           items: pagesItems,
           bottom: group.bottom,
@@ -94,9 +94,12 @@ const MenuItem = ({
           <span className="text-general text-xs font-semibold">{item.num}</span>
         )}
         {typeof badge === 'number' && badge > 0 && (
-          <div className="bg-danger flex h-5 min-h-5 w-5 min-w-5 items-center justify-center rounded-full text-xs text-white">
-            {badge <= 99 ? badge : '!'}
-          </div>
+          <span
+            className="bg-danger flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs text-white"
+            aria-label={`Требуют внимания: ${badge}`}
+          >
+            {badge <= 99 ? badge : '99+'}
+          </span>
         )}
         {pending && (
           <span className="ml-auto h-2 min-h-2 w-2 min-w-2 animate-pulse rounded-full bg-white/80" />
@@ -125,6 +128,8 @@ const Menu = ({
   }
 
   useEffect(() => {
+    // Existing menu state is reset when the sidebar closes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!menuOpen) setOpenedMenuIndex(null)
   }, [menuOpen])
 
@@ -143,6 +148,11 @@ const Menu = ({
           .map((item, index) => {
             const groupIsActive = index === indexOfActiveGroup
             const isSingleItem = item.items.length === 1
+            const groupBadge = item.items.reduce(
+              (sum, subitem) =>
+                sum + Math.max(0, Number(pageBadges?.[subitem.href]) || 0),
+              0
+            )
             return (
               <div
                 className={cn('z-50 flex flex-col', {
@@ -216,15 +226,14 @@ const Menu = ({
                         )}
                       >
                         <FontAwesomeIcon icon={item.icon} size="2x" />
-                        {/* {item.items.length > 1 &&
-                          typeof groupsBadges[item.id] === 'number' &&
-                          groupsBadges[item.id] > 0 && (
-                            <div className="absolute flex items-center justify-center w-5 h-5 text-xs text-white rounded-full min-w-5 min-h-5 bg-danger -right-2 -top-1">
-                              {groupsBadges[item.id] <= 99
-                                ? groupsBadges[item.id]
-                                : '!'}
-                            </div>
-                          )} */}
+                        {groupBadge > 0 && (
+                          <span
+                            className="bg-danger absolute -top-1 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs text-white"
+                            aria-label={`Требуют внимания: ${groupBadge}`}
+                          >
+                            {groupBadge <= 99 ? groupBadge : '99+'}
+                          </span>
+                        )}
                       </div>
                       <h3 className="ml-3 flex-1 text-left font-semibold tracking-wide whitespace-nowrap uppercase">
                         {item.name}
@@ -289,6 +298,9 @@ const SideBar = ({ page }) => {
   const loggedUser = useAtomValue(loggedUserAtom)
   const overdueAdditionalCount = useAtomValue(additionalEventsOverdueCountAtom)
   const supportSummary = useSupportSummaryQuery()
+  const missingReceipts = useMissingPaymentReceiptsCountQuery(
+    loggedUser?.role === 'dev'
+  )
   const workItemTerms = useWorkItemTerminology()
   const role = loggedUser?.role ?? 'user'
   const isMobile =
@@ -325,6 +337,7 @@ const SideBar = ({ page }) => {
   useEffect(() => {
     const pageFromPath = pathname?.split('/').filter(Boolean)?.[1]
     if (!pageFromPath) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!pendingPage || pendingPage === pageFromPath) setPendingPage(null)
   }, [pathname, pendingPage])
 
@@ -374,6 +387,8 @@ const SideBar = ({ page }) => {
             pageBadges={{
               attention: overdueAdditionalCount,
               feedback: supportSummary.data?.data?.unreadCount || 0,
+              'billing-operations':
+                role === 'dev' ? missingReceipts.data?.data?.count || 0 : 0,
             }}
             impersonationActive={loggedUser?.impersonation?.active === true}
           />

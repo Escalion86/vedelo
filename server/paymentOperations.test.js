@@ -59,3 +59,19 @@ test('DTO пользователя в global-списке ограничен и�
     }
   )
 })
+
+test('фильтр без чека использует те же условия, что и бейдж', () => {
+  const params = parsePaymentOperationsParams(
+    new URLSearchParams({ category: 'receipt_missing' })
+  )
+  assert.equal(params.category, 'receipt_missing')
+  const filter = buildPaymentOperationsFilter(params)
+  assert.equal(filter.type, 'topup')
+  assert.equal(filter.status, 'succeeded')
+  assert.equal(filter.purpose, 'balance')
+  assert.deepEqual(filter.$or, [
+    { receiptUrl: { $exists: false } },
+    { receiptUrl: null },
+    { receiptUrl: '' },
+  ])
+})

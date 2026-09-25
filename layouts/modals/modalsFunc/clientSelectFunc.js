@@ -75,6 +75,7 @@ const clientSelectFunc = (onSelect, title = 'Выбор клиента', options
             large
             onClick={handlePasteSearch}
             title="Вставить из буфера обмена"
+            ariaLabel="Вставить из буфера обмена в поиск клиента"
           />
         </div>
         <button
