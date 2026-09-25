@@ -1,0 +1,1 @@
+{"duration":25,"assertions":[{"kind":"appearsBy","selector":"#hook-title","bySec":0.6},{"kind":"appearsBy","selector":"#end-url","bySec":21.4},{"kind":"before","a":"#source-calendar","b":"#import-check"},{"kind":"staysInFrame","selector":"#import-card"},{"kind":"staysInFrame","selector":"#payment-card"},{"kind":"staysInFrame","selector":"#end-url"}]}

@@ -6,6 +6,32 @@
 
 Продолжение от 2026-09-11: [параллельные платежи и начисление баланса](RELEASE_CHECK_2026-09-11.md), общий набор 24/24. Реальные платежи не выполнялись.
 
+## Проверка 25.09.2026 (1.26.1)
+
+Среда: Windows, локальная production-сборка Next.js, отдельный процесс MongoDB с вымышленными пользователями двух tenant. Внешние провайдеры и облако подменены локальным HTTP-сервером. Приложение Android не проверялось; существующий runner `tests/mobile/http.integration.test.js` использован для общих серверных и Web/PWA-проверок.
+
+- Публичный production: все 16 SEO-страниц, `robots.txt` и `sitemap.xml` прошли `npm run seo:check -- https://vedelo.ru`. Юридические страницы доступны, HTTP и www перенаправляются на HTTPS/apex. Девять проверенных защищённых API без сессии вернули 401.
+- На обоих origin доступны manifest «Ведело», `id: /`, `/sw.js` и `/service-worker.js` версии `vedelo-custom-sw-v5`. Migration status сообщает `announcement`, день 10, осталось 20 дней. Старое указание, что кампания ещё не запущена, исправлено. Установленная PWA и фактическая доставка push этим не проверены.
+- Обнаружены и исправлены в локальном коде: запрет сохранения draft с документами; потеря приватных файлов при сохранении редактора; обход тарифной проверки через legacy-массивы документов. Сервер сохраняет только storage keys, уже принадлежащие событию; foreign/anonymous запросы покрыты отрицательными тестами.
+- Обнаружено отсутствие перенаправления terminal webhook-путей Точки, ЮKassa и телефонии: GET старого `/api/billing/tochka/webhook` вернул 405 вместо redirect. Правило исправлено; тест настоящего proxy проверяет 308, сохранение пути/query на обоих legacy-host, до старта и на всех этапах кампании, а также 410 для обычного API после блокировки. Реальные webhook POST на production не отправлялись; исправление требует деплоя.
+- Последний HTTP/browser прогон: 24/24 без пропусков. Web credentials → клиент → заявка → оплаты → закрытие, tenant isolation, Public Leads/Tilda, DOCX, повторные/параллельные начисления. Браузер: Edge headless, Playwright из установленного runtime (`Browser plugin not available`), 1365×900 и 390×844. Настройка первого запуска заполнена через API только в тестовом tenant. Заявка со ссылкой → upload приватного файла в mock → открытие настоящего редактора → изменение запроса клиента → «Применить» → повторное чтение с сервера сохраняет оба документа в light/dark. Непустой кабинет, заголовки, отсутствие framework overlay и JavaScript exceptions проверены. Скриншоты и визуальная приёмка в этот прогон не входят.
+- Offline: потеря сети, replay, искусственный отказ localStorage и автоматический retry проверены; ожидаемый `ERR_CONNECTION_RESET` относится к намеренно прерванному запросу. В одном промежуточном прогоне restart/two-tab сценарий создал два клиента вместо одного; последний прогон прошёл, но причина не установлена. Надёжность этого сценария **не закрыта** и требует воспроизведения/устранения, а не только повторного зелёного прогона.
+- Реальные `mongodump`/`mongorestore` восстановили синтетическую базу: документы, BSON-типы, связи и индексы шести коллекций совпали; исходная база не изменилась. Это не проверка резервной копии production.
+- Production build и точечный ESLint исправлений прошли. Полный `npm run lint` выявил 52 ошибки и 4 предупреждения в существующей рабочей копии; требуется отдельное устранение.
+
+Команды локального повторения:
+
+```powershell
+$env:CIRCLE_NODE_TOTAL='3'
+npm run build
+$env:PLAYWRIGHT_MODULE='C:/Users/Escal/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs'
+node --test tests/mobile/http.integration.test.js
+node --test tests/server/backupRestore.integration.test.mjs
+node --test tests/components/eventDocumentsApi.test.cjs tests/components/compactEventForm.test.cjs server/eventApiNormalization.test.js helpers/eventDocuments.test.js helpers/domainMigration.test.mjs tests/server/domainMigrationProxy.test.cjs
+```
+
+Этап 2 roadmap остаётся открытым: нужен актуальный production-архив с checksum, подтверждение внешнего хранения/расписания backup, тестовый аккаунт или staging для реальных провайдеров, device QA и разбор нестабильного offline/restart. Рабочие данные не менялись. Изменения 1.26.1 не деплоились.
+
 Цель: быстро проверить production или staging-clone перед официальным анонсом. Это не заменяет автотесты, но снижает риск провала первого пользовательского сценария.
 
 ## Правила прогона

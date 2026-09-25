@@ -9,19 +9,20 @@ export const YANDEX_METRIKA_ID = Number.isSafeInteger(configuredMetrikaId)
   ? configuredMetrikaId
   : DEFAULT_YANDEX_METRIKA_ID
 
-export const ANALYTICS_CONSENT_STORAGE_KEY = 'vedelo:analytics-consent:v1'
-export const ANALYTICS_CONSENT_EVENT = 'vedelo:analytics-consent-changed'
 export const METRIKA_QUEUE_KEY = '__vedeloMetrikaGoalQueue'
 export const LEGACY_METRIKA_QUEUE_KEY = '__artistcrmMetrikaGoalQueue'
 
-export const getAnalyticsConsent = () => {
-  if (typeof window === 'undefined') return null
-  try {
-    const value = window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY)
-    return value === 'granted' || value === 'denied' ? value : null
-  } catch {
-    return null
-  }
+const PUBLIC_ANALYTICS_PREFIXES = ['/crm-', '/kak-']
+
+export const isPublicAnalyticsPath = (pathname = '') => {
+  const normalizedPath = String(pathname).split(/[?#]/, 1)[0] || '/'
+  return (
+    normalizedPath === '/' ||
+    normalizedPath === '/login' ||
+    PUBLIC_ANALYTICS_PREFIXES.some((prefix) =>
+      normalizedPath.startsWith(prefix)
+    )
+  )
 }
 
 export const isAnalyticsHost = (hostname = '') => {

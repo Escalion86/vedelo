@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getVisibleTariffFeatureRows } from './publicTariffFeatures.mjs'
+import {
+  getVisibleTariffFeatureRows,
+  isPublicTariffFeatureAvailable,
+} from './publicTariffFeatures.mjs'
 
 const featureRows = [
   { label: 'Базовая функция', included: true },
@@ -12,12 +15,43 @@ const featureRows = [
 test('скрывает функцию, которой нет ни в одном видимом тарифе', () => {
   const rows = getVisibleTariffFeatureRows(featureRows, [
     { allowDocuments: false, allowProposals: false },
-    { allowDocuments: true },
+    { allowDocuments: true, allowProposals: false },
   ])
 
   assert.deepEqual(
     rows.map((row) => row.label),
     ['Базовая функция', 'Лимит', 'Документы']
+  )
+})
+
+test('старые тарифы показывают предложения по доступу к документам, явный запрет сохраняется', () => {
+  const feature = { key: 'allowProposals' }
+  assert.equal(
+    isPublicTariffFeatureAvailable({ allowDocuments: true }, feature),
+    true
+  )
+  assert.equal(
+    isPublicTariffFeatureAvailable(
+      { allowDocuments: true, allowProposals: false },
+      feature
+    ),
+    false
+  )
+  assert.equal(
+    isPublicTariffFeatureAvailable(
+      { allowDocuments: false, allowProposals: true },
+      feature
+    ),
+    true
+  )
+  assert.ok(
+    getVisibleTariffFeatureRows(featureRows, [{ allowDocuments: true }]).some(
+      (row) => row.key === 'allowProposals'
+    )
+  )
+  assert.equal(
+    isPublicTariffFeatureAvailable({}, { key: 'allowTelegramIntegration' }),
+    false
   )
 })
 

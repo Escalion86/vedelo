@@ -6,6 +6,7 @@ import Button from '@components/Button'
 import EmptyState from '@components/EmptyState'
 import IconCheckBox from '@components/IconCheckBox'
 import SectionCard from '@components/SectionCard'
+import TariffConditions from '@components/TariffConditions'
 import tariffsAtom from '@state/atoms/tariffsAtom'
 import { PRIMARY_WEB_BILLING_PROVIDER } from '@helpers/billingProviders.mjs'
 import { isRegistrationOfferTariff } from '@helpers/tariffAccess'
@@ -256,6 +257,9 @@ const TariffSelectContent = () => {
         />
       </ContentHeader>
       <SectionCard className="min-h-0 flex-1 overflow-auto p-4">
+        {publicTariffs.length > 0 ? (
+          <TariffConditions tariffs={publicTariffs} className="mb-4" />
+        ) : null}
         {publicTariffs.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-2">
             {publicTariffs.map((tariff) => (

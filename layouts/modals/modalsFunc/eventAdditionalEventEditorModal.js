@@ -25,6 +25,7 @@ const openEventAdditionalEventEditorModal = ({
   confirmButtonName = 'Сохранить',
   declineButtonName = 'Отмена',
   introText,
+  requireScheduled = false,
 }) => {
   if (!modalsFunc?.add) return
 
@@ -42,11 +43,39 @@ const openEventAdditionalEventEditorModal = ({
     },
   }
 
-  const AdditionalEventModal = () => {
+  const AdditionalEventModal = ({ setOnConfirmFunc, closeModal }) => {
     const [localTitle, setLocalTitle] = useState(stateRef.current.title)
     const [description, setDescription] = useState(stateRef.current.description)
     const [date, setDate] = useState(stateRef.current.date)
     const [done, setDone] = useState(stateRef.current.done)
+    const [saveError, setSaveError] = useState('')
+
+    useEffect(() => {
+      if (!requireScheduled) return
+      setOnConfirmFunc(async () => {
+        if (
+          !localTitle.trim() || !date ||
+          Number.isNaN(new Date(date).getTime()) || done
+        ) {
+          setSaveError('Укажите название и дату невыполненной задачи.')
+          return
+        }
+        setSaveError('')
+        try {
+          await onConfirm({
+            ...stateRef.current,
+            title: localTitle.trim(),
+            description: description.trim(),
+            date,
+            done: false,
+            doneAt: null,
+          })
+          closeModal()
+        } catch (error) {
+          setSaveError(error?.message || 'Не удалось сохранить задачу.')
+        }
+      })
+    }, [closeModal, date, description, done, localTitle, setOnConfirmFunc])
 
     const parseDateSafe = (value) => {
       if (!value) return null
@@ -80,6 +109,9 @@ const openEventAdditionalEventEditorModal = ({
 
     return (
       <div className="mt-2 flex flex-col gap-y-2.5">
+        {saveError ? (
+          <Notice tone="error" role="alert">{saveError}</Notice>
+        ) : null}
         {introText ? (
           <Notice tone="info" className="rounded-md text-xs">
             {introText}

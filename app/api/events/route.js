@@ -108,6 +108,20 @@ export const GET = async (req) => {
     const dateTo = searchParams.get('dateTo')
     const dateRangeQuery = buildDateRangeQuery(dateFrom, dateTo)
 
+    if (scope === 'drafts') {
+      const events = await Events.find({ tenantId, status: 'draft' })
+        .sort({ createdAt: 1 })
+        .lean()
+      return NextResponse.json(
+        {
+          success: true,
+          data: events,
+          meta: { scope: 'drafts', hasMore: false, totalCount: events.length },
+        },
+        { status: 200 }
+      )
+    }
+
     if (clientId) {
       const events = await Events.find({ tenantId, clientId })
         .sort({ eventDate: -1, createdAt: -1 })
@@ -364,12 +378,6 @@ export const POST = async (req) => {
   }
   const statusValue = getStatusValue(body)
   const eventTypeValue = normalizeEventType(body?.eventType)
-  if (statusValue === 'draft' && hasDocuments(body)) {
-    return NextResponse.json(
-      { success: false, error: 'Документы недоступны для заявки' },
-      { status: 400 }
-    )
-  }
   if (!access?.allowDocuments && hasDocuments(body)) {
     return NextResponse.json(
       { success: false, error: 'Доступ к документам недоступен' },

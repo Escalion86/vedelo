@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080, height=1920">
+  <title>Ведело — магия на сцене, порядок в делах</title>
+  <script src="assets/gsap.min.js"></script>
+  <script src="assets/audio-data.js"></script>
+  <style>
+    @font-face{font-family:'Inter Tight';src:url('assets/InterTight-Regular.woff2') format('woff2');font-weight:400}
+    @font-face{font-family:'Inter Tight';src:url('assets/InterTight-Medium.woff2') format('woff2');font-weight:500}
+    @font-face{font-family:'Inter Tight';src:url('assets/InterTight-SemiBold.woff2') format('woff2');font-weight:600}
+    @font-face{font-family:'Inter Tight';src:url('assets/InterTight-Bold.woff2') format('woff2');font-weight:700 900}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#100e0b;color:#f7efe1;font-family:'Inter Tight',sans-serif}
+    #root{position:relative;width:100%;height:100%;overflow:hidden;background:#100e0b}
+    .clip{position:absolute;inset:0;overflow:hidden}
+    .scene-inner{position:absolute;inset:0}
+    .ambient{position:absolute;inset:0;background:radial-gradient(ellipse at 80% 65%,#2b2012 0%,#100e0b 64%);pointer-events:none}
+    .brand{position:absolute;top:102px;left:76px;display:flex;align-items:center;gap:20px;font-size:47px;font-weight:600;letter-spacing:-1.5px;z-index:20}
+    .brand img{width:60px;height:60px}
+    .eyebrow{position:absolute;right:76px;top:122px;color:#d5c8b2;font-size:26px;letter-spacing:3px;font-weight:500}
+    .rule{position:absolute;left:76px;right:76px;top:210px;height:2px;background:#78603d}
+    h1,h2,p{margin:0}
+    .headline{position:absolute;left:76px;top:275px;width:928px;font-size:106px;line-height:1.035;letter-spacing:-3.8px;font-weight:700}
+    .headline span{display:block;width:100%;transform:translate(var(--hf-line-x,0px),var(--hf-line-y,0px));filter:blur(var(--hf-line-blur,0px));will-change:transform,opacity}
+    .gold{color:#ebd3a5}
+    .subline{position:absolute;left:80px;top:539px;width:920px;font-size:43px;line-height:1.22;color:#d5c8b2}
+    .caption{position:absolute;left:76px;right:76px;bottom:174px;color:#d5c8b2;font-size:35px;line-height:1.32}
+    .page-num{position:absolute;right:76px;bottom:90px;font-size:25px;letter-spacing:3px;color:#bdaa8b}
+    .footer-url{position:absolute;left:76px;bottom:88px;font-size:27px;color:#d5c8b2;letter-spacing:1px}
+    .art-frame{position:absolute;left:76px;top:665px;width:928px;height:992px;overflow:hidden;border-radius:26px;border:2px solid #78603d;background:#20180f}
+    .art-frame img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;transform-origin:center top}
+    .art-vignette{position:absolute;inset:0;background:linear-gradient(0deg,rgba(16,14,11,.78),transparent 45%);pointer-events:none}
+    .note{position:absolute;display:flex;align-items:center;gap:20px;padding:25px 32px;background:#faf7f0;color:#1c1d1f;border-radius:16px;box-shadow:0 14px 42px #0008;font-size:38px;font-weight:500}
+    .note b{font-weight:700;color:#9a6b27}.note-a{top:1360px;left:111px;width:570px}.note-b{top:1495px;right:105px;width:605px}
+    .note-icon{font-size:42px;width:50px;text-align:center}
+    .source-row{position:absolute;left:76px;top:659px;width:928px;display:flex;gap:18px}
+    .source{border:2px solid #78603d;border-radius:18px;padding:24px 26px;font-size:33px;background:#231c13;line-height:1.25;font-weight:500}
+    .source:first-child{flex:1.15}.source:last-child{flex:1}
+    .source small{display:block;color:#d5c8b2;font-size:26px;margin-top:8px;font-weight:400}
+    .flow-line{position:absolute;top:800px;left:537px;height:91px;width:3px;background:#c9a86a;transform-origin:top}
+    .flow-arrow{position:absolute;top:849px;left:510px;width:61px;text-align:center;color:#ebd3a5;font-size:47px}
+    .card{position:absolute;left:76px;width:928px;border-radius:26px;background:#faf7f0;color:#1c1d1f;box-shadow:0 22px 65px #0004;overflow:hidden}
+    .import-card{top:932px;height:570px;padding:38px 42px}
+    .card-header{display:flex;align-items:center;justify-content:space-between;font-size:31px;line-height:1.2;color:#66563e;margin-bottom:35px}
+    .pill{font-size:27px;font-weight:600;background:#f2dfb9;border:1px solid #dbbf8d;border-radius:24px;color:#614417;padding:10px 22px}
+    .card h3{font-size:54px;line-height:1.12;letter-spacing:-1px;margin:0 0 30px;font-weight:700}
+    .data-row{display:flex;align-items:center;justify-content:space-between;padding:21px 0;border-top:1px solid #d9cfbb;font-size:34px}
+    .data-row .label{color:#675e4e}.data-row strong{font-weight:600}
+    .checked{position:absolute;left:118px;top:1528px;width:844px;padding:25px 26px;border-radius:18px;background:#2d382b;color:#e9f2e4;font-size:36px;display:flex;align-items:center;gap:20px}
+    .check-icon{width:42px;height:42px;border-radius:50%;background:#ddedcf;color:#274522;display:flex;align-items:center;justify-content:center;font-size:30px;flex:none}
+    .fineprint{font-size:28px;color:#d5c8b2;line-height:1.3}
+    .payment-card{top:672px;height:801px;padding:42px}
+    .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:20px;font-size:32px;color:#675e4e}
+    .price-row strong{font-size:43px;color:#1c1d1f;font-weight:500}
+    .divider{height:1px;background:#d9cfbb;margin:30px 0}
+    .money-label{font-size:32px;color:#675e4e;margin-bottom:10px}
+    .money{font-size:95px;line-height:1.1;font-weight:700;letter-spacing:-3px}
+    .paid{display:flex;align-items:center;gap:15px;font-size:33px;color:#31582a;margin-top:21px}
+    .progress-track{position:relative;width:100%;height:14px;background:#e6dfd0;border-radius:10px;margin-top:30px;overflow:hidden}
+    .progress-fill{width:25%;height:14px;background:#9a6b27;transform-origin:left}
+    .reminder{position:absolute;left:76px;top:1510px;width:928px;border-radius:22px;padding:28px 34px;background:#e8d2a9;color:#362713;display:flex;gap:24px;align-items:center}
+    .reminder strong{display:block;font-size:39px;line-height:1.2;font-weight:600}.reminder small{display:block;font-size:30px;line-height:1.2;margin-top:8px}
+    .reminder-icon{width:62px;height:62px;flex:none;border:2px solid #70572f;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px}
+    .doc-panel{position:absolute;left:112px;top:671px;width:856px;height:953px;background:#faf7f0;color:#1c1d1f;border-radius:12px;padding:60px;box-shadow:22px 28px 0 #3d2d19,0 26px 65px #0005}
+    .doc-meta{font-size:26px;letter-spacing:2px;color:#6f614c;border-bottom:2px solid #9a6b27;padding-bottom:26px}
+    .doc-title{font-size:67px;letter-spacing:1px;font-weight:700;margin-top:45px}
+    .doc-sub{font-size:31px;line-height:1.3;margin-top:12px;color:#675e4e}
+    .doc-grid{margin-top:50px}
+    .doc-field{padding:20px 24px;background:#f1e5cc;border-left:4px solid #9a6b27;margin-bottom:18px;border-radius:0 8px 8px 0}
+    .doc-field small{display:block;font-size:27px;color:#675e4e;margin-bottom:8px}.doc-field strong{display:block;font-size:37px;font-weight:500;line-height:1.15}
+    .doc-lines{display:flex;flex-direction:column;gap:13px;margin-top:30px}
+    .doc-lines i{height:6px;background:#cfc6b3;border-radius:4px;display:block}.doc-lines i:last-child{width:66%}
+    .doc-status{position:absolute;left:174px;top:1545px;width:730px;display:flex;gap:18px;align-items:center;padding:20px 26px;background:#2d382b;color:#e9f2e4;font-size:33px;border-radius:16px}
+    .end .headline{top:270px;font-size:98px}.end .art-frame{top:557px;height:871px}
+    .end .art-frame img{object-position:center top}
+    .end-brand{position:absolute;top:1476px;left:76px;display:flex;align-items:center;gap:24px;font-size:90px;font-weight:700;letter-spacing:-3px}
+    .end-brand img{width:103px;height:103px}
+    .end-cta{position:absolute;left:76px;top:1624px;font-size:40px;line-height:1.3;color:#f7efe1}
+    .end-url{position:absolute;left:76px;top:1710px;display:flex;align-items:center;justify-content:space-between;width:928px;padding-top:27px;border-top:2px solid #78603d;color:#ebd3a5;font-size:69px;font-weight:600;letter-spacing:-1px}
+    .end-url .arrow{font-size:65px;font-weight:400}
+    .edge-light{position:absolute;inset:33px;border:1px solid #78603d;border-radius:6px;opacity:.22;pointer-events:none}
+    .illustration-label{position:absolute;right:76px;bottom:91px;font-size:24px;color:#bdaa8b}
+  </style>
+</head>
+<body>
+<div data-hf-id="hf-6flz" id="root" data-composition-id="vedelo" data-width="1080" data-height="1920" data-duration="25">
+  <div data-hf-id="hf-ij6x" class="ambient" data-layout-ignore=""></div>
+  <div data-hf-id="hf-805p" class="edge-light" data-layout-ignore=""></div>
+  <section data-hf-id="hf-02dz" id="scene-hook" class="clip" data-start="0" data-duration="4.39" data-track-index="1">
+    <div data-hf-id="hf-r10z" class="scene-inner" id="hook-inner">
+      <div data-hf-id="hf-h8c0" class="brand"><img data-hf-id="hf-4k4p" src="assets/vedelo-mark.svg" alt="">Ведело</div><div data-hf-id="hf-3ume" class="eyebrow">ДЛЯ ФОКУСНИКОВ</div><div data-hf-id="hf-a46i" class="rule"></div>
+      <h1 data-hf-id="hf-ig74" class="headline" id="hook-title"><span data-hf-id="hf-zj7e">Заказы —</span><span data-hf-id="hf-i1zq" class="gold">в календаре?</span></h1>
+      <p data-hf-id="hf-zxsl" class="subline" id="hook-sub">А детали — в голове?</p>
+      <div data-hf-id="hf-79uf" class="art-frame"><img data-hf-id="hf-efwc" id="before-art" src="assets/magician-before.png" alt="Фокусник проверяет сообщения"><div data-hf-id="hf-794m" class="art-vignette"></div></div>
+      <div data-hf-id="hf-8086" class="note note-a" id="note-a"><span data-hf-id="hf-qw2y" class="note-icon">↗</span><span data-hf-id="hf-6xi8">Кому <b data-hf-id="hf-fcpx">перезвонить?</b></span></div>
+      <div data-hf-id="hf-v6ca" class="note note-b" id="note-b"><span data-hf-id="hf-5dcc" class="note-icon">₽</span><span data-hf-id="hf-rfpw">Кто внёс <b data-hf-id="hf-69mp">задаток?</b></span></div>
+      <div data-hf-id="hf-upvl" class="footer-url">vedelo.ru</div><div data-hf-id="hf-ahmr" class="page-num">01 / 05</div>
+    </div>
+  </section>
+  <section data-hf-id="hf-ajcq" id="scene-import" class="clip" data-start="4.39" data-duration="5.44" data-track-index="1">
+    <div data-hf-id="hf-gyxd" class="scene-inner" id="import-inner">
+      <div data-hf-id="hf-mo20" class="brand"><img data-hf-id="hf-qk0t" src="assets/vedelo-mark.svg" alt="">Ведело</div><div data-hf-id="hf-zcct" class="eyebrow">ПЕРЕНОС ЗАПИСЕЙ</div><div data-hf-id="hf-ya9a" class="rule"></div>
+      <h2 data-hf-id="hf-lcnj" class="headline" id="import-title"><span data-hf-id="hf-ahl4">Перенесите</span><span data-hf-id="hf-yjcz" class="gold">записи в Ведело</span></h2>
+      <p data-hf-id="hf-5pd8" class="subline" id="import-sub">Начните с того, что уже записано.</p>
+      <div data-hf-id="hf-yqbw" class="source-row"><div data-hf-id="hf-wean" class="source" id="source-calendar">Google Календарь<small data-hf-id="hf-j0ws">Выберите выступления</small></div><div data-hf-id="hf-30jo" class="source" id="source-file">Таблицы и текст<small data-hf-id="hf-jvdo">XLSX · CSV · TXT · DOCX</small></div></div>
+      <div data-hf-id="hf-6x4s" class="flow-line" id="flow-line"></div><div data-hf-id="hf-ckkj" class="flow-arrow" id="flow-arrow">↓</div>
+      <div data-hf-id="hf-s46w" class="card import-card" id="import-card">
+        <div data-hf-id="hf-89q4" class="card-header"><span data-hf-id="hf-dohk">ИМПОРТ ЗАКАЗА</span><span data-hf-id="hf-s15p" class="pill">Черновик</span></div>
+        <h3 data-hf-id="hf-397u">Шоу на празднике</h3>
+        <div data-hf-id="hf-255z" class="data-row"><span data-hf-id="hf-ixka" class="label">Клиент</span><strong data-hf-id="hf-67up">Алексей Смирнов</strong></div>
+        <div data-hf-id="hf-7whz" class="data-row"><span data-hf-id="hf-2jx7" class="label">Дата</span><strong data-hf-id="hf-4dwm">12 октября · 18:00</strong></div>
+        <div data-hf-id="hf-7i6y" class="data-row"><span data-hf-id="hf-rzuf" class="label">Программа</span><strong data-hf-id="hf-bkps">Сценическое шоу</strong></div>
+      </div>
+      <div data-hf-id="hf-lwgh" class="checked" id="import-check"><span data-hf-id="hf-jguk" class="check-icon">✓</span><span data-hf-id="hf-li1q">Проверьте — и сохраните</span></div>
+      <p data-hf-id="hf-r8ee" class="caption fineprint">ИИ помогает разобрать записи. Доступ зависит от тарифа, ИИ оплачивается отдельно.</p>
+      <div data-hf-id="hf-cpzp" class="footer-url">vedelo.ru</div><div data-hf-id="hf-owco" class="illustration-label">Иллюстрация функций</div>
+    </div>
+  </section>
+  <section data-hf-id="hf-5r9q" id="scene-money" class="clip" data-start="9.83" data-duration="4.37" data-track-index="1">
+    <div data-hf-id="hf-ogt4" class="scene-inner" id="money-inner">
+      <div data-hf-id="hf-lh4x" class="brand"><img data-hf-id="hf-rqxw" src="assets/vedelo-mark.svg" alt="">Ведело</div><div data-hf-id="hf-obje" class="eyebrow">ОПЛАТЫ И ДЕЛА</div><div data-hf-id="hf-yokb" class="rule"></div>
+      <h2 data-hf-id="hf-yrhm" class="headline" id="money-title"><span data-hf-id="hf-tgiq">Задатки</span><span data-hf-id="hf-sqph" class="gold">под контролем</span></h2>
+      <p data-hf-id="hf-tsjm" class="subline" id="money-sub">Видно, сколько осталось получить.</p>
+      <div data-hf-id="hf-7hbc" class="card payment-card" id="payment-card">
+        <div data-hf-id="hf-1tbo" class="card-header"><span data-hf-id="hf-rvl1">12 ОКТЯБРЯ · 18:00</span><span data-hf-id="hf-6srg" class="pill">Подтверждено</span></div>
+        <h3 data-hf-id="hf-s7ji">Шоу на празднике</h3>
+        <div data-hf-id="hf-hgwc" class="price-row"><span data-hf-id="hf-k68j">Стоимость</span><strong data-hf-id="hf-2llb">20 000 ₽</strong></div>
+        <div data-hf-id="hf-jk23" class="divider"></div>
+        <div data-hf-id="hf-bqqo" class="money-label">Осталось получить</div><div data-hf-id="hf-dpla" class="money" id="money-amount">15 000 ₽</div>
+        <div data-hf-id="hf-4itu" class="paid" id="paid"><span data-hf-id="hf-3rxg" class="check-icon">✓</span><span data-hf-id="hf-lvlc">Задаток внесён · 5 000 ₽</span></div>
+        <div data-hf-id="hf-lxwj" class="progress-track"><div data-hf-id="hf-cq24" class="progress-fill" id="progress-fill"></div></div>
+      </div>
+      <div data-hf-id="hf-hbr6" class="reminder" id="reminder"><span data-hf-id="hf-5uoc" class="reminder-icon">↗</span><div data-hf-id="hf-yeow"><strong data-hf-id="hf-p2s7">Уточнить детали</strong><small data-hf-id="hf-y7id">Напоминание · завтра</small></div></div>
+      <div data-hf-id="hf-dwws" class="footer-url">vedelo.ru</div><div data-hf-id="hf-q5vk" class="illustration-label">Иллюстрация функций</div>
+    </div>
+  </section>
+  <section data-hf-id="hf-rhry" id="scene-doc" class="clip" data-start="14.2" data-duration="5.46" data-track-index="1">
+    <div data-hf-id="hf-h1h2" class="scene-inner" id="doc-inner">
+      <div data-hf-id="hf-lvfy" class="brand"><img data-hf-id="hf-rcmv" src="assets/vedelo-mark.svg" alt="">Ведело</div><div data-hf-id="hf-pam1" class="eyebrow">ДОКУМЕНТЫ</div><div data-hf-id="hf-z2vc" class="rule"></div>
+      <h2 data-hf-id="hf-8z5o" class="headline" id="doc-head"><span data-hf-id="hf-bj3a">Договор</span><span data-hf-id="hf-mzrk" class="gold">по шаблону</span></h2>
+      <p data-hf-id="hf-pqlz" class="subline" id="doc-sub">Данные клиента и выступления — внутри.</p>
+      <div data-hf-id="hf-jtbq" class="doc-panel" id="document">
+        <div data-hf-id="hf-3bg8" class="doc-meta">ВАШ ШАБЛОН · DOCX</div>
+        <div data-hf-id="hf-in70" class="doc-title">ДОГОВОР</div><div data-hf-id="hf-pytl" class="doc-sub">на проведение выступления</div>
+        <div data-hf-id="hf-jom7" class="doc-grid">
+          <div data-hf-id="hf-2aht" class="doc-field" id="doc-client"><small data-hf-id="hf-q6lh">Заказчик</small><strong data-hf-id="hf-hxlh">Алексей Смирнов</strong></div>
+          <div data-hf-id="hf-bcxs" class="doc-field" id="doc-date"><small data-hf-id="hf-mk3y">Дата и время</small><strong data-hf-id="hf-cqga">12 октября · 18:00</strong></div>
+          <div data-hf-id="hf-tht7" class="doc-field" id="doc-price"><small data-hf-id="hf-j2k8">Стоимость выступления</small><strong data-hf-id="hf-f4z3">20 000 ₽</strong></div>
+        </div>
+        <div data-hf-id="hf-b8x5" class="doc-lines" data-layout-ignore=""><i data-hf-id="hf-wt6k"></i><i data-hf-id="hf-zeb8"></i><i data-hf-id="hf-y7e5"></i></div>
+      </div>
+      <div data-hf-id="hf-j4h6" class="doc-status" id="doc-status"><span data-hf-id="hf-2l0d" class="check-icon">✓</span><span data-hf-id="hf-avnx">Данные подставлены</span></div>
+      <p data-hf-id="hf-h6zm" class="caption" style="font-size:34px">Сформируйте и скачайте документ.</p>
+      <div data-hf-id="hf-dilr" class="footer-url">vedelo.ru</div><div data-hf-id="hf-oyyh" class="illustration-label">Иллюстрация функций</div>
+    </div>
+  </section>
+  <section data-hf-id="hf-3gas" id="scene-end" class="clip end" data-start="19.66" data-duration="5.34" data-track-index="1">
+    <div data-hf-id="hf-ja53" class="scene-inner" id="end-inner">
+      <div data-hf-id="hf-zg6o" class="brand" style="font-size:32px;letter-spacing:2px;top:116px">CRM ДЛЯ ВАШЕГО ДЕЛА</div><div data-hf-id="hf-5ayy" class="eyebrow">ДЛЯ ФОКУСНИКОВ</div><div data-hf-id="hf-waq5" class="rule"></div>
+      <h2 data-hf-id="hf-ey3d" class="headline" id="end-title"><span data-hf-id="hf-ai6u">Магия — на сцене.</span><span data-hf-id="hf-byjq" class="gold">Порядок — в делах.</span></h2>
+      <div data-hf-id="hf-inx3" class="art-frame"><img data-hf-id="hf-op20" id="after-art" src="assets/magician-after-four-aces.png" alt="Фокусник показывает четыре туза в веере карт"><div data-hf-id="hf-f2oq" class="art-vignette"></div></div>
+      <div data-hf-id="hf-wcqr" class="end-brand" id="end-brand"><img data-hf-id="hf-sjjy" src="assets/vedelo-mark.svg" alt="">Ведело</div>
+      <p data-hf-id="hf-ce53" class="end-cta" id="end-cta">Попробуйте на ближайшем заказе</p>
+      <div data-hf-id="hf-ctbg" class="end-url" id="end-url"><span data-hf-id="hf-9ftl">vedelo.ru</span><span data-hf-id="hf-wd5l" class="arrow">↗</span></div>
+    </div>
+  </section>
+  <audio data-hf-id="hf-keuf" id="music" src="assets/music.mp3" data-start="0" data-duration="25" data-track-index="10" data-volume="0.33"></audio>
+  <audio data-hf-id="hf-b7ce" id="card-sound-a" src="assets/card.ogg" data-start="0.65" data-duration="0.5" data-track-index="11" data-volume="0.28"></audio>
+  <audio data-hf-id="hf-8tkf" id="card-sound-b" src="assets/card.ogg" data-start="5.34" data-duration="0.5" data-track-index="12" data-volume="0.28"></audio>
+  <audio data-hf-id="hf-b8n6" id="click-sound" src="assets/click.ogg" data-start="7.09" data-duration="0.1" data-track-index="13" data-volume="0.45"></audio>
+  <audio data-hf-id="hf-1sme" id="doc-sound" src="assets/card.ogg" data-start="14.73" data-duration="0.5" data-track-index="14" data-volume="0.27"></audio>
+  <audio data-hf-id="hf-0mfz" id="end-sound" src="assets/soft.ogg" data-start="19.66" data-duration="0.2" data-track-index="15" data-volume="0.35"></audio>
+</div>
+<script>
+  const tl = gsap.timeline({paused:true});
+  // Adapted Hyperframes catalog primitive: line-by-line-slide.
+  function title(selector,at){
+    tl.fromTo(selector+' span',{opacity:0,'--hf-line-x':'-36px','--hf-line-y':'18px','--hf-line-blur':'6px'},
+      {opacity:1,'--hf-line-x':'0px','--hf-line-y':'0px','--hf-line-blur':'0px',duration:.44,stagger:.1,ease:'power3.out'},at);
+  }
+  function enter(selector,at,from={}){
+    tl.fromTo(selector,{opacity:0,y:36,...from},{opacity:1,y:0,x:0,scale:1,rotation:0,duration:.56,ease:'power3.out'},at);
+  }
+  function leave(selector,at){tl.to(selector,{opacity:0,y:-20,duration:.20,ease:'power2.in'},at);}
+  title('#hook-title',0);enter('#hook-sub',.25);
+  tl.fromTo('#before-art',{scale:1.02},{scale:1.12,duration:4.39,ease:'none'},0);
+  enter('#note-a',.65,{x:-70,y:0,rotation:-4});enter('#note-b',1.35,{x:60,y:0,rotation:3});
+  leave('#hook-inner',4.19);
+  // beat-grid: source cards at 4.91 and 5.34 seconds.
+  title('#import-title',4.39);enter('#import-sub',4.56);
+  enter('#source-calendar',4.91,{x:-45,y:0});enter('#source-file',5.34,{x:45,y:0});
+  tl.fromTo('#flow-line',{scaleY:0},{scaleY:1,duration:.4,ease:'power2.out'},5.75);enter('#flow-arrow',5.85);
+  enter('#import-card',6,{scale:.94,y:60});enter('#import-check',7.09,{x:30,y:0});
+  leave('#import-inner',9.63);
+  title('#money-title',9.83);enter('#money-sub',10.04);enter('#payment-card',10.14,{scale:.96,y:45});
+  // beat-locked: payment reveal on 10.93s strong cue.
+  enter('#money-amount',10.93,{scale:.93,y:0});enter('#paid',11.15,{x:-20,y:0});
+  tl.fromTo('#progress-fill',{scaleX:0},{scaleX:1,duration:.8,ease:'power2.out'},11.15);
+  enter('#reminder',11.65,{x:70,y:0});leave('#money-inner',14.00);
+  title('#doc-head',14.2);enter('#doc-sub',14.42);enter('#document',14.73,{rotation:3,scale:.94,y:45});
+  // beat-grid: data entries at 15.29, 15.84, 16.38, held through 19.46.
+  enter('#doc-client',15.29,{x:-28,y:0});enter('#doc-date',15.84,{x:-28,y:0});enter('#doc-price',16.38,{x:-28,y:0});
+  enter('#doc-status',17.47,{scale:.95,y:20});leave('#doc-inner',19.46);
+  // beat-locked: 19.66s strong cue, final hero settles then CTA holds.
+  title('#end-title',19.66);tl.fromTo('#after-art',{scale:1.1},{scale:1.02,duration:5.34,ease:'power1.out'},19.66);
+  enter('#end-brand',20.19,{y:30});enter('#end-cta',20.55);enter('#end-url',20.75,{y:20});
+  // Precomputed audio bands; only the decorative frame reacts, never the text.
+  if(window.AUDIO_DATA){
+    for(let f=0;f<Math.min(750,AUDIO_DATA.frames.length);f++){
+      const opacity=.22+Number(AUDIO_DATA.frames[f].bands[0]||0)*.22;
+      tl.set('.edge-light',{opacity},f/30);
+    }
+  }
+  window.__timelines=window.__timelines||{};
+  window.__timelines['vedelo']=tl;
+</script>
+</body>
+</html>

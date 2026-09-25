@@ -7,6 +7,7 @@ import getRequestContext from '@server/getRequestContext'
 import {
   canAttachPaymentReceipt,
   buildPaymentReceiptFilter,
+  buildReceiptablePaymentFilter,
   normalizePaymentReceiptUrl,
 } from '@server/paymentHistory'
 
@@ -68,7 +69,7 @@ export const PATCH = async (req, { params }) => {
     return NextResponse.json(
       {
         success: false,
-        error: 'Чек можно добавить только к проведённому пополнению баланса',
+        error: 'Чек можно добавить только к проведённому поступлению средств',
       },
       { status: 409 }
     )
@@ -77,10 +78,7 @@ export const PATCH = async (req, { params }) => {
   const updated = await Payments.findOneAndUpdate(
     {
       ...filter,
-      type: 'topup',
-      purpose: 'balance',
-      status: 'succeeded',
-      source: { $in: ['manual', 'tochka', 'yookassa'] },
+      ...buildReceiptablePaymentFilter(),
     },
     { $set: { receiptUrl } },
     { returnDocument: 'after', runValidators: true }

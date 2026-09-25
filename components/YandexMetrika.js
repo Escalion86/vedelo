@@ -1,16 +1,17 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import {
-  ANALYTICS_CONSENT_EVENT,
   LEGACY_METRIKA_QUEUE_KEY,
   METRIKA_QUEUE_KEY,
   YANDEX_METRIKA_ID,
-  getAnalyticsConsent,
   isAnalyticsHost,
+  isPublicAnalyticsPath,
 } from '@helpers/metrikaConfig.mjs'
 
 const INITIALIZED_KEY = '__vedeloMetrikaInitialized'
+const LAST_HIT_KEY = '__vedeloMetrikaLastPublicHit'
 
 const flushGoalQueue = () => {
   const goals = [METRIKA_QUEUE_KEY, LEGACY_METRIKA_QUEUE_KEY].flatMap((key) =>
@@ -49,31 +50,38 @@ const initializeMetrika = () => {
   }
 
   window.ym(YANDEX_METRIKA_ID, 'init', {
+    defer: true,
     ssr: true,
-    clickmap: true,
-    ecommerce: 'dataLayer',
-    referrer: document.referrer,
-    url: window.location.href,
     accurateTrackBounce: true,
-    trackLinks: true,
+    clickmap: false,
+    ecommerce: false,
+    sendTitle: false,
+    trackLinks: false,
+    webvisor: false,
   })
-  flushGoalQueue()
 }
 
 const YandexMetrika = () => {
+  const pathname = usePathname()
+
   useEffect(() => {
     if (!isAnalyticsHost(window.location.hostname)) return undefined
-
-    const activateWhenAllowed = () => {
-      if (getAnalyticsConsent() === 'granted') initializeMetrika()
+    if (!isPublicAnalyticsPath(pathname)) {
+      window[LAST_HIT_KEY] = null
+      return undefined
     }
 
-    activateWhenAllowed()
-    window.addEventListener(ANALYTICS_CONSENT_EVENT, activateWhenAllowed)
-    return () => {
-      window.removeEventListener(ANALYTICS_CONSENT_EVENT, activateWhenAllowed)
+    initializeMetrika()
+    const url = window.location.href
+    if (window[LAST_HIT_KEY] !== url) {
+      window[LAST_HIT_KEY] = url
+      window.ym(YANDEX_METRIKA_ID, 'hit', url, {
+        referrer: document.referrer,
+      })
     }
-  }, [])
+    flushGoalQueue()
+    return undefined
+  }, [pathname])
 
   return null
 }

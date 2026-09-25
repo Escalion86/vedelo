@@ -747,7 +747,10 @@ const eventFunc = (
         typeof contractSum === 'number' && !Number.isNaN(contractSum)
           ? contractSum
           : 0
-      const normalizedDocuments = normalizeEventDocuments(documents)
+      // При сохранении сервер повторно проверяет принадлежность storageKey.
+      const normalizedDocuments = normalizeEventDocuments(documents, {
+        trustStorageKey: true,
+      })
       const normalizedOtherContacts = normalizeOtherContacts(otherContacts)
         .map((item) => ({
           clientId: item.clientId ?? null,

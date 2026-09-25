@@ -22,7 +22,11 @@ import { getServerSession } from 'next-auth'
 import authOptions from './api/auth/[...nextauth]/_options'
 import { redirect } from 'next/navigation'
 import { BRAND, getCanonicalBaseUrl } from '@helpers/brand.mjs'
-import { getVisibleTariffFeatureRows } from '@helpers/publicTariffFeatures.mjs'
+import {
+  getVisibleTariffFeatureRows,
+  isPublicTariffFeatureAvailable,
+} from '@helpers/publicTariffFeatures.mjs'
+import TariffConditions from '@components/TariffConditions'
 
 const normalizedSiteUrl = getCanonicalBaseUrl(process.env.DOMAIN)
 const homeUrl = `${normalizedSiteUrl}/`
@@ -193,7 +197,7 @@ const tariffFeatureRows = [
   { label: 'Работа с заявками и заказами', included: true },
   { label: 'Клиентская база', included: true },
   { label: 'Учёт оплат и расходов', included: true },
-  { label: 'Заказов в месяц', type: 'eventsLimit' },
+  { label: 'Новых заявок и заказов в месяц', type: 'eventsLimit' },
   { label: 'Синхронизация с Google Календарём', key: 'allowCalendarSync' },
   { label: 'Статистика и аналитика', key: 'allowStatistics' },
   { label: 'Договоры, акты и документы', key: 'allowDocuments' },
@@ -202,6 +206,7 @@ const tariffFeatureRows = [
   { label: 'ИИ-возможности', key: 'allowAi' },
   { label: 'Интеграция с Avito', key: 'allowAvitoIntegration' },
   { label: 'Интеграция с VK', key: 'allowVkIntegration' },
+  { label: 'Telegram Business', key: 'allowTelegramIntegration' },
   { label: 'Подключение сайта по API', key: 'allowPublicLeadApi' },
 ]
 
@@ -484,8 +489,7 @@ function TariffComparison({ tariffs }) {
                       </td>
                     )
                   }
-                  const available =
-                    feature.included || Boolean(tariff?.[feature.key])
+                  const available = isPublicTariffFeatureAvailable(tariff, feature)
                   return (
                     <td key={String(tariff._id)}>
                       <TariffAvailability available={available} />
@@ -544,8 +548,7 @@ function TariffComparison({ tariffs }) {
               <div className="landing-tariff-mobile-body">
                 <dl>
                   {visibleFeatureRows.map((feature) => {
-                    const available =
-                      feature.included || Boolean(tariff?.[feature.key])
+                    const available = isPublicTariffFeatureAvailable(tariff, feature)
                     return (
                       <div key={feature.label}>
                         <dt>{feature.label}</dt>
@@ -587,6 +590,7 @@ function TariffComparison({ tariffs }) {
           )
         })}
       </div>
+      <TariffConditions tariffs={tariffs} className="mt-4" />
     </>
   )
 }

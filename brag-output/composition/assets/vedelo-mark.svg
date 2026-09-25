@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Ведело</title>
+  <desc id="desc">Цельный силуэт кириллической буквы В с вырезанной галочкой выполненного дела</desc>
+  <defs>
+    <linearGradient id="bronze" x1="112" y1="80" x2="404" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c39656"/>
+      <stop offset=".52" stop-color="#a56f2a"/>
+      <stop offset="1" stop-color="#7d511c"/>
+    </linearGradient>
+    <mask id="check-cutout" maskUnits="userSpaceOnUse" x="80" y="48" width="360" height="416">
+      <rect x="80" y="48" width="360" height="416" fill="#fff"/>
+      <path d="m151 260 59 58 105-116" fill="none" stroke="#000" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="124" fill="#faf6ed"/>
+  <path d="M112 80h158c74 0 118 34 118 92 0 30-15 53-46 68l-100 82-130-115V80Zm0 122 133 113 54-52c64 9 105 47 105 95 0 50-52 74-140 74H112V202Z" fill="url(#bronze)" mask="url(#check-cutout)"/>
+</svg>

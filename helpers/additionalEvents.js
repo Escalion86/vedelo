@@ -29,6 +29,23 @@ const startOfDay = (date) =>
 const endOfDay = (date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
 
+// A dated overdue task already belongs to the overdue section. Do not create
+// a second warning for it; completed and undated tasks do not define a next step.
+export const getRequestsWithoutNextStep = (events) =>
+  (Array.isArray(events) ? events : [])
+    .filter(
+      (event) =>
+        event?.status === 'draft' &&
+        !(
+          Array.isArray(event.additionalEvents) ? event.additionalEvents : []
+        ).some((item) => item && !item.done && toDate(item.date))
+    )
+    .sort(
+      (a, b) =>
+        (toDate(a.requestCreatedAt || a.createdAt)?.getTime() ?? 0) -
+        (toDate(b.requestCreatedAt || b.createdAt)?.getTime() ?? 0)
+    )
+
 const ADDITIONAL_EVENTS_DISPLAY_GROUPS = Object.freeze([
   { key: 'overdue', label: 'Просрочено' },
   { key: 'today', label: 'Сегодня' },

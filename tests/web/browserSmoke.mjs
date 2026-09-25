@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { pathToFileURL } from 'node:url'
 import { runOfflineSmoke } from './offlineSmoke.mjs'
+import { runAttachmentSmoke } from './attachmentSmoke.mjs'
 
 // Не требует Playwright в production dependencies. Передаётся путь к уже
 // установленному модулю; отсутствие модуля явно отмечается runner как skip.
@@ -26,7 +27,7 @@ export const runBrowserSmoke = async ({ baseUrl, phone, password }) => {
           }
         })
         await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded' })
-        assert.match(await page.title(), /Вход в ArtistCRM/)
+        assert.match(await page.title(), /Вход в Ведело/)
         await page.locator('input[type="tel"]').fill(phone)
         await page.locator('input[type="password"]').fill(password)
         await page.getByRole('button', { name: 'Войти', exact: true }).click()
@@ -36,7 +37,8 @@ export const runBrowserSmoke = async ({ baseUrl, phone, password }) => {
           .getByText('Важное', { exact: true })
           .first()
           .waitFor({ state: 'visible' })
-        assert.match(await page.title(), /Кабинет ArtistCRM/)
+        assert.match(await page.title(), /Кабинет Ведело/)
+        await runAttachmentSmoke({ page, context, viewport })
         await runOfflineSmoke({ page, context, viewport })
         const content = await page.locator('body').innerText()
         assert.ok(content.length > 100, 'Кабинет должен содержать интерфейс')

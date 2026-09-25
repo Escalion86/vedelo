@@ -1,12 +1,10 @@
 import Link from 'next/link'
-import { AnalyticsConsentSettings } from '@components/AnalyticsConsent'
-import { LEGAL_DOCUMENTS_EFFECTIVE_DATE } from '@helpers/legalDocuments.mjs'
+import { PRIVACY_POLICY_EFFECTIVE_DATE } from '@helpers/legalDocuments.mjs'
 
 const siteUrl = (process.env.DOMAIN || 'https://vedelo.ru').replace(/\/$/, '')
 const pageUrl = `${siteUrl}/privacy`
 const ogImage = `${siteUrl}/og-image.jpg`
-const supportEmail =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'vedelo@inbox.ru'
+const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'vedelo@inbox.ru'
 
 export const metadata = {
   title: 'Политика обработки персональных данных — Ведело',
@@ -58,7 +56,7 @@ export default function PrivacyPage() {
             Политика обработки персональных данных и конфиденциальности
           </h1>
           <p className="text-sm text-gray-500">
-            Редакция действует с: {LEGAL_DOCUMENTS_EFFECTIVE_DATE}
+            Редакция действует с: {PRIVACY_POLICY_EFFECTIVE_DATE}
           </p>
         </div>
 
@@ -294,23 +292,24 @@ export default function PrivacyPage() {
           </h2>
           <p>
             8.1. Обязательные cookies и локальное хранилище используются для
-            сессии, безопасности, PWA/offline-работы и сохранения выбора
-            аналитики. Без них отдельные функции Сервиса могут не работать.
+            сессии, безопасности и PWA/offline-работы. Без них отдельные функции
+            Сервиса могут не работать.
           </p>
           <p>
-            8.2. После согласия загружается Яндекс Метрика, счётчик 112668604:
-            карта кликов, отслеживание ссылок, точный показатель отказов,
-            сведения об источнике, посещённых страницах, браузере и устройстве.
-            Вебвизор кодом счётчика не включён. Пиксель в блоке noscript не
-            используется, поэтому без JavaScript аналитический запрос не
-            отправляется.
+            8.2. На публичных маркетинговых страницах и странице
+            входа/регистрации используется Яндекс Метрика, счётчик 112668604.
+            Сервис получает сведения об источнике перехода, открытой публичной
+            странице, браузере и устройстве, а также о достижении явно заданных
+            целей регистрации и маркетинговых кнопок.
           </p>
           <p>
-            8.3. Выбор можно изменить ниже. При отключении аналитики страница
-            перезагрузится, после чего новые обращения к счётчику выполняться не
-            будут.
+            8.3. Вебвизор, карта кликов, автоматическое отслеживание ссылок,
+            электронная коммерция и noscript-пиксель не используются. При прямой
+            загрузке кабинета счётчик не запускается; просмотры страниц и цели
+            внутри кабинета не отправляются. Пользователь может дополнительно
+            запретить работу счётчика средствами браузера или блокировщиком
+            Яндекс Метрики.
           </p>
-          <AnalyticsConsentSettings />
         </section>
 
         <section className="flex flex-col gap-3">

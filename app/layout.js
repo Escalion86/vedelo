@@ -10,7 +10,6 @@ import ServiceWorkerRegistration from '@components/ServiceWorkerRegistration'
 import AppSnackbarProvider from '@components/AppSnackbarProvider'
 import AppQueryProvider from '@components/AppQueryProvider'
 import AcquisitionTracker from '@components/AcquisitionTracker'
-import AnalyticsConsent from '@components/AnalyticsConsent'
 import YandexMetrika from '@components/YandexMetrika'
 import { BRAND, getCanonicalBaseUrl } from '@helpers/brand.mjs'
 
@@ -71,7 +70,6 @@ export default function RootLayout({ children }) {
           <AppQueryProvider>
             <AppSnackbarProvider>{children}</AppSnackbarProvider>
           </AppQueryProvider>
-          {isProduction && <AnalyticsConsent />}
         </AppRouterCacheProvider>
       </body>
     </html>

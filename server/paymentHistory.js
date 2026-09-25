@@ -9,12 +9,17 @@ const PAYMENT_HISTORY_CATEGORIES = new Set([
 
 const PAYMENT_STATUSES = new Set(['pending', 'succeeded', 'canceled', 'failed'])
 const RECEIPT_SOURCES = new Set(['manual', 'tochka', 'yookassa'])
+const RECEIPT_PURPOSES = new Set(['balance', 'tariff'])
 
-export const buildMissingPaymentReceiptFilter = () => ({
+export const buildReceiptablePaymentFilter = () => ({
   type: 'topup',
-  purpose: 'balance',
+  purpose: { $in: [...RECEIPT_PURPOSES] },
   status: 'succeeded',
   source: { $in: [...RECEIPT_SOURCES] },
+})
+
+export const buildMissingPaymentReceiptFilter = () => ({
+  ...buildReceiptablePaymentFilter(),
   $or: [
     { receiptUrl: { $exists: false } },
     { receiptUrl: null },
@@ -24,7 +29,7 @@ export const buildMissingPaymentReceiptFilter = () => ({
 
 export const canAttachPaymentReceipt = (payment) =>
   payment?.type === 'topup' &&
-  payment?.purpose === 'balance' &&
+  RECEIPT_PURPOSES.has(payment?.purpose) &&
   payment?.status === 'succeeded' &&
   RECEIPT_SOURCES.has(payment?.source)
 

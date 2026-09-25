@@ -132,6 +132,24 @@ test('regular user draft saves without services/date, confirmed work still valid
   assert.equal(saved[0].eventDate, null)
   assert.deepEqual(saved[0].servicesIds, [])
 })
+test('saving a draft preserves private attachments in the outgoing payload', async (t) => {
+  user = { role: 'user' }; saved = []; settings.custom = {}
+  const storageKey = 'vedelo/tenant/events/existing/documents/private'
+  eventFromQuery = {
+    _id: 'existing', status: 'draft', clientId: 'client',
+    documents: [{ id: 'private', type: 'other', file: { name: 'brief.pdf', storageKey } }],
+  }
+  try {
+    const { el } = await mount(t, modalHarness(eventFunc('existing').Children))
+    await React.act(async () => el.querySelector('[data-save]').click())
+    assert.equal(saved.length, 1)
+    assert.equal(saved[0].documents.length, 1)
+    assert.equal(saved[0].documents[0].file.storageKey, storageKey)
+  } finally {
+    eventFromQuery = undefined
+  }
+})
+
 test('draft still needs client and rejects an inverted date range, but type is optional', async (t) => {
   user = { role: 'dev' }; saved = []
   const { el } = await mount(t, modalHarness(eventFunc(null, false, 'draft', { initialEvent: { eventDate: '2026-10-03T12:00:00Z', dateEnd: '2026-10-02T12:00:00Z' } }).Children))

@@ -68,7 +68,7 @@ test('фильтр без чека использует те же условия
   const filter = buildPaymentOperationsFilter(params)
   assert.equal(filter.type, 'topup')
   assert.equal(filter.status, 'succeeded')
-  assert.equal(filter.purpose, 'balance')
+  assert.deepEqual(filter.purpose.$in.sort(), ['balance', 'tariff'].sort())
   assert.deepEqual(filter.$or, [
     { receiptUrl: { $exists: false } },
     { receiptUrl: null },

@@ -10,6 +10,14 @@ const disconnectRouteSource = await readFile(
   new URL('../app/api/google-calendar/disconnect/route.js', import.meta.url),
   'utf8'
 )
+const metrikaSource = await readFile(
+  new URL('../components/YandexMetrika.js', import.meta.url),
+  'utf8'
+)
+const layoutSource = await readFile(
+  new URL('../app/layout.js', import.meta.url),
+  'utf8'
+)
 
 test('политика подробно раскрывает обработку данных Google Calendar', () => {
   const requiredPatterns = [
@@ -63,18 +71,12 @@ test('описание отключения соответствует факт�
   }
 
   assert.match(disconnectRouteSource, /calendarName:\s*''/)
-  assert.match(
-    privacySource,
-    /После\s+отключения\s+удаляются\s+OAuth-токены/i
-  )
+  assert.match(privacySource, /После\s+отключения\s+удаляются\s+OAuth-токены/i)
   assert.match(
     privacySource,
     /идентификатор календаря только\s+соответствующего подключения/i
   )
-  assert.match(
-    privacySource,
-    /второе\s+подключение\s+продолжает\s+работать/i
-  )
+  assert.match(privacySource, /второе\s+подключение\s+продолжает\s+работать/i)
   assert.doesNotMatch(disconnectRouteSource, /dbUser\.googleCalendarImport\s*=/)
 })
 
@@ -82,7 +84,13 @@ test('политика правдиво раскрывает использов�
   assert.match(privacySource, /Яндекс Метрик/i)
   assert.match(privacySource, /Вебвизор/i)
   assert.match(privacySource, /112668604/)
-  assert.match(privacySource, /не включ[её]н/i)
+  assert.match(privacySource, /публичных маркетинговых страницах/i)
+  assert.match(privacySource, /кабинет/i)
+  assert.match(metrikaSource, /defer:\s*true/)
+  assert.match(metrikaSource, /clickmap:\s*false/)
+  assert.match(metrikaSource, /trackLinks:\s*false/)
+  assert.match(metrikaSource, /webvisor:\s*false/)
+  assert.doesNotMatch(layoutSource, /AnalyticsConsent/)
   assert.doesNotMatch(
     privacySource,
     /не использует аналитические системы и не ведет поведенческую аналитику/i

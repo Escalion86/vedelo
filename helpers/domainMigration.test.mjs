@@ -37,4 +37,15 @@ test('system routes stay on the legacy origin and public webhooks move with meth
   assert.equal(isPwaSystemPath('/api/push/test'), false)
   assert.equal(isExternalApiPath('/api/public/lead/tilda'), true)
   assert.equal(isExternalApiPath('/api/integrations/vk/webhook/token'), true)
+  for (const path of [
+    '/api/billing/tochka/webhook',
+    '/api/billing/yookassa/webhook',
+    '/api/telephony/novofon/webhook',
+    '/api/telephony/generic/webhook',
+  ]) {
+    assert.equal(isExternalApiPath(path), true, path)
+  }
+  assert.equal(isExternalApiPath('/api/billing/tochka/create'), false)
+  assert.equal(isExternalApiPath('/api/events'), false)
+  assert.equal(isExternalApiPath('/cabinet/webhook'), false)
 })

@@ -3,12 +3,12 @@
 import {
   METRIKA_QUEUE_KEY,
   YANDEX_METRIKA_ID,
-  getAnalyticsConsent,
+  isPublicAnalyticsPath,
 } from '@helpers/metrikaConfig.mjs'
 
 const canSendMetrikaGoal = () =>
   typeof window !== 'undefined' &&
-  getAnalyticsConsent() === 'granted' &&
+  isPublicAnalyticsPath(window.location.pathname) &&
   typeof window.ym === 'function'
 
 const queueMetrikaGoal = (goalName, params) => {
@@ -21,7 +21,7 @@ const queueMetrikaGoal = (goalName, params) => {
 
 export const reachGoal = (goalName, params) => {
   if (!goalName || typeof window === 'undefined') return false
-  if (getAnalyticsConsent() !== 'granted') return false
+  if (!isPublicAnalyticsPath(window.location.pathname)) return false
   if (!canSendMetrikaGoal()) {
     queueMetrikaGoal(goalName, params)
     return true

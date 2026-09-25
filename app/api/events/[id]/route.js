@@ -163,18 +163,6 @@ export const PUT = async (req, { params }) => {
     )
 
   const nextStatus = getNextStatus(oldEvent?.status, body)
-  if (
-    nextStatus === 'draft' &&
-    (hasDocuments(body) || hasDocuments(oldEvent))
-  ) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Документы недоступны для заявки',
-      },
-      { status: 400 }
-    )
-  }
   if (nextStatus === 'closed') {
     const eventTransactions = await Transactions.find({
       tenantId,

@@ -3,6 +3,7 @@ import LoadingSpinner from '@components/LoadingSpinner'
 import ModalSection from '@components/ModalSection'
 import QuickActionButtons from '@components/QuickActionButtons'
 import StatusChip from '@components/StatusChip'
+import RequestsWithoutNextStep from '@components/RequestsWithoutNextStep'
 import formatDateTime from '@helpers/formatDateTime'
 import { PROVIDER_LABELS } from '@helpers/incomingMessageNotification'
 import {
@@ -106,7 +107,20 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
   const { data: eventsPayload, isPending: isEventsPending } = useEventsQuery({
     scope: 'upcoming',
   })
-  const events = useMemo(() => eventsPayload?.data ?? [], [eventsPayload?.data])
+  const { data: draftsPayload, isPending: isDraftsPending } = useEventsQuery({
+    scope: 'drafts',
+  })
+  // Keep follow-ups visible even when a draft's work date is already in the past.
+  const events = useMemo(
+    () => Array.from(new Map(
+      [
+        ...(eventsPayload?.data ?? []),
+        ...(draftsPayload?.data ?? []).filter((event) => event.status === 'draft'),
+      ]
+        .map((event) => [String(event._id), event])
+    ).values()),
+    [eventsPayload?.data, draftsPayload?.data]
+  )
   const { data: transactions = [], isPending: isTransactionsPending } =
     useTransactionsQuery()
   const { data: clients = [], isPending: isClientsPending } = useClientsQuery()
@@ -551,6 +565,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
     !isOnline || queueSummary.ready === 0 || queueSummary.syncing > 0
   const isOverviewPending =
     isEventsPending ||
+    isDraftsPending ||
     isTransactionsPending ||
     isClientsPending ||
     isMessengerSummaryLoading ||
@@ -774,6 +789,8 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           </ModalSection>
         )
       })}
+
+      <RequestsWithoutNextStep onOpenEvent={openEvent} />
 
       <ModalSection
         id="attention-messages"

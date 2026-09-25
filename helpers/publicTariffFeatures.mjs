@@ -7,6 +7,15 @@ export const getVisibleTariffFeatureRows = (featureRows, tariffs) => {
     if (feature.included || feature.type) return true
     if (!feature.key) return false
 
-    return visibleTariffs.some((tariff) => Boolean(tariff?.[feature.key]))
+    return visibleTariffs.some((tariff) =>
+      isPublicTariffFeatureAvailable(tariff, feature)
+    )
   })
+}
+export const isPublicTariffFeatureAvailable = (tariff, feature) => {
+  if (feature?.included) return true
+  if (feature?.key === 'allowProposals') {
+    return Boolean(tariff?.allowProposals ?? tariff?.allowDocuments)
+  }
+  return Boolean(feature?.key && tariff?.[feature.key])
 }

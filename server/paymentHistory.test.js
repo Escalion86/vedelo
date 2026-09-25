@@ -8,6 +8,7 @@ import {
   serializePaymentHistoryItem,
   paymentManagementActions,
   buildPaymentReceiptFilter,
+  buildReceiptablePaymentFilter,
   buildMissingPaymentReceiptFilter,
   canAttachPaymentReceipt,
   normalizePaymentReceiptUrl,
@@ -209,7 +210,7 @@ test('удаление разрешено только завершённым р
   )
 })
 
-test('ссылку на чек можно прикрепить только к проведённому пополнению', () => {
+test('ссылку на чек можно прикрепить к проведённому пополнению или оплате тарифа', () => {
   const payment = {
     type: 'topup',
     purpose: 'balance',
@@ -218,7 +219,12 @@ test('ссылку на чек можно прикрепить только к �
     receiptUrl: 'https://receipts.example.com/check/1',
   }
   assert.equal(canAttachPaymentReceipt(payment), true)
+  assert.equal(canAttachPaymentReceipt({ ...payment, purpose: 'tariff' }), true)
   assert.equal(paymentManagementActions(payment).canEditReceipt, true)
+  assert.equal(
+    paymentManagementActions({ ...payment, purpose: 'tariff' }).canEditReceipt,
+    true
+  )
   assert.equal(
     serializePaymentHistoryItem(payment).receiptUrl,
     payment.receiptUrl
@@ -228,7 +234,12 @@ test('ссылку на чек можно прикрепить только к �
     false
   )
   assert.equal(canAttachPaymentReceipt({ ...payment, type: 'charge' }), false)
+  assert.equal(canAttachPaymentReceipt({ ...payment, purpose: 'system' }), false)
   assert.equal(canAttachPaymentReceipt({ ...payment, source: 'system' }), false)
+  assert.equal(
+    serializePaymentHistoryItem({ ...payment, purpose: 'tariff' }).receiptUrl,
+    payment.receiptUrl
+  )
   assert.equal(
     serializePaymentHistoryItem({ ...payment, status: 'pending' }).receiptUrl,
     ''
@@ -269,10 +280,10 @@ test('обновление чека фильтрует одновременно 
   )
 })
 
-test('счётчик чеков учитывает только проведённые пополнения и старые записи без поля', () => {
+test('счётчик чеков учитывает проведённые поступления за баланс и тариф без ссылки', () => {
   const filter = buildMissingPaymentReceiptFilter()
   assert.equal(filter.type, 'topup')
-  assert.equal(filter.purpose, 'balance')
+  assert.deepEqual(filter.purpose.$in.sort(), ['balance', 'tariff'].sort())
   assert.equal(filter.status, 'succeeded')
   assert.deepEqual(
     filter.source.$in.sort(),
@@ -283,4 +294,5 @@ test('счётчик чеков учитывает только проведён
     { receiptUrl: null },
     { receiptUrl: '' },
   ])
+  assert.deepEqual(filter.purpose, buildReceiptablePaymentFilter().purpose)
 })

@@ -55,4 +55,5 @@ export const isPwaSystemPath = (pathname = '') =>
 export const isExternalApiPath = (pathname = '') =>
   pathname.startsWith('/api/public/') ||
   pathname.startsWith('/api/webhooks/') ||
+  (pathname.startsWith('/api/') && pathname.endsWith('/webhook')) ||
   pathname.includes('/webhook/')
