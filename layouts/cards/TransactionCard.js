@@ -1,5 +1,6 @@
 'use client'
 
+import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import loadingAtom from '@state/atoms/loadingAtom'
 import errorAtom from '@state/atoms/errorAtom'
 import PropTypes from 'prop-types'
@@ -33,9 +34,9 @@ const PAYMENT_METHOD_LABELS = {
 }
 
 const formatTransactionDate = (value) => {
-  if (!value) return { day: '—', monthYear: '', time: '' }
+  if (!value) return { day: '—', month: '', weekday: '', time: '' }
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return { day: '—', monthYear: '', time: '' }
+  if (Number.isNaN(date.getTime())) return { day: '—', month: '', weekday: '', time: '' }
   const month = date
     .toLocaleDateString('ru-RU', { month: 'short' })
     .replace('.', '')
@@ -45,7 +46,8 @@ const formatTransactionDate = (value) => {
   })
   return {
     day: String(date.getDate()).padStart(2, '0'),
-    monthYear: `${month}, ${date.getFullYear()}`,
+    month,
+    weekday: date.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', ''),
     time: timePart,
   }
 }
@@ -86,7 +88,7 @@ const TransactionCard = ({
     event && eventDateTime ? `${eventTitle} - ${eventDateTime}` : eventTitle
 
   const categoryLabel =
-    TRANSACTION_CATEGORIES.find((item) => item.value === transaction.category)
+    TRANSACTION_CATEGORIES.find((item) => item.value === normalizeTransactionCategory(transaction.category))
       ?.name ?? null
   const isObligation = transaction.paymentMethod === OBLIGATION_PAYMENT_METHOD
   const dateLabel = getTransactionDateLabel(transaction.paymentMethod)
@@ -137,25 +139,36 @@ const TransactionCard = ({
       />
 
       <div className="grid h-full w-full grid-cols-[76px_minmax(0,1fr)_auto] gap-3 pr-8 pl-3">
-        <div className="flex flex-col gap-0.5 border-r border-gray-200 pr-2">
-          <div className="card-muted text-[11px] font-medium">{dateLabel}</div>
-          <div className="card-title text-2xl leading-none">
-            {transactionDate.day}
+        <div
+          className="flex flex-col border-r border-gray-200 py-2 pr-3 text-center"
+          title={dateLabel}
+          aria-label={dateLabel}
+        >
+          <div className="flex items-baseline gap-x-1">
+            <span className="text-sm font-medium whitespace-nowrap uppercase">
+              {transactionDate.weekday}
+            </span>
+            <span className="card-title text-2xl leading-none">
+              {transactionDate.day}
+            </span>
           </div>
-          {transactionDate.monthYear ? (
-            <div className="text-xs font-medium text-blue-800">
-              {transactionDate.monthYear}
-            </div>
+          {transactionDate.month ? (
+            <span className="text-general text-base font-medium whitespace-nowrap">
+              {transactionDate.month}
+            </span>
           ) : null}
           {transactionDate.time ? (
-            <div className="card-muted text-xs">{transactionDate.time}</div>
+            <span className="card-meta mt-0.5 text-sm">{transactionDate.time}</span>
           ) : null}
         </div>
 
         <div className="flex min-w-0 flex-col gap-1">
-          <div className="card-title truncate text-sm">{title}</div>
-          <div className="card-muted truncate text-xs font-medium">
-            {paymentMethodLabel}
+          <div className="min-w-0 truncate text-sm">
+            <span className="card-title">{title}</span>
+            <span className="card-muted text-xs font-medium">
+              {' · '}
+              {paymentMethodLabel}
+            </span>
           </div>
           <div className="card-meta truncate text-sm font-medium">
             {clientName || '-'}

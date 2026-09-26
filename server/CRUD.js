@@ -1,3 +1,4 @@
+import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import formatAddress from '@helpers/formatAddress'
 import Events from '@models/Events'
 import Histories from '@models/Histories'
@@ -571,7 +572,7 @@ const updateEventInCalendar = async (
         const sign = transaction.type === 'expense' ? '-' : '+'
         const amountLabel = Number(transaction.amount ?? 0).toLocaleString()
         const categoryName = transaction.category
-          ? (transactionCategoryMap.get(transaction.category) ??
+          ? (transactionCategoryMap.get(normalizeTransactionCategory(transaction.category)) ??
             transaction.category)
           : ''
         const categoryLabel = categoryName ? `, ${categoryName}` : ''

@@ -1,3 +1,4 @@
+import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import CardButtons from '@components/CardButtons'
 import Chip from '@components/Chips/Chip'
 import cn from 'classnames'
@@ -198,7 +199,7 @@ const EventFinanceSection = ({ event, transactions, terms }) => {
               const isObligation =
                 transaction?.paymentMethod === OBLIGATION_PAYMENT_METHOD
               const categoryName =
-                TRANSACTION_CATEGORY_NAMES.get(transaction?.category) ||
+                TRANSACTION_CATEGORY_NAMES.get(normalizeTransactionCategory(transaction?.category)) ||
                 transaction?.category ||
                 'Без категории'
               const paymentMethodName =

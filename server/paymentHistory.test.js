@@ -255,6 +255,16 @@ test('ссылку на чек можно прикрепить к проведё
     serializePaymentHistoryItem({ ...payment, status: 'pending' }).receiptUrl,
     ''
   )
+  assert.equal(
+    serializePaymentHistoryItem({ ...payment, receiptNotRequired: true })
+      .receiptNotRequired,
+    true
+  )
+  assert.equal(
+    serializePaymentHistoryItem({ ...payment, status: 'pending', receiptNotRequired: true })
+      .receiptNotRequired,
+    false
+  )
 })
 
 test('ссылка на чек допускает только безопасный HTTPS URL', () => {
@@ -305,5 +315,23 @@ test('счётчик чеков учитывает проведённые пос
     { receiptUrl: null },
     { receiptUrl: '' },
   ])
+  assert.deepEqual(filter.receiptNotRequired, { $ne: true })
   assert.deepEqual(filter.purpose, buildReceiptablePaymentFilter().purpose)
+})
+
+test('отметка «чек не нужен» сохраняет ограничение операции владельцем и tenant', () => {
+  const ownUser = { _id: USER_ID, tenantId: TENANT_ID }
+  const ownFilter = buildPaymentReceiptFilter({
+    paymentId: '66a000000000000000000010',
+    user: ownUser,
+  })
+  assert.equal(ownFilter.userId, USER_ID)
+  assert.equal(ownFilter.tenantId, TENANT_ID)
+  assert.notDeepEqual(
+    ownFilter,
+    buildPaymentReceiptFilter({
+      paymentId: '66a000000000000000000010',
+      user: { ...ownUser, tenantId: '66a000000000000000000099' },
+    })
+  )
 })

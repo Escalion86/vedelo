@@ -7,18 +7,7 @@ import getRequestContext from '@server/getRequestContext'
 import { normalizeOptionalRelationId } from '@server/transactionsCore'
 import { OBLIGATION_PAYMENT_METHOD } from '@helpers/transactionObligation'
 import { recordActivityHistory } from '@server/activityHistory'
-
-const CATEGORY_ALIASES = {
-  advance: 'deposit',
-  client_payment: 'final_payment',
-  colleague_percent: 'referral_in',
-}
-
-const normalizeCategory = (value) => {
-  const raw = typeof value === 'string' ? value.trim() : ''
-  if (!raw) return 'other'
-  return CATEGORY_ALIASES[raw] || raw
-}
+import { normalizeTransactionCategory as normalizeCategory } from '@helpers/transactionCategory.mjs'
 
 export const GET = async (req) => {
   const { tenantId } = await getRequestContext(req)

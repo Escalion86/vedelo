@@ -1,6 +1,7 @@
 'use client'
 
 import PropTypes from 'prop-types'
+import { faEraser } from '@fortawesome/free-solid-svg-icons/faEraser'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import InputWrapper from '@components/InputWrapper'
 import IconActionButton from '@components/IconActionButton'
@@ -14,6 +15,7 @@ const EventPicker = ({
   selectedEvent,
   selectedEventId,
   onSelectClick,
+  onClear,
   disabled,
   label,
   required,
@@ -50,10 +52,10 @@ const EventPicker = ({
     >
       <div className="flex w-full flex-wrap items-center gap-2">
         <div
-          className="flex flex-1 cursor-pointer justify-between rounded border border-gray-300 bg-white p-3 shadow-sm transition hover:shadow-card"
+          className="flex min-w-0 flex-1 cursor-pointer justify-between rounded border border-gray-300 bg-white p-3 shadow-sm transition hover:shadow-card"
           onClick={disabled ? undefined : onSelectClick}
         >
-          <div className="flex flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-0.5 break-words">
             <div className="text-base font-semibold text-gray-900">
               {selectedEvent
                 ? formatAddress(selectedEvent?.address, terms.labelCapitalized)
@@ -86,6 +88,15 @@ const EventPicker = ({
             className="h-[50px] w-[50px]"
           />
         )}
+        {selectedEventId && onClear && !disabled && (
+          <IconActionButton
+            icon={faEraser}
+            onClick={onClear}
+            title={`Очистить выбор: ${resolvedLabel}`}
+            variant="danger"
+            size="lg"
+          />
+        )}
       </div>
     </InputWrapper>
   )
@@ -114,6 +125,7 @@ EventPicker.propTypes = {
   }),
   selectedEventId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   onSelectClick: PropTypes.func.isRequired,
+  onClear: PropTypes.func,
   disabled: PropTypes.bool,
   label: PropTypes.string,
   required: PropTypes.bool,

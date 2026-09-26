@@ -37,7 +37,19 @@ export const PATCH = async (req, { params }) => {
       { status: 400 }
     )
   }
-  const receiptUrl = normalizePaymentReceiptUrl(body.receiptUrl)
+  const isNotRequiredUpdate = typeof body.receiptNotRequired === 'boolean'
+  if (
+    (isNotRequiredUpdate && body.receiptUrl !== undefined) ||
+    (!isNotRequiredUpdate && typeof body.receiptUrl !== 'string')
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'Укажите одно действие для чека' },
+      { status: 400 }
+    )
+  }
+  const receiptUrl = isNotRequiredUpdate
+    ? ''
+    : normalizePaymentReceiptUrl(body.receiptUrl)
   if (receiptUrl === null) {
     return NextResponse.json(
       { success: false, error: 'Укажите ссылку на чек по HTTPS' },
@@ -57,7 +69,7 @@ export const PATCH = async (req, { params }) => {
   }
   const filter = buildPaymentReceiptFilter({ paymentId: id, user: targetUser })
   const payment = await Payments.findOne(filter)
-    .select('type purpose source status')
+    .select('type purpose source status receiptUrl')
     .lean()
   if (!payment) {
     return NextResponse.json(
@@ -74,16 +86,28 @@ export const PATCH = async (req, { params }) => {
       { status: 409 }
     )
   }
+  if (isNotRequiredUpdate && body.receiptNotRequired && payment.receiptUrl) {
+    return NextResponse.json(
+      { success: false, error: 'Сначала удалите ссылку на чек' },
+      { status: 409 }
+    )
+  }
+
+  const updates = isNotRequiredUpdate
+    ? body.receiptNotRequired
+      ? { receiptUrl: '', receiptNotRequired: true }
+      : { receiptNotRequired: false }
+    : { receiptUrl, receiptNotRequired: false }
 
   const updated = await Payments.findOneAndUpdate(
     {
       ...filter,
       ...buildReceiptablePaymentFilter(),
     },
-    { $set: { receiptUrl } },
+    { $set: updates },
     { returnDocument: 'after', runValidators: true }
   )
-    .select('receiptUrl')
+    .select('receiptUrl receiptNotRequired')
     .lean()
   if (!updated) {
     return NextResponse.json(
@@ -94,6 +118,9 @@ export const PATCH = async (req, { params }) => {
 
   return NextResponse.json({
     success: true,
-    data: { receiptUrl: updated.receiptUrl },
+    data: {
+      receiptUrl: updated.receiptUrl,
+      receiptNotRequired: updated.receiptNotRequired,
+    },
   })
 }

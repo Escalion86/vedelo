@@ -11,6 +11,7 @@ import {
 import { OBLIGATION_PAYMENT_METHOD } from '@helpers/transactionObligation'
 import { recordSyncTombstone } from '@server/mobile/sync'
 import { recordActivityHistory } from '@server/activityHistory'
+import { normalizeTransactionCategory as normalizeCategory } from '@helpers/transactionCategory.mjs'
 
 const TRANSACTION_TYPES = new Set(['income', 'expense'])
 const TRANSACTION_PAYMENT_METHODS = new Set([
@@ -20,17 +21,6 @@ const TRANSACTION_PAYMENT_METHODS = new Set([
   'barter',
   OBLIGATION_PAYMENT_METHOD,
 ])
-const CATEGORY_ALIASES = {
-  advance: 'deposit',
-  client_payment: 'final_payment',
-  colleague_percent: 'referral_in',
-}
-
-const normalizeCategory = (value) => {
-  const raw = typeof value === 'string' ? value.trim() : ''
-  if (!raw) return 'other'
-  return CATEGORY_ALIASES[raw] || raw
-}
 
 export const PUT = async (req, { params }) => {
   const { id } = await params

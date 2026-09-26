@@ -88,35 +88,39 @@ const PaymentOperationRow = ({ item }) => {
   const sign = muted ? '' : item.direction === 'out' ? '−' : '+'
   return (
     <li className="ui-surface-card grid gap-3 rounded-xl p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(180px,.8fr)_auto] lg:items-center">
-      <div className="flex w-full min-w-0 items-start gap-3">
-        <div
-          className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
-            muted
-              ? 'border-gray-300 bg-gray-100 text-gray-500'
-              : item.direction === 'out'
-                ? 'border-red-200 bg-red-50 text-[var(--tx-expense)]'
-                : 'border-emerald-200 bg-emerald-50 text-[var(--tx-income)]'
-          )}
-        >
-          <FontAwesomeIcon icon={getIcon(item)} className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold text-gray-900">{item.title}</div>
-          {item.details ? (
-            <div className="mt-0.5 text-sm text-gray-600">{item.details}</div>
-          ) : null}
-          <div className="mt-1 text-xs text-gray-500">
-            {[statusLabel, item.sourceTitle, item.methodTitle]
-              .filter(Boolean)
-              .join(' • ')}
+      <div className="flex w-full min-w-0 flex-col">
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
+              muted
+                ? 'border-gray-300 bg-gray-100 text-gray-500'
+                : item.direction === 'out'
+                  ? 'border-red-200 bg-red-50 text-[var(--tx-expense)]'
+                  : 'border-emerald-200 bg-emerald-50 text-[var(--tx-income)]'
+            )}
+          >
+            <FontAwesomeIcon icon={getIcon(item)} className="h-4 w-4" />
           </div>
-          <PaymentReceiptControl
-            item={item}
-            userId={item.user?.id}
-            canEdit={item.management?.canEditReceipt && Boolean(item.user?.id)}
-          />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-gray-900">{item.title}</div>
+            {item.details ? (
+              <div className="mt-0.5 text-sm text-gray-600">
+                {item.details}
+              </div>
+            ) : null}
+            <div className="mt-1 text-xs text-gray-500">
+              {[statusLabel, item.sourceTitle, item.methodTitle]
+                .filter(Boolean)
+                .join(' • ')}
+            </div>
+          </div>
         </div>
+        <PaymentReceiptControl
+          item={item}
+          userId={item.user?.id}
+          canEdit={item.management?.canEditReceipt && Boolean(item.user?.id)}
+        />
       </div>
       <div className="min-w-0 border-t border-gray-100 pt-3 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-4">
         <div className="truncate text-sm font-semibold text-gray-900">

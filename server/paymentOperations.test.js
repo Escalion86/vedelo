@@ -74,4 +74,5 @@ test('фильтр без чека использует те же условия
     { receiptUrl: null },
     { receiptUrl: '' },
   ])
+  assert.deepEqual(filter.receiptNotRequired, { $ne: true })
 })

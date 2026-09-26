@@ -95,39 +95,41 @@ const PaymentRow = ({
 
   return (
     <li className="ui-surface-card flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex w-full min-w-0 items-start gap-3">
-        <div
-          className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
-            isMuted
-              ? 'border-gray-300 bg-gray-100 text-gray-500'
-              : item.direction === 'out'
-                ? 'border-red-200 bg-red-50 text-[var(--tx-expense)]'
-                : 'border-emerald-200 bg-emerald-50 text-[var(--tx-income)]'
-          )}
-          aria-hidden="true"
-        >
-          <FontAwesomeIcon
-            icon={getOperationIcon(item.kind, item.direction)}
-            className="h-4 w-4"
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold text-gray-900">{item.title}</div>
-          {item.details ? (
-            <div className="mt-0.5 text-sm leading-5 text-gray-600">
-              {item.details}
-            </div>
-          ) : null}
-          <div className="mt-1 text-xs text-gray-500">
-            {metadata.join(' • ')}
+      <div className="flex w-full min-w-0 flex-col">
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
+              isMuted
+                ? 'border-gray-300 bg-gray-100 text-gray-500'
+                : item.direction === 'out'
+                  ? 'border-red-200 bg-red-50 text-[var(--tx-expense)]'
+                  : 'border-emerald-200 bg-emerald-50 text-[var(--tx-income)]'
+            )}
+            aria-hidden="true"
+          >
+            <FontAwesomeIcon
+              icon={getOperationIcon(item.kind, item.direction)}
+              className="h-4 w-4"
+            />
           </div>
-          <PaymentReceiptControl
-            item={item}
-            userId={userId}
-            canEdit={canEditReceipt && item.management?.canEditReceipt}
-          />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-gray-900">{item.title}</div>
+            {item.details ? (
+              <div className="mt-0.5 text-sm leading-5 text-gray-600">
+                {item.details}
+              </div>
+            ) : null}
+            <div className="mt-1 text-xs text-gray-500">
+              {metadata.join(' • ')}
+            </div>
+          </div>
         </div>
+        <PaymentReceiptControl
+          item={item}
+          userId={userId}
+          canEdit={canEditReceipt && item.management?.canEditReceipt}
+        />
       </div>
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-4 pl-[52px] sm:flex-col sm:pl-0 sm:text-right">
         <div

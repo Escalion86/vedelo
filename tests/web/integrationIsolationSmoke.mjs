@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import { generateKeyPairSync, sign } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
+import os from 'node:os'
+import path from 'node:path'
 import mongoose from 'mongoose'
 
 // Только временная БД и локальный HTTP-сервер из integration runner.
@@ -106,6 +109,118 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
     assert.equal((await userA(`/api/billing/history?userId=${tenantB}`)).status, 403)
     assert.equal((await userA('/api/billing/operations')).status, 403)
     assert.equal((await anonymous('/api/billing/history')).status, 401)
+  })
+
+  await t.test('Отметка «Чек не нужен»: только dev, владелец и tenant совпадают', async () => {
+    const ownPaymentId = oid()
+    const foreignPaymentId = oid()
+    await db.collection('payments').insertMany([
+      { _id: ownPaymentId, tenantId: tenantA, userId: tenantA, amount: 100,
+        type: 'topup', purpose: 'balance', source: 'manual', status: 'succeeded',
+        comment: 'receipt-ui-test' },
+      { _id: foreignPaymentId, tenantId: tenantB, userId: tenantA, amount: 100,
+        type: 'topup', purpose: 'tariff', source: 'tochka', status: 'succeeded' },
+    ])
+    const endpoint = `/api/billing/receipts/${ownPaymentId}`
+    assert.equal((await send(anonymous, endpoint, 'PATCH', {
+      userId: tenantA, receiptNotRequired: true,
+    })).status, 401)
+    assert.equal((await send(userA, endpoint, 'PATCH', {
+      userId: tenantA, receiptNotRequired: true,
+    })).status, 403)
+    await db.collection('users').updateOne({ _id: tenantA }, { $set: { role: 'dev' } })
+    try {
+      if (process.env.PLAYWRIGHT_MODULE) {
+        await db.collection('sitesettings').updateOne(
+          { tenantId: tenantA },
+          { $set: { 'custom.firstRunWizardCompleted': true } },
+          { upsert: true }
+        )
+        const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href)
+        const browser = await chromium.launch({ channel: 'msedge', headless: true })
+        try {
+          for (const { width, height, theme } of [
+            { width: 1365, height: 900, theme: 'light' },
+            { width: 390, height: 844, theme: 'dark' },
+          ]) {
+            const context = await browser.newContext({ viewport: { width, height } })
+            try {
+              await context.addInitScript((value) => localStorage.setItem('theme', value), theme)
+              const page = await context.newPage()
+              const pageErrors = []
+              page.on('pageerror', error => pageErrors.push(error.message))
+              await page.goto(`${baseUrl}/login`)
+              await page.locator('input[type="tel"]').fill(users[0].phone)
+              await page.locator('input[type="password"]').fill(password)
+              await page.getByRole('button', { name: 'Войти', exact: true }).click()
+              await page.waitForURL('**/cabinet/**')
+              await page.goto(`${baseUrl}/cabinet/billing-operations`)
+              assert.match(await page.title(), /Кабинет Ведело/)
+              const row = page.locator('li').filter({ hasText: 'receipt-ui-test' })
+              await row.getByRole('button', { name: 'Чек не нужен' }).waitFor()
+              assert.equal(await page.locator('body').evaluate(node => node.classList.contains('theme-dark')), theme === 'dark')
+              const rowBox = await row.boundingBox()
+              const addBox = await row.getByRole('button', { name: 'Добавить ссылку на чек' }).boundingBox()
+              const skipBox = await row.getByRole('button', { name: 'Чек не нужен' }).boundingBox()
+              assert.ok(rowBox && addBox && skipBox)
+              assert.ok(Math.abs(addBox.y - skipBox.y) < 2, 'Кнопки чека должны стоять в одной строке')
+              assert.ok(Math.abs(addBox.x - rowBox.x - 16) < 3, 'Действия должны начинаться от края карточки')
+              await row.screenshot({ path: path.join(os.tmpdir(), `vedelo-receipt-${width}-${theme}.png`) })
+              await row.getByRole('button', { name: 'Чек не нужен' }).click()
+              await row.getByText('Отмечено: чек не нужен').waitFor()
+              await row.screenshot({ path: path.join(os.tmpdir(), `vedelo-receipt-marked-${width}-${theme}.png`) })
+              await row.getByRole('button', { name: 'Отменить отметку' }).click()
+              await row.getByRole('button', { name: 'Чек не нужен' }).waitFor()
+              assert.doesNotMatch(await page.locator('body').innerText(), /Application error|Unhandled Runtime Error/)
+              assert.deepEqual(pageErrors, [])
+            } finally {
+              await context.close()
+            }
+          }
+        } finally {
+          await browser.close()
+        }
+      }
+      const before = await userA('/api/billing/receipts/pending-count')
+      assert.equal(before.status, 200)
+      const countBefore = (await before.json()).data.count
+      assert.equal((await send(userA, `/api/billing/receipts/${foreignPaymentId}`, 'PATCH', {
+        userId: tenantA, receiptNotRequired: true,
+      })).status, 404)
+      assert.equal((await send(userA, endpoint, 'PATCH', {
+        userId: tenantB, receiptNotRequired: true,
+      })).status, 404)
+      const marked = await send(userA, endpoint, 'PATCH', {
+        userId: tenantA, receiptNotRequired: true,
+      })
+      assert.equal(marked.status, 200)
+      assert.equal((await marked.json()).data.receiptNotRequired, true)
+      assert.equal((await db.collection('payments').findOne({ _id: ownPaymentId })).receiptNotRequired, true)
+      const missing = await userA('/api/billing/receipts/pending-count')
+      assert.equal(missing.status, 200)
+      assert.equal((await missing.json()).data.count, countBefore - 1)
+      const restored = await send(userA, endpoint, 'PATCH', {
+        userId: tenantA, receiptNotRequired: false,
+      })
+      assert.equal(restored.status, 200)
+      assert.equal((await restored.json()).data.receiptNotRequired, false)
+      const linked = await send(userA, endpoint, 'PATCH', {
+        userId: tenantA, receiptUrl: 'https://example.test/check',
+      })
+      assert.equal(linked.status, 200)
+      const own = await db.collection('payments').findOne({ _id: ownPaymentId })
+      assert.equal(own.receiptUrl, 'https://example.test/check')
+      assert.equal(own.receiptNotRequired, false)
+      assert.equal((await send(userA, endpoint, 'PATCH', {
+        userId: tenantA, receiptNotRequired: true,
+      })).status, 409)
+      assert.equal((await db.collection('payments').findOne({ _id: ownPaymentId })).receiptUrl,
+        'https://example.test/check')
+    } finally {
+      await db.collection('users').updateOne({ _id: tenantA }, { $set: { role: 'user' } })
+      await db.collection('payments').deleteMany({ _id: { $in: [ownPaymentId, foreignPaymentId] } })
+      await db.collection('sitesettings').deleteOne({ tenantId: tenantA })
+    }
   })
 
   await t.test('Платёжные webhook отклоняют неверную подпись/секрет без изменения баланса', async () => {

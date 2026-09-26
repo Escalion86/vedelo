@@ -379,15 +379,7 @@ export const TRANSACTION_CATEGORIES = Object.freeze([
     name: 'Рекомендация (исходящий %)',
     type: 'expense',
   },
-  // Legacy categories for backward compatibility
-  { value: 'client_payment', name: 'Оплата клиента (legacy)', type: 'income' },
-  { value: 'advance', name: 'Задаток (legacy)', type: 'income' },
   { value: 'tips', name: 'Чаевые', type: 'income' },
-  {
-    value: 'colleague_percent',
-    name: 'Процент от коллеги (legacy)',
-    type: 'income',
-  },
   { value: 'refund', name: 'Возврат клиенту', type: 'expense' },
   { value: 'organizer', name: 'Организатору', type: 'expense' },
   { value: 'travel', name: 'Дорога', type: 'expense' },

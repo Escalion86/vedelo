@@ -20,6 +20,7 @@ export const buildReceiptablePaymentFilter = () => ({
 
 export const buildMissingPaymentReceiptFilter = () => ({
   ...buildReceiptablePaymentFilter(),
+  receiptNotRequired: { $ne: true },
   $or: [
     { receiptUrl: { $exists: false } },
     { receiptUrl: null },
@@ -240,6 +241,8 @@ export const serializePaymentHistoryItem = (payment) => {
     receiptUrl: canAttachPaymentReceipt(payment)
       ? normalizePaymentReceiptUrl(payment?.receiptUrl) || ''
       : '',
+    receiptNotRequired:
+      canAttachPaymentReceipt(payment) && payment?.receiptNotRequired === true,
     occurredAt: payment?.paidAt || payment?.createdAt || null,
   }
 }

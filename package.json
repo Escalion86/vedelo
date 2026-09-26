@@ -1,6 +1,6 @@
 {
   "name": "vedelo",
-  "version": "1.27.22",
+  "version": "1.27.32",
   "private": true,
   "scripts": {
     "test:file-import": "node --test server/fileImport.test.mjs server/fileImportBudget.integration.test.mjs server/aiChatCompletion.test.js",
@@ -16,7 +16,8 @@
     "marketing:assets": "node scripts/buildMarketingComicAssets.mjs",
     "history:migrate": "node --env-file-if-exists=.env.local scripts/migrateActivityHistories.js",
     "proposals:migrate-tariffs": "node --env-file-if-exists=.env.local scripts/migrateProposalTariffAccess.js",
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "transactions:migrate-categories": "node scripts/migrateTransactionCategories.mjs"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",

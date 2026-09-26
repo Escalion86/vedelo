@@ -1,3 +1,4 @@
+import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import CompactEventForm from '@components/CompactEventForm'
 import { EVENT_STATUSES } from '@helpers/constants'
 import DateTimePicker from '@components/DateTimePicker'
@@ -2254,7 +2255,7 @@ const eventFunc = (
                             <span className="text-gray-600">
                               {
                                 TRANSACTION_CATEGORIES.find(
-                                  (item) => item.value === transaction.category
+                                  (item) => item.value === normalizeTransactionCategory(transaction.category)
                                 )?.name
                               }
                             </span>
@@ -2338,7 +2339,7 @@ const eventFunc = (
                             <span className="text-gray-600">
                               {
                                 TRANSACTION_CATEGORIES.find(
-                                  (item) => item.value === transaction.category
+                                  (item) => item.value === normalizeTransactionCategory(transaction.category)
                                 )?.name
                               }
                             </span>

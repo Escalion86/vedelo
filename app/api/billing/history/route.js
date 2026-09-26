@@ -76,7 +76,7 @@ export const GET = async (req) => {
 
   const rows = await Payments.find(filter)
     .select(
-      'amount type source status purpose tariffId paidAt createdAt comment receiptUrl paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
+      'amount type source status purpose tariffId paidAt createdAt comment receiptUrl receiptNotRequired paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
     )
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit + 1)

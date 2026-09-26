@@ -53,7 +53,7 @@ export const GET = async (req) => {
     Payments.countDocuments(filter),
     Payments.find(filter)
       .select(
-        'userId amount type source status purpose tariffId paidAt createdAt comment receiptUrl paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
+        'userId amount type source status purpose tariffId paidAt createdAt comment receiptUrl receiptNotRequired paymentMethodType paymentMethodTitle referralReward.percent referralReward.rewardFor referralRewardPending'
       )
       .sort(getPaymentOperationsSort(params.sort))
       .skip((page - 1) * limit)

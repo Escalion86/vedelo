@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import { faEraser } from '@fortawesome/free-solid-svg-icons/faEraser'
 import { faExchangeAlt } from '@fortawesome/free-solid-svg-icons/faExchangeAlt'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import InputWrapper from '@components/InputWrapper'
@@ -13,6 +14,8 @@ const ClientPicker = ({
   selectedClient,
   selectedClientId,
   onSelectClick,
+  onClear,
+  clearTitle = 'Очистить выбор клиента',
   onCreateClick,
   onViewClick,
   onEditClick,
@@ -109,6 +112,15 @@ const ClientPicker = ({
                 size={compact ? 'sm' : 'lg'}
               />
             )}
+            {selectedClientId && onClear && (
+              <IconActionButton
+                icon={faEraser}
+                onClick={onClear}
+                title={clearTitle}
+                variant="danger"
+                size={compact ? 'sm' : 'lg'}
+              />
+            )}
             <AddIconButton
               onClick={handleCreate}
               title="Создать нового клиента"
@@ -130,6 +142,8 @@ ClientPicker.propTypes = {
   }),
   selectedClientId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   onSelectClick: PropTypes.func.isRequired,
+  onClear: PropTypes.func,
+  clearTitle: PropTypes.string,
   onCreateClick: PropTypes.func,
   onViewClick: PropTypes.func,
   onEditClick: PropTypes.func,

@@ -161,7 +161,7 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
     from: '',
     to: '',
   })
-  const itemHeight = isCompact ? 176 : 188
+  const itemHeight = isCompact ? 116 : 128
 
   const typeFilter = useMemo(
     () => ({
@@ -301,7 +301,7 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
   }, [filteredTransactions.length, onHeaderCountChange])
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col">
       <ContentHeader>
         <HeaderActions
           left={

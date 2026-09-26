@@ -1,6 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client'
 
+import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
+
+
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { Bar } from '@nivo/bar'
 import { useAtomValue } from 'jotai'
@@ -533,7 +536,7 @@ const StatisticsContent = () => {
     const map = new Map()
     filteredTransactions.forEach((tx) => {
       if (tx?.type !== 'expense') return
-      const key = tx?.category || 'other'
+      const key = normalizeTransactionCategory(tx?.category)
       const current = map.get(key) || 0
       map.set(key, current + Number(tx.amount ?? 0))
     })

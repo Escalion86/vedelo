@@ -18,12 +18,12 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
     setUrl(item.receiptUrl || '')
     setEditing(false)
   }
-  const save = async (nextUrl = url) => {
+  const updateReceipt = async (body, successMessage) => {
     setSaving(true)
     try {
       await apiJson(`/api/billing/receipts/${item.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ userId, receiptUrl: nextUrl }),
+        body: JSON.stringify({ userId, ...body }),
       })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['paymentHistory'] }),
@@ -33,15 +33,18 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
         }),
       ])
       setEditing(false)
-      snackbar.success(
-        nextUrl ? 'Ссылка на чек сохранена' : 'Ссылка на чек удалена'
-      )
+      snackbar.success(successMessage)
     } catch (error) {
-      snackbar.error(error.message || 'Не удалось сохранить ссылку на чек')
+      snackbar.error(error.message || 'Не удалось изменить отметку о чеке')
     } finally {
       setSaving(false)
     }
   }
+  const save = (nextUrl = url) =>
+    updateReceipt(
+      { receiptUrl: nextUrl },
+      nextUrl ? 'Ссылка на чек сохранена' : 'Ссылка на чек удалена'
+    )
 
   if (!item.receiptUrl && !canEdit) return null
 
@@ -57,19 +60,50 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
           Открыть чек
         </a>
       ) : null}
+      {canEdit && item.receiptNotRequired ? (
+        <span className="text-xs font-medium text-gray-600">
+          Отмечено: чек не нужен
+        </span>
+      ) : null}
       {canEdit && !editing ? (
-        <AppButton
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setUrl(item.receiptUrl || '')
-            setEditing(true)
-          }}
-        >
-          {item.receiptUrl
-            ? 'Изменить ссылку на чек'
-            : 'Добавить ссылку на чек'}
-        </AppButton>
+        <div className="flex max-w-full flex-nowrap gap-2">
+          <AppButton
+            variant={item.receiptUrl ? 'secondary' : 'primary'}
+            size="sm"
+            className="min-h-10 min-w-0 cursor-pointer"
+            disabled={saving}
+            aria-busy={saving}
+            onClick={() => {
+              setUrl(item.receiptUrl || '')
+              setEditing(true)
+            }}
+          >
+            {item.receiptUrl
+              ? 'Изменить ссылку на чек'
+              : 'Добавить ссылку на чек'}
+          </AppButton>
+          {!item.receiptUrl ? (
+            <AppButton
+              variant="secondary"
+              size="sm"
+              className="min-h-10 min-w-0 cursor-pointer"
+              disabled={saving}
+              aria-busy={saving}
+              onClick={() =>
+                updateReceipt(
+                  { receiptNotRequired: !item.receiptNotRequired },
+                  item.receiptNotRequired
+                    ? 'Отметка «Чек не нужен» снята'
+                    : 'Отмечено, что чек не нужен'
+                )
+              }
+            >
+              {item.receiptNotRequired
+                ? 'Отменить отметку'
+                : 'Чек не нужен'}
+            </AppButton>
+          ) : null}
+        </div>
       ) : null}
       {canEdit && editing ? (
         <div className="flex w-full max-w-md flex-col gap-2">
@@ -86,7 +120,9 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
           <div className="flex flex-wrap gap-2">
             <AppButton
               size="sm"
+              className="min-h-10 cursor-pointer"
               disabled={saving || !url.trim()}
+              aria-busy={saving}
               onClick={() => save()}
             >
               Сохранить
@@ -95,7 +131,9 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
               <AppButton
                 variant="secondary"
                 size="sm"
+                className="min-h-10 cursor-pointer"
                 disabled={saving}
+                aria-busy={saving}
                 onClick={() => save('')}
               >
                 Удалить ссылку
@@ -104,6 +142,7 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
             <AppButton
               variant="ghost"
               size="sm"
+              className="min-h-10 cursor-pointer"
               disabled={saving}
               onClick={cancel}
             >

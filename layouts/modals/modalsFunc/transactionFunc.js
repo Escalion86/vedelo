@@ -7,8 +7,7 @@ import ClientPicker from '@components/ClientPicker'
 import EventPicker from '@components/EventPicker'
 import Note from '@components/Note'
 import Notice from '@components/Notice'
-import IconActionButton from '@components/IconActionButton'
-import { faTimes } from '@fortawesome/free-solid-svg-icons'
+import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_PAYMENT_METHODS,
@@ -77,9 +76,11 @@ const transactionFunc = (
     )
     const initialCategory = useMemo(
       () =>
-        transaction?.category ??
-        initialValues?.category ??
-        (initialType === 'income' ? 'final_payment' : 'other'),
+        normalizeTransactionCategory(
+          transaction?.category ??
+          initialValues?.category ??
+          (initialType === 'income' ? 'final_payment' : 'other')
+        ),
       [initialValues?.category, transaction?.category, initialType]
     )
     const initialPaymentMethod = useMemo(
@@ -360,24 +361,21 @@ const transactionFunc = (
               selectedEvent={selectedEvent}
               selectedEventId={selectedEventId}
               onSelectClick={openEventSelectModal}
+              onClear={() => setSelectedEventId(null)}
               label="Мероприятие"
               disabled={isReadOnly}
               showEditButton={!!selectedEventId}
               fullWidth
             />
-            {selectedEventId && !isReadOnly && (
-              <div className="-mt-2 flex justify-end">
-                <IconActionButton
-                  icon={faTimes}
-                  onClick={() => setSelectedEventId(null)}
-                  title="Убрать связь с мероприятием"
-                  variant="neutral"
-                  size="sm"
-                />
-              </div>
-            )}
             <ClientPicker
               selectedClient={selectedClient}
+              onClear={() => {
+                setSelectedClientId(null)
+                if (selectedEvent?.clientId) setSelectedEventId(null)
+              }}
+              clearTitle={selectedEvent?.clientId
+                ? 'Очистить выбор клиента и связанного мероприятия'
+                : 'Очистить выбор клиента'}
               selectedClientId={selectedClientId}
               onSelectClick={() =>
                 modalsFunc.client?.select((newClientId) => {
@@ -389,17 +387,6 @@ const transactionFunc = (
               disabled={isReadOnly}
               fullWidth
             />
-            {selectedClientId && !isReadOnly && (
-              <div className="-mt-2 flex justify-end">
-                <IconActionButton
-                  icon={faTimes}
-                  onClick={() => setSelectedClientId(null)}
-                  title="Убрать связь с клиентом"
-                  variant="neutral"
-                  size="sm"
-                />
-              </div>
-            )}
           </>
         )}
         <div className="flex items-end gap-2">

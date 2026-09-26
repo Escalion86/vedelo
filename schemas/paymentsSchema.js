@@ -64,6 +64,10 @@ const paymentsSchema = {
     default: '',
     trim: true,
   },
+  receiptNotRequired: {
+    type: Boolean,
+    default: false,
+  },
   idempotenceKey: {
     type: String,
     default: '',
