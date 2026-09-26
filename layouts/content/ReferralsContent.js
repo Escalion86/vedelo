@@ -42,6 +42,8 @@ const ReferralsContent = () => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Фактический origin браузера неизвестен при серверном рендере.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOrigin(window.location.origin)
     }
   }, [])

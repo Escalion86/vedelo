@@ -443,22 +443,34 @@ const EventsContent = ({
   const statusFilterKeys = useMemo(() => getStatusFilterKeys(filter), [filter])
   const itemHeight = isCompact ? 194 : 206
 
-  useEffect(() => {
+  const [pagingSource, setPagingSource] = useState(null)
+  const pagingKey = `${filter}:${Boolean(eventsPaging?.hasMore)}:${eventsPaging?.nextBefore || ''}`
+  if (pagingSource !== pagingKey) {
+    setPagingSource(pagingKey)
     if (filter !== 'past') {
       setPastHasMore(false)
       setPastNextBefore(null)
       setPastLoadingMore(false)
       setServerFilteredCount(null)
-      return
+    } else {
+      setPastHasMore(Boolean(eventsPaging?.hasMore))
+      setPastNextBefore(eventsPaging?.nextBefore || null)
     }
-    setPastHasMore(Boolean(eventsPaging?.hasMore))
-    setPastNextBefore(eventsPaging?.nextBefore || null)
-  }, [eventsPaging?.hasMore, eventsPaging?.nextBefore, filter])
+  }
+
+  const [nowTime, setNowTime] = useState(Date.now)
+  useEffect(() => {
+    const updateTime = () => setNowTime(Date.now())
+    const timer = window.setInterval(updateTime, 60000)
+    window.addEventListener('focus', updateTime)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', updateTime)
+    }
+  }, [])
 
   const baseEvents = useMemo(() => {
     if (filter === 'all') return events
-
-    const nowTime = Date.now()
 
     return events.filter((event) => {
       const completionTime = getEventCompletionTime(event)
@@ -467,7 +479,7 @@ const EventsContent = ({
         ? completionTime >= nowTime
         : completionTime < nowTime
     })
-  }, [events, filter])
+  }, [events, filter, nowTime])
 
   const townsOptions = useMemo(() => {
     const townsSet = new Set()
@@ -490,11 +502,9 @@ const EventsContent = ({
     [filteredEvents]
   )
 
-  useEffect(() => {
-    if (!selectedTown) return
-    if (townsOptions.includes(selectedTown)) return
+  if (selectedTown && !townsOptions.includes(selectedTown)) {
     setSelectedTown('')
-  }, [selectedTown, townsOptions])
+  }
 
   useEffect(() => {
     if (modals.length === 0) {
@@ -509,6 +519,8 @@ const EventsContent = ({
         : readEventListFiltersState(filter, window.localStorage)
 
     skipEventFiltersPersistRef.current = true
+    // Гидратация сохранённых фильтров из localStorage при смене раздела.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTown(nextFilters.selectedTown)
     setCheckFilter(nextFilters.checkFilter)
     setStatusFilter(nextFilters.statusFilter)
@@ -541,6 +553,8 @@ const EventsContent = ({
       return
     }
 
+    // Deep link задаёт начальные фильтры; последующие изменения делает пользователь.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatusFilter({
       finished:
         finishedParam === null
@@ -662,6 +676,8 @@ const EventsContent = ({
           window.sessionStorage.getItem('openEventAt') || 0
         )
         if (!storedAt || Date.now() - storedAt < 2 * 60 * 1000) {
+          // Одноразовый запрос открытия из sessionStorage после гидратации.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPendingOpenId(storedId)
         }
         window.sessionStorage.removeItem('openEvent')
@@ -843,10 +859,7 @@ const EventsContent = ({
   useEffect(() => {
     if (filter !== 'past') return
 
-    if (!pastHasMore) {
-      setServerFilteredCount(sortedEvents.length)
-      return
-    }
+    if (!pastHasMore) return
 
     let isActive = true
     const search = new URLSearchParams({
@@ -903,7 +916,7 @@ const EventsContent = ({
   ])
 
   const displayedCount =
-    filter === 'past'
+    filter === 'past' && pastHasMore
       ? (serverFilteredCount ?? sortedEvents.length)
       : sortedEvents.length
 
@@ -1074,6 +1087,8 @@ const EventsContent = ({
       filter === 'upcoming' &&
       monthCursor.getTime() < currentMonthStart.getTime()
     ) {
+      // Автопозиционирование после загрузки страниц календаря, с защитой ref.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMonthCursor(currentMonthStart)
       return
     }
@@ -1123,6 +1138,8 @@ const EventsContent = ({
     })
 
     if (!hasItemsInCurrentMonth) {
+      // Пустой месяц запрашивает следующую серверную страницу с loading-флагом.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       handleLoadMorePast()
     }
   }, [
@@ -1180,11 +1197,9 @@ const EventsContent = ({
     [modalsFunc, monthItemsByDay]
   )
 
-  useEffect(() => {
-    if (!additionalQuickFilter) return
-    if ((additionalSummary?.[additionalQuickFilter] ?? 0) > 0) return
+  if (additionalQuickFilter && !(additionalSummary?.[additionalQuickFilter] > 0)) {
     setAdditionalQuickFilter('')
-  }, [additionalQuickFilter, additionalSummary])
+  }
 
   const RowComponent = useCallback(
     ({ index, style }) => {

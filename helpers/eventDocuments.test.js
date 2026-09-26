@@ -25,6 +25,7 @@ test('normalizes a link document', () => {
       title: 'Счет',
       url: 'https://example.com/invoice',
       file: null,
+      transactionId: '', number: '', documentDate: '', templateId: '',
       createdAt: '2026-07-01T00:00:00.000Z',
     }
   )

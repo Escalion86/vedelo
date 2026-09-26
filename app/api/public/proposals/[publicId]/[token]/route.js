@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
 import Events from '@models/Events'
+import { renderProposalVariables } from '@helpers/proposalContent'
 import dbConnect from '@server/dbConnect'
 import { isValidProposalToken } from '@server/proposals'
 import { sendPushToTenant } from '@server/pushNotifications'
@@ -20,6 +21,8 @@ const publicData = (proposal) => {
   }
   const blocks = (proposal.blocksSnapshot || []).map((block) => ({
     ...(block.toObject?.() || block),
+    title: renderProposalVariables(block.title || '', variables).text,
+    text: renderProposalVariables(block.text || '', variables).text,
     contentHtml: renderProposalRichTextVariables(
       getProposalBlockContentHtml(block),
       variables

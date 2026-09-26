@@ -73,6 +73,8 @@ const SettingsContent = () => {
   useEffect(() => {
     const storedTheme = localStorage.getItem('theme')
     const isDark = storedTheme === 'dark'
+    // Гидратация темы из браузерного хранилища с обновлением DOM.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDarkTheme(isDark)
     document.body.classList.toggle('theme-dark', isDark)
   }, [])
@@ -114,6 +116,8 @@ const SettingsContent = () => {
   }
 
   useEffect(() => {
+    // Начальный снимок внешней очереди перед подпиской на её изменения.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQueuedChangesCount(getServerSyncQueueCount())
     if (typeof window === 'undefined') return undefined
     const handleQueueChanged = () => {
@@ -128,10 +132,13 @@ const SettingsContent = () => {
     }
   }, [])
 
-  useEffect(() => {
-    const value = Number(customSettings?.defaultEventDurationMinutes ?? 60)
-    setDefaultEventDuration(Number.isFinite(value) && value > 0 ? value : 60)
-  }, [customSettings?.defaultEventDurationMinutes])
+  const savedDuration = Number(customSettings?.defaultEventDurationMinutes ?? 60)
+  const normalizedDuration = Number.isFinite(savedDuration) && savedDuration > 0 ? savedDuration : 60
+  const [previousDuration, setPreviousDuration] = useState(null)
+  if (previousDuration !== normalizedDuration) {
+    setPreviousDuration(normalizedDuration)
+    setDefaultEventDuration(normalizedDuration)
+  }
 
   useEffect(() => {
     if (!siteSettingsState?._id) return

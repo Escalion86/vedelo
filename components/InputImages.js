@@ -59,7 +59,7 @@ const InputImages = ({
               directory,
               null,
               imageFolder
-            )
+            ).finally(() => setAddingImage(false))
           })
         }
       }
@@ -75,7 +75,6 @@ const InputImages = ({
   }
 
   useEffect(() => {
-    setAddingImage(false)
     if (typeof onLoaded === 'function') onLoaded()
   }, [images, onLoaded])
 

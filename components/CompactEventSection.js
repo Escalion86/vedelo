@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
+import cn from 'classnames'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronRight } from '@fortawesome/free-solid-svg-icons/faChevronRight'
 
@@ -14,6 +15,7 @@ const Section = ({
   wrapSummary = false,
   noDivider = false,
   highlighted = false,
+  aiHighlighted = false,
 }) => {
   const ref = useRef(null)
   const id = useId()
@@ -24,7 +26,11 @@ const Section = ({
     <details
       ref={ref}
       open={initiallyOpen || undefined}
-      className={`compact-event-section${highlighted ? ' compact-event-section--highlighted' : ''}`}
+      className={cn('compact-event-section', {
+        'compact-event-section--highlighted': highlighted,
+        'compact-event-section--ai-highlighted': aiHighlighted,
+      })}
+      data-ai-filled={aiHighlighted ? 'true' : undefined}
       style={noDivider ? { borderBottom: 'none' } : undefined}
     >
       <summary aria-controls={id}>

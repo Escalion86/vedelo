@@ -27,7 +27,7 @@ const formatDocumentDate = (value) => {
   }
 }
 
-const renderDocxTemplate = ({ templateBase64, variables = {} }) => {
+const renderDocxTemplate = ({ templateBase64, variables = {}, inspection = null }) => {
   const bytes = Buffer.from(String(templateBase64 || '').trim(), 'base64')
   if (!bytes.length) throw new Error('DOCX_TEMPLATE_EMPTY')
 
@@ -38,7 +38,15 @@ const renderDocxTemplate = ({ templateBase64, variables = {} }) => {
     linebreaks: true,
     parser: (rawTag) => {
       const key = toDocxTemplateKey(rawTag)
-      return { get: () => normalizedData[key] ?? '' }
+      return { get: () => {
+        const value = normalizedData[key]
+        if (inspection) {
+          inspection.fields[key] = value ?? ''
+          if (value === undefined) inspection.unknown.add(key)
+          else if (value === '' || value === null || /^_+$/.test(String(value))) inspection.missing.add(key)
+        }
+        return value ?? ''
+      } }
     },
   })
   document.render(normalizedData)

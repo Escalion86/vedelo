@@ -1,4 +1,8 @@
 const documentSchema = {
+  transactionId: { type: String, default: '' },
+  number: { type: String, default: '' },
+  documentDate: { type: String, default: '' },
+  templateId: { type: String, default: '' },
   id: { type: String, default: '' },
   type: {
     type: String,

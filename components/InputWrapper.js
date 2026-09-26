@@ -2,12 +2,14 @@ import { faAsterisk } from '@fortawesome/free-solid-svg-icons/faAsterisk'
 import { faBan } from '@fortawesome/free-solid-svg-icons/faBan'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
+import FieldHelp from './FieldHelp'
 import { forwardRef } from 'react'
 
 const InputWrapper = forwardRef(
   (
     {
       label,
+      help,
       labelClassName,
       value,
       className,
@@ -90,6 +92,7 @@ const InputWrapper = forwardRef(
             )}
           >
             {label}
+            {help ? <FieldHelp text={help} label={label} /> : null}
             {required && (
               <FontAwesomeIcon
                 className={requiredIconClass}
@@ -103,20 +106,24 @@ const InputWrapper = forwardRef(
           className={cn(
             'relative flex h-fit items-stretch bg-white',
             insetPostfix
-              ? 'pl-2 pr-1'
-              : paddingX === 'small' ? 'px-1' : paddingX ? 'px-2' : 'px-0',
+              ? 'pr-1 pl-2'
+              : paddingX === 'small'
+                ? 'px-1'
+                : paddingX
+                  ? 'px-2'
+                  : 'px-0',
             noBorder
               ? 'min-h-[36px]'
               : `[&:not(:focus-within)]:hover:border-opacity-50 min-h-[40px] rounded border-2 ${borderColorClass} ${focusBorderClass}`,
             insetPostfix
               ? 'py-1'
               : paddingY === 'small'
-              ? 'pt-1.5 pb-1'
-              : paddingY === 'big'
-                ? 'pt-2.5 pb-2'
-                : paddingY
-                  ? 'pt-2 pb-1.5'
-                  : '',
+                ? 'pt-1.5 pb-1'
+                : paddingY === 'big'
+                  ? 'pt-2.5 pb-2'
+                  : paddingY
+                    ? 'pt-2 pb-1.5'
+                    : '',
             disabled ? 'cursor-not-allowed' : ''
           )}
         >
@@ -148,7 +155,9 @@ const InputWrapper = forwardRef(
                   postfixClassName
                 )}
               >
-                {postfix && <span className="flex items-center">{postfix}</span>}
+                {postfix && (
+                  <span className="flex items-center">{postfix}</span>
+                )}
                 {disabled && showDisabledIcon && (
                   <FontAwesomeIcon
                     className="text-disabled h-4 w-4"

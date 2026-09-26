@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { pathToFileURL } from 'node:url'
 import { runOfflineSmoke } from './offlineSmoke.mjs'
 import { runAttachmentSmoke } from './attachmentSmoke.mjs'
+import { runStateUiSmoke } from './stateUiSmoke.mjs'
 
 // Не требует Playwright в production dependencies. Передаётся путь к уже
 // установленному модулю; отсутствие модуля явно отмечается runner как skip.
@@ -40,6 +41,7 @@ export const runBrowserSmoke = async ({ baseUrl, phone, password }) => {
         assert.match(await page.title(), /Кабинет Ведело/)
         await runAttachmentSmoke({ page, context, viewport })
         await runOfflineSmoke({ page, context, viewport })
+        await runStateUiSmoke({ page, viewport })
         const content = await page.locator('body').innerText()
         assert.ok(content.length > 100, 'Кабинет должен содержать интерфейс')
         assert.doesNotMatch(

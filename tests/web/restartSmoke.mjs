@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -29,7 +30,7 @@ export const runRestartSmoke = async ({ baseUrl, phone, password }) => {
     await page.waitForURL('**/cabinet/**')
     await page.getByText('Важное', { exact: true }).first().waitFor()
   }
-  const marker = 'Offline persistent restart'
+  const marker = `Offline persistent restart ${randomUUID()}`
   try {
     context = await launch()
     let page = await context.newPage()
@@ -59,7 +60,9 @@ export const runRestartSmoke = async ({ baseUrl, phone, password }) => {
       JSON.parse(localStorage.getItem('artistcrm:server-sync-queue'))
     )
     const original = JSON.parse(before.queue)
-    assert.equal(restored.length, 1)
+    // Фоновый запрос посещения кабинета также может попасть в очередь.
+    const clientWrites = restored.filter(item => item.url === '/api/clients')
+    assert.equal(clientWrites.length, 1)
     for (const field of [
       'id',
       'url',
@@ -68,7 +71,7 @@ export const runRestartSmoke = async ({ baseUrl, phone, password }) => {
       'headers',
       'createdAt',
     ]) {
-      assert.deepEqual(restored[0][field], original[0][field])
+      assert.deepEqual(clientWrites[0][field], original[0][field])
     }
     const secondPage = await context.newPage()
     await Promise.all([login(page), login(secondPage)])

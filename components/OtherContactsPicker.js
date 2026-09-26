@@ -103,7 +103,9 @@ const OtherContactsPicker = ({
         <AddIconButton
           onClick={onAddContact}
           title="Добавить контакт"
+          label="Добавить контакт"
           size="sm"
+          className="px-3"
         />
       </div>
     </div>

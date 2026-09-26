@@ -85,7 +85,9 @@ export const FirstRunWizardModal = ({
   const [settings, setSettings] = useAtom(siteSettingsAtom)
   const isRepeatRun = useRef(settings?.custom?.firstRunWizardCompleted === true)
   const closeRef = useRef(closeModal)
-  closeRef.current = closeModal
+  useEffect(() => {
+    closeRef.current = closeModal
+  }, [closeModal])
   const {
     data: services = [],
     isFetching: servicesLoading,
@@ -106,6 +108,8 @@ export const FirstRunWizardModal = ({
   const [theme, setTheme] = useState(null)
 
   useEffect(() => {
+    // Тема модалки должна совпадать с уже установленным классом body.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(document.body.classList.contains('theme-dark') ? 'dark' : 'light')
   }, [])
 
@@ -148,7 +152,9 @@ export const FirstRunWizardModal = ({
   }, [setCloseButtonShow, setOnCloseButtonFunc])
   const confirmRef = useRef(null)
   const settingsRef = useRef(settings)
-  settingsRef.current = settings
+  useEffect(() => {
+    settingsRef.current = settings
+  }, [settings])
   const step = FIRST_RUN_STEPS[stepIndex]
 
   useEffect(() => {
@@ -159,6 +165,8 @@ export const FirstRunWizardModal = ({
       servicesLoadFailed
     )
       return
+    // Создаём редактируемый снимок после загрузки услуг; UUID не создаются в render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrafts(
       (services.length > 0
         ? []
@@ -300,13 +308,15 @@ export const FirstRunWizardModal = ({
       setBusy(false)
     }
   }
-  confirmRef.current =
-    phase === 'setup'
-      ? saveStep
-      : () => {
-          setError('')
-          setPhase('tour')
-        }
+  useEffect(() => {
+    confirmRef.current =
+      phase === 'setup'
+        ? saveStep
+        : () => {
+            setError('')
+            setPhase('tour')
+          }
+  })
 
   useEffect(() => {
     setOnConfirmFunc(

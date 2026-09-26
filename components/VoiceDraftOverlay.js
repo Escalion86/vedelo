@@ -193,6 +193,8 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
   }, [cleanupAudio, status])
 
   useEffect(() => {
+    // Открытие оверлея запускает MediaRecorder; cleanup освобождает микрофон.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     startRecording()
     return () => {
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {

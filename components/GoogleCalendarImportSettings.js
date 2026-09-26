@@ -50,7 +50,7 @@ const formatRub = (value) =>
 const GoogleCalendarImportSettings = () => {
   const terms = useWorkItemTerminology()
   const queryClient = useQueryClient()
-  const initialRange = useMemo(getDefaultRange, [])
+  const [initialRange] = useState(getDefaultRange)
   const [calendarStatus, setCalendarStatus] = useState({ loading: true })
   const [calendars, setCalendars] = useState([])
   const [selectedCalendarId, setSelectedCalendarId] = useState('')
@@ -125,6 +125,8 @@ const GoogleCalendarImportSettings = () => {
   }, [loadCalendarState])
 
   useEffect(() => {
+    // Подключение к внешнему календарю проверяется при открытии экрана.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadCalendarState()
   }, [loadCalendarState])
 

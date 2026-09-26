@@ -131,6 +131,19 @@ const useServerSyncFetchGate = ({ serverSyncDisabled, snackbar }) => {
 
     window.fetch = async (input, init = {}) => {
       const queueableWrite = isQueueableWrite(input, init)
+      // Один ключ сохраняется с первой попытки, включая online-запрос,
+      // ответ на который может потеряться до записи в offline-очередь.
+      const inputUrl = typeof input === 'string' ? input : input?.url
+      if (
+        queueableWrite && getMethod(input, init) === 'POST' &&
+        new URL(inputUrl, window.location.origin).pathname === '/api/clients'
+      ) {
+        const headers = new Headers(init.headers || input?.headers)
+        if (!headers.has('Idempotency-Key')) {
+          headers.set('Idempotency-Key', crypto.randomUUID())
+        }
+        init = { ...init, headers }
+      }
       const disabledFromStorage = readServerSyncDisabledFromStorage()
       const disabled =
         typeof disabledFromStorage === 'boolean'
@@ -244,6 +257,12 @@ const useServerSyncQueueFlush = ({
               ? { ...item.headers }
               : { 'Content-Type': 'application/json' }
           headers['x-artistcrm-sync-replay'] = '1'
+          if (method === 'POST' && item.url?.split('?')[0] === '/api/clients') {
+            const hasKey = Object.keys(headers).some(
+              (name) => name.toLowerCase() === 'idempotency-key'
+            )
+            if (!hasKey) headers['Idempotency-Key'] = item.id
+          }
 
           try {
             const response = await fetch(item.url, { method, headers, body })

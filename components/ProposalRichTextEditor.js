@@ -1,5 +1,6 @@
 'use client'
 
+import AppButton from '@components/AppButton'
 import { useEffect, useMemo } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { Node, mergeAttributes } from '@tiptap/core'
@@ -66,13 +67,6 @@ const ProposalVariable = Node.create({
     }
   },
 })
-
-const toolbarButtonClass = (active = false) =>
-  `h-8 min-w-8 cursor-pointer rounded border px-2 text-xs font-semibold transition ${
-    active
-      ? 'border-amber-500 bg-amber-100 text-amber-950'
-      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
-  }`
 
 const ProposalRichTextEditor = ({ value = '', onChange, placeholder = '' }) => {
   const extensions = useMemo(
@@ -145,75 +139,91 @@ const ProposalRichTextEditor = ({ value = '', onChange, placeholder = '' }) => {
   return (
     <div className="proposal-rich-text-editor overflow-hidden rounded-lg border border-gray-300 bg-white">
       <div className="proposal-rich-text-toolbar flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 p-2">
-        <button
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(editor.isActive('bold'))}
+          variant={editor.isActive('bold') ? 'primary' : 'secondary'}
+          aria-pressed={editor.isActive('bold')}
           onClick={() => editor.chain().focus().toggleBold().run()}
           title="Полужирный"
         >
           Ж
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(editor.isActive('italic'))}
+          variant={editor.isActive('italic') ? 'primary' : 'secondary'}
+          aria-pressed={editor.isActive('italic')}
           onClick={() => editor.chain().focus().toggleItalic().run()}
           title="Курсив"
         >
           К
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(
-            editor.isActive('heading', { level: 2 })
-          )}
+          variant={
+            editor.isActive('heading', { level: 2 }) ? 'primary' : 'secondary'
+          }
+          aria-pressed={editor.isActive('heading', { level: 2 })}
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 2 }).run()
           }
         >
           H2
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(
-            editor.isActive('heading', { level: 3 })
-          )}
+          variant={
+            editor.isActive('heading', { level: 3 }) ? 'primary' : 'secondary'
+          }
+          aria-pressed={editor.isActive('heading', { level: 3 })}
           onClick={() =>
             editor.chain().focus().toggleHeading({ level: 3 }).run()
           }
         >
           H3
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(editor.isActive('bulletList'))}
+          variant={editor.isActive('bulletList') ? 'primary' : 'secondary'}
+          aria-pressed={editor.isActive('bulletList')}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           title="Маркированный список"
         >
           • Список
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(editor.isActive('orderedList'))}
+          variant={editor.isActive('orderedList') ? 'primary' : 'secondary'}
+          aria-pressed={editor.isActive('orderedList')}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           title="Нумерованный список"
         >
           1. Список
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(editor.isActive('blockquote'))}
+          variant={editor.isActive('blockquote') ? 'primary' : 'secondary'}
+          aria-pressed={editor.isActive('blockquote')}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           title="Цитата"
         >
           Цитата
-        </button>
-        <button
+        </AppButton>
+        <AppButton
+          size="sm"
           type="button"
-          className={toolbarButtonClass(editor.isActive('link'))}
+          variant={editor.isActive('link') ? 'primary' : 'secondary'}
+          aria-pressed={editor.isActive('link')}
           onClick={setLink}
         >
           Ссылка
-        </button>
+        </AppButton>
         <select
           className="h-8 min-w-40 cursor-pointer rounded border border-gray-300 bg-white px-2 text-xs"
           defaultValue=""

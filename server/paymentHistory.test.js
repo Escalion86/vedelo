@@ -5,6 +5,7 @@ import {
   canViewPaymentHistoryForUser,
   makePaymentHistoryCursor,
   parsePaymentHistoryCursor,
+  parsePaymentHistoryLimit,
   serializePaymentHistoryItem,
   paymentManagementActions,
   buildPaymentReceiptFilter,
@@ -16,6 +17,16 @@ import {
 
 const USER_ID = '66a000000000000000000001'
 const TENANT_ID = '66a000000000000000000002'
+
+test('история платежей использует 30 записей без limit и ограничивает явный limit', () => {
+  for (const value of [null, undefined, '', ' ', 'invalid']) {
+    assert.equal(parsePaymentHistoryLimit(value), 30)
+  }
+  assert.equal(parsePaymentHistoryLimit('0'), 1)
+  assert.equal(parsePaymentHistoryLimit('-10'), 1)
+  assert.equal(parsePaymentHistoryLimit('12.5'), 12)
+  assert.equal(parsePaymentHistoryLimit('1000'), 100)
+})
 
 test('историю чужих расчётов видят только developer и администратор', () => {
   assert.equal(

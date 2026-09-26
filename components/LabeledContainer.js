@@ -1,7 +1,9 @@
 import cn from 'classnames'
+import FieldHelp from './FieldHelp'
 
 const LabeledContainer = ({
   label,
+  help,
   children,
   className,
   contentClassName,
@@ -16,8 +18,9 @@ const LabeledContainer = ({
       )}
     >
       {label ? (
-        <div className="input-label px-1 text-xs font-semibold select-none">
+        <div className="input-label flex items-center gap-1 px-1 text-xs font-semibold select-none">
           {label}
+          {help ? <FieldHelp text={help} label={label} /> : null}
         </div>
       ) : null}
       <div className="border-input w-full rounded border-2 bg-white px-2 pt-2 pb-2">

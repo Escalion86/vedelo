@@ -76,51 +76,63 @@ export const runOfflineSmoke = async ({ page, context, viewport }) => {
     `Offline ${viewport.width}: очередь → replay → одна запись; ошибка storage показана пользователю`
   )
   if (viewport.width === 1365) {
-    let replayAttempts = 0
-    const handler = async (route) => {
-      if (route.request().method() === 'POST') {
-        replayAttempts += 1
-        if (replayAttempts === 1) return route.abort('connectionreset')
+    for (const startOffline of [true, false]) {
+      const retryMarker = `Lost response ${startOffline ? 'offline' : 'online'}`
+      let replayAttempts = 0
+      const keys = new Set()
+      const handler = async (route) => {
+        if (route.request().method() === 'POST') {
+          replayAttempts += 1
+          keys.add(route.request().headers()['idempotency-key'])
+          if (replayAttempts === 1) {
+            // Сервер уже создал клиента, но браузер не получил ответ.
+            const accepted = await route.fetch()
+            assert.equal(accepted.status(), 201)
+            return route.abort('connectionreset')
+          }
+        }
+        return route.continue()
       }
-      return route.continue()
-    }
-    await page.route('**/api/clients', handler)
-    try {
-      await context.setOffline(true)
-      await page.evaluate(async () => {
-        await fetch('/api/clients', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ firstName: 'Offline automatic retry' }),
-        })
-      })
-      await context.setOffline(false)
-      await page.waitForFunction(() =>
-        JSON.parse(
-          localStorage.getItem('artistcrm:server-sync-queue') || '[]'
-        ).some((item) => item.status === 'failed')
-      )
-      await page.waitForFunction(
-        () =>
+      await page.route('**/api/clients', handler)
+      try {
+        await context.setOffline(startOffline)
+        await page.evaluate(async (firstName) => {
+          await fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ firstName }),
+          })
+        }, retryMarker)
+        await context.setOffline(false)
+        if (startOffline) await page.waitForFunction(() =>
           JSON.parse(
             localStorage.getItem('artistcrm:server-sync-queue') || '[]'
-          ).length === 0,
-        {},
-        { timeout: 15000 }
-      )
-      assert.equal(replayAttempts, 2)
-      assert.equal(
-        (await readClients()).filter(
-          (item) => item.firstName === 'Offline automatic retry'
-        ).length,
-        1
-      )
-      console.log(
-        'Offline retry: первый replay прерван; повтор после backoff создал одного клиента'
-      )
-    } finally {
-      await context.setOffline(false)
-      await page.unroute('**/api/clients', handler)
+          ).some((item) => item.status === 'failed')
+        )
+        await page.waitForFunction(
+          () =>
+            JSON.parse(
+              localStorage.getItem('artistcrm:server-sync-queue') || '[]'
+            ).length === 0,
+          {},
+          { timeout: 15000 }
+        )
+        assert.equal(replayAttempts, 2)
+        assert.equal(keys.size, 1)
+        assert.ok([...keys][0])
+        assert.equal(
+          (await readClients()).filter(
+            (item) => item.firstName === retryMarker
+          ).length,
+          1
+        )
+        console.log(
+          `${startOffline ? 'Offline' : 'Online'} retry: ответ после создания потерян; повтор не создал дубль`
+        )
+      } finally {
+        await context.setOffline(false)
+        await page.unroute('**/api/clients', handler)
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ import NativeSelect from './NativeSelect'
 
 const ComboBox = ({
   label,
+  help,
   defaultValue,
   value,
   onChange,
@@ -45,6 +46,7 @@ const ComboBox = ({
   return (
     <InputWrapper
       label={label}
+      help={help}
       labelClassName={labelClassName}
       wrapperClassName={wrapperClassName}
       hidden={hidden}

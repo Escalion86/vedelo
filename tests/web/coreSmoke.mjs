@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 
 // Используется только с временной БД HTTP integration runner.
 export const runWebCoreSmoke = async ({
@@ -54,6 +55,42 @@ export const runWebCoreSmoke = async ({
 
   const userA = await login(phoneA)
   const userB = await login(phoneB)
+  const key = randomUUID()
+  const createOnce = (request, body, operationKey = key) => request('/api/clients', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'Idempotency-Key': operationKey },
+    body: JSON.stringify(body),
+  })
+  const payload = { firstName: 'Idempotency smoke', tenantId: String(tenantB) }
+  const repeated = await Promise.all(Array.from({ length: 4 }, () => createOnce(userA, payload)))
+  const results = await Promise.all(repeated.map(async (response) => {
+    assert.equal(response.status, 201)
+    return (await response.json()).data
+  }))
+  assert.equal(new Set(results.map(item => item._id)).size, 1)
+  assert.ok(results.every(item => !('webCreateFingerprint' in item)))
+  assert.equal((await createOnce(userA, { firstName: 'Other payload' })).status, 409)
+  assert.equal((await createOnce(userA, payload, 'invalid')).status, 400)
+  const foreign = await createOnce(userB, payload)
+  assert.equal(foreign.status, 201)
+  const foreignClient = (await foreign.json()).data
+  assert.notEqual(foreignClient._id, results[0]._id)
+  assert.equal(foreignClient.tenantId, String(tenantB))
+  assert.equal((await userB(`/api/clients/${results[0]._id}`)).status, 404)
+  const updated = await userA(`/api/clients/${results[0]._id}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ comment: 'Updated after creation', webCreateFingerprint: 'forged' }),
+  })
+  assert.equal(updated.status, 200)
+  const afterUpdate = await createOnce(userA, payload)
+  assert.equal(afterUpdate.status, 201)
+  assert.equal((await afterUpdate.json()).data.comment, 'Updated after creation')
+  assert.equal((await fetch(`${baseUrl}/api/clients`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'Idempotency-Key': key },
+    body: JSON.stringify(payload),
+  })).status, 401)
   const json = async (request, pathname, method = 'GET', body) => {
     const response = await request(pathname, {
       method,

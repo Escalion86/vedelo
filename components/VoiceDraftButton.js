@@ -203,34 +203,26 @@ const VoiceDraftButton = ({ onDraft, disabled, className }) => {
       icon: faMicrophone,
       label: 'Голосовой ввод',
       className: 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 active:bg-blue-200',
-      onClick: handleStart,
     },
     listening: {
       icon: faMicrophone,
       label: 'Говорите...',
       className: 'text-red-700 bg-red-50 border-red-300 animate-pulse',
-      onClick: handleStop,
     },
     processing: {
       icon: faSpinner,
       label: 'Обработка...',
       className: 'text-amber-700 bg-amber-50 border-amber-200',
-      onClick: null,
     },
     success: {
       icon: faCircleCheck,
       label: 'Готово!',
       className: 'text-green-700 bg-green-50 border-green-200',
-      onClick: null,
     },
     error: {
       icon: faExclamationTriangle,
       label: 'Ошибка',
       className: 'text-red-700 bg-red-50 border-red-200',
-      onClick: () => {
-        setStatus('idle')
-        setErrorMessage('')
-      },
     },
   }
 
@@ -242,7 +234,14 @@ const VoiceDraftButton = ({ onDraft, disabled, className }) => {
       <button
         type="button"
         disabled={disabled || !isInteractive}
-        onClick={config.onClick}
+        onClick={() => {
+          if (status === 'idle') handleStart()
+          else if (status === 'listening') handleStop()
+          else if (status === 'error') {
+            setStatus('idle')
+            setErrorMessage('')
+          }
+        }}
         className={`inline-flex items-center px-3 py-2 text-sm font-medium border rounded-md transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 ${
           disabled ? 'opacity-50 cursor-not-allowed' : ''
         } ${isInteractive ? 'cursor-pointer' : 'cursor-default'} ${config.className}`}

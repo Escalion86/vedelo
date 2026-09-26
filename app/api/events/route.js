@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateDocumentPaymentLinks } from '@server/documentPaymentLinks'
 import Events from '@models/Events'
 import dbConnect from '@server/dbConnect'
 import { updateEventInCalendar } from '@server/CRUD'
@@ -418,9 +419,13 @@ export const POST = async (req) => {
       )
     }
   }
+  if (!(await validateDocumentPaymentLinks(normalizeEventDocuments(body.documents), tenantId, null))) {
+    return NextResponse.json({ success: false, error: 'Сначала сохраните заказ и добавьте оплату' }, { status: 400 })
+  }
   const event = await Events.create({
     ...body,
     tenantId,
+    agreedProposal: null,
     requestCreatedAt: body.requestCreatedAt
       ? new Date(body.requestCreatedAt)
       : new Date(),

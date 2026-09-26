@@ -941,6 +941,8 @@ const IntegrationsContent = () => {
   }, [canUseCalendar])
 
   useEffect(() => {
+    // Проверка внешнего подключения включает индикатор HTTP-запроса.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (canUseTelegram) loadTelegramStatus()
   }, [canUseTelegram, loadTelegramStatus])
 

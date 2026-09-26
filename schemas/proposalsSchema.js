@@ -32,6 +32,8 @@ const proposalsSchema = {
   selectionHistory: { type: [Schema.Types.Mixed], default: [] },
   selectionTaskCreatedAt: { type: Date, default: null },
   appliedAt: { type: Date, default: null },
+  appliedPackageId: { type: String, default: '' },
+  appliedSelectionAt: { type: Date, default: null },
   sentAt: { type: Date, default: null },
   delivery: { type: [Schema.Types.Mixed], default: [] },
 }

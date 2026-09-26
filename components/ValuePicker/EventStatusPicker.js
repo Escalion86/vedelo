@@ -16,13 +16,14 @@ const EMPTY_REASONS = Object.freeze({})
 const EventStatusPicker = ({
   status,
   onChange = null,
+  label = 'Статус мероприятия',
   required = false,
   disabledValues = EMPTY_VALUES,
   disabledReasons = EMPTY_REASONS,
   error = false,
 }) => (
   <InputWrapper
-    label="Статус мероприятия"
+    label={label}
     value={status}
     required={required}
     error={error}

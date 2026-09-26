@@ -3,6 +3,7 @@ import {
   getDocumentDefaultTitle,
   normalizeDocumentType,
 } from './documentTypes.js'
+import { normalizeDocumentMetadata } from './documentWorkflow.js'
 
 const cleanString = (value) => String(value ?? '').trim()
 
@@ -66,6 +67,7 @@ const normalizeEntityDocument = (
     url,
     file,
     createdAt: normalizeIsoDate(document.createdAt, now),
+    ...normalizeDocumentMetadata(document),
   }
 }
 

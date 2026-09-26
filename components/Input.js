@@ -36,11 +36,13 @@ const Input = forwardRef(
   (
     {
       label,
+      help,
       onChange,
       value,
       className,
       type = 'text',
       inputClassName,
+      ariaLabel,
       labelClassName,
       error = false,
       prefix,
@@ -129,6 +131,7 @@ const Input = forwardRef(
     return (
       <InputWrapper
         label={label}
+        help={help}
         labelClassName={labelClassName}
         value={value ?? defaultValue}
         className={cn(
@@ -211,6 +214,7 @@ const Input = forwardRef(
           />
         ) : (
           <input
+            aria-label={ariaLabel}
             type={isDecimalNumber ? 'text' : type}
             inputMode={isDecimalNumber ? 'decimal' : undefined}
             step={resolvedStep}

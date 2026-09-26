@@ -408,8 +408,8 @@ const Modal = ({
           )}
         </div>
 
-        {(onConfirmClick ||
-          onConfirm2Click ||
+        {(confirmHandler ||
+          confirm2Handler ||
           // showConfirm ||
           closeButtonShowState ||
           // showDecline ||

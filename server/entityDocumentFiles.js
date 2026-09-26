@@ -7,6 +7,7 @@ import {
   uploadPrivateFileToEscalionCloud,
 } from '@server/escalionCloud'
 import { normalizeEntityDocument } from '@helpers/entityDocuments'
+import { validateDocumentPaymentLinks } from '@server/documentPaymentLinks'
 
 export const ENTITY_DOCUMENT_MAX_SIZE = 5 * 1024 * 1024
 
@@ -205,6 +206,12 @@ export const uploadEntityDocument = async ({
     )
   }
   const validation = validateEntityDocumentFile(incomingFiles[0])
+  const transactionId = String(formData.get('transactionId') || '')
+  if (transactionId && (entityType !== 'events' || formData.get('type') !== 'receipt' ||
+    !mongoose.Types.ObjectId.isValid(transactionId) ||
+    !(await validateDocumentPaymentLinks([{ transactionId }], tenantId, entityId)))) {
+    throw new EntityDocumentError('PAYMENT_NOT_FOUND', 'Оплата не найдена в этом заказе', 400)
+  }
   const storageKey = buildEntityDocumentStorageKey({
     tenantId,
     entityType,
@@ -222,6 +229,10 @@ export const uploadEntityDocument = async ({
       type: formData.get('type') || 'other',
       customTypeName: formData.get('customTypeName') || '',
       title: formData.get('title') || validation.name,
+      transactionId,
+      number: formData.get('number') || '',
+      documentDate: formData.get('documentDate') || '',
+      templateId: formData.get('templateId') || '',
       file: {
         name: uploaded?.name || validation.name,
         storageKey: uploaded?.storageKey || storageKey,

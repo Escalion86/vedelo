@@ -44,6 +44,28 @@ const getDocumentTypeLabel = (type, customTypeName = '') => {
 const getDocumentDefaultTitle = (type, customTypeName = '') =>
   getDocumentTypeLabel(type, customTypeName)
 
+const getDocumentTitleAfterTypeChange = ({
+  title,
+  previousType,
+  nextType,
+  previousCustomTypeName = '',
+  nextCustomTypeName = '',
+}) => {
+  const currentTitle = String(title ?? '')
+  const previousDefaultTitle = getDocumentDefaultTitle(
+    previousType,
+    previousCustomTypeName
+  )
+
+  if (
+    currentTitle.trim() &&
+    currentTitle.trim() !== previousDefaultTitle
+  )
+    return currentTitle
+
+  return getDocumentDefaultTitle(nextType, nextCustomTypeName)
+}
+
 const getDocumentLastNumberKey = (type) =>
   DOCUMENT_TYPE_LAST_NUMBER_KEYS[normalizeDocumentType(type)] ??
   DOCUMENT_TYPE_LAST_NUMBER_KEYS[DOCUMENT_TYPES.OTHER]
@@ -54,6 +76,7 @@ export {
   DOCUMENT_TYPE_OPTIONS,
   DOCUMENT_TYPE_LAST_NUMBER_KEYS,
   getDocumentDefaultTitle,
+  getDocumentTitleAfterTypeChange,
   getDocumentLastNumberKey,
   getDocumentTypeLabel,
   normalizeDocumentType,

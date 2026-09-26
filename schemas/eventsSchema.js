@@ -2,6 +2,7 @@ import { Schema } from 'mongoose'
 import documentSchema from './documentSchema'
 
 const eventsSchema = {
+  agreedProposal: { type: Schema.Types.Mixed, default: null },
   syncVersion: {
     type: Number,
     default: 1,

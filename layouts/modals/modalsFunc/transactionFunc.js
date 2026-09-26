@@ -33,7 +33,9 @@ import {
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 
-const transactionFunc = ({ eventId, transactionId, contractSum } = {}) => {
+const transactionFunc = (
+  { eventId, transactionId, contractSum, initialValues } = {}
+) => {
   const TransactionModal = ({
     closeModal,
     setOnConfirmFunc,
@@ -70,14 +72,15 @@ const transactionFunc = ({ eventId, transactionId, contractSum } = {}) => {
       [transaction?.clientId]
     )
     const initialType = useMemo(
-      () => transaction?.type ?? 'income',
-      [transaction?.type]
+      () => transaction?.type ?? initialValues?.type ?? 'income',
+      [initialValues?.type, transaction?.type]
     )
     const initialCategory = useMemo(
       () =>
         transaction?.category ??
+        initialValues?.category ??
         (initialType === 'income' ? 'final_payment' : 'other'),
-      [transaction?.category, initialType]
+      [initialValues?.category, transaction?.category, initialType]
     )
     const initialPaymentMethod = useMemo(
       () => transaction?.paymentMethod ?? 'transfer',
@@ -108,8 +111,10 @@ const transactionFunc = ({ eventId, transactionId, contractSum } = {}) => {
     const initialAmount = useMemo(() => {
       if (transaction?.amount !== undefined && transaction?.amount !== null)
         return transaction.amount
+      if (Object.hasOwn(initialValues ?? {}, 'amount'))
+        return initialValues.amount ?? ''
       return defaultAmount
-    }, [transaction?.amount, defaultAmount])
+    }, [transaction?.amount, initialValues, defaultAmount])
     const initialDate = useMemo(() => {
       if (transaction?.date) return new Date(transaction.date).toISOString()
       return new Date().toISOString()
@@ -173,8 +178,12 @@ const transactionFunc = ({ eventId, transactionId, contractSum } = {}) => {
     useEffect(() => {
       if (transactionId) return
       if (amountTouched) return
-      setAmount(defaultAmount)
-    }, [transactionId, amountTouched, defaultAmount])
+      setAmount(
+        Object.hasOwn(initialValues ?? {}, 'amount')
+          ? (initialValues.amount ?? '')
+          : defaultAmount
+      )
+    }, [transactionId, amountTouched, initialValues, defaultAmount])
 
     const selectedClient = useMemo(
       () =>

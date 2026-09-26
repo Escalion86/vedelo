@@ -19,12 +19,14 @@ let compactProps
 let saved = []
 let confirmation
 let transactionEventId
+let transactionProps
 let renderTransactions = false
 let eventFromQuery
+let transactions = empty
 const settings = {}
 const atoms = {
   loggedUserAtom: 'user', siteSettingsAtom: 'settings', servicesAtom: empty,
-  tariffsAtom: empty, modalsFuncAtom: { add(config) { confirmation = config }, event: {}, transaction: { add(id) { transactionEventId = id } } },
+  tariffsAtom: empty, modalsFuncAtom: { add(config) { confirmation = config }, event: {}, transaction: { add(id, props) { transactionEventId = id; transactionProps = props } } },
   itemsFuncAtom: { event: { set: async (payload) => { saved.push(payload); return { ...payload, _id: payload._id || 'saved' } } } },
 }
 const Box = ({ children }) => React.createElement('div', null, children)
@@ -36,14 +38,19 @@ const mocks = {
   },
   '@helpers/useEventsQuery': { useEventQuery: () => ({ data: eventFromQuery }), useEventsQuery: () => ({ data: undefined }) },
   '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: empty }) },
-  '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: empty }), useDeleteTransactionMutation: () => ({}) },
+  '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: transactions }), useDeleteTransactionMutation: () => ({}) },
   '@helpers/tariffAccess': { getUserTariffAccess: () => ({ allowDocuments: true }) },
   '@helpers/firstRunWizard.mjs': { shouldShowColleagueTransferControls: () => true },
   '@helpers/documentTemplates': { normalizeDocumentTemplatesFromSettings: () => empty },
   '@helpers/generateContractTemplate': { getContractTemplateVariablesMap: () => ({}) },
   '@helpers/generateActTemplate': { getActTemplateVariablesMap: () => ({}) },
-  '@components/CompactEventForm': (props) => { compactProps = props; return React.createElement('main', { 'data-compact': true }, props.fields.description, renderTransactions ? props.fields.transactions : null) },
-  '@components/AddIconButton': ({ onClick, title, disabled }) => React.createElement('button', { onClick, title, disabled }, '+'),
+  '@components/CompactEventForm': (props) => { compactProps = props; return React.createElement('main', { 'data-compact': true }, props.fields.description, props.fields.address, props.fields.reminders, props.fields.status, props.fields.finance, renderTransactions ? props.fields.transactions : null) },
+  '@components/AddressPoolPicker': ({ label }) => React.createElement('div', { 'data-address-field': true, 'data-address-label': label ?? 'undefined' }, label),
+  '@components/AddIconButton': ({ onClick, title, disabled, label }) => React.createElement('button', { onClick, title, disabled }, label || '+'),
+  '@components/LabeledContainer': ({ label, children, className }) => React.createElement('section', { 'data-labeled-container': label, className }, React.createElement('span', null, label), children),
+  '@components/AiFieldHighlight': ({ children, className }) => React.createElement('section', { 'data-ai-field-highlight': true, className }, children),
+  '@components/IconCheckBox': ({ label }) => React.createElement('button', { title: label }, label),
+  '@components/ValuePicker/EventStatusPicker': ({ label = 'Статус мероприятия' }) => React.createElement('section', { 'data-status-label': label }, label),
   '@components/Textarea': ({ label, value, onChange }) => React.createElement('textarea', { 'aria-label': label, value, onChange: (e) => onChange(e.target.value) }),
   '@fortawesome/react-fontawesome': { FontAwesomeIcon: () => null },
   '@helpers/CRUD': { postData: noop },
@@ -77,11 +84,32 @@ function load(file, customMocks = mocks) {
 }
 let eventFunc
 let Compact
+let transactionFunc
 const componentMocks = {
   '@fortawesome/react-fontawesome': { FontAwesomeIcon: () => null },
   './InputWrapper': ({ label, children }) => React.createElement('div', null, label, children),
 }
-test.before(async () => { await loadBindings(); eventFunc = load('layouts/modals/modalsFunc/eventFunc.js').default; Compact = load('components/CompactEventForm.js', componentMocks).default })
+const transactionMocks = {
+  ...mocks,
+  '@helpers/useEventsQuery': { useEventsQuery: () => ({ data: { data: [] } }) },
+  '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: empty }) },
+  '@helpers/useTransactionsQuery': {
+    useTransactionsQuery: () => ({ data: empty }),
+    useCreateTransactionMutation: () => ({ mutateAsync: noop }),
+    useUpdateTransactionMutation: () => ({ mutateAsync: noop }),
+  },
+  '@components/Input': ({ label, value }) => React.createElement('input', { 'aria-label': label, value: value ?? '', readOnly: true }),
+  '@components/InputWrapper': ({ label, children }) => React.createElement('section', { 'aria-label': label }, children),
+  '@state/atoms/loadingAtom': () => null,
+  '@state/atoms/errorAtom': () => null,
+  '@state/storeHelpers': { setAtomValue: noop },
+}
+test.before(async () => {
+  await loadBindings()
+  eventFunc = load('layouts/modals/modalsFunc/eventFunc.js').default
+  Compact = load('components/CompactEventForm.js', componentMocks).default
+  transactionFunc = load('layouts/modals/modalsFunc/transactionFunc.js', transactionMocks).default
+})
 test.after(() => dom.window.close())
 async function mount(t, Component, props = {}) {
   const el = document.createElement('div'); document.body.append(el)
@@ -106,6 +134,16 @@ test('compact form is the default for every role without a modal switch', async 
     const { el } = await mount(t, modalHarness(eventFunc(null, false, 'draft').Children))
     assert.equal(Boolean(el.querySelector('[data-compact]')), true)
     assert.equal(el.textContent.includes('Прежняя форма'), false)
+    assert.equal(el.textContent.includes('Локация'), false)
+    assert.equal(el.querySelector('[data-address-field]').dataset.addressLabel, '')
+    assert.equal(el.textContent.includes('Добавить задачу/событие'), true)
+    assert.equal(el.querySelector('[data-status-label]').dataset.statusLabel, '')
+    assert.equal(
+      el
+        .querySelector('button[title="Добавить задачу/событие"]')
+        .closest('section').dataset.labeledContainer,
+      undefined
+    )
   }
 })
 test('classic form follows the saved organization setting', async (t) => {
@@ -115,22 +153,34 @@ test('classic form follows the saved organization setting', async (t) => {
   assert.equal(el.querySelector('[data-compact]'), null)
   assert.equal(el.querySelector('textarea').value, 'Договорённость из звонка')
   assert.equal(el.textContent.includes('Компактная форма'), false)
+  assert.equal(el.textContent.includes('Локация'), true)
+  assert.equal(el.querySelector('[data-address-field]').dataset.addressLabel, 'Локация')
+  assert.equal(
+    el.querySelector('[data-status-label]').dataset.statusLabel,
+    'Статус мероприятия'
+  )
   settings.custom = {}
 })
-test('regular user draft saves without services/date, confirmed work still validates both', async (t) => {
+test('services are optional for every status while confirmed work still requires a date', async (t) => {
   user = { role: 'user' }; saved = []
   for (const status of ['draft', 'active']) {
     const { el } = await mount(t, modalHarness(eventFunc(null, false, status, { initialEvent: { clientId: 'client' } }).Children))
     await React.act(async () => el.querySelector('[data-save]').click())
     if (status === 'active') {
       assert.ok(compactProps.errors.eventDate)
-      assert.ok(compactProps.errors.servicesIds)
+      assert.equal(compactProps.errors.servicesIds, undefined)
     }
   }
-  assert.equal(saved.length, 1)
+  const { el } = await mount(t, modalHarness(eventFunc(null, false, 'active', {
+    initialEvent: { clientId: 'client', eventDate: '2026-10-03T12:00:00Z' },
+  }).Children))
+  await React.act(async () => el.querySelector('[data-save]').click())
+  assert.equal(saved.length, 2)
   assert.equal(saved[0].status, 'draft')
   assert.equal(saved[0].eventDate, null)
   assert.deepEqual(saved[0].servicesIds, [])
+  assert.equal(saved[1].status, 'active')
+  assert.deepEqual(saved[1].servicesIds, [])
 })
 test('saving a draft preserves private attachments in the outgoing payload', async (t) => {
   user = { role: 'user' }; saved = []; settings.custom = {}
@@ -164,6 +214,31 @@ const compactBase = {
   services: [], servicesIds: [], additionalEvents: [], otherContacts: [], documents: [], statusLabel: 'Заявка', address: {},
 }
 
+test('unknown date action is a secondary button shown only for a draft with a start date', async (t) => {
+  let cleared = 0
+  const props = { ...compactBase, onClearDates: () => { cleared += 1 } }
+  const { el, root } = await mount(t, Compact, props)
+  assert.equal(el.textContent.includes('Дата пока неизвестна'), false)
+
+  await React.act(async () => root.render(React.createElement(Compact, {
+    ...props,
+    eventDate: '2026-10-17T18:00:00',
+  })))
+  const button = [...el.querySelectorAll('button')]
+    .find((item) => item.textContent.includes('Дата пока неизвестна'))
+  assert.ok(button)
+  assert.match(button.className, /ui-btn-secondary/)
+  await React.act(async () => button.click())
+  assert.equal(cleared, 1)
+
+  await React.act(async () => root.render(React.createElement(Compact, {
+    ...props,
+    eventDate: '2026-10-17T18:00:00',
+    isDraft: false,
+  })))
+  assert.equal(el.textContent.includes('Дата пока неизвестна'), false)
+})
+
 test('finance shortcut opens only the finance section', async (t) => {
   const { el } = await mount(t, Compact, { ...compactBase, initialTab: 'Финансы' })
   const openSections = [...el.querySelectorAll('details')]
@@ -173,21 +248,159 @@ test('finance shortcut opens only the finance section', async (t) => {
   assert.match(openSections[0], /Финансы/)
 })
 
+test('compact section headers reflect AI-filled fields until their highlights are cleared', async (t) => {
+  const props = {
+    ...compactBase,
+    aiHighlightedFields: new Set([
+      'description',
+      'servicesIds',
+      'dateEnd',
+      'address',
+      'depositExpectedAmount',
+    ]),
+  }
+  const { el, root } = await mount(t, Compact, props)
+  const highlightedTitles = () =>
+    [...el.querySelectorAll('details[data-ai-filled="true"] > summary')].map(
+      (summary) => summary.textContent
+    )
+
+  assert.equal(highlightedTitles().length, 5)
+  assert.ok(
+    highlightedTitles().some((title) =>
+      title.includes('Клиент и прочие контакты')
+    )
+  )
+  assert.ok(highlightedTitles().some((title) => title.includes('услугу и тип события')))
+  assert.ok(highlightedTitles().some((title) => title.includes('Дата и время')))
+  assert.ok(highlightedTitles().some((title) => title.includes('Место проведения')))
+  assert.ok(highlightedTitles().some((title) => title.includes('Финансы')))
+
+  await React.act(async () => root.render(React.createElement(Compact, {
+    ...props,
+    aiHighlightedFields: new Set(['eventType']),
+  })))
+  assert.equal(highlightedTitles().length, 1)
+  assert.ok(highlightedTitles()[0].includes('услугу и тип события'))
+})
+
 test('draft transaction asks for confirmation and promotes the work item before opening transaction form', async (t) => {
   user = { role: 'user' }; saved = []; confirmation = null; transactionEventId = null; renderTransactions = true
   settings.custom = { primaryEntityTerminology: 'orders' }
   const { el } = await mount(t, modalHarness(eventFunc(null, false, 'draft', {
-    initialEvent: { clientId: 'client', eventDate: '2026-10-03T12:00:00Z', servicesIds: ['service'] },
+    initialEvent: { clientId: 'client', eventDate: '2026-10-03T12:00:00Z' },
   }).Children))
+  assert.equal(el.textContent.includes('Добавить транзакцию'), true)
   await React.act(async () => el.querySelector('[title="Добавить транзакцию"]').click())
   assert.match(confirmation.text, /статус заказа будет изменён на «Подтверждено»/)
   assert.equal(saved.length, 0)
   await React.act(async () => confirmation.onConfirm())
   assert.equal(saved.length, 1)
   assert.equal(saved[0].status, 'active')
+  assert.deepEqual(saved[0].servicesIds, [])
   assert.equal(transactionEventId, 'saved')
   assert.equal(compactProps.status, 'active')
   renderTransactions = false; settings.custom = {}
+})
+
+test('transactions use a labeled field with the add action and cards inside', async (t) => {
+  user = { role: 'user' }; renderTransactions = true; settings.custom = {}
+  eventFromQuery = {
+    _id: 'existing', status: 'active', clientId: 'client',
+    eventDate: '2026-10-03T12:00:00Z', servicesIds: ['service'],
+  }
+  try {
+    transactions = empty
+    const { el: emptyEl } = await mount(t, modalHarness(eventFunc('existing').Children))
+    const emptyField = emptyEl.querySelector('[data-labeled-container="Транзакции"]')
+    assert.ok(emptyField)
+    assert.ok(emptyField.querySelector('[title="Добавить транзакцию"]'))
+    assert.equal(emptyField.textContent.includes('Пока никаких транзакций не было'), false)
+
+    transactions = [{
+      _id: 'transaction-1', eventId: 'existing', type: 'income',
+      amount: 5000, category: 'deposit', date: '2026-10-03T12:00:00Z',
+    }]
+    const { el: filledEl } = await mount(t, modalHarness(eventFunc('existing').Children))
+    const field = filledEl.querySelector('[data-labeled-container="Транзакции"]')
+    assert.ok(field)
+    assert.ok(field.querySelector('[title="Добавить транзакцию"]'))
+    assert.match(field.textContent.replace(/\s/g, ''), /5000руб\./)
+  } finally {
+    renderTransactions = false; eventFromQuery = undefined; transactions = empty
+  }
+})
+
+test('new transaction prefills an expected deposit until it is received', async (t) => {
+  user = { role: 'user' }; renderTransactions = true; settings.custom = {}
+  transactionEventId = null; transactionProps = null
+  eventFromQuery = {
+    _id: 'existing', status: 'active', clientId: 'client',
+    eventDate: '2026-10-03T12:00:00Z', servicesIds: ['service'],
+    contractSum: 25000, waitDeposit: true, depositExpectedAmount: 7000,
+  }
+  try {
+    transactions = empty
+    const { el } = await mount(t, modalHarness(eventFunc('existing').Children))
+    await React.act(async () => el.querySelector('[title="Добавить транзакцию"]').click())
+    assert.equal(transactionEventId, 'existing')
+    assert.deepEqual(transactionProps.initialValues, {
+      type: 'income', category: 'deposit', amount: 7000,
+    })
+  } finally {
+    renderTransactions = false; eventFromQuery = undefined; transactions = empty
+    transactionProps = null
+  }
+})
+
+test('received deposit does not override defaults for the next transaction', async (t) => {
+  user = { role: 'user' }; renderTransactions = true; settings.custom = {}
+  transactionEventId = null; transactionProps = null
+  eventFromQuery = {
+    _id: 'existing', status: 'active', clientId: 'client',
+    eventDate: '2026-10-03T12:00:00Z', servicesIds: ['service'],
+    contractSum: 25000, waitDeposit: true, depositExpectedAmount: 7000,
+  }
+  transactions = [{
+    _id: 'deposit', eventId: 'existing', type: 'income',
+    category: 'deposit', amount: 7000,
+  }]
+  try {
+    const { el } = await mount(t, modalHarness(eventFunc('existing').Children))
+    await React.act(async () => el.querySelector('[title="Добавить транзакцию"]').click())
+    assert.equal(transactionEventId, 'existing')
+    assert.equal(transactionProps.initialValues, undefined)
+  } finally {
+    renderTransactions = false; eventFromQuery = undefined; transactions = empty
+    transactionProps = null
+  }
+})
+
+test('transaction form applies passed deposit category and amount', async (t) => {
+  const config = transactionFunc({
+    eventId: 'existing',
+    contractSum: 25000,
+    initialValues: { type: 'income', category: 'deposit', amount: 7000 },
+  })
+  const { el } = await mount(t, modalHarness(config.Children))
+  assert.equal(el.querySelector('input[aria-label="Сумма"]').value, '7000')
+  const depositButton = [...el.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Задаток'
+  )
+  assert.ok(depositButton)
+  assert.match(depositButton.className, /border-emerald-500/)
+})
+
+test('finance controls and transactions have distinct vertical spacing', async (t) => {
+  user = { role: 'user' }; renderTransactions = true; settings.custom = {}
+  const { el } = await mount(t, modalHarness(eventFunc(null, false, 'draft').Children))
+  const waitDeposit = el.querySelector('button[title="Ждем задаток"]')
+  const byContract = el.querySelector('button[title="По договору"]')
+  const transactionsField = el.querySelector('[data-labeled-container="Транзакции"]')
+  assert.match(waitDeposit.closest('.mt-3').className, /mt-3/)
+  assert.match(byContract.closest('[data-ai-field-highlight]').className, /mt-3/)
+  assert.match(transactionsField.className, /mt-3/)
+  renderTransactions = false
 })
 
 test('draft transaction keeps draft status when required confirmation fields are missing', async (t) => {
@@ -202,7 +415,7 @@ test('draft transaction keeps draft status when required confirmation fields are
   assert.equal(transactionEventId, null)
   assert.equal(compactProps.status, 'draft')
   assert.ok(compactProps.errors.eventDate)
-  assert.ok(compactProps.errors.servicesIds)
+  assert.equal(compactProps.errors.servicesIds, undefined)
   renderTransactions = false
 })
 
@@ -231,7 +444,7 @@ test('classic editor also offers draft transaction with confirmation', async (t)
   settings.custom = { eventFormVariant: 'classic', primaryEntityTerminology: 'orders' }
   eventFromQuery = {
     _id: 'classic', status: 'draft', clientId: 'client',
-    eventDate: '2026-10-03T12:00:00Z', servicesIds: ['service'],
+    eventDate: '2026-10-03T12:00:00Z', servicesIds: [],
   }
   const { el } = await mount(t, modalHarness(eventFunc('classic').Children))
   await React.act(async () => el.querySelector('[title="Добавить транзакцию"]').click())

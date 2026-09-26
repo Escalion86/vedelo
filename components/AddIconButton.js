@@ -11,6 +11,7 @@ const AddIconButton = ({
   className,
   iconClassName,
   type = 'button',
+  label = '',
 }) => {
   return (
     <IconActionButton
@@ -23,6 +24,7 @@ const AddIconButton = ({
       className={className}
       iconClassName={iconClassName}
       type={type}
+      label={label}
     />
   )
 }
@@ -36,6 +38,7 @@ AddIconButton.propTypes = {
   className: PropTypes.string,
   iconClassName: PropTypes.string,
   type: PropTypes.oneOf(['button', 'submit', 'reset']),
+  label: PropTypes.string,
 }
 
 AddIconButton.defaultProps = {
@@ -47,6 +50,7 @@ AddIconButton.defaultProps = {
   className: '',
   iconClassName: '',
   type: 'button',
+  label: '',
 }
 
 export default AddIconButton

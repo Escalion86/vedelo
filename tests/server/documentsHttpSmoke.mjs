@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import mongoose from 'mongoose'
 import { Document, Paragraph, Packer } from 'docx'
 import PizZip from 'pizzip'
+import { runWebDocumentWorkflowSmoke } from './webDocumentWorkflowSmoke.mjs'
 
 export const runDocumentsHttpSmoke = async ({
   baseUrl,
@@ -303,4 +304,5 @@ export const runDocumentsHttpSmoke = async ({
     403
   )
   assert.equal(cloudRequests.length, requestsAfterDelete)
+  await runWebDocumentWorkflowSmoke({ baseUrl, db, password, tenantId, tariffId, draftEventId, otherEventId })
 }

@@ -2,6 +2,7 @@ import {
   getProposalBlockContentHtml,
   renderProposalRichTextVariables,
 } from './proposalRichText.js'
+import { calculatePackageTotal } from './proposalWorkflow.js'
 
 export const PROPOSAL_BLOCK_TYPES = Object.freeze([
   'cover',
@@ -178,8 +179,9 @@ export const normalizeProposalPackages = (packages) => {
         lines,
         total: Math.max(
           0,
-          Number(item.total) || lines.reduce((sum, line) => sum + line.price, 0)
+          item.manualTotal === false ? calculatePackageTotal(lines) : (Number.isFinite(Number(item.total)) ? Number(item.total) : calculatePackageTotal(lines))
         ),
+        manualTotal: item.manualTotal !== false,
         recommended: Boolean(item.recommended),
       },
     ]

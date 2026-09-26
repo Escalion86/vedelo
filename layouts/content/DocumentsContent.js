@@ -5,6 +5,9 @@ import { useAtom, useAtomValue } from 'jotai'
 import LabeledContainer from '@components/LabeledContainer'
 import ComboBox from '@components/ComboBox'
 import Notice from '@components/Notice'
+import IconActionButton from '@components/IconActionButton'
+import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
+import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import Input from '@components/Input'
 import ReactMarkdown from 'react-markdown'
 import ProposalTemplatesPanel from '@components/ProposalTemplatesPanel'
@@ -27,7 +30,7 @@ import { canUseProposalBuilder } from '@helpers/proposalAccess'
 
 const DEFAULT_CONTRACT_TEMPLATE_DOWNLOAD_URL =
   '/templates/default-contract-template.docx'
-const DEFAULT_ACT_TEMPLATE_DOWNLOAD_URL = '/templates/default-act-template.docx'
+const DEFAULT_ACT_TEMPLATE_DOWNLOAD_URL = '/api/document-templates/examples/act'
 
 const DocxDocumentsGuide = () => {
   const [content, setContent] = useState('')
@@ -87,10 +90,10 @@ const DocxDocumentsGuide = () => {
           ),
           p: ({ ...props }) => <p className="mb-2" {...props} />,
           ul: ({ ...props }) => (
-            <ul className="pl-5 mb-2 list-disc" {...props} />
+            <ul className="mb-2 list-disc pl-5" {...props} />
           ),
           ol: ({ ...props }) => (
-            <ol className="pl-5 mb-2 list-decimal" {...props} />
+            <ol className="mb-2 list-decimal pl-5" {...props} />
           ),
           li: ({ ...props }) => <li className="mb-1" {...props} />,
           code: ({ className, children, ...props }) =>
@@ -125,7 +128,10 @@ const DocumentsContent = () => {
   const loggedUser = useAtomValue(loggedUserAtom)
   const modalsFunc = useAtomValue(modalsFuncAtom)
 
-  const customSettings = useMemo(() => siteSettings?.custom ?? {}, [siteSettings])
+  const customSettings = useMemo(
+    () => siteSettings?.custom ?? {},
+    [siteSettings]
+  )
   const tariffAccess = useMemo(
     () => getUserTariffAccess(loggedUser, tariffs),
     [loggedUser, tariffs]
@@ -142,6 +148,8 @@ const DocumentsContent = () => {
       'section'
     )
     if (requestedSection === 'proposals' && canUseProposals)
+      // URL читается после гидратации, когда известны права пользователя.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSection('proposals')
   }, [canUseProposals])
 
@@ -182,7 +190,9 @@ const DocumentsContent = () => {
 
     const TemplateEditor = ({ closeModal, setOnConfirmFunc }) => {
       const [name, setName] = useState(template?.name ?? '')
-      const [type, setType] = useState(template?.type ?? DOCUMENT_TYPES.CONTRACT)
+      const [type, setType] = useState(
+        template?.type ?? DOCUMENT_TYPES.CONTRACT
+      )
       const [customTypeName, setCustomTypeName] = useState(
         template?.customTypeName ?? ''
       )
@@ -234,13 +244,7 @@ const DocumentsContent = () => {
           : [...documentTemplates, nextTemplate]
         await saveDocumentTemplates(nextTemplates)
         closeModal()
-      }, [
-        closeModal,
-        customTypeName,
-        file,
-        name,
-        type,
-      ])
+      }, [closeModal, customTypeName, file, name, type])
 
       useEffect(() => {
         confirmRef.current = handleSave
@@ -318,12 +322,28 @@ const DocumentsContent = () => {
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
         {canUseProposals ? (
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
-            <button type="button" className={`h-10 cursor-pointer rounded-md text-sm font-semibold transition ${section === 'documents' ? 'bg-white shadow-sm' : 'text-gray-600'}`} onClick={() => setSection('documents')}>Документы</button>
-            <button type="button" className={`h-10 cursor-pointer rounded-md text-sm font-semibold transition ${section === 'proposals' ? 'bg-white shadow-sm' : 'text-gray-600'}`} onClick={() => setSection('proposals')}>Предложения</button>
+            <button
+              type="button"
+              className={`h-10 cursor-pointer rounded-md text-sm font-semibold transition ${section === 'documents' ? 'bg-white shadow-sm' : 'text-gray-600'}`}
+              onClick={() => setSection('documents')}
+            >
+              Документы
+            </button>
+            <button
+              type="button"
+              className={`h-10 cursor-pointer rounded-md text-sm font-semibold transition ${section === 'proposals' ? 'bg-white shadow-sm' : 'text-gray-600'}`}
+              onClick={() => setSection('proposals')}
+            >
+              Предложения
+            </button>
           </div>
         ) : null}
         {canUseProposals && section === 'proposals' ? (
-          <LabeledContainer label="Коммерческие предложения" noMargin>
+          <LabeledContainer
+            label="Коммерческие предложения"
+            help="Создайте шаблон с текстом, блоками, фото и видео. Затем в редакторе мероприятия или заказа создайте КП на его основе, настройте варианты и цены, опубликуйте и отправьте клиенту ссылку. Сам шаблон клиенту не отправляется."
+            noMargin
+          >
             <ProposalTemplatesPanel enabled={canUseProposals} />
           </LabeledContainer>
         ) : !canUseDocuments ? (
@@ -332,8 +352,8 @@ const DocumentsContent = () => {
           </Notice>
         ) : (
           <LabeledContainer label="Работа с документами" noMargin>
-            <div className="flex flex-col w-full gap-3">
-              <div className="flex flex-wrap items-center justify-end w-full gap-2">
+            <div className="flex w-full flex-col gap-3">
+              <div className="flex w-full flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   className="action-icon-button action-icon-button--warning tablet:w-auto tablet:min-w-[168px] flex h-10 w-full cursor-pointer items-center justify-center rounded px-3 text-sm font-semibold"
@@ -376,33 +396,37 @@ const DocumentsContent = () => {
                     Шаблоны еще не загружены.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
+                  <div className="tablet:grid-cols-2 grid grid-cols-1 gap-3">
                     {documentTemplates.map((template) => (
                       <div
                         key={template.id}
-                        className="rounded border border-gray-200 p-3"
+                        className="document-template-card flex items-start gap-3 rounded border border-gray-200 p-3"
                       >
-                        <div className="text-sm font-semibold text-gray-800">
-                          {template.name}
+                        <div className="min-w-0 flex-1 break-words">
+                          <div className="text-sm font-semibold text-gray-800">
+                            {template.name}
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {getDocumentTypeLabel(
+                              template.type,
+                              template.customTypeName
+                            )}{' '}
+                            · {template.fileName}
+                          </div>
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">
-                          {getDocumentTypeLabel(
-                            template.type,
-                            template.customTypeName
-                          )}{' '}
-                          · {template.fileName}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="action-icon-button action-icon-button--warning tablet:w-auto flex h-9 w-full cursor-pointer items-center justify-center rounded px-3 text-xs font-semibold"
+                        <div className="flex shrink-0 items-center gap-2">
+                          <IconActionButton
+                            icon={faPencilAlt}
+                            variant="warning"
+                            size="sm"
+                            title="Редактировать"
                             onClick={() => openTemplateEditor(template)}
-                          >
-                            Редактировать
-                          </button>
-                          <button
-                            type="button"
-                            className="action-icon-button action-icon-button--warning tablet:w-auto flex h-9 w-full cursor-pointer items-center justify-center rounded px-3 text-xs font-semibold"
+                          />
+                          <IconActionButton
+                            icon={faTrashAlt}
+                            variant="danger"
+                            size="sm"
+                            title="Удалить"
                             onClick={async () => {
                               if (!window.confirm('Удалить шаблон документа?'))
                                 return
@@ -412,9 +436,7 @@ const DocumentsContent = () => {
                                 )
                               )
                             }}
-                          >
-                            Удалить
-                          </button>
+                          />
                         </div>
                       </div>
                     ))}

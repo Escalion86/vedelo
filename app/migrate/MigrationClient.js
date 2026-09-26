@@ -24,6 +24,8 @@ const MigrationClient = () => {
   useEffect(() => {
     const isLegacy = /(^|\.)artistcrm\.ru$/i.test(window.location.hostname)
     if (isLegacy) {
+      // Host/fragment доступны только после гидратации; код переноса читается один раз.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMode('legacy')
       setMessage('Старый кабинет переехал на vedelo.ru')
       return

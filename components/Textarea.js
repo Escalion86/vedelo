@@ -3,6 +3,8 @@ import InputWrapper from './InputWrapper'
 
 const Textarea = ({
   label,
+  help,
+  ariaLabel,
   onChange,
   value,
   inputClassName,
@@ -19,6 +21,7 @@ const Textarea = ({
   return (
     <InputWrapper
       label={label}
+      help={help}
       labelClassName={labelClassName}
       value={value}
       className={wrapperClassName}
@@ -29,6 +32,7 @@ const Textarea = ({
       fullWidth={fullWidth}
     >
       <textarea
+        aria-label={ariaLabel}
         className={cn('flex-1 px-1 text-black outline-none', inputClassName)}
         rows={rows}
         value={value}

@@ -279,6 +279,8 @@ const MessengerConversationsPanel = ({
   }, [provider, query, snackbar, title])
 
   useEffect(() => {
+    // Смена беседы запускает HTTP-запрос и его индикатор загрузки.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMessages()
   }, [loadMessages])
 

@@ -30,6 +30,7 @@ async function fixture() {
     },
   }
   const mocks = {
+    '@server/documentPaymentLinks': { validateDocumentPaymentLinks: async (items) => !(items || []).some((item) => item.transactionId) },
     'next/server': {
       NextResponse: {
         json: (body, options) => ({ body, status: options.status }),

@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import ErrorsList from '@components/ErrorsList'
 import FormWrapper from '@components/FormWrapper'
 import Input from '@components/Input'
@@ -19,7 +18,7 @@ import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import usersAtom from '@state/atoms/usersAtom'
 import { useAtom, useAtomValue } from 'jotai'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { modalsFuncAtom } from '@state/atoms'
 
 const normalizePhone = (value) =>
@@ -44,8 +43,9 @@ const ProfileContent = () => {
 
   const [errors, checkErrors, addError, removeError, clearErrors] = useErrors()
 
-  useEffect(() => {
-    if (!loggedUser) return
+  const [previousUser, setPreviousUser] = useState(null)
+  if (loggedUser && loggedUser !== previousUser) {
+    setPreviousUser(loggedUser)
     setFullName(getPersonFullName(loggedUser))
     setEmail(loggedUser.email ?? DEFAULT_USER.email)
     setPhone(loggedUser.phone ?? DEFAULT_USER.phone)
@@ -55,7 +55,7 @@ const ProfileContent = () => {
     setVk(loggedUser.vk ?? DEFAULT_USER.vk)
     setImages(loggedUser.images ?? DEFAULT_USER.images)
     clearErrors()
-  }, [loggedUser])
+  }
 
   const isFormChanged = useMemo(() => {
     if (!loggedUser) return false

@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Notice from '@components/Notice'
+import FieldHelp from '@components/FieldHelp'
+import IconActionButton from '@components/IconActionButton'
+import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
+import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import { sendFile } from '@helpers/cloudinary'
 import { DEFAULT_PROPOSAL_BLOCKS } from '@helpers/proposalContent'
 import {
@@ -71,6 +75,8 @@ const ProposalTemplatesPanel = ({ enabled }) => {
   }, [enabled])
 
   useEffect(() => {
+    // Первичная загрузка шаблонов с сервера, включая состояние loading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
 
@@ -182,8 +188,12 @@ const ProposalTemplatesPanel = ({ enabled }) => {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">
+          <h2 className="flex items-center gap-1 text-lg font-semibold">
             {editing._id ? 'Редактирование шаблона' : 'Новый шаблон'}
+            <FieldHelp
+              label="Шаблон предложения"
+              text="Это основа будущих предложений. Тексты, порядок блоков и медиа копируются при создании КП из заявки."
+            />
           </h2>
           <button
             type="button"
@@ -193,11 +203,6 @@ const ProposalTemplatesPanel = ({ enabled }) => {
             К списку
           </button>
         </div>
-        <Notice tone="info">
-          Вы редактируете основу будущих предложений. Текст, порядок блоков и
-          медиа будут подставляться при создании предложения из конкретной
-          заявки.
-        </Notice>
         {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
         <label className="text-sm font-medium">
           Название
@@ -357,24 +362,6 @@ const ProposalTemplatesPanel = ({ enabled }) => {
   return (
     <div className="flex flex-col gap-3">
       {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
-      <Notice tone="info">
-        <div className="font-semibold">Как это работает</div>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
-          <li>Создайте здесь шаблон: текст, блоки, фото и видео.</li>
-          <li>
-            Откройте редактирование нужного мероприятия и перейдите во вкладку
-            «Финансы и Документы».
-          </li>
-          <li>
-            Выберите шаблон, настройте варианты и цены, затем опубликуйте и
-            отправьте клиенту ссылку.
-          </li>
-        </ol>
-        <div className="mt-2 text-xs">
-          Шаблон клиенту не отправляется — это только заготовка. Отправляется
-          персональная версия, созданная в заявке.
-        </div>
-      </Notice>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="font-semibold">Шаблоны предложений</div>
@@ -400,19 +387,23 @@ const ProposalTemplatesPanel = ({ enabled }) => {
           {items.map((item) => (
             <div
               key={item._id}
-              className="rounded-lg border border-gray-200 p-3"
+              className="proposal-template-card flex items-start gap-3 rounded-lg border border-gray-200 p-3"
             >
-              <div className="font-semibold">{item.name}</div>
-              <div className="mt-1 text-xs text-gray-500">
-                {item.blocks?.filter((block) => block.enabled !== false)
-                  .length || 0}{' '}
-                блоков · {item.media?.length || 0} медиа ·{' '}
-                {item.status === 'archived' ? 'архив' : 'активен'}
+              <div className="min-w-0 flex-1 break-words">
+                <div className="font-semibold">{item.name}</div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {item.blocks?.filter((block) => block.enabled !== false)
+                    .length || 0}{' '}
+                  блоков · {item.media?.length || 0} медиа ·{' '}
+                  {item.status === 'archived' ? 'архив' : 'активен'}
+                </div>
               </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  className="action-icon-button h-9 flex-1 cursor-pointer rounded px-3 text-sm"
+              <div className="flex shrink-0 items-center gap-2">
+                <IconActionButton
+                  icon={faPencilAlt}
+                  variant="warning"
+                  size="sm"
+                  title="Редактировать"
                   onClick={() => {
                     setMessage(null)
                     setEditing({
@@ -421,12 +412,12 @@ const ProposalTemplatesPanel = ({ enabled }) => {
                       media: item.media || [],
                     })
                   }}
-                >
-                  Редактировать
-                </button>
-                <button
-                  type="button"
-                  className="h-9 cursor-pointer rounded border border-red-200 px-3 text-sm text-red-700"
+                />
+                <IconActionButton
+                  icon={faTrashAlt}
+                  variant="danger"
+                  size="sm"
+                  title="Удалить"
                   onClick={async () => {
                     if (
                       !window.confirm(
@@ -439,9 +430,7 @@ const ProposalTemplatesPanel = ({ enabled }) => {
                     })
                     load()
                   }}
-                >
-                  Удалить
-                </button>
+                />
               </div>
             </div>
           ))}

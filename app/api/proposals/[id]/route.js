@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
 import Events from '@models/Events'
 import Services from '@models/Services'
+import { buildAgreedProposal } from '@helpers/proposalWorkflow'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import {
@@ -13,6 +14,7 @@ import {
   normalizeProposalBlocks,
   normalizeProposalMedia,
   normalizeProposalPackages,
+  getProposalUnknownVariables,
 } from '@helpers/proposalContent'
 import {
   buildProposalPublicUrl,
@@ -80,6 +82,7 @@ export const PATCH = async (req, { params }) => {
   if (auth.response) return auth.response
   const body = await req.json().catch(() => ({}))
   const action = String(body?.action || '').trim()
+  let appliedEvent = null
 
   if (action === 'publish') {
     if (!auth.proposal.packages?.length)
@@ -94,21 +97,12 @@ export const PATCH = async (req, { params }) => {
       auth.proposal,
       process.env.DOMAIN || req.nextUrl.origin
     )
-    const unresolvedText = [
-      renderProposalMessage(auth.proposal, previewUrl),
-      ...auth.proposal.blocksSnapshot.flatMap((block) => [
-        block.title,
-        block.text,
-        block.contentHtml,
-      ]),
-    ].join('\n')
-    const unresolved = [
-      ...new Set(
-        [...unresolvedText.matchAll(/{{\s*([\w.]+)\s*}}/g)].map(
-          (match) => match[1]
-        )
-      ),
-    ]
+    if (!auth.proposal.validUntil || new Date(auth.proposal.validUntil) <= new Date()) return error('Укажите будущий срок действия', 400, 'expired')
+    const unresolved = getProposalUnknownVariables({
+      blocks: auth.proposal.blocksSnapshot.filter((block) => block.enabled !== false),
+      messageText: auth.proposal.messageText,
+      variables: { proposal: { url: previewUrl }, client: auth.proposal.clientSnapshot, event: auth.proposal.eventSnapshot, artist: auth.proposal.artistSnapshot },
+    })
     if (unresolved.length) {
       return error(
         `Заполните переменные: ${unresolved.join(', ')}`,
@@ -141,18 +135,22 @@ export const PATCH = async (req, { params }) => {
       : []
     const serviceIds = tenantServices.map((service) => service._id)
     const event = await Events.findOneAndUpdate(
-      { _id: auth.proposal.eventId, tenantId: auth.context.tenantId },
+      { _id: auth.proposal.eventId, tenantId: auth.context.tenantId, status: { $nin: ['closed', 'canceled'] } },
       {
         $set: {
           servicesIds: serviceIds,
           contractSum: Number(selected.total) || 0,
+          agreedProposal: buildAgreedProposal(auth.proposal, selected, serviceIds),
         },
         $inc: { syncVersion: 1 },
       },
       { returnDocument: 'after' }
     )
-    if (!event) return error('Мероприятие не найдено', 404, 'event_not_found')
+    if (!event) return error('Заказ удалён, закрыт или отменён. Применение недоступно.', 409, 'event_not_available')
+    appliedEvent = event
     auth.proposal.appliedAt = new Date()
+    auth.proposal.appliedPackageId = selected.id
+    auth.proposal.appliedSelectionAt = auth.proposal.selectedAt
   } else {
     if (auth.proposal.status !== 'draft')
       return error(
@@ -189,6 +187,7 @@ export const PATCH = async (req, { params }) => {
   return NextResponse.json({
     success: true,
     data: serialize(auth.proposal, req),
+    ...(appliedEvent ? { event: appliedEvent } : {}),
   })
 }
 

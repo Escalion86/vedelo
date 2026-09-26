@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Изолированная сборка/HTTP-стенд могут работать рядом с dev и другими сборками.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
     unoptimized: false,
     formats: ['image/avif', 'image/webp'],

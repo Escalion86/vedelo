@@ -77,9 +77,9 @@ export const POST = async (req, { params }) => {
     return NextResponse.json({ success: true, data: item }, { status: 201 })
   }
   const templateId = String(body?.templateId || '')
-  if (!mongoose.Types.ObjectId.isValid(templateId)) return error('Выберите шаблон', 400, 'template_required')
+  if (templateId && !mongoose.Types.ObjectId.isValid(templateId)) return error('Некорректный шаблон', 400, 'template_required')
   const [template, client, services, latest] = await Promise.all([
-    ProposalTemplates.findOne({ _id: templateId, tenantId: resolved.context.tenantId, status: 'active' }).lean(),
+    templateId ? ProposalTemplates.findOne({ _id: templateId, tenantId: resolved.context.tenantId, status: 'active' }).lean() : { name: 'Коммерческое предложение' },
     resolved.event.clientId
       ? Clients.findOne({ _id: resolved.event.clientId, tenantId: resolved.context.tenantId }).lean()
       : null,
@@ -103,7 +103,7 @@ export const POST = async (req, { params }) => {
     tenantId: resolved.context.tenantId,
     eventId: id,
     clientId: resolved.event.clientId || null,
-    templateId,
+    templateId: templateId || null,
     version: Number(latest?.version || 0) + 1,
     title: String(body?.title || template.name || 'Коммерческое предложение').trim().slice(0, 200),
     validUntil,

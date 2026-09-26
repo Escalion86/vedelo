@@ -12,6 +12,7 @@ const MIN_QUERY_LENGTH = 4
 const DEBOUNCE_MS = 600
 const MAX_POOL_ITEMS = 5
 const CLIENT_CACHE_MAX = 50
+const EMPTY_ADDRESSES = []
 
 const hasConcreteAddress = (address) =>
   Boolean(
@@ -25,7 +26,7 @@ const hasConcreteAddress = (address) =>
 const AddressSuggestField = ({
   address,
   onChange,
-  poolAddresses = [],
+  poolAddresses = EMPTY_ADDRESSES,
   defaultTown = '',
   onManualInput,
   error,
@@ -44,7 +45,7 @@ const AddressSuggestField = ({
   const cacheRef = useRef(new Map())
   const selectionRef = useRef(null)
   const selectedAddressRef = useRef(null)
-  const unavailableRef = useRef(false)
+  const [unavailable, setUnavailable] = useState(false)
   const confirmationId = useId()
 
   const formattedAddress = useMemo(
@@ -95,16 +96,20 @@ const AddressSuggestField = ({
 
   // Сброс выделения при любом изменении списка опций,
   // чтобы activeIndex не мог указывать за границы списка
-  useEffect(() => {
+  const [previousOptions, setPreviousOptions] = useState(options)
+  if (previousOptions !== options) {
+    setPreviousOptions(options)
     setActiveIndex(-1)
-  }, [options])
+  }
 
   useEffect(() => {
     const value = query.trim()
+    // Состояние нового запроса и синхронный cache hit должны сменяться вместе.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSuggestions([])
     setSuggestFailed(false)
     setLoading(false)
-    if (value.length < MIN_QUERY_LENGTH || unavailableRef.current) return
+    if (value.length < MIN_QUERY_LENGTH || unavailable) return
 
     const cacheKey = JSON.stringify([
       value.toLowerCase(),
@@ -135,7 +140,7 @@ const AddressSuggestField = ({
         }
         const data = json.data ?? {}
         if (data.unavailable) {
-          unavailableRef.current = true
+          setUnavailable(true)
           setSuggestions([])
           return
         }
@@ -157,7 +162,7 @@ const AddressSuggestField = ({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [query, defaultTown])
+  }, [query, defaultTown, unavailable])
 
   // Ручное изменение, очистка и размонтирование отменяют уточнение координат.
   useEffect(() => {
@@ -370,7 +375,7 @@ const AddressSuggestField = ({
               {!loading &&
                 !suggestFailed &&
                 suggestions.length === 0 &&
-                !unavailableRef.current && (
+                !unavailable && (
                   <div className="px-3 py-3 text-sm text-gray-500">
                     Ничего не найдено
                   </div>

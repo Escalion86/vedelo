@@ -47,8 +47,6 @@ import selectEventServicesFunc from './selectEventServicesFunc'
 import serviceFunc from './serviceFunc'
 import openEventAdditionalEventEditorModal from './eventAdditionalEventEditorModal'
 import servicesAtom from '@state/atoms/servicesAtom'
-import { getContractTemplateVariablesMap } from '@helpers/generateContractTemplate'
-import { getActTemplateVariablesMap } from '@helpers/generateActTemplate'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
   getEventCloseSuggestionState,
@@ -67,7 +65,6 @@ import {
   getTransactionDateLabel,
   OBLIGATION_PAYMENT_METHOD,
 } from '@helpers/transactionObligation'
-import { DOCUMENT_TYPES } from '@helpers/documentTypes'
 import { normalizeDocumentTemplatesFromSettings } from '@helpers/documentTemplates'
 import {
   mergeLegacyEventDocuments,
@@ -616,11 +613,6 @@ const eventFunc = (
       const fields = []
       if (!clientId) fields.push('Клиент')
       if (!(useCompactForm && isDraft) && !eventDate) fields.push('Дата начала')
-      if (
-        !(useCompactForm && isDraft) &&
-        (!servicesIds || servicesIds.length === 0)
-      )
-        fields.push('Услуги')
       if (showColleagueTransferControls && isTransferred && !colleagueId) {
         fields.push('Коллега')
       }
@@ -630,7 +622,6 @@ const eventFunc = (
       isDraft,
       clientId,
       eventDate,
-      servicesIds,
       isTransferred,
       colleagueId,
       showColleagueTransferControls,
@@ -652,7 +643,6 @@ const eventFunc = (
     const tabErrorCounts = useMemo(() => {
       const generalCount =
         (eventDate ? 0 : 1) +
-        (servicesIds && servicesIds.length > 0 ? 0 : 1) +
         (showColleagueTransferControls && isTransferred && !colleagueId
           ? 1
           : 0) +
@@ -665,7 +655,6 @@ const eventFunc = (
       dateRangeError,
       eventDate,
       isTransferred,
-      servicesIds,
       showColleagueTransferControls,
     ])
 
@@ -681,13 +670,18 @@ const eventFunc = (
     )
     const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
     const canUseProposals = canUseProposalBuilder(loggedUser)
+    const [agreedProposal, setAgreedProposal] = useState(
+      event?.agreedProposal || null
+    )
     const handleProposalApplied = useCallback(
       ({
         contractSum: appliedContractSum,
         servicesIds: appliedServicesIds,
+        agreedProposal: appliedProposal,
       }) => {
         setContractSum(appliedContractSum)
         setServicesIds(appliedServicesIds)
+        setAgreedProposal(appliedProposal)
       },
       []
     )
@@ -860,38 +854,45 @@ const eventFunc = (
       setLastSavedPayloadKey(currentSavePayloadKey)
     }, [currentSavePayloadKey, lastSavedPayloadKey, sourceEventId])
 
-    const saveEvent = useCallback(async (statusOverride = null) => {
-      const { payload, isCreatingDraftRequest, hasAdditionalEvents } =
-        buildEventSaveContext()
-      const savePayload = statusOverride ? { ...payload, status: statusOverride } : payload
-      const savedEvent = await setEvent(savePayload, clone)
-      const nextEventId = savedEvent?._id ?? payload?._id ?? null
-      if (!nextEventId) {
-        throw new Error(`Не удалось создать ${workItemTerms.accusative}`)
-      }
-      setAiHighlightedFields(new Set())
-      if (nextEventId) {
-        setPersistedEventId(nextEventId)
-      }
-      setLastSavedPayloadKey(
-        JSON.stringify(
-          savePayload?._id || !nextEventId
-            ? savePayload
-            : { ...savePayload, _id: nextEventId }
+    const saveEvent = useCallback(
+      async (statusOverride = null) => {
+        const { payload, isCreatingDraftRequest, hasAdditionalEvents } =
+          buildEventSaveContext()
+        const savePayload = statusOverride
+          ? { ...payload, status: statusOverride }
+          : payload
+        const savedEvent = await setEvent(savePayload, clone)
+        const nextEventId = savedEvent?._id ?? payload?._id ?? null
+        if (!nextEventId) {
+          throw new Error(`Не удалось создать ${workItemTerms.accusative}`)
+        }
+        setAiHighlightedFields(new Set())
+        if (nextEventId) {
+          setPersistedEventId(nextEventId)
+        }
+        setLastSavedPayloadKey(
+          JSON.stringify(
+            savePayload?._id || !nextEventId
+              ? savePayload
+              : { ...savePayload, _id: nextEventId }
+          )
         )
-      )
-      if (statusOverride) setStatus(statusOverride)
-      if (typeof options?.onSaved === 'function') {
-        await options.onSaved(savedEvent)
-      }
+        if (statusOverride) setStatus(statusOverride)
+        if (typeof options?.onSaved === 'function') {
+          await options.onSaved(savedEvent)
+        }
 
-      return {
-        savedEvent,
-        payload: savePayload,
-        isCreatingDraftRequest: statusOverride ? false : isCreatingDraftRequest,
-        hasAdditionalEvents,
-      }
-    }, [buildEventSaveContext, setEvent, workItemTerms.accusative])
+        return {
+          savedEvent,
+          payload: savePayload,
+          isCreatingDraftRequest: statusOverride
+            ? false
+            : isCreatingDraftRequest,
+          hasAdditionalEvents,
+        }
+      },
+      [buildEventSaveContext, setEvent, workItemTerms.accusative]
+    )
 
     const openAdditionalEventModal = useCallback(
       (index = null, options = {}) => {
@@ -1049,50 +1050,45 @@ const eventFunc = (
       ]
     )
 
-    const validateEventForm = useCallback((targetStatus = status) => {
-      setValidationAttempt((value) => value + 1)
-      clearErrorsRef.current()
-      let hasError = false
+    const validateEventForm = useCallback(
+      (targetStatus = status) => {
+        setValidationAttempt((value) => value + 1)
+        clearErrorsRef.current()
+        let hasError = false
 
-      if (!clientId) {
-        addErrorRef.current({ clientId: 'Выберите клиента' })
-        hasError = true
-      }
-      if (!(useCompactForm && targetStatus === 'draft') && !eventDate) {
-        addErrorRef.current({
-          eventDate: `Укажите дату ${workItemTerms.genitive}`,
-        })
-        hasError = true
-      }
-      if (
-        !(useCompactForm && targetStatus === 'draft') &&
-        (!servicesIds || servicesIds.length === 0)
-      ) {
-        addErrorRef.current({ servicesIds: 'Выберите услугу' })
-        hasError = true
-      }
-      if (showColleagueTransferControls && isTransferred && !colleagueId) {
-        addErrorRef.current({ colleagueId: 'Выберите коллегу' })
-        hasError = true
-      }
-      if (dateRangeError) {
-        addErrorRef.current({ dateEnd: dateRangeError })
-        hasError = true
-      }
+        if (!clientId) {
+          addErrorRef.current({ clientId: 'Выберите клиента' })
+          hasError = true
+        }
+        if (!(useCompactForm && targetStatus === 'draft') && !eventDate) {
+          addErrorRef.current({
+            eventDate: `Укажите дату ${workItemTerms.genitive}`,
+          })
+          hasError = true
+        }
+        if (showColleagueTransferControls && isTransferred && !colleagueId) {
+          addErrorRef.current({ colleagueId: 'Выберите коллегу' })
+          hasError = true
+        }
+        if (dateRangeError) {
+          addErrorRef.current({ dateEnd: dateRangeError })
+          hasError = true
+        }
 
-      return !hasError
-    }, [
-      useCompactForm,
-      status,
-      clientId,
-      colleagueId,
-      dateRangeError,
-      eventDate,
-      isTransferred,
-      servicesIds,
-      showColleagueTransferControls,
-      workItemTerms.genitive,
-    ])
+        return !hasError
+      },
+      [
+        useCompactForm,
+        status,
+        clientId,
+        colleagueId,
+        dateRangeError,
+        eventDate,
+        isTransferred,
+        showColleagueTransferControls,
+        workItemTerms.genitive,
+      ]
+    )
 
     const addMinutesToDate = (value, minutes) => {
       if (!value) return null
@@ -1303,148 +1299,10 @@ const eventFunc = (
           ),
       [additionalEvents, showDoneAdditionalEvents]
     )
-    const buildContractTemplateVariables = useCallback(
-      (
-        documentNumber,
-        contractDate,
-        currentSettings = siteSettings,
-        requisitesSidesMode = 'preview',
-        currentClient = selectedClient
-      ) =>
-        getContractTemplateVariablesMap({
-          event: {
-            ...event,
-            eventDate,
-            contractSum,
-            address: normalizeAddressValue(address),
-          },
-          client: currentClient,
-          serviceTitles: selectedServiceTitles,
-          performerName: getPersonFullName(loggedUser),
-          siteSettings: currentSettings,
-          contractMeta: {
-            defaultTown: currentSettings?.defaultTown ?? '',
-            artistFullName:
-              currentSettings?.custom?.contractArtistFullName ?? '',
-            artistName: currentSettings?.custom?.contractArtistName ?? '',
-            artistStatus:
-              currentSettings?.custom?.contractArtistStatus ??
-              'individual_entrepreneur',
-            artistOgrnip: currentSettings?.custom?.contractArtistOgrnip ?? '',
-            artistInn: currentSettings?.custom?.contractArtistInn ?? '',
-            artistBankName:
-              currentSettings?.custom?.contractArtistBankName ?? '',
-            artistBik: currentSettings?.custom?.contractArtistBik ?? '',
-            artistCheckingAccount:
-              currentSettings?.custom?.contractArtistCheckingAccount ?? '',
-            artistCorrespondentAccount:
-              currentSettings?.custom?.contractArtistCorrespondentAccount ?? '',
-            artistLegalAddress:
-              currentSettings?.custom?.contractArtistLegalAddress ?? '',
-            documentNumber: documentNumber ? String(documentNumber) : '',
-            nextDocumentNumber: documentNumber ? Number(documentNumber) : null,
-            contractDate: contractDate || '',
-            requisitesSidesMode,
-          },
-        }),
-      [
-        address,
-        contractSum,
-        event,
-        eventDate,
-        loggedUser,
-        selectedClient,
-        selectedServiceTitles,
-        siteSettings,
-      ]
-    )
-    const buildActTemplateVariables = useCallback(
-      (
-        documentNumber,
-        actDate,
-        currentSettings = siteSettings,
-        requisitesSidesMode = 'preview',
-        currentClient = selectedClient
-      ) =>
-        getActTemplateVariablesMap({
-          event: {
-            ...event,
-            eventDate,
-            contractSum,
-            address: normalizeAddressValue(address),
-          },
-          client: currentClient,
-          serviceTitles: selectedServiceTitles,
-          performerName: getPersonFullName(loggedUser),
-          siteSettings: currentSettings,
-          actMeta: {
-            defaultTown: currentSettings?.defaultTown ?? '',
-            artistFullName:
-              currentSettings?.custom?.contractArtistFullName ?? '',
-            artistName: currentSettings?.custom?.contractArtistName ?? '',
-            artistStatus:
-              currentSettings?.custom?.contractArtistStatus ??
-              'individual_entrepreneur',
-            artistOgrnip: currentSettings?.custom?.contractArtistOgrnip ?? '',
-            artistInn: currentSettings?.custom?.contractArtistInn ?? '',
-            artistBankName:
-              currentSettings?.custom?.contractArtistBankName ?? '',
-            artistBik: currentSettings?.custom?.contractArtistBik ?? '',
-            artistCheckingAccount:
-              currentSettings?.custom?.contractArtistCheckingAccount ?? '',
-            artistCorrespondentAccount:
-              currentSettings?.custom?.contractArtistCorrespondentAccount ?? '',
-            artistLegalAddress:
-              currentSettings?.custom?.contractArtistLegalAddress ?? '',
-            documentNumber: documentNumber ? String(documentNumber) : '',
-            nextDocumentNumber: documentNumber ? Number(documentNumber) : null,
-            contractDate: actDate || '',
-            actDate: actDate || '',
-            requisitesSidesMode,
-          },
-        }),
-      [
-        address,
-        contractSum,
-        event,
-        eventDate,
-        loggedUser,
-        selectedClient,
-        selectedServiceTitles,
-        siteSettings,
-      ]
-    )
     const documentTemplates = useMemo(
       () => normalizeDocumentTemplatesFromSettings(siteSettings?.custom ?? {}),
       [siteSettings?.custom]
     )
-    const buildDocumentTemplateVariables = useCallback(
-      (
-        template,
-        documentNumber,
-        documentDate,
-        currentSettings = siteSettings
-      ) => {
-        const buildVariables =
-          template?.type === DOCUMENT_TYPES.ACT
-            ? buildActTemplateVariables
-            : buildContractTemplateVariables
-        return buildVariables(
-          documentNumber,
-          documentDate,
-          currentSettings,
-          'docx',
-          selectedClient
-        )
-      },
-      [
-        buildActTemplateVariables,
-        buildContractTemplateVariables,
-        selectedClient,
-        siteSettings,
-      ]
-    )
-
     const eventTypeOptions = useMemo(() => {
       const rawEventTypes = Array.isArray(siteSettings?.custom?.eventTypes)
         ? siteSettings.custom.eventTypes
@@ -1667,10 +1525,20 @@ const eventFunc = (
           modalsFunc.transaction?.edit(targetEventId, transactionId, {
             contractSum: targetContractSum,
           })
-        else
+        else {
+          const initialValues =
+            waitDeposit && !hasDepositTransaction
+              ? {
+                  type: 'income',
+                  category: 'deposit',
+                  amount: depositExpectedAmount ?? '',
+                }
+              : undefined
           modalsFunc.transaction?.add(targetEventId, {
             contractSum: targetContractSum,
+            initialValues,
           })
+        }
       } catch (error) {
         setFinanceError(
           error?.message ||
@@ -1743,13 +1611,14 @@ const eventFunc = (
       confirmTransactionAction()
     }
 
-    const openServicesSelection = () => modalsFunc.add(
-      selectEventServicesFunc(servicesIds, (ids) => {
-        clearAiFields('servicesIds')
-        setServicesIds(ids)
-        removeError('servicesIds')
-      })
-    )
+    const openServicesSelection = () =>
+      modalsFunc.add(
+        selectEventServicesFunc(servicesIds, (ids) => {
+          clearAiFields('servicesIds')
+          setServicesIds(ids)
+          removeError('servicesIds')
+        })
+      )
 
     const fields = {
       hints: (
@@ -1782,6 +1651,7 @@ const eventFunc = (
             <EventStatusPicker
               status={status}
               onChange={setStatus}
+              label={useCompactForm ? '' : 'Статус мероприятия'}
               disabledValues={canSetClosedStatus || isClosed ? [] : ['closed']}
               disabledReasons={{ closed: closeStatusDisabledReason }}
             />
@@ -1820,18 +1690,19 @@ const eventFunc = (
                   Выбрать услуги
                 </ActionIconButton>
               )
-            ) : <ServiceMultiSelect
-              value={servicesIds}
-              onChange={(value) => {
-                clearAiFields('servicesIds')
-                setServicesIds(value)
-              }}
-              onCreate={openServiceCreateModal}
-              onEdit={openServiceEditModal}
-              error={errors.servicesIds}
-              required={!(useCompactForm && isDraft)}
-              onClearError={() => removeError('servicesIds')}
-            />}
+            ) : (
+              <ServiceMultiSelect
+                value={servicesIds}
+                onChange={(value) => {
+                  clearAiFields('servicesIds')
+                  setServicesIds(value)
+                }}
+                onCreate={openServiceCreateModal}
+                onEdit={openServiceEditModal}
+                error={errors.servicesIds}
+                onClearError={() => removeError('servicesIds')}
+              />
+            )}
           </AiFieldHighlight>
         </>
       ),
@@ -1910,7 +1781,7 @@ const eventFunc = (
                 clearAiFields('address')
                 setAddress(value)
               }}
-              label="Локация"
+              label={useCompactForm ? '' : 'Локация'}
               required={false}
               errors={errors}
               townOptions={townOptions}
@@ -2053,13 +1924,17 @@ const eventFunc = (
       ),
       reminders: (
         <>
-          <LabeledContainer label="Задачи/События">
+          <LabeledContainer
+            label={useCompactForm ? undefined : 'Задачи/События'}
+          >
             <div className="flex w-full flex-col gap-2">
               <div className="flex w-full justify-end">
                 <AddIconButton
                   onClick={() => handleAdditionalEventAdd()}
-                  title="Добавить событие"
+                  title="Добавить задачу/событие"
+                  label="Добавить задачу/событие"
                   size="sm"
+                  className="px-3"
                 />
               </div>
               {hasDoneAdditionalEvents ? (
@@ -2185,7 +2060,7 @@ const eventFunc = (
             />
           </AiFieldHighlight>
           {!hasDepositTransaction ? (
-            <div className="flex flex-col gap-2">
+            <div className="mt-3 flex flex-col gap-2">
               <AiFieldHighlight active={isAiFieldHighlighted('waitDeposit')}>
                 <IconCheckBox
                   checked={waitDeposit}
@@ -2262,7 +2137,10 @@ const eventFunc = (
               noMargin
             />
           </AiFieldHighlight>
-          <AiFieldHighlight active={isAiFieldHighlighted('isByContract')}>
+          <AiFieldHighlight
+            active={isAiFieldHighlighted('isByContract')}
+            className="mt-3"
+          >
             <IconCheckBox
               checked={isByContract}
               onClick={() => {
@@ -2281,15 +2159,21 @@ const eventFunc = (
         <>
           {canUseDocuments && (
             <div className="mt-3">
-              <LabeledContainer label="Файлы и документы" noMargin>
+              <LabeledContainer
+                label={useCompactForm ? undefined : 'Файлы и документы'}
+                noMargin
+              >
                 <DocumentsEditor
+                  showHeading={false}
+                  proposalsEnabled={canUseProposals}
                   documents={documents}
                   onChange={setDocuments}
                   entityType="events"
                   entityId={sourceEventId}
                   entityLabel={workItemTerms.accusative}
                   documentTemplates={documentTemplates}
-                  buildTemplateVariables={buildDocumentTemplateVariables}
+                  payments={eventTransactions}
+                  hasAgreedProposal={Boolean(agreedProposal)}
                   noMargin
                 />
               </LabeledContainer>
@@ -2301,7 +2185,11 @@ const eventFunc = (
         <>
           {canUseProposals ? (
             <div className="mt-3">
-              <LabeledContainer label="Коммерческие предложения" noMargin>
+              <LabeledContainer
+                label="Коммерческие предложения"
+                help="КП необязательно и не требует договора или счёта. Создайте предложение, проверьте варианты и цены, затем опубликуйте. После публикации можно скопировать ссылку или отправить её в Telegram. Шаблоны повторяемых текстов и медиа настраиваются в разделе «Документы → Предложения»."
+                noMargin
+              >
                 {persistedEventId ? (
                   <EventProposalsSection
                     eventId={persistedEventId}
@@ -2321,216 +2209,206 @@ const eventFunc = (
       ),
       transactions: (
         <>
-          <>
-              {closeState.hasObligations ? (
-                <Notice tone="warning" role="alert" className="rounded-md">
-                  {getCloseBlockedByObligationsMessage()}
-                </Notice>
-              ) : null}
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-base font-semibold text-gray-900">
-                  Транзакции
-                </div>
-                <AddIconButton
-                  onClick={() => openTransactionModal()}
-                  disabled={clone || financeLoading}
-                  title="Добавить транзакцию"
-                  size="sm"
-                  className="disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
+          {closeState.hasObligations ? (
+            <Notice tone="warning" role="alert" className="rounded-md">
+              {getCloseBlockedByObligationsMessage()}
+            </Notice>
+          ) : null}
+          <LabeledContainer
+            label="Транзакции"
+            noMargin
+            className="mt-3"
+            contentClassName="flex flex-col gap-2"
+          >
+            {financeError ? (
+              <Notice tone="error" role="alert" className="rounded-md">
+                {financeError}
+              </Notice>
+            ) : null}
 
-              {financeError && (
-                <Notice tone="error" role="alert" className="rounded-md">
-                  {financeError}
-                </Notice>
-              )}
-
-              <div className="rounded border border-gray-200 bg-white shadow-sm">
-                {eventTransactions.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-gray-500">
-                    Пока никаких транзакций не было
+            {eventTransactions.length === 0 ? null : (
+              <div className="divide-y divide-gray-100">
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                    Поступления
                   </div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                      Поступления
+                  {incomeTransactions.length === 0 ? (
+                    <div className="px-3 pb-3 text-sm text-gray-500">
+                      Поступлений нет
                     </div>
-                    {incomeTransactions.length === 0 ? (
-                      <div className="px-3 pb-3 text-sm text-gray-500">
-                        Поступлений нет
-                      </div>
-                    ) : (
-                      incomeTransactions.map((transaction) => (
-                        <div
-                          key={transaction._id}
-                          className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
-                        >
-                          <div className="flex flex-1 flex-wrap gap-3 text-sm">
-                            <span className="font-semibold text-gray-900">
-                              {transaction.amount.toLocaleString()} руб.
-                            </span>
-                            <span className="text-emerald-700">
-                              {TRANSACTION_TYPES.find(
-                                (item) => item.value === transaction.type
-                              )?.name ?? transaction.type}
-                            </span>
-                            {transaction.category && (
-                              <span className="text-gray-600">
-                                {
-                                  TRANSACTION_CATEGORIES.find(
-                                    (item) =>
-                                      item.value === transaction.category
-                                  )?.name
-                                }
-                              </span>
-                            )}
-                            {transaction.paymentMethod ===
-                            OBLIGATION_PAYMENT_METHOD ? (
-                              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                Обязательство
-                              </span>
-                            ) : null}
+                  ) : (
+                    incomeTransactions.map((transaction) => (
+                      <div
+                        key={transaction._id}
+                        className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
+                      >
+                        <div className="flex flex-1 flex-wrap gap-3 text-sm">
+                          <span className="font-semibold text-gray-900">
+                            {transaction.amount.toLocaleString()} руб.
+                          </span>
+                          <span className="text-emerald-700">
+                            {TRANSACTION_TYPES.find(
+                              (item) => item.value === transaction.type
+                            )?.name ?? transaction.type}
+                          </span>
+                          {transaction.category && (
                             <span className="text-gray-600">
-                              {getTransactionDateLabel(
-                                transaction.paymentMethod
-                              )}
-                              {': '}
-                              {transaction.date
-                                ? new Date(transaction.date).toLocaleString(
-                                    'ru-RU',
-                                    {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    }
-                                  )
-                                : ''}
+                              {
+                                TRANSACTION_CATEGORIES.find(
+                                  (item) => item.value === transaction.category
+                                )?.name
+                              }
                             </span>
-                            {transaction.comment && (
-                              <span className="text-gray-700">
-                                {transaction.comment}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <IconActionButton
-                              icon={faPencilAlt}
-                              onClick={() =>
-                                openTransactionModal(transaction._id)
-                              }
-                              disabled={financeLoading}
-                              title="Редактировать транзакцию"
-                              variant="warning"
-                              size="sm"
-                            />
-                            <IconActionButton
-                              icon={faTrashAlt}
-                              onClick={() =>
-                                handleDeleteTransaction(transaction._id)
-                              }
-                              disabled={financeLoading}
-                              title="Удалить транзакцию"
-                              variant="danger"
-                              size="sm"
-                            />
-                          </div>
+                          )}
+                          {transaction.paymentMethod ===
+                          OBLIGATION_PAYMENT_METHOD ? (
+                            <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                              Обязательство
+                            </span>
+                          ) : null}
+                          <span className="text-gray-600">
+                            {getTransactionDateLabel(transaction.paymentMethod)}
+                            {': '}
+                            {transaction.date
+                              ? new Date(transaction.date).toLocaleString(
+                                  'ru-RU',
+                                  {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  }
+                                )
+                              : ''}
+                          </span>
+                          {transaction.comment && (
+                            <span className="text-gray-700">
+                              {transaction.comment}
+                            </span>
+                          )}
                         </div>
-                      ))
-                    )}
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                      Расходы
-                    </div>
-                    {expenseTransactions.length === 0 ? (
-                      <div className="px-3 pb-3 text-sm text-gray-500">
-                        Расходов нет
+                        <div className="flex gap-2">
+                          <IconActionButton
+                            icon={faPencilAlt}
+                            onClick={() =>
+                              openTransactionModal(transaction._id)
+                            }
+                            disabled={financeLoading}
+                            title="Редактировать транзакцию"
+                            variant="warning"
+                            size="sm"
+                          />
+                          <IconActionButton
+                            icon={faTrashAlt}
+                            onClick={() =>
+                              handleDeleteTransaction(transaction._id)
+                            }
+                            disabled={financeLoading}
+                            title="Удалить транзакцию"
+                            variant="danger"
+                            size="sm"
+                          />
+                        </div>
                       </div>
-                    ) : (
-                      expenseTransactions.map((transaction) => (
-                        <div
-                          key={transaction._id}
-                          className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
-                        >
-                          <div className="flex flex-1 flex-wrap gap-3 text-sm">
-                            <span className="font-semibold text-gray-900">
-                              {transaction.amount.toLocaleString()} руб.
-                            </span>
-                            <span className="text-red-700">
-                              {TRANSACTION_TYPES.find(
-                                (item) => item.value === transaction.type
-                              )?.name ?? transaction.type}
-                            </span>
-                            {transaction.category && (
-                              <span className="text-gray-600">
-                                {
-                                  TRANSACTION_CATEGORIES.find(
-                                    (item) =>
-                                      item.value === transaction.category
-                                  )?.name
-                                }
-                              </span>
-                            )}
-                            {transaction.paymentMethod ===
-                            OBLIGATION_PAYMENT_METHOD ? (
-                              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                Обязательство
-                              </span>
-                            ) : null}
-                            <span className="text-gray-600">
-                              {getTransactionDateLabel(
-                                transaction.paymentMethod
-                              )}
-                              {': '}
-                              {transaction.date
-                                ? new Date(transaction.date).toLocaleString(
-                                    'ru-RU',
-                                    {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    }
-                                  )
-                                : ''}
-                            </span>
-                            {transaction.comment && (
-                              <span className="text-gray-700">
-                                {transaction.comment}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <IconActionButton
-                              icon={faPencilAlt}
-                              onClick={() =>
-                                openTransactionModal(transaction._id)
-                              }
-                              disabled={financeLoading}
-                              title="Редактировать транзакцию"
-                              variant="warning"
-                              size="sm"
-                            />
-                            <IconActionButton
-                              icon={faTrashAlt}
-                              onClick={() =>
-                                handleDeleteTransaction(transaction._id)
-                              }
-                              disabled={financeLoading}
-                              title="Удалить транзакцию"
-                              variant="danger"
-                              size="sm"
-                            />
-                          </div>
-                        </div>
-                      ))
-                    )}
+                    ))
+                  )}
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                    Расходы
                   </div>
-                )}
+                  {expenseTransactions.length === 0 ? (
+                    <div className="px-3 pb-3 text-sm text-gray-500">
+                      Расходов нет
+                    </div>
+                  ) : (
+                    expenseTransactions.map((transaction) => (
+                      <div
+                        key={transaction._id}
+                        className="laptop:flex-row laptop:items-center laptop:justify-between flex flex-col gap-2 px-3 py-3"
+                      >
+                        <div className="flex flex-1 flex-wrap gap-3 text-sm">
+                          <span className="font-semibold text-gray-900">
+                            {transaction.amount.toLocaleString()} руб.
+                          </span>
+                          <span className="text-red-700">
+                            {TRANSACTION_TYPES.find(
+                              (item) => item.value === transaction.type
+                            )?.name ?? transaction.type}
+                          </span>
+                          {transaction.category && (
+                            <span className="text-gray-600">
+                              {
+                                TRANSACTION_CATEGORIES.find(
+                                  (item) => item.value === transaction.category
+                                )?.name
+                              }
+                            </span>
+                          )}
+                          {transaction.paymentMethod ===
+                          OBLIGATION_PAYMENT_METHOD ? (
+                            <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                              Обязательство
+                            </span>
+                          ) : null}
+                          <span className="text-gray-600">
+                            {getTransactionDateLabel(transaction.paymentMethod)}
+                            {': '}
+                            {transaction.date
+                              ? new Date(transaction.date).toLocaleString(
+                                  'ru-RU',
+                                  {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  }
+                                )
+                              : ''}
+                          </span>
+                          {transaction.comment && (
+                            <span className="text-gray-700">
+                              {transaction.comment}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <IconActionButton
+                            icon={faPencilAlt}
+                            onClick={() =>
+                              openTransactionModal(transaction._id)
+                            }
+                            disabled={financeLoading}
+                            title="Редактировать транзакцию"
+                            variant="warning"
+                            size="sm"
+                          />
+                          <IconActionButton
+                            icon={faTrashAlt}
+                            onClick={() =>
+                              handleDeleteTransaction(transaction._id)
+                            }
+                            disabled={financeLoading}
+                            title="Удалить транзакцию"
+                            variant="danger"
+                            size="sm"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
               </div>
-          </>
+            )}
+            <div className="flex w-full justify-end">
+              <AddIconButton
+                onClick={() => openTransactionModal()}
+                disabled={clone || financeLoading}
+                title="Добавить транзакцию"
+                label="Добавить транзакцию"
+                size="sm"
+                className="px-3 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+          </LabeledContainer>
         </>
       ),
       google: (
@@ -2581,13 +2459,29 @@ const eventFunc = (
             dateEnd={dateEnd}
             address={address}
             contractSum={contractSum}
-            paidAmount={sourceEventId ? incomeTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0}
-            expenseAmount={sourceEventId ? expenseTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0}
+            paidAmount={
+              sourceEventId
+                ? incomeTransactions.reduce(
+                    (sum, item) => sum + Number(item.amount || 0),
+                    0
+                  )
+                : 0
+            }
+            expenseAmount={
+              sourceEventId
+                ? expenseTransactions.reduce(
+                    (sum, item) => sum + Number(item.amount || 0),
+                    0
+                  )
+                : 0
+            }
             waitDeposit={waitDeposit}
             depositExpectedAmount={depositExpectedAmount}
             additionalEvents={additionalEvents}
             otherContacts={otherContacts}
+            proposalsEnabled={canUseProposals}
             documents={documents}
+            aiHighlightedFields={aiHighlightedFields}
             statusLabel={
               EVENT_STATUSES.find((item) => item.value === status)?.name ||
               status

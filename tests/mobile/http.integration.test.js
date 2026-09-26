@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs'
 import mongoose from 'mongoose'
 import { getSyncOperationFingerprint } from '../../server/mobile/syncOperations.js'
 import { runWebCoreSmoke } from '../web/coreSmoke.mjs'
+import { runIntegrationIsolationSmoke } from '../web/integrationIsolationSmoke.mjs'
 import { runBrowserSmoke } from '../web/browserSmoke.mjs'
 import { runRestartSmoke } from '../web/restartSmoke.mjs'
 import { runPublicLeadSmoke } from '../web/publicLeadSmoke.mjs'
@@ -828,6 +829,7 @@ test(
             MONGODB_DBNAME: dbName,
             NEXTAUTH_SECRET: 'mobile-http-integration-secret',
             NEXTAUTH_URL: baseUrl,
+            YOOKASSA_WEBHOOK_SECRET: 'isolation-yookassa-secret',
             ESCALIONCLOUD_PASSWORD: 'integration-password',
             ESCALIONCLOUD_API_URL: `http://127.0.0.1:${cloudPort}/api`,
             AVITO_API_BASE_URL: `http://127.0.0.1:${cloudPort}/avito`,
@@ -3528,6 +3530,7 @@ test(
             title: 'Web smoke',
             eventsPerMonth: 100,
             allowDocuments: true,
+            allowStatistics: true,
           })
           await db.collection('users').insertMany([
             {
@@ -3559,6 +3562,9 @@ test(
           })
         }
       )
+      await t.test('web integrations/billing: tenant isolation и права', async (isolationTest) => {
+        await runIntegrationIsolationSmoke({ t: isolationTest, baseUrl, db, password, passwordHash })
+      })
       await t.test(
         'browser: вход и гидратация на desktop и телефоне',
         {
@@ -3584,7 +3590,10 @@ test(
             : 'PLAYWRIGHT_MODULE не настроен',
         },
         async () => {
-          await runRestartSmoke({ baseUrl, phone: '79000000881', password })
+          const repeats = Math.min(12, Math.max(1, Number(process.env.OFFLINE_SYNC_REPEATS) || 3))
+          for (let index = 0; index < repeats; index += 1) {
+            await runRestartSmoke({ baseUrl, phone: '79000000881', password })
+          }
         }
       )
       await t.test(

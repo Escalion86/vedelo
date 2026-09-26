@@ -282,6 +282,8 @@ const clientMessengerFunc = (clientId) => {
     )
 
     useEffect(() => {
+      // Первичная загрузка переписки выставляет loading до ответа сервера.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       load()
     }, [load])
 
@@ -305,25 +307,21 @@ const clientMessengerFunc = (clientId) => {
         clearInterval(intervalId)
         postToServiceWorker('messenger:inactive')
       }
-    }, [clientId])
+    }, [])
 
     useEffect(() => {
       bottomRef.current?.scrollIntoView({ block: 'end' })
     }, [loading, messages.length])
 
-    useEffect(() => {
-      if (
-        selectedConversation &&
-        ['avito', 'vk', 'telegram'].includes(selectedConversation.provider)
-      ) {
-        return
-      }
+    if (
+      !selectedConversation ||
+      !['avito', 'vk', 'telegram'].includes(selectedConversation.provider)
+    ) {
       const firstReplyConversation = replyConversations[0]
-      if (!firstReplyConversation) return
-      setSelectedKey(
+      if (firstReplyConversation) setSelectedKey(
         `${firstReplyConversation.provider}:${firstReplyConversation._id}`
       )
-    }, [replyConversations, selectedConversation])
+    }
 
     const sendMessage = async () => {
       const nextText = text.trim()

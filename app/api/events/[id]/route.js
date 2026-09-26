@@ -1,4 +1,5 @@
 import { after, NextResponse } from 'next/server'
+import { validateDocumentPaymentLinks } from '@server/documentPaymentLinks'
 import mongoose from 'mongoose'
 import Events from '@models/Events'
 import Transactions from '@models/Transactions'
@@ -275,6 +276,9 @@ export const PUT = async (req, { params }) => {
     })
   if (body.isByContract !== undefined)
     update.isByContract = Boolean(body.isByContract)
+  if (update.documents && !(await validateDocumentPaymentLinks(update.documents, tenantId, id))) {
+    return NextResponse.json({ success: false, error: 'Оплата не найдена в этом заказе' }, { status: 400 })
+  }
   if (body.servicesIds !== undefined)
     update.servicesIds = normalizeObjectIdList(body.servicesIds)
   if (body.otherContacts !== undefined)

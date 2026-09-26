@@ -8,29 +8,30 @@ const variants = ['default', 'error', 'success', 'warning', 'info']
 const useSnackbar = () => {
   const { enqueueSnackbar, closeSnackbar } = notistackUseSnackbar()
   const makeHandler = useCallback(
-    (variant) => (text, props = {}) => {
-      const key = enqueueSnackbar(text, {
-        open: true,
-        variant,
-        // onClick: () => {
-        //   closeSnackbar(key)
-        // },
-        className: 'flex flex-nowrap',
-        // autoHideDuration,
-        action: (
-          // <div className="w-8 -ml-2">
-          <FontAwesomeIcon
-            onClick={() => {
-              closeSnackbar(key)
-            }}
-            icon={faTimes}
-            className="w-6 h-6 cursor-pointer"
-          />
-          // </div>
-        ),
-        ...props,
-      })
-    },
+    (variant) =>
+      (text, props = {}) => {
+        const key = enqueueSnackbar(text, {
+          open: true,
+          variant,
+          // onClick: () => {
+          //   closeSnackbar(key)
+          // },
+          className: 'flex flex-nowrap',
+          // autoHideDuration,
+          action: (
+            <button
+              type="button"
+              aria-label="Закрыть уведомление"
+              title="Закрыть уведомление"
+              className="flex h-8 min-w-8 cursor-pointer items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+              onClick={() => closeSnackbar(key)}
+            >
+              <FontAwesomeIcon icon={faTimes} className="h-5 w-5" />
+            </button>
+          ),
+          ...props,
+        })
+      },
     [closeSnackbar, enqueueSnackbar]
   )
 

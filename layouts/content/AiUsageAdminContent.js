@@ -73,6 +73,8 @@ const AiUsageAdminContent = () => {
   }
 
   useEffect(() => {
+    // Первичный HTTP-запрос выставляет loading до ответа сервера.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [])
 

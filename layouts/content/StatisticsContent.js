@@ -325,11 +325,8 @@ const StatisticsContent = () => {
     transactions.length,
   ])
 
-  useEffect(() => {
-    if (selectedYear !== null) return
-    const defaultYear = getDefaultStatisticsYear(availableYears)
-    if (defaultYear !== null) setSelectedYear(defaultYear)
-  }, [availableYears, selectedYear])
+  const defaultYear = getDefaultStatisticsYear(availableYears)
+  if (selectedYear === null && defaultYear !== null) setSelectedYear(defaultYear)
 
   const townsOptions = useMemo(() => {
     const set = new Set()
@@ -348,11 +345,9 @@ const StatisticsContent = () => {
     [townsOptions]
   )
 
-  useEffect(() => {
-    if (!selectedTown) return
-    if (townsOptions.includes(selectedTown)) return
+  if (selectedTown && !townsOptions.includes(selectedTown)) {
     setSelectedTown('')
-  }, [selectedTown, townsOptions])
+  }
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {

@@ -274,6 +274,8 @@ const BillingOperationsContent = () => {
                 type="date"
                 value={filters.dateFrom}
                 onChange={(value) => setFilter('dateFrom', value)}
+                className="min-w-0"
+                inputClassName="min-w-0 w-full [&::-webkit-calendar-picker-indicator]:-mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 noMargin
               />
               <Input
@@ -281,6 +283,8 @@ const BillingOperationsContent = () => {
                 type="date"
                 value={filters.dateTo}
                 onChange={(value) => setFilter('dateTo', value)}
+                className="min-w-0"
+                inputClassName="min-w-0 w-full [&::-webkit-calendar-picker-indicator]:-mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 noMargin
               />
             </div>

@@ -13,6 +13,7 @@ import { faSliders } from '@fortawesome/free-solid-svg-icons/faSliders'
 import { EVENT_STATUSES } from '@helpers/constants'
 import Section from './CompactEventSection'
 import InputWrapper from './InputWrapper'
+import AppButton from './AppButton'
 import AiFieldHighlight from './AiFieldHighlight'
 import getPersonFullName from '@helpers/getPersonFullName'
 import formatAddress from '@helpers/formatAddress'
@@ -28,6 +29,7 @@ const dateLabel = (value) => {
   })
 }
 const money = (value) => `${Number(value).toLocaleString('ru-RU')} ₽`
+const EMPTY_AI_HIGHLIGHTED_FIELDS = new Set()
 
 // The legacy and compact layouts receive the same controls and save state.
 export default function CompactEventForm({
@@ -57,6 +59,8 @@ export default function CompactEventForm({
   additionalEvents,
   otherContacts,
   documents,
+  proposalsEnabled = false,
+  aiHighlightedFields = EMPTY_AI_HIGHLIGHTED_FIELDS,
   statusLabel,
   status,
   onClearDates,
@@ -82,6 +86,8 @@ export default function CompactEventForm({
     (id) =>
       services.find((item) => item._id === id) || { _id: id, title: 'Услуга' }
   )
+  const hasAiHighlight = (...fieldNames) =>
+    fieldNames.some((fieldName) => aiHighlightedFields.has(fieldName))
   return (
     <div ref={ref} className="compact-event-form">
       {isNew ? (
@@ -104,6 +110,7 @@ export default function CompactEventForm({
             ].filter(Boolean).join(' · ')}
             initiallyOpen={initialTab === 'Клиент и Контакты'}
             invalid={Boolean(errors.clientId)}
+            aiHighlighted={hasAiHighlight('clientId', 'description')}
           >
             <AiFieldHighlight active={clientHighlighted}>
               <InputWrapper
@@ -163,6 +170,7 @@ export default function CompactEventForm({
             }
             icon={faPlus}
             invalid={Boolean(errors.servicesIds || errors.eventType)}
+            aiHighlighted={hasAiHighlight('servicesIds', 'eventType')}
           >
             <div className="input-label flex items-center gap-1 px-1 text-xs font-semibold select-none">
               Услуги
@@ -195,16 +203,18 @@ export default function CompactEventForm({
             summary={formatEventDateRange(eventDate, dateEnd)}
             wrapSummary
             invalid={Boolean(errors.eventDate || errors.dateEnd)}
+            aiHighlighted={hasAiHighlight('eventDate', 'dateEnd')}
           >
             {fields.dates}
-            {isDraft ? (
-              <button
-                type="button"
-                className="compact-event-link"
+            {isDraft && eventDate ? (
+              <AppButton
+                variant="secondary"
+                size="sm"
+                className="mt-3"
                 onClick={onClearDates}
               >
                 Дата пока неизвестна
-              </button>
+              </AppButton>
             ) : null}
             {errors.dateEnd ? (
               <p role="alert" className="text-sm text-red-600">
@@ -217,6 +227,7 @@ export default function CompactEventForm({
           title="Место проведения"
           icon={faLocationDot}
           summary={formatAddress(address, 'Не указано')}
+          aiHighlighted={hasAiHighlight('address')}
         >
           {fields.address}
         </Section>
@@ -235,6 +246,14 @@ export default function CompactEventForm({
             .filter(Boolean)
             .join(' • ')}
           initiallyOpen={initialTab === 'Финансы'}
+          aiHighlighted={hasAiHighlight(
+            'contractSum',
+            'waitDeposit',
+            'depositExpectedAmount',
+            'depositDueAt',
+            'financeComment',
+            'isByContract'
+          )}
         >
           {fields.finance}
           {fields.transactions}
@@ -255,11 +274,13 @@ export default function CompactEventForm({
         <Section
           title="Файлы и документы"
           icon={faPaperclip}
-          summary={documents.length ? `Файлов: ${documents.length}` : 'Нет файлов'}
+          summary={`Документов: ${documents.length}`}
         >
           {fields.documents}
-          {fields.proposals}
         </Section>
+        {proposalsEnabled ? <Section title="Коммерческие предложения" icon={faPaperclip} summary="По необходимости — без договора и счёта">
+          {fields.proposals}
+        </Section> : null}
         <div data-invalid={Boolean(errors.colleagueId)}>
           <Section
             title="Другие детали"

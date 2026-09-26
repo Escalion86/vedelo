@@ -29,6 +29,7 @@ const ActionIconButton = ({
 }) => (
   <button
     type={type}
+    aria-label={title || undefined}
     className={cn(
       'action-icon-button flex cursor-pointer items-center justify-center rounded',
       VARIANT_CLASS[variant] || VARIANT_CLASS.neutral,

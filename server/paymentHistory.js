@@ -133,6 +133,7 @@ const getSourceTitle = (source) => {
 }
 
 export const parsePaymentHistoryLimit = (value) => {
+  if (value == null || String(value).trim() === '') return 30
   const parsed = Number(value)
   return Number.isFinite(parsed)
     ? Math.min(100, Math.max(1, Math.trunc(parsed)))
