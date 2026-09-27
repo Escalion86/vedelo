@@ -4,6 +4,7 @@ import Clients from '@models/Clients'
 import Transactions from '@models/Transactions'
 import Services from '@models/Services'
 import Users from '@models/Users'
+import { withUserMutationActivity } from '@server/userMutationActivity'
 import News from '@models/News'
 import Tariffs from '@models/Tariffs'
 import dbConnect from './dbConnect'
@@ -367,7 +368,9 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
           ])
         : []
     const usersWithEventStats = shouldFetchUsers
-      ? applyUserEventStats(usersPayload, userEventStats)
+      ? await withUserMutationActivity(
+          applyUserEventStats(usersPayload, userEventStats)
+        )
       : usersPayload
 
     const fetchResult = {

@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 import os from 'node:os'
 import path from 'node:path'
 import mongoose from 'mongoose'
+import { runUserActivitySmoke } from './userActivitySmoke.mjs'
 
 // Только временная БД и локальный HTTP-сервер из integration runner.
 // У платежей нет providerPaymentId: даже успешная авторизация не вызывает банк.
@@ -50,6 +51,7 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
   const userA = await login(users[0].phone)
   const userB = await login(users[1].phone)
   const anonymous = (path, options) => fetch(`${baseUrl}${path}`, options)
+  await runUserActivitySmoke({ t, db, tenantA, tenantB, userA, anonymous, baseUrl, phone: users[0].phone, password })
   const send = (request, path, method, body, headers = {}) => request(path, {
     method, headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body),
   })
@@ -114,12 +116,17 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
   await t.test('Отметка «Чек не нужен»: только dev, владелец и tenant совпадают', async () => {
     const ownPaymentId = oid()
     const foreignPaymentId = oid()
+    const orphanPaymentId = oid()
+    const removedUserId = oid()
     await db.collection('payments').insertMany([
       { _id: ownPaymentId, tenantId: tenantA, userId: tenantA, amount: 100,
         type: 'topup', purpose: 'balance', source: 'manual', status: 'succeeded',
         comment: 'receipt-ui-test' },
       { _id: foreignPaymentId, tenantId: tenantB, userId: tenantA, amount: 100,
         type: 'topup', purpose: 'tariff', source: 'tochka', status: 'succeeded' },
+      { _id: orphanPaymentId, tenantId: removedUserId, userId: removedUserId,
+        amount: 100, type: 'topup', purpose: 'balance', source: 'manual',
+        status: 'succeeded', comment: 'orphan-payment-no-owner' },
     ])
     const endpoint = `/api/billing/receipts/${ownPaymentId}`
     assert.equal((await send(anonymous, endpoint, 'PATCH', {
@@ -158,6 +165,10 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
               assert.match(await page.title(), /Кабинет Ведело/)
               const row = page.locator('li').filter({ hasText: 'receipt-ui-test' })
               await row.getByRole('button', { name: 'Чек не нужен' }).waitFor()
+              const orphanRow = page.locator('li').filter({ hasText: 'orphan-payment-no-owner' })
+              await orphanRow.getByText('Пользователь удалён').waitFor()
+              await orphanRow.getByRole('button', { name: 'Добавить ссылку на чек' }).waitFor()
+              await orphanRow.getByRole('button', { name: 'Чек не нужен' }).waitFor()
               assert.equal(await page.locator('body').evaluate(node => node.classList.contains('theme-dark')), theme === 'dark')
               const rowBox = await row.boundingBox()
               const addBox = await row.getByRole('button', { name: 'Добавить ссылку на чек' }).boundingBox()
@@ -181,6 +192,19 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
           await browser.close()
         }
       }
+      const orphanList = await userA('/api/billing/operations?category=receipt_missing')
+      assert.equal(orphanList.status, 200)
+      const orphanItem = (await orphanList.json()).data.find(item => item.id === String(orphanPaymentId))
+      assert.equal(orphanItem.user.id, String(removedUserId))
+      assert.equal(orphanItem.user.name, 'Пользователь удалён')
+      assert.equal(orphanItem.management.canEditReceipt, true)
+      assert.equal((await send(userA, `/api/billing/receipts/${orphanPaymentId}`, 'PATCH', {
+        userId: tenantA, receiptNotRequired: true,
+      })).status, 404)
+      assert.equal((await send(userA, `/api/billing/receipts/${orphanPaymentId}`, 'PATCH', {
+        userId: removedUserId, receiptNotRequired: true,
+      })).status, 200)
+      assert.equal((await db.collection('payments').findOne({ _id: orphanPaymentId })).receiptNotRequired, true)
       const before = await userA('/api/billing/receipts/pending-count')
       assert.equal(before.status, 200)
       const countBefore = (await before.json()).data.count
@@ -218,7 +242,7 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
         'https://example.test/check')
     } finally {
       await db.collection('users').updateOne({ _id: tenantA }, { $set: { role: 'user' } })
-      await db.collection('payments').deleteMany({ _id: { $in: [ownPaymentId, foreignPaymentId] } })
+      await db.collection('payments').deleteMany({ _id: { $in: [ownPaymentId, foreignPaymentId, orphanPaymentId] } })
       await db.collection('sitesettings').deleteOne({ tenantId: tenantA })
     }
   })

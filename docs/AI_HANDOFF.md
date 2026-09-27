@@ -240,6 +240,7 @@ Redirect matrix:
 
 ## 10. Push
 
+- С 1.27.33 входящие сообщения Telegram/VK/Avito ведут на `/cabinet/clients?openMessenger=<clientId>`. `ClientsContent` выбирает клиента только из tenant-scoped списка, показывает его контакт в поиске и открывает существующий messenger после загрузки данных и функций модалок. Пока поиск не изменён, фильтр точный по ID; очистка снимает URL-параметр. Записи звонков сохраняют прежний переход к мероприятию.
 - Web subscriptions: `PushSubscriptions.webAppOrigin = artistcrm | vedelo`.
 - Старые записи без поля считаются `artistcrm`.
 - Новая подписка создаётся только после разрешения пользователя.
@@ -395,6 +396,14 @@ npx eslint path/to/changed-file.js
 Для значимых UI-изменений build недостаточен: проверить реальный экран, mobile viewport, console, dark theme и основное взаимодействие.
 
 ## 16. Документация по задачам
+
+С версии 1.27.34 список пользователей получает вычисляемое `lastMutationAt`
+через `server/userMutationActivity.js` в SSR и GET `/api/users`. Это максимум
+времени создания/изменения/удаления/объединения из `Histories` для пары
+tenant + автор. `Users.lastActivityAt` остаётся временем посещения и не
+используется для этой сортировки. Автоматические интеграции, чужие действия
+и legacy-записи без tenant исключены; операции вне журнала не учитываются.
+Карточка показывает время устройства и «Нет данных» при отсутствии истории.
 
 - Roadmap: `docs/ROADMAP.md`.
 - Production env: `docs/PRODUCTION_ENV_CHECKLIST.md`.

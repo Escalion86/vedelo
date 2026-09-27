@@ -4,7 +4,7 @@ import useUiDensity from '@helpers/useUiDensity'
 
 const UsersList = ({ users }) => {
   const { isCompact } = useUiDensity()
-  const itemSize = isCompact ? 230 : 238
+  const itemSize = isCompact ? 270 : 278
   return (
     <ListWrapper
       itemCount={users.length}

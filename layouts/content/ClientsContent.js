@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { List } from 'react-window'
 import AddIconButton from '@components/AddIconButton'
 import EmptyState from '@components/EmptyState'
@@ -14,7 +15,12 @@ import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 import DropDown from '@components/DropDown'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCheck, faFilter, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons'
+import {
+  faCheck,
+  faFilter,
+  faUser,
+  faUserPlus,
+} from '@fortawesome/free-solid-svg-icons'
 import { getEventStatusFlags } from '@helpers/eventStatusFilter'
 
 const normalizeDigits = (value) => String(value ?? '').replace(/[^\d]/g, '')
@@ -35,10 +41,57 @@ const ClientsContent = ({ onHeaderCountChange }) => {
   })
   const events = useMemo(() => eventsPayload?.data ?? [], [eventsPayload?.data])
   const modalsFunc = useAtomValue(modalsFuncAtom)
+  const searchParams = useSearchParams()
+  const messengerClientId = searchParams.get('openMessenger') || ''
+  const messengerClient = clients.find(
+    (client) => client._id === messengerClientId
+  )
+  const openedMessenger = useRef('')
 
-  const [search, setSearch] = useState('')
+  const [manualSearch, setManualSearch] = useState('')
+  const search = messengerClientId
+    ? String(
+        messengerClient?.telegram ||
+          messengerClient?.phone ||
+          [
+            messengerClient?.firstName,
+            messengerClient?.secondName,
+            messengerClient?.thirdName,
+          ]
+            .filter(Boolean)
+            .join(' ') ||
+          messengerClientId
+      )
+    : manualSearch
+  const setSearch = (value) => {
+    setManualSearch(value)
+    if (messengerClientId) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('openMessenger')
+      window.history.replaceState(
+        null,
+        '',
+        `${url.pathname}${url.search}${url.hash}`
+      )
+    }
+  }
   const [clientFilter, setClientFilter] = useState('all')
   const itemHeight = isCompact ? 178 : 190
+
+  useEffect(() => {
+    if (!messengerClientId) {
+      openedMessenger.current = ''
+      return
+    }
+    if (
+      !messengerClient ||
+      !modalsFunc.client?.messenger ||
+      openedMessenger.current === messengerClientId
+    )
+      return
+    openedMessenger.current = messengerClientId
+    modalsFunc.client.messenger(messengerClientId)
+  }, [messengerClientId, messengerClient, modalsFunc.client])
 
   const clientsWithStats = useMemo(() => {
     const lowerSearch = search.trim().toLowerCase()
@@ -96,12 +149,14 @@ const ClientsContent = ({ onHeaderCountChange }) => {
         }
       })
       .filter((client) => {
+        if (messengerClientId) return client._id === messengerClientId
         if (clientFilter === 'requests') return client.requestsCount > 0
         if (clientFilter === 'events') return client.eventsCount > 0
         if (clientFilter === 'canceled') return client.canceledEventsCount > 0
         return true
       })
       .filter((client) => {
+        if (messengerClientId) return client._id === messengerClientId
         if (!lowerSearch) return true
         const textMatch = [
           client.firstName,
@@ -140,7 +195,7 @@ const ClientsContent = ({ onHeaderCountChange }) => {
         if (b.lastRequest) return 1
         return (b.requestsCount || 0) - (a.requestsCount || 0)
       })
-  }, [clientFilter, clients, events, search])
+  }, [clientFilter, clients, events, search, messengerClientId])
 
   const RowComponent = useCallback(
     ({ index, style }) => {

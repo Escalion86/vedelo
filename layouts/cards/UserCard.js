@@ -116,8 +116,26 @@ const UserCard = ({ userId, user: userProp, hidden = false, style }) => {
             <div className="card-meta col-span-2 truncate text-xs font-semibold">
               Дата регистрации: {registrationLabel}
             </div>
+            <div
+              className="card-meta col-span-2 text-xs font-semibold"
+              title="Последнее добавление, изменение или удаление по журналу действий. Время вашего устройства."
+            >
+              Последняя активность:{' '}
+              <span className="whitespace-nowrap">
+                {user.lastMutationAt
+                  ? new Date(user.lastMutationAt).toLocaleString('ru-RU', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Нет данных'}
+              </span>
+            </div>
             <div className="card-meta col-span-2 truncate text-xs font-semibold">
-              Источник: {formatRegistrationSource(getUserRegistrationSource(user))}
+              Источник:{' '}
+              {formatRegistrationSource(getUserRegistrationSource(user))}
             </div>
           </div>
         </div>

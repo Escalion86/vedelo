@@ -61,13 +61,23 @@ export const PATCH = async (req, { params }) => {
   const targetUser = await Users.findById(body.userId)
     .select('_id tenantId')
     .lean()
-  if (!targetUser) {
-    return NextResponse.json(
-      { success: false, error: 'Операция не найдена' },
-      { status: 404 }
-    )
+  let filter
+  if (targetUser) {
+    filter = buildPaymentReceiptFilter({ paymentId: id, user: targetUser })
+  } else {
+    // An old payment can outlive its user. Keep the owner and tenant from the
+    // payment itself so a developer can clear its outstanding receipt.
+    const orphan = await Payments.findOne({ _id: id, userId: body.userId })
+      .select('tenantId')
+      .lean()
+    if (!orphan) {
+      return NextResponse.json(
+        { success: false, error: 'Операция не найдена' },
+        { status: 404 }
+      )
+    }
+    filter = { _id: id, userId: body.userId, tenantId: orphan.tenantId ?? null }
   }
-  const filter = buildPaymentReceiptFilter({ paymentId: id, user: targetUser })
   const payment = await Payments.findOne(filter)
     .select('type purpose source status receiptUrl')
     .lean()

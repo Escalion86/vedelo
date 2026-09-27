@@ -53,8 +53,10 @@ export const buildIncomingMessagePushPayload = ({
   notificationKind = 'message',
   conversationId,
   unreadCount = 0,
+  target = 'web',
 }) => {
-  const providerLabel = PROVIDER_LABELS[provider] || normalizeText(provider, 'CRM')
+  const providerLabel =
+    PROVIDER_LABELS[provider] || normalizeText(provider, 'CRM')
   const safeClientName = normalizeText(clientName, 'Клиент')
   const eventId = String(event?._id || '')
   const eventTitle = normalizeText(event?.eventType, 'Мероприятие')
@@ -93,9 +95,12 @@ export const buildIncomingMessagePushPayload = ({
     silent: isRecording ? false : !isFirstInSeries,
     requireInteraction: isRecording ? true : isFirstInSeries,
     data: {
-      url: eventId
-        ? `/cabinet/eventsUpcoming?openEvent=${eventId}`
-        : '/cabinet/clients',
+      url:
+        target === 'web' && !isRecording && clientId
+          ? `/cabinet/clients?openMessenger=${encodeURIComponent(String(clientId))}`
+          : eventId
+            ? `/cabinet/eventsUpcoming?openEvent=${eventId}`
+            : '/cabinet/clients',
       clientId: String(clientId || ''),
       eventId,
       provider,

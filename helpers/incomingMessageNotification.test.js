@@ -23,10 +23,7 @@ test('builds incoming message push with client and nearest event', () => {
   assert.equal(payload.title, 'Новое сообщение · Telegram')
   assert.match(payload.body, /Анна Иванова/)
   assert.match(payload.body, /Ближайшее: Свадьба/)
-  assert.equal(
-    payload.data.url,
-    '/cabinet/eventsUpcoming?openEvent=event-1'
-  )
+  assert.equal(payload.data.url, '/cabinet/clients?openMessenger=client-1')
   assert.equal(payload.data.clientId, 'client-1')
 })
 
@@ -111,4 +108,34 @@ test('pluralizes unread counter in Russian', () => {
   assert.equal(formatUnreadCount(5), '5 новых сообщений')
   assert.equal(formatUnreadCount(21), '21 новое сообщение')
   assert.equal(formatUnreadCount(11), '11 новых сообщений')
+})
+
+test('opens the client messenger without an event for each messaging provider', () => {
+  for (const provider of ['telegram', 'vk', 'avito']) {
+    const payload = buildIncomingMessagePushPayload({
+      provider,
+      clientId: 'client&1',
+    })
+    assert.equal(payload.data.url, '/cabinet/clients?openMessenger=client%261')
+  }
+})
+
+test('recordings still open their event even when a client is linked', () => {
+  const payload = buildIncomingMessagePushPayload({
+    provider: 'novofon',
+    clientId: 'client-1',
+    notificationKind: 'recording',
+    event: { _id: 'event-1' },
+  })
+  assert.equal(payload.data.url, '/cabinet/eventsUpcoming?openEvent=event-1')
+})
+
+test('preserves navigation supported by installed Android versions', () => {
+  const payload = buildIncomingMessagePushPayload({
+    provider: 'telegram',
+    clientId: 'client-1',
+    target: 'mobile',
+    event: { _id: 'event-1' },
+  })
+  assert.equal(payload.data.url, '/cabinet/eventsUpcoming?openEvent=event-1')
 })

@@ -111,7 +111,7 @@ export const notifyIncomingClientMessage = async ({
     associatedEvent,
     associatedEventId,
   })
-  const payload = buildIncomingMessagePushPayload({
+  const payloadOptions = {
     provider,
     messageId,
     messageText,
@@ -120,6 +120,12 @@ export const notifyIncomingClientMessage = async ({
     event: context.event,
     conversationId,
     unreadCount,
+  }
+  const payload = buildIncomingMessagePushPayload(payloadOptions)
+  // Installed Android versions do not handle the web openMessenger parameter.
+  const expoPayload = buildIncomingMessagePushPayload({
+    ...payloadOptions,
+    target: 'mobile',
   })
 
   const ConversationModel = CONVERSATION_MODELS[provider] || null
@@ -145,7 +151,7 @@ export const notifyIncomingClientMessage = async ({
   const [web, expo] = await Promise.all([
     sendPushToTenant({ tenantId, payload, source: `messenger_${provider}` }),
     expoAllowed
-      ? sendExpoPushToTenant({ tenantId, payload })
+      ? sendExpoPushToTenant({ tenantId, payload: expoPayload })
       : Promise.resolve(null),
   ])
   return aggregatePushResults(web, expo)

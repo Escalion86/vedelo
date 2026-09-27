@@ -76,7 +76,8 @@ export const GET = async (req) => {
       ...serializePaymentHistoryItem(payment),
       management: paymentManagementActions(payment),
       user: serializePaymentOperationsUser(
-        usersById.get(String(payment.userId))
+        usersById.get(String(payment.userId)),
+        payment.userId
       ),
     })),
     meta: { page, limit, total, pageCount: Math.ceil(total / limit) },

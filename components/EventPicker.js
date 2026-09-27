@@ -10,6 +10,8 @@ import formatAddress from '@helpers/formatAddress'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
+import servicesAtom from '@state/atoms/servicesAtom'
+import { getEventCardTitle } from '@helpers/eventCardTitle.mjs'
 
 const EventPicker = ({
   selectedEvent,
@@ -25,6 +27,7 @@ const EventPicker = ({
   showEditButton,
 }) => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
+  const services = useAtomValue(servicesAtom)
   const terms = useWorkItemTerminology()
   const resolvedLabel = label || terms.labelCapitalized
   const handleEdit = () => {
@@ -58,7 +61,7 @@ const EventPicker = ({
           <div className="flex min-w-0 flex-col gap-0.5 break-words">
             <div className="text-base font-semibold text-gray-900">
               {selectedEvent
-                ? formatAddress(selectedEvent?.address, terms.labelCapitalized)
+                ? getEventCardTitle(selectedEvent, services)
                 : 'Не выбрано'}
             </div>
             {selectedEvent && (
@@ -104,6 +107,8 @@ const EventPicker = ({
 
 EventPicker.propTypes = {
   selectedEvent: PropTypes.shape({
+    eventType: PropTypes.string,
+    servicesIds: PropTypes.arrayOf(PropTypes.string),
     eventDate: PropTypes.oneOfType([
       PropTypes.string,
       PropTypes.number,

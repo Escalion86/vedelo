@@ -44,6 +44,7 @@ import { useEventQuery } from '@helpers/useEventsQuery'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
 import { getEventCloseSuggestionState } from '@helpers/eventCloseSuggestion'
 import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
+import { getEventCardTitle } from '@helpers/eventCardTitle.mjs'
 
 // const CALENDAR_RESPONSE_MARKER = '--- Google Calendar Response ---'
 
@@ -144,21 +145,10 @@ const EventCard = ({
     return getGoogleCalendarLinkFromText(event?.description)
   }, [event?.description])
 
-  const eventTitle = useMemo(() => {
-    const title =
-      typeof event?.eventType === 'string' ? event.eventType.trim() : ''
-    return title || 'Событие не указано'
-  }, [event?.eventType])
-
-  const servicesTitle = useMemo(() => {
-    const servicesIds = event?.servicesIds ?? []
-    if (!servicesIds.length) return 'Услуга не указана'
-    const titles = services
-      .filter((service) => servicesIds.includes(service._id))
-      .map((service) => service.title)
-      .filter(Boolean)
-    return titles.length > 0 ? titles.join(', ') : 'Услуга не указана'
-  }, [event?.servicesIds, services])
+  const eventCardTitle = useMemo(
+    () => getEventCardTitle(event, services),
+    [event, services]
+  )
 
   const { contractSum, paid, net, status, hasObligations } = useMemo(() => {
     if (!event)
@@ -418,7 +408,7 @@ const EventCard = ({
             />
           ) : null}
           <div className="card-title min-w-0 flex-1 truncate text-base">
-            {[eventTitle, servicesTitle].join(' • ')}
+            {eventCardTitle}
           </div>
         </div>
 

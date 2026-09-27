@@ -132,7 +132,14 @@ export const getPaymentOperationsUserSearchFilter = (search) => {
   }
 }
 
-export const serializePaymentOperationsUser = (user) => {
+export const serializePaymentOperationsUser = (user, paymentUserId) => {
+  if (!user) {
+    return {
+      id: String(paymentUserId || ''),
+      name: 'Пользователь удалён',
+      contact: '',
+    }
+  }
   const name = [user?.secondName, user?.firstName, user?.thirdName]
     .map((value) => String(value || '').trim())
     .filter(Boolean)

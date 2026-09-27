@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import Events from '@models/Events'
 import { applyUserEventStats } from '@helpers/userEventStats'
 import { buildRegistrationTrialUserFields } from '@server/registrationTrial'
+import { withUserMutationActivity } from '@server/userMutationActivity'
 
 const normalizePhone = (phone) => {
   if (!phone) return ''
@@ -53,7 +54,10 @@ export const GET = async () => {
         ])
       : []
   return NextResponse.json(
-    { success: true, data: applyUserEventStats(users, eventStats) },
+    {
+      success: true,
+      data: await withUserMutationActivity(applyUserEventStats(users, eventStats)),
+    },
     { status: 200 }
   )
 }
