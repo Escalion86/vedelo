@@ -1,3 +1,4 @@
+import { isProposalTheme, isProposalLogoUrl, normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
@@ -114,8 +115,14 @@ export const PATCH = async (req, { params }) => {
     auth.proposal.publishedAt = auth.proposal.publishedAt || new Date()
     auth.proposal.revokedAt = null
   } else if (action === 'revoke') {
-    auth.proposal.status = 'revoked'
-    auth.proposal.revokedAt = new Date()
+    const revoked = await Proposals.findOneAndUpdate(
+      { _id: id, tenantId: auth.context.tenantId, status: 'published', selectedPackageId: { $in: ['', null] } },
+      { $set: { status: 'revoked', revokedAt: new Date() } },
+      { returnDocument: 'after' }
+    )
+    if (!revoked)
+      return error('Принятое клиентом или уже недоступное предложение нельзя отозвать', 409, 'revoke_unavailable')
+    return NextResponse.json({ success: true, data: serialize(revoked, req) })
   } else if (action === 'apply') {
     const selected = auth.proposal.packages.find(
       (item) => item.id === auth.proposal.selectedPackageId
@@ -158,6 +165,11 @@ export const PATCH = async (req, { params }) => {
         409,
         'immutable_snapshot'
       )
+    if (body.appearance !== undefined) {
+      if (!isProposalTheme(body.appearance?.theme)) return error('Выберите тему оформления', 400, 'invalid_theme')
+      if (body.appearance.logoUrl && !isProposalLogoUrl(body.appearance.logoUrl, auth.context.tenantId)) return error('Недопустимый логотип', 400, 'invalid_logo')
+      auth.proposal.appearance = normalizeProposalAppearance(body.appearance, auth.context.tenantId)
+    }
     if (body.title !== undefined) {
       const title = String(body.title || '')
         .trim()
@@ -195,8 +207,11 @@ export const DELETE = async (_req, { params }) => {
   const { id } = await params
   const auth = await authorize(id)
   if (auth.response) return auth.response
-  if (auth.proposal.status !== 'draft')
-    return error('Можно удалить только черновик', 409, 'published')
-  await auth.proposal.deleteOne()
+  const deleted = await Proposals.findOneAndDelete({
+    _id: id,
+    tenantId: auth.context.tenantId,
+  })
+  if (!deleted)
+    return error('Предложение не найдено', 404, 'not_found')
   return NextResponse.json({ success: true, data: { id } })
 }

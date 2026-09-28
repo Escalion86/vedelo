@@ -2,6 +2,8 @@ import crypto from 'crypto'
 import { formatMoney } from '@helpers/formatMoney'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
+  DEFAULT_PROPOSAL_MESSAGE,
+  normalizeProposalMessage,
   normalizeProposalBlocks,
   normalizeProposalMedia,
   normalizeProposalPackages,
@@ -87,8 +89,7 @@ export const buildProposalSnapshot = ({ template, event, client, services, artis
       ? input.packages
       : [{ id: 'main', title: 'Основной вариант', lines: defaultLines, total: Number(event.contractSum) || defaultLines.reduce((sum, line) => sum + line.price, 0), recommended: true }]
   )
-  const defaultMessage = 'Здравствуйте, {{client.firstName}}! Подготовили предложение для вашего мероприятия: {{proposal.url}}'
-  const rawMessage = input.messageText || template?.messageTemplate || defaultMessage
+  const rawMessage = normalizeProposalMessage(input.messageText || template?.messageTemplate || DEFAULT_PROPOSAL_MESSAGE)
   return {
     blocksSnapshot,
     packages,
@@ -106,7 +107,7 @@ export const buildProposalSnapshot = ({ template, event, client, services, artis
 }
 
 export const renderProposalMessage = (proposal, publicUrl) =>
-  renderProposalVariables(proposal.messageText || '', {
+  renderProposalVariables(normalizeProposalMessage(proposal.messageText || ''), {
     proposal: { url: publicUrl },
     client: proposal.clientSnapshot || {},
     event: proposal.eventSnapshot || {},

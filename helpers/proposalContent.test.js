@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  DEFAULT_PROPOSAL_MESSAGE,
+  normalizeProposalMessage,
   getProposalUnknownVariables,
   normalizeProposalBlocks,
   normalizeProposalMedia,
@@ -69,4 +71,16 @@ test('proposal blocks have unique supported types and unknown variables are coll
     }),
     ['artist.fullName', 'event.date', 'artist.phone']
   )
+})
+
+
+test('standard proposal message is neutral and legacy defaults upgrade without replacing custom text', () => {
+  const legacy = 'Здравствуйте, {{client.firstName}}! Подготовили предложение для вашего мероприятия: {{proposal.url}}'
+  assert.equal(normalizeProposalMessage(legacy), DEFAULT_PROPOSAL_MESSAGE)
+  const custom = 'Подготовили предложение лично для вас: {{proposal.url}}'
+  assert.equal(normalizeProposalMessage(custom), custom)
+  assert.equal(normalizeProposalMessage(''), '')
+  assert.equal(renderProposalVariables(normalizeProposalMessage(legacy), {
+    client: { firstName: 'Надежда Буренкова' }, proposal: { url: 'https://example.test/proposal' },
+  }).text, 'Здравствуйте, Надежда Буренкова! Предложение для вашего мероприятия можете посмотреть по ссылке: https://example.test/proposal')
 })

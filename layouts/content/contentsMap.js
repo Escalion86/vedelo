@@ -15,6 +15,7 @@ import SiteReferralSettingsContent from './SiteReferralSettingsContent'
 import AiUsageAdminContent from './AiUsageAdminContent'
 import RegistrationTrialSettingsContent from './RegistrationTrialSettingsContent'
 import SiteContactsSettingsContent from './SiteContactsSettingsContent'
+import PhoneAuthSettingsContent from './PhoneAuthSettingsContent'
 import StatisticsContent from './StatisticsContent'
 import ServicesContent from './ServicesContent'
 import UsersContent from './UsersContent'
@@ -126,6 +127,10 @@ export const CONTENTS = Object.freeze({
   'site-contacts': {
     Component: SiteContactsSettingsContent,
     name: 'Настройки сайта / Контакты',
+  },
+  'phone-auth': {
+    Component: PhoneAuthSettingsContent,
+    name: 'Настройки сайта / Авторизация',
   },
   'site-news': {
     Component: SiteNewsContent,

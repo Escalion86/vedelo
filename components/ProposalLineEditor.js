@@ -1,7 +1,5 @@
 'use client'
 
-import IconActionButton from '@components/IconActionButton'
-import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import Input from '@components/Input'
 import Textarea from '@components/Textarea'
 import ComboBox from '@components/ComboBox'
@@ -12,13 +10,12 @@ export default function ProposalLineEditor({
   index,
   services,
   onChange,
-  onRemove,
 }) {
   const missingService =
     line.serviceId &&
     !services.some((service) => String(service._id) === String(line.serviceId))
   return (
-    <div className="proposal-line-editor space-y-2 rounded border border-gray-200 p-3">
+    <div className="proposal-line-editor space-y-3">
       <div className="flex items-start gap-2">
         <ComboBox
           label="Услуга или своя позиция"
@@ -48,20 +45,12 @@ export default function ProposalLineEditor({
             )
           }}
         />
-        <IconActionButton
-          icon={faTrashAlt}
-          variant="danger"
-          size="sm"
-          type="button"
-          title={`Удалить позицию ${index + 1}`}
-          className="mt-5 shrink-0"
-          onClick={onRemove}
-        />
       </div>
       <div className="tablet:grid-cols-[minmax(0,1fr)_190px] grid grid-cols-1 gap-2">
         <Input
           inputClassName="min-w-0"
           label="Название"
+          required
           ariaLabel={`Название позиции ${index + 1}`}
           noMargin
           fullWidth

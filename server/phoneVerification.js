@@ -1,4 +1,5 @@
 import Users from '@models/Users'
+import { randomInt } from 'node:crypto'
 
 const TELEFONIP_TOKEN = process.env.TELEFONIP
 const TELEFONIP_BASE_URL =
@@ -187,13 +188,30 @@ export const telefonipCheckCall = async (callId) => {
 }
 
 export const generateSmsCode = () => {
-  const min = 10 ** (verifyConfig.smsCodeLength - 1)
-  const max = 10 ** verifyConfig.smsCodeLength - 1
-  return String(Math.floor(Math.random() * (max - min + 1) + min))
+  // Telefon-IP accepts at most four characters; custom webhooks retain their length.
+  const length = process.env.PHONE_SMS_SEND_WEBHOOK ? verifyConfig.smsCodeLength : 4
+  return String(randomInt(10 ** (length - 1), 10 ** length))
 }
 
 export const sendSmsCode = async ({ phone, code, flow }) => {
   const webhookUrl = process.env.PHONE_SMS_SEND_WEBHOOK
+  if (!webhookUrl && TELEFONIP_TOKEN) {
+    try {
+      const response = await fetch(
+        getTelefonipUrl(`/get_sms_code/${toTelefonipPhone(phone)}/?code=${encodeURIComponent(code)}`),
+        { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(15000) }
+      )
+      const json = await tryParseJson(response)
+      if (!response.ok || json?.success !== true || json?.data?.status === false ||
+        String(json?.data?.code ?? '') !== code) {
+        return { ok: false, error: safeApiError('SMS_SEND_ERROR', 'Не удалось отправить СМС-код. Попробуйте позже.') }
+      }
+      return { ok: true }
+    } catch {
+      // Provider URLs contain the API token and code: never log the fetch error.
+      return { ok: false, error: safeApiError('SMS_SEND_ERROR', 'Сервис СМС временно недоступен') }
+    }
+  }
   if (!webhookUrl) {
     if (process.env.NODE_ENV === 'production') {
       return {
@@ -205,7 +223,6 @@ export const sendSmsCode = async ({ phone, code, flow }) => {
       }
     }
 
-    console.info(`[PHONE_VERIFY_SMS_MOCK] flow=${flow} phone=${phone} code=${code}`)
     return { ok: true, debugCode: code }
   }
 
@@ -213,6 +230,7 @@ export const sendSmsCode = async ({ phone, code, flow }) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, code, flow }),
+    signal: AbortSignal.timeout(15000),
   })
 
   if (!response.ok) {

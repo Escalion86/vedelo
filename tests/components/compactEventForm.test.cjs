@@ -565,3 +565,20 @@ test('retrying validation reopens a manually collapsed invalid section', async (
   await React.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
   assert.equal(section.open, true)
 })
+
+
+test('client pencil edits the selection without opening the picker and respects closed orders', async (t) => {
+  let edits = 0, selections = 0
+  const props = { ...compactBase, selectedClient: { _id: 'client-1', firstName: 'Надежда' }, onEditClient: () => { edits += 1 }, onSelectClient: () => { selections += 1 } }
+  const { el, root } = await mount(t, Compact, props)
+  const edit = el.querySelector('button[title="Редактировать клиента"]')
+  assert.ok(edit)
+  assert.equal(edit.closest('button'), edit)
+  await React.act(async () => edit.click())
+  assert.equal(edits, 1)
+  assert.equal(selections, 0)
+  await React.act(async () => root.render(React.createElement(Compact, { ...props, isClosed: true })))
+  assert.equal(el.querySelector('button[title="Редактировать клиента"]').disabled, true)
+  await React.act(async () => root.render(React.createElement(Compact, { ...props, selectedClient: null })))
+  assert.equal(el.querySelector('button[title="Редактировать клиента"]'), null)
+})

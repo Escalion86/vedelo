@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import mongoose from 'mongoose'
 import { runUserActivitySmoke } from './userActivitySmoke.mjs'
+import { runHistorySmoke } from './historySmoke.mjs'
 
 // Только временная БД и локальный HTTP-сервер из integration runner.
 // У платежей нет providerPaymentId: даже успешная авторизация не вызывает банк.
@@ -52,6 +53,7 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
   const userB = await login(users[1].phone)
   const anonymous = (path, options) => fetch(`${baseUrl}${path}`, options)
   await runUserActivitySmoke({ t, db, tenantA, tenantB, userA, anonymous, baseUrl, phone: users[0].phone, password })
+  await runHistorySmoke({ t, db, tenantA, baseUrl, phone: users[0].phone, password })
   const send = (request, path, method, body, headers = {}) => request(path, {
     method, headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body),
   })

@@ -7,6 +7,8 @@ export const queryKeys = {
   call: (callId) => ['call', callId],
   events: (params = {}) => ['events', params],
   event: (eventId) => ['event', eventId],
+  proposalStatuses: ['proposalStatuses'],
+  eventProposals: (eventId) => ['eventProposals', eventId],
   transactions: (params = {}) => ['transactions', params],
   transactionsAll: ['transactions', {}],
   statistics: (params = {}) => ['statistics', params],

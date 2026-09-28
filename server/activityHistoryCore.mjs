@@ -69,11 +69,13 @@ export const buildHistoryChanges = ({ entityType, before, after, operation }) =>
   return result
 }
 
-export const getTaskSemanticAction = (changes) => {
+export const getTaskSemanticAction = (changes, operation = 'update') => {
+  if (operation !== 'update') return ''
   const taskChange = changes.find((item) => item.field === 'additionalEvents')
   if (!taskChange) return ''
   const before = Array.isArray(taskChange.oldValue) ? taskChange.oldValue : []
   const after = Array.isArray(taskChange.newValue) ? taskChange.newValue : []
+  if (JSON.stringify(before) === JSON.stringify(after)) return ''
   if (after.length > before.length) return 'task_created'
   if (after.length < before.length) return 'task_deleted'
   if (after.some((item, index) => item?.done && !before[index]?.done)) return 'task_completed'

@@ -711,6 +711,14 @@ export const pages = [
     accessRoles: ['dev'],
   },
   {
+    id: 41,
+    group: 10,
+    name: 'Авторизация',
+    href: 'phone-auth',
+    icon: faLock,
+    accessRoles: ['dev'],
+  },
+  {
     id: 21,
     group: 10,
     name: 'Тарифы',

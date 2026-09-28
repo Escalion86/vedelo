@@ -107,7 +107,7 @@ export const recordActivityHistory = async ({
       entityType,
       entityId: String(entityId),
       operation,
-      semanticAction: semanticAction || getTaskSemanticAction(changes),
+      semanticAction: semanticAction || getTaskSemanticAction(changes, operation),
       entityLabel: resolvedLabel,
       summary:
         summary ||

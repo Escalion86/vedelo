@@ -12,6 +12,8 @@ import {
   verifyConfig,
 } from '@server/phoneVerification'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
+import { getPhoneAuthSettings } from '@server/phoneAuthSettings'
+import { POST as sendSmsVerification } from '../sms/send/route'
 
 const isCooldownActive = (date, cooldownSec) =>
   date && Date.now() - new Date(date).getTime() < cooldownSec * 1000
@@ -69,6 +71,11 @@ export const POST = async (req) => {
     )
   }
 
+  // Opt in so installed mobile clients still receive the call response they expect.
+  if (body.method === 'preferred' && (await getPhoneAuthSettings()).primaryMethod === 'sms') {
+    return sendSmsVerification({ headers: req.headers, json: async () => body })
+  }
+
   const existingConfirm = await PhoneConfirms.findOne({ phone, flow })
   if (isCooldownActive(existingConfirm?.updatedAt, verifyConfig.startCooldownSec)) {
     return NextResponse.json(
@@ -122,6 +129,7 @@ export const POST = async (req) => {
     {
       success: true,
       data: {
+        method: 'call',
         id: telefonipResult.data.id,
         auth_phone: telefonipResult.data.auth_phone,
         url_image: telefonipResult.data.url_image,

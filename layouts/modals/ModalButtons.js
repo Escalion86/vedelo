@@ -73,7 +73,13 @@ const ModalButtons = ({
             >
               {confirmPending ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <LoadingSpinner size="xxs" heightClassName="h-auto" />
+                  <span className="relative w-[30px] shrink-0 self-stretch">
+                    <LoadingSpinner
+                      size="xxs"
+                      heightClassName="h-auto"
+                      className="absolute left-0 top-1/2 max-h-none -translate-y-1/2"
+                    />
+                  </span>
                   <span>{confirmPendingName || confirmName}</span>
                 </span>
               ) : (

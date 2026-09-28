@@ -227,3 +227,11 @@ export const getProposalUnknownVariables = ({
   })
   return [...unknown]
 }
+
+export const DEFAULT_PROPOSAL_MESSAGE = 'Здравствуйте, {{client.firstName}}! Предложение для вашего мероприятия можете посмотреть по ссылке: {{proposal.url}}'
+
+// Upgrade only the exact previous default; preserve custom messages.
+export const normalizeProposalMessage = (value) =>
+  value === 'Здравствуйте, {{client.firstName}}! Подготовили предложение для вашего мероприятия: {{proposal.url}}'
+    ? DEFAULT_PROPOSAL_MESSAGE
+    : value

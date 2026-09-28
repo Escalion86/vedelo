@@ -31,6 +31,7 @@ import CardActions from '@components/CardActions'
 import CardWrapper from '@components/CardWrapper'
 import DropDown from '@components/DropDown'
 import StatusChip from '@components/StatusChip'
+import EventProposalStatus from '@components/EventProposalStatus'
 import { getSoonNoDepositEvents } from '@helpers/additionalEvents'
 import getGoogleCalendarLinkFromText from '@helpers/getGoogleCalendarLinkFromText'
 import getPersonFullName from '@helpers/getPersonFullName'
@@ -482,6 +483,7 @@ const EventCard = ({
         </div>
 
         <div className="flex min-w-[92px] flex-col items-end justify-center gap-1.5 py-2 text-right">
+          <EventProposalStatus eventId={event._id} />
           {hasObligations ? (
             <span className="flex h-5 items-center justify-center rounded-full bg-amber-100 px-2 text-[11px] font-semibold text-amber-800">
               Обязательство

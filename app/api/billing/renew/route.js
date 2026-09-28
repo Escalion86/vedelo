@@ -6,6 +6,7 @@ import Payments from '@models/Payments'
 import SiteSettings from '@models/SiteSettings'
 import { retryPendingReferralRewards } from '@server/referralRewards'
 import getTenantContext from '@server/getTenantContext'
+import { checkTelefonipBalance } from '@server/telefonipBalance'
 import {
   findAssignedTariff,
   findVisibleFreeTariff,
@@ -55,6 +56,8 @@ export const POST = async (req) => {
   }
 
   await dbConnect()
+
+  const telefonip = await checkTelefonipBalance()
 
   const referrals = await retryPendingReferralRewards({
     UsersModel: Users,
@@ -217,6 +220,7 @@ export const POST = async (req) => {
         expiredTrialsCleared,
         skipped,
         referrals,
+        telefonip,
       },
     },
     { status: 200 }

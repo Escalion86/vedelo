@@ -12,6 +12,7 @@ import EmptyState from '@components/EmptyState'
 import LoadingSpinner from '@components/LoadingSpinner'
 import Notice from '@components/Notice'
 import { useHistoriesQuery } from '@helpers/useHistoriesQuery'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
 const SOURCE_LABELS = {
   web: 'Web', android: 'Android', public_api: 'Public API', tilda: 'Tilda',
@@ -65,7 +66,16 @@ const formatValue = (field, value) => {
 
 const HistoryRow = memo(({ item, onOpenItem }) => {
   const [open, setOpen] = useState(false)
-  const actionLabel = SEMANTIC_LABELS[item.semanticAction] || item.summary
+  const terms = useWorkItemTerminology()
+  const isCreation = item.operation === 'create'
+  const actionLabel = isCreation
+    ? item.entityType === 'event'
+      ? `${terms.mode === 'orders' ? 'Создан' : 'Создано'} ${terms.label}`
+      : item.summary
+    : (item.operation === 'update' && SEMANTIC_LABELS[item.semanticAction]) || item.summary
+  const entityLabel = item.entityType === 'event'
+    ? item.entityLabel?.replace(/^Мероприятие(?=:|$)/, terms.labelCapitalized)
+    : item.entityLabel
   return (
     <article className="history-row rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
       <button type="button" className="flex w-full cursor-pointer items-start gap-3 text-left" onClick={() => setOpen((value) => !value)}>
@@ -74,7 +84,7 @@ const HistoryRow = memo(({ item, onOpenItem }) => {
         </span>
         <span className="min-w-0 flex-1">
           <span className="card-title block text-sm">{actionLabel || 'Изменение'}</span>
-          <span className="card-meta mt-0.5 block truncate text-xs">{item.entityLabel}</span>
+          <span className="card-meta mt-0.5 block truncate text-xs">{entityLabel}</span>
           <span className="card-muted mt-1 block text-xs">
             {formatDateTime(item.occurredAt)} · {item.actorLabel || 'Пользователь'} · {SOURCE_LABELS[item.source] || item.source || 'Web'}
           </span>
@@ -84,10 +94,12 @@ const HistoryRow = memo(({ item, onOpenItem }) => {
       {open ? (
         <div className="mt-3 border-t border-gray-200 pt-2">
           {item.changes?.length ? item.changes.map((change) => (
-            <div key={change.field} className="grid gap-1 border-b border-gray-100 py-2 text-sm tablet:grid-cols-[minmax(120px,0.7fr)_1fr_auto_1fr]">
+            <div key={change.field} className={`grid gap-1 border-b border-gray-100 py-2 text-sm ${isCreation ? 'tablet:grid-cols-[minmax(120px,0.7fr)_2fr]' : 'tablet:grid-cols-[minmax(120px,0.7fr)_1fr_auto_1fr]'}`}>
               <span className="font-medium">{change.label}</span>
-              <span className="break-words text-gray-500">{formatValue(change.field, change.oldValue)}</span>
-              <span className="hidden text-gray-400 tablet:inline">→</span>
+              {!isCreation ? <>
+                <span className="break-words text-gray-500">{formatValue(change.field, change.oldValue)}</span>
+                <span className="hidden text-gray-400 tablet:inline">→</span>
+              </> : null}
               <span className="break-words">{formatValue(change.field, change.newValue)}</span>
             </div>
           )) : <div className="card-muted py-2 text-sm">Подробные изменения отсутствуют</div>}

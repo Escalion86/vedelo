@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import LoginInputs from './loginInputs'
 import { redirect } from 'next/navigation'
 import authOptions from '../api/auth/[...nextauth]/_options'
+import { getPhoneAuthSettings } from '@server/phoneAuthSettings'
 // import { signIn } from 'next-auth/react'
 
 export const dynamic = 'force-dynamic'
@@ -45,11 +46,14 @@ export default async function Login({ searchParams }) {
 
   if (session) return redirect(callbackUrl)
 
+  const { primaryMethod } = await getPhoneAuthSettings()
+
   return (
     <LoginInputs
       callbackUrl={callbackUrl}
       initialMode={initialMode}
       initialReferrerId={initialReferrerId}
+      primaryMethod={primaryMethod}
     />
   )
 }

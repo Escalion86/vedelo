@@ -1,3 +1,4 @@
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
 import Events from '@models/Events'
@@ -31,6 +32,7 @@ const publicData = (proposal) => {
   return {
     id: String(proposal._id),
     title: proposal.title,
+    appearance: normalizeProposalAppearance(proposal.appearance, proposal.tenantId),
     version: proposal.version,
     status: proposal.status,
     validUntil: proposal.validUntil,
@@ -111,6 +113,15 @@ export const POST = async (req, { params }) => {
       previousPackageId: previous,
       selectedAt: proposal.selectedAt,
     })
+  }
+  // Selection and revocation must not both succeed from stale reads.
+  proposal.$where = { status: 'published', tenantId: proposal.tenantId }
+  try {
+    await proposal.save()
+  } catch (saveError) {
+    if (['DocumentNotFoundError', 'VersionError'].includes(saveError.name))
+      return error('Предложение изменилось или больше недоступно. Обновите страницу.', 409, 'selection_conflict')
+    throw saveError
   }
   if (changed && !proposal.selectionTaskCreatedAt) {
     const event = await Events.findOne({

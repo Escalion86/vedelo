@@ -1,6 +1,8 @@
 'use client'
 
 import Image from 'next/image'
+import styles from './ProposalPageView.module.css'
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import Notice from '@components/Notice'
 import ProposalRichTextView from '@components/ProposalRichTextView'
 import { formatMoney } from '@helpers/formatMoney'
@@ -14,6 +16,7 @@ export default function ProposalPageView({
   selectPackage = () => {},
   preview = false,
 }) {
+  const appearance = normalizeProposalAppearance(proposal.appearance)
   const blocks = new Map(
     (proposal.blocks || [])
       .filter((item) => item.enabled !== false)
@@ -32,22 +35,42 @@ export default function ProposalPageView({
     : ''
 
   return (
-    <main className="proposal-page-view tablet:px-6 tablet:py-10 bg-stone-100 px-3 py-5 text-stone-900">
-      <article className="mx-auto max-w-3xl overflow-hidden rounded-3xl border border-stone-200 bg-[#ffffff] shadow-xl shadow-stone-300/30">
-        <header className="tablet:px-10 tablet:py-14 bg-gradient-to-br from-stone-950 via-stone-800 to-amber-950 px-5 py-10 text-white">
-          <div className="text-xs font-semibold tracking-[0.22em] text-amber-300 uppercase">
+    <main
+      data-theme={appearance.theme}
+      className={`${styles.page} proposal-page-view tablet:px-6 tablet:py-10 px-3 py-5`}
+    >
+      <article
+        className={`${styles.paper} mx-auto max-w-3xl overflow-hidden rounded-3xl border shadow-xl`}
+      >
+        <header
+          className={`${styles.header} tablet:px-10 tablet:py-14 px-5 py-10`}
+        >
+          {appearance.logoUrl ? (
+            <Image
+              src={appearance.logoUrl}
+              alt="Логотип"
+              width={220}
+              height={80}
+              loader={proposalImageLoader}
+              unoptimized
+              className={styles.logo}
+            />
+          ) : null}
+          <div
+            className={`${styles.eyebrow} text-xs font-semibold tracking-[0.22em] uppercase`}
+          >
             Персональное предложение
           </div>
           <h1 className="tablet:text-5xl mt-3 text-3xl font-semibold tracking-tight">
             {cover?.title || proposal.title}
           </h1>
           {proposal.client?.firstName ? (
-            <p className="mt-4 text-lg text-stone-200">
+            <p className={`${styles.headerMuted} mt-4 text-lg`}>
               Для {proposal.client.firstName}
             </p>
           ) : null}
           {validUntil ? (
-            <p className="mt-6 text-sm text-stone-300">
+            <p className={`${styles.headerMuted} mt-6 text-sm`}>
               Действует до {validUntil}
             </p>
           ) : null}
@@ -59,7 +82,7 @@ export default function ProposalPageView({
               <h2 className="text-2xl font-semibold">{intro.title}</h2>
               <ProposalRichTextView
                 html={intro.contentHtml}
-                className="mt-3 leading-7 text-stone-600"
+                className={`${styles.muted} mt-3 leading-7`}
               />
             </section>
           ) : null}
@@ -73,7 +96,7 @@ export default function ProposalPageView({
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-2xl border p-5 transition ${selected ? 'border-emerald-500 bg-[#ecfdf5] shadow-sm' : item.recommended ? 'border-amber-400 bg-amber-50/50' : 'border-stone-200'}`}
+                      className={`rounded-2xl border p-5 transition ${selected ? styles.selected : item.recommended ? styles.recommended : styles.border}`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -82,13 +105,17 @@ export default function ProposalPageView({
                               {item.title}
                             </h3>
                             {item.recommended ? (
-                              <span className="rounded-full bg-amber-200 px-2 py-1 text-xs font-semibold text-amber-900">
+                              <span
+                                className={`${styles.badge} rounded-full px-2 py-1 text-xs font-semibold`}
+                              >
                                 Рекомендуем
                               </span>
                             ) : null}
                           </div>
                           {item.description ? (
-                            <p className="mt-2 text-sm leading-6 text-stone-600">
+                            <p
+                              className={`${styles.muted} mt-2 text-sm leading-6`}
+                            >
                               {item.description}
                             </p>
                           ) : null}
@@ -98,7 +125,9 @@ export default function ProposalPageView({
                         </div>
                       </div>
                       {item.lines?.length ? (
-                        <ul className="mt-4 space-y-2 border-t border-stone-200 pt-4">
+                        <ul
+                          className={`${styles.border} mt-4 space-y-2 border-t pt-4`}
+                        >
                           {item.lines.map((line, index) => (
                             <li
                               key={`${line.title}-${index}`}
@@ -107,7 +136,9 @@ export default function ProposalPageView({
                               <div className="min-w-0 break-words">
                                 <span>{line.title}</span>
                                 {line.description ? (
-                                  <p className="mt-1 text-xs leading-5 whitespace-pre-line text-stone-600">
+                                  <p
+                                    className={`${styles.muted} mt-1 text-xs leading-5 whitespace-pre-line`}
+                                  >
                                     {line.description}
                                   </p>
                                 ) : null}
@@ -127,7 +158,7 @@ export default function ProposalPageView({
                           preview || proposal.expired || Boolean(sending)
                         }
                         onClick={() => selectPackage(item.id)}
-                        className="mt-5 h-12 w-full cursor-pointer rounded-xl bg-stone-900 px-4 font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className={`${styles.button} mt-5 h-12 w-full cursor-pointer rounded-xl px-4 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50`}
                       >
                         {selected
                           ? 'Вы выбрали этот вариант'
@@ -182,7 +213,7 @@ export default function ProposalPageView({
                       href={item.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex aspect-video items-center justify-center rounded-2xl border border-stone-200 bg-stone-100 p-5 text-center font-semibold text-stone-700 hover:bg-stone-200"
+                      className={`${styles.videoLink} flex aspect-video items-center justify-center rounded-2xl border p-5 text-center font-semibold`}
                     >
                       {item.title || 'Открыть видео'}
                     </a>
@@ -197,7 +228,7 @@ export default function ProposalPageView({
               <h2 className="text-2xl font-semibold">{benefits.title}</h2>
               <ProposalRichTextView
                 html={benefits.contentHtml}
-                className="mt-4 leading-7 text-stone-600"
+                className={`${styles.muted} mt-4 leading-7`}
               />
             </section>
           ) : null}
@@ -206,22 +237,24 @@ export default function ProposalPageView({
               <h2 className="text-2xl font-semibold">{terms.title}</h2>
               <ProposalRichTextView
                 html={terms.contentHtml}
-                className="mt-3 leading-7 text-stone-600"
+                className={`${styles.muted} mt-3 leading-7`}
               />
             </section>
           ) : null}
           {cta ? (
-            <section className="rounded-2xl bg-stone-900 p-6 text-white">
+            <section className={`${styles.header} rounded-2xl p-6`}>
               <h2 className="text-2xl font-semibold">{cta.title}</h2>
               <ProposalRichTextView
                 html={cta.contentHtml}
-                className="mt-2 text-stone-300"
+                className={`${styles.headerMuted} mt-2`}
               />
             </section>
           ) : null}
           {contacts ? (
-            <footer className="border-t border-stone-200 pt-6 text-sm text-stone-600">
-              <div className="font-semibold text-stone-900">
+            <footer
+              className={`${styles.muted} ${styles.border} border-t pt-6 text-sm`}
+            >
+              <div className="font-semibold">
                 {proposal.artist?.fullName || contacts.title}
               </div>
               {proposal.artist?.phone ? (
@@ -230,7 +263,7 @@ export default function ProposalPageView({
               {proposal.artist?.telegram ? (
                 <div className="mt-1">Telegram: {proposal.artist.telegram}</div>
               ) : null}
-              <div className="mt-5 text-xs text-stone-400">
+              <div className={`${styles.muted} mt-5 text-xs`}>
                 Предложение подготовлено в Ведело
               </div>
             </footer>

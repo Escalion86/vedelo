@@ -2,6 +2,8 @@ import cn from 'classnames'
 
 const normalizeTone = (tone) => {
   if (
+    tone === 'success' ||
+    tone === 'info' ||
     tone === 'overdue' ||
     tone === 'today' ||
     tone === 'tomorrow' ||

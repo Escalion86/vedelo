@@ -1969,12 +1969,14 @@ body.theme-dark .cabinet-canvas {
     color: #b45309;
   }
 
+  .status-chip--success,
   .status-chip--tomorrow {
     border-color: #6ee7b7;
     background-color: #ecfdf5;
     color: #047857;
   }
 
+  .status-chip--info,
   .status-chip--upcoming {
     border-color: #7dd3fc;
     background-color: #f0f9ff;
@@ -2149,12 +2151,14 @@ body.theme-dark .status-chip--today {
   color: #fde68a;
 }
 
+body.theme-dark .status-chip--success,
 body.theme-dark .status-chip--tomorrow {
   border-color: #065f46;
   background-color: rgba(6, 95, 70, 0.32);
   color: #a7f3d0;
 }
 
+body.theme-dark .status-chip--info,
 body.theme-dark .status-chip--upcoming {
   border-color: #075985;
   background-color: rgba(7, 89, 133, 0.28);

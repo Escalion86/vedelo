@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
+import sharp from 'sharp'
 
 export const runWebDocumentWorkflowSmoke = async ({
   baseUrl,
@@ -379,6 +380,8 @@ export const runWebDocumentWorkflowSmoke = async ({
     404
   )
 
+  assert.equal((await fetch(`${baseUrl}/api/proposals/statuses`)).status, 401)
+  assert.equal((await request('/api/proposals/statuses')).status, 403)
   // Current proposal rollout remains dev-only; test it with a synthetic developer.
   await db
     .collection('users')
@@ -389,9 +392,11 @@ export const runWebDocumentWorkflowSmoke = async ({
     _id: foreignProposalId,
     tenantId: new mongoose.Types.ObjectId(),
     eventId: draftEventId,
-    status: 'draft',
+    status: 'published',
     title: 'Foreign draft',
+    selectedPackageId: 'foreign-choice',
   })
+  assert.equal((await (await request('/api/proposals/statuses')).json()).data[String(draftEventId)], undefined)
   assert.equal(
     (await request(`/api/proposals/${foreignProposalId}`, { method: 'DELETE' }))
       .status,
@@ -449,12 +454,146 @@ export const runWebDocumentWorkflowSmoke = async ({
   const proposalId = createdProposal.body.data._id
   assert.equal(createdProposal.body.data.packages[0].total, 3500)
   const proposalPath = `/api/proposals/${proposalId}`
+  const logoBytes = await sharp({
+    create: { width: 220, height: 80, channels: 4, background: '#2563eb' },
+  })
+    .png()
+    .toBuffer()
+  const uploadLogo = (id, bytes = logoBytes, type = 'image/png') => {
+    const body = new FormData()
+    body.append('file', new Blob([bytes], { type }), 'brand.png')
+    return request(`/api/proposals/${id}/logo`, { method: 'POST', body })
+  }
+  assert.equal(
+    (await fetch(`${baseUrl}${proposalPath}/logo`, { method: 'POST' })).status,
+    401
+  )
+  assert.equal((await uploadLogo(foreignProposalId)).status, 404)
+  assert.equal(
+    (await uploadLogo(proposalId, Buffer.from('invalid image'))).status,
+    400
+  )
+  assert.equal(
+    (await uploadLogo(proposalId, Buffer.from('<svg/>'), 'image/svg+xml'))
+      .status,
+    400
+  )
+  assert.equal(
+    (await uploadLogo(proposalId, Buffer.alloc(5 * 1024 * 1024 + 1))).status,
+    413
+  )
+  await db
+    .collection('tariffs')
+    .updateOne({ _id: tariffId }, { $set: { allowProposals: false } })
+  assert.equal((await uploadLogo(proposalId)).status, 403)
+  await db
+    .collection('tariffs')
+    .updateOne({ _id: tariffId }, { $unset: { allowProposals: '' } })
+  const logoResponse = await uploadLogo(proposalId)
+  const logoResult = await logoResponse.json()
+  assert.equal(logoResponse.status, 200, JSON.stringify(logoResult))
+  const logoUrl = logoResult.data.url
+  assert.ok(
+    logoUrl.includes(`/vedelo/${tenantId}/proposals/${proposalId}/logos/`)
+  )
+  assert.equal(
+    (await patch(proposalPath, { appearance: { theme: 'unknown' } })).status,
+    400
+  )
+  assert.equal(
+    (
+      await patch(proposalPath, {
+        appearance: {
+          theme: 'blue',
+          logoUrl: logoUrl.replace(
+            String(tenantId),
+            String(new mongoose.Types.ObjectId())
+          ),
+        },
+      })
+    ).status,
+    400
+  )
+  const appearance = { theme: 'blue', logoUrl }
+  assert.equal((await patch(proposalPath, { appearance })).status, 200)
+  assert.deepEqual(
+    (await (await request(proposalPath)).json()).data.appearance,
+    appearance
+  )
   const published = await patch(proposalPath, { action: 'publish' })
+  assert.equal((await uploadLogo(proposalId)).status, 409)
+  assert.equal(
+    (await patch(proposalPath, { appearance: { theme: 'dark' } })).status,
+    409
+  )
+  const cloned = await post(`/api/events/${draftEventId}/proposals`, {
+    sourceProposalId: proposalId,
+  })
+  assert.equal(cloned.status, 201)
+  assert.deepEqual(cloned.body.data.appearance, appearance)
+  assert.equal(
+    (
+      await request(`/api/proposals/${cloned.body.data._id}`, {
+        method: 'DELETE',
+      })
+    ).status,
+    200
+  )
   assert.equal(published.status, 200, JSON.stringify(published.body))
-  assert.equal((await request(proposalPath, { method: 'DELETE' })).status, 409)
+  const deletable = await post(`/api/events/${draftEventId}/proposals`, {
+    sourceProposalId: proposalId,
+  })
+  const deletablePath = `/api/proposals/${deletable.body.data._id}`
+  const deletableLive = await patch(deletablePath, { action: 'publish' })
+  const deletedPublicPath = `/api/public${new URL(deletableLive.body.data.publicUrl).pathname.replace('/proposal/', '/proposals/')}`
+  assert.equal((await post(deletedPublicPath, { packageId: 'basic' })).status, 200)
+  assert.equal((await patch(deletablePath, { action: 'apply' })).status, 200)
+  const agreedBeforeDelete = (await db.collection('events').findOne({ _id: draftEventId })).agreedProposal
+  assert.equal((await request(deletablePath, { method: 'DELETE' })).status, 200)
+  assert.deepEqual((await db.collection('events').findOne({ _id: draftEventId })).agreedProposal, agreedBeforeDelete)
+  assert.equal((await request(deletedPublicPath)).status, 404)
   const publicPath = `/api/public${new URL(published.body.data.publicUrl).pathname.replace('/proposal/', '/proposals/')}`
+  assert.deepEqual(
+    (await (await request(publicPath)).json()).data.appearance,
+    appearance
+  )
+  await db.collection('proposals').updateOne({ _id: new mongoose.Types.ObjectId(proposalId) }, { $set: { sentAt: new Date() } })
+  assert.equal((await (await request('/api/proposals/statuses')).json()).data[String(draftEventId)], 'sent')
   const selected = await post(publicPath, { packageId: 'basic' })
   assert.equal(selected.status, 200, JSON.stringify(selected.body))
+  assert.equal((await (await request('/api/proposals/statuses')).json()).data[String(draftEventId)], 'accepted')
+  assert.equal((await patch(proposalPath, { action: 'revoke' })).status, 409)
+  assert.equal(
+    (await patch(`/api/proposals/${foreignProposalId}`, { action: 'revoke' }))
+      .status,
+    404
+  )
+  assert.equal(
+    (await (await request(proposalPath)).json()).data.status,
+    'published'
+  )
+  for (let race = 0; race < 3; race += 1) {
+    const copy = await post(`/api/events/${draftEventId}/proposals`, {
+      sourceProposalId: proposalId,
+    })
+    const copyPath = `/api/proposals/${copy.body.data._id}`
+    const live = await patch(copyPath, { action: 'publish' })
+    const clientPath = `/api/public${new URL(live.body.data.publicUrl).pathname.replace('/proposal/', '/proposals/')}`
+    const [revocation, selection] = await Promise.all([
+      patch(copyPath, { action: 'revoke' }),
+      post(clientPath, { packageId: 'basic' }),
+    ])
+    assert.ok([200, 409].includes(revocation.status))
+    assert.ok([200, 409, 410].includes(selection.status))
+    assert.notEqual(revocation.status === 200 && selection.status === 200, true)
+    const stored = (await (await request(copyPath)).json()).data
+    assert.ok(
+      stored.status === 'published'
+        ? Boolean(stored.selectedPackageId)
+        : !stored.selectedPackageId
+    )
+  }
+
   const applied = await patch(proposalPath, { action: 'apply' })
   assert.equal(applied.status, 200)
   const agreed = await db.collection('events').findOne({ _id: draftEventId })
@@ -490,6 +629,8 @@ export const runWebDocumentWorkflowSmoke = async ({
     .collection('events')
     .updateOne({ _id: draftEventId }, { $set: { contractSum: 3500 } })
 
+  const shareEvent = await db.collection('events').findOne({ _id: draftEventId })
+  await db.collection('clients').updateOne({ _id: new mongoose.Types.ObjectId(shareEvent.clientId), tenantId }, { $set: { email: 'proposal-qa@example.test', max: 'https://max.ru/qa-contact' } })
   console.log(`Web document QA environment: ${baseUrl}`)
   if (process.env.PLAYWRIGHT_MODULE) {
     const { chromium } = await import(
@@ -502,10 +643,16 @@ export const runWebDocumentWorkflowSmoke = async ({
           baseURL: baseUrl,
           viewport: { width, height: 900 },
         })
+        await context.grantPermissions(['clipboard-read', 'clipboard-write'])
         await context.addCookies(
           [...cookies].map(([name, value]) => ({ name, value, url: baseUrl }))
         )
         const page = await context.newPage()
+        await context.route(
+          'https://cloud.escalion.ru/uploads/vedelo/**',
+          (route) =>
+            route.fulfill({ contentType: 'image/png', body: logoBytes })
+        )
         const errors = []
         page.on('pageerror', (error) => errors.push(error.message))
         const consoleErrors = []
@@ -519,12 +666,18 @@ export const runWebDocumentWorkflowSmoke = async ({
             theme
           )
           await page.reload()
-          await page
+          const eventMenu = page
             .locator('.event-card-shell')
             .filter({ hasText: 'Независимые документы QA' })
             .getByRole('button', { name: 'Открыть меню действий' })
-            .click()
-          await page.getByText('Редактирование', { exact: true }).click()
+          await eventMenu.waitFor()
+          await eventMenu.click()
+          const editEvent = page.getByText('Редактирование', { exact: true })
+          await editEvent.waitFor({ timeout: 3000 }).catch(async () => {
+            await eventMenu.click()
+            await editEvent.waitFor()
+          })
+          await editEvent.click()
           const form = page.locator('.compact-event-form')
           assert.equal(
             await form.getByText('Файлы и документы', { exact: true }).count(),
@@ -651,9 +804,8 @@ export const runWebDocumentWorkflowSmoke = async ({
             .locator('[data-document-card]')
             .filter({ hasText: originalDocumentUrl })
           await eventDocumentCard.waitFor()
-          const documentCardId = await eventDocumentCard.getAttribute(
-            'data-document-card'
-          )
+          const documentCardId =
+            await eventDocumentCard.getAttribute('data-document-card')
           assert.ok(documentCardId)
           const editDocumentButton = eventDocumentCard.getByRole('button', {
             name: 'Редактировать документ',
@@ -710,6 +862,25 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Создать предложение', exact: true })
             .click()
           const editor = page.locator('.proposal-editor')
+          await editor.locator('.proposal-appearance summary').click()
+          const logoInput = editor.getByLabel('Файл логотипа')
+          const logoFile = {
+            name: 'brand.png',
+            mimeType: 'image/png',
+            buffer: logoBytes,
+          }
+          await logoInput.setInputFiles(logoFile)
+          await editor.getByAltText('Логотип предложения').waitFor()
+          await editor
+            .getByRole('button', { name: 'Убрать логотип из предложения' })
+            .click()
+          assert.equal(
+            await editor.getByAltText('Логотип предложения').count(),
+            0
+          )
+          await logoInput.setInputFiles(logoFile)
+          await editor.getByAltText('Логотип предложения').waitFor()
+
           await editor.waitFor()
           assert.equal(await form.locator('.proposal-editor').count(), 0)
           await editor
@@ -740,9 +911,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Применить', exact: true })
             .last()
             .click()
-          assert.ok(
-            (await editor.locator('.proposal-line-editor').count()) >= 2
-          )
+          assert.ok((await editor.locator('.proposal-line-card').count()) >= 2)
           await editor
             .getByRole('button', { name: 'Выбрать услуги', exact: true })
             .first()
@@ -758,21 +927,92 @@ export const runWebDocumentWorkflowSmoke = async ({
             .last()
             .click()
           const countBeforeCustom = await editor
-            .locator('.proposal-line-editor')
+            .locator('.proposal-line-card')
             .count()
           await editor
             .getByRole('button', { name: 'Своя позиция', exact: true })
             .first()
             .click()
-          const customLine = editor.locator('.proposal-line-editor').last()
+          const line = page.locator('.proposal-line-editor')
+          assert.equal(
+            await page
+              .getByRole('button', { name: 'Добавить', exact: true })
+              .last()
+              .isDisabled(),
+            true
+          )
+          await page
+            .getByRole('button', { name: 'Отмена', exact: true })
+            .last()
+            .click()
+          assert.equal(
+            await editor.locator('.proposal-line-card').count(),
+            countBeforeCustom
+          )
+          await editor
+            .getByRole('button', { name: 'Своя позиция', exact: true })
+            .first()
+            .click()
+          await line
+            .getByRole('textbox', { name: /Название позиции/ })
+            .fill('Своя услуга QA')
+          await page
+            .getByRole('button', { name: 'Добавить', exact: true })
+            .last()
+            .click()
+          const customLine = editor.locator('.proposal-line-card').last()
           await customLine
             .getByRole('button', { name: /Удалить позицию/ })
             .click()
+          await page
+            .getByRole('button', { name: 'Удалить', exact: true })
+            .last()
+            .click()
           assert.equal(
-            await editor.locator('.proposal-line-editor').count(),
+            await editor.locator('.proposal-line-card').count(),
             countBeforeCustom
           )
-          const line = editor.locator('.proposal-line-editor').last()
+          const lineCard = editor.locator('.proposal-line-card').last()
+          const beforeCancel = await lineCard.innerText()
+          await lineCard
+            .getByRole('button', { name: /Редактировать позицию/ })
+            .click()
+          await line
+            .getByRole('textbox', { name: /Описание позиции/ })
+            .fill('Правки для отмены')
+          await page
+            .getByRole('button', { name: 'Отмена', exact: true })
+            .last()
+            .click()
+          await page
+            .getByText(
+              'Вы уверены, что хотите закрыть окно без сохранения изменений?',
+              { exact: true }
+            )
+            .waitFor()
+          await page
+            .getByRole('button', { name: 'Подтвердить', exact: true })
+            .last()
+            .click()
+          assert.equal(await lineCard.innerText(), beforeCancel)
+          const recommended = editor
+            .getByRole('checkbox', { name: 'Рекомендуем', exact: true })
+            .first()
+          const wasRecommended = await recommended.getAttribute('aria-checked')
+          await recommended.focus()
+          await page.keyboard.press('Space')
+          assert.equal(
+            await recommended.getAttribute('aria-checked'),
+            wasRecommended === 'true' ? 'false' : 'true'
+          )
+          await page.keyboard.press('Space')
+          assert.equal(
+            await recommended.getAttribute('aria-checked'),
+            wasRecommended
+          )
+          await lineCard
+            .getByRole('button', { name: /Редактировать позицию/ })
+            .click()
           await line
             .getByRole('combobox')
             .selectOption(String(catalogServiceId))
@@ -794,6 +1034,14 @@ export const runWebDocumentWorkflowSmoke = async ({
               .inputValue(),
             '1700'
           )
+          // Дождаться завершения анимации стека модалок перед визуальной проверкой.
+          await page.waitForTimeout(400)
+          await page.screenshot({
+            path: path.join(
+              os.tmpdir(),
+              `vedelo-proposal-line-${width}-${theme}.png`
+            ),
+          })
           const priceInput = line.getByRole('textbox', { name: /Цена позиции/ })
           await priceInput.fill('1700,50')
           await priceInput.blur()
@@ -808,6 +1056,10 @@ export const runWebDocumentWorkflowSmoke = async ({
           await line
             .getByRole('textbox', { name: /Описание позиции/ })
             .fill('Индивидуальное описание для клиента')
+          await page
+            .getByRole('button', { name: 'Применить', exact: true })
+            .last()
+            .click()
           await editor
             .getByRole('button', { name: 'Выбрать услуги', exact: true })
             .first()
@@ -822,11 +1074,9 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Отмена', exact: true })
             .last()
             .click()
-          assert.equal(
-            await line
-              .getByRole('textbox', { name: /Описание позиции/ })
-              .inputValue(),
-            'Индивидуальное описание для клиента'
+          assert.match(
+            await lineCard.innerText(),
+            /Индивидуальное описание для клиента/
           )
           const packageSection = editor.locator('.proposal-package').first()
           const packageSummary = packageSection.locator('summary').first()
@@ -838,15 +1088,13 @@ export const runWebDocumentWorkflowSmoke = async ({
               .evaluate((element) => element.open),
             false
           )
-          assert.equal(await line.isVisible(), false)
+          assert.equal(await lineCard.isVisible(), false)
           assert.match(await packageSummary.innerText(), /Позиций:/)
           await packageSummary.focus()
           await page.keyboard.press('Enter')
-          assert.equal(
-            await line
-              .getByRole('textbox', { name: /Описание позиции/ })
-              .inputValue(),
-            'Индивидуальное описание для клиента'
+          assert.match(
+            await lineCard.innerText(),
+            /Индивидуальное описание для клиента/
           )
           await editor
             .getByRole('button', { name: 'Добавить вариант', exact: true })
@@ -878,7 +1126,7 @@ export const runWebDocumentWorkflowSmoke = async ({
           await newPackage
             .getByRole('button', { name: 'Удалить вариант', exact: true })
             .click()
-          await line.scrollIntoViewIfNeeded()
+          await lineCard.scrollIntoViewIfNeeded()
           await page.screenshot({
             path: path.join(
               os.tmpdir(),
@@ -890,7 +1138,7 @@ export const runWebDocumentWorkflowSmoke = async ({
               response.request().method() === 'PATCH' &&
               /\/api\/proposals\/[^/]+$/.test(new URL(response.url()).pathname)
           )
-          await editor
+          await page
             .getByRole('button', { name: 'Сохранить', exact: true })
             .first()
             .click()
@@ -915,6 +1163,9 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByText('Черновик сохранён', { exact: true })
             .waitFor({ state: 'detached' })
           // Switching to a custom position keeps the entered snapshot but removes its service link.
+          await lineCard
+            .getByRole('button', { name: /Редактировать позицию/ })
+            .click()
           await line.getByRole('combobox').selectOption('')
           assert.equal(
             await line
@@ -922,7 +1173,11 @@ export const runWebDocumentWorkflowSmoke = async ({
               .inputValue(),
             'Индивидуальное описание для клиента'
           )
-          await editor
+          await page
+            .getByRole('button', { name: 'Применить', exact: true })
+            .last()
+            .click()
+          await page
             .getByRole('button', { name: 'Сохранить', exact: true })
             .first()
             .click()
@@ -946,7 +1201,14 @@ export const runWebDocumentWorkflowSmoke = async ({
           await page
             .getByText('Черновик сохранён', { exact: true })
             .waitFor({ state: 'detached' })
+          await lineCard
+            .getByRole('button', { name: /Редактировать позицию/ })
+            .click()
           assert.equal(await line.getByRole('combobox').inputValue(), '')
+          await page
+            .getByRole('button', { name: 'Отмена', exact: true })
+            .last()
+            .click()
           assert.equal(
             (await db.collection('services').findOne({ _id: catalogServiceId }))
               .description,
@@ -976,12 +1238,40 @@ export const runWebDocumentWorkflowSmoke = async ({
               .evaluate((element) => getComputedStyle(element).backgroundColor),
             'rgb(255, 255, 255)'
           )
+          const pagePreview = editor.locator('.proposal-page-view')
+          const proposalTheme = editor.getByRole('combobox', {
+            name: /Тема оформления/,
+          })
+          for (const value of ['light', 'blue', 'dark', 'classic']) {
+            await proposalTheme.selectOption(value)
+            assert.equal(await pagePreview.getAttribute('data-theme'), value)
+            await pagePreview.getByAltText('Логотип', { exact: true }).waitFor()
+            assert.equal(
+              await pagePreview
+                .locator('article')
+                .evaluate((el) => getComputedStyle(el).backgroundColor),
+              value === 'dark' ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)'
+            )
+          }
+          await proposalTheme.selectOption('dark')
+          await pagePreview.scrollIntoViewIfNeeded()
+          await page.waitForTimeout(250)
+          await page.screenshot({
+            path: path.join(
+              os.tmpdir(),
+              `vedelo-proposal-dark-${width}-${theme}.png`
+            ),
+          })
+          await proposalTheme.selectOption('blue')
+          await pagePreview.scrollIntoViewIfNeeded()
+          await page.waitForTimeout(250)
           const proposalShot = path.join(
             os.tmpdir(),
             `vedelo-proposal-${width}-${theme}.png`
           )
           await page.screenshot({ path: proposalShot })
           console.log(`Proposal UI screenshot: ${proposalShot}`)
+          await proposalTheme.selectOption('classic')
           await page
             .getByRole('button', { name: 'Закрыть', exact: true })
             .last()
@@ -1035,21 +1325,129 @@ export const runWebDocumentWorkflowSmoke = async ({
             await editor.locator('input').first().inputValue(),
             'Несохранённое название КП'
           )
-          await editor
-            .getByRole('button', { name: 'Опубликовать', exact: true })
+          assert.equal(await editor.getByRole('button', { name: 'Опубликовать', exact: true }).count(), 0)
+          const footerSave = page.getByRole('button', { name: 'Сохранить', exact: true }).last()
+          assert.ok((await footerSave.getAttribute('class')).includes('modal-action-button'))
+          await footerSave.click()
+          await footerSave.waitFor({ state: 'hidden' })
+          const savedDraftToast = page.getByRole('alert').filter({ hasText: 'Черновик сохранён' }).last()
+          await savedDraftToast.waitFor({ state: 'visible' })
+          await savedDraftToast.locator('svg').last().click()
+          await savedDraftToast.waitFor({ state: 'hidden' })
+          await page.getByRole('button', { name: 'Закрыть', exact: true }).last().click()
+          await editor.waitFor({ state: 'hidden' })
+          await form.locator('.proposal-list-item').filter({ hasText: 'Несохранённое название КП' }).filter({ hasText: 'черновик' }).first().getByRole('button', { name: 'Опубликовать', exact: true }).click()
+          const publishedCard = form
+            .locator('.proposal-list-item')
+            .filter({ hasText: 'Несохранённое название КП' })
+            .first()
+          await publishedCard.getByText(/опубликовано/).waitFor()
+          await publishedCard.locator('button:not([disabled])').filter({ hasText: 'Отозвать' }).waitFor()
+          assert.equal(
+            await publishedCard
+              .getByRole('button', { name: 'Отозвать', exact: true })
+              .isEnabled(),
+            true
+          )
+          assert.equal(await publishedCard.getByRole('button', { name: 'В Telegram', exact: true }).count(), 0)
+          const shareToast = page.getByRole('alert').filter({ hasText: 'Предложение опубликовано' }).last()
+          if (await shareToast.isVisible()) {
+            await shareToast.locator('svg').last().click()
+            await shareToast.waitFor({ state: 'hidden' })
+          }
+          await publishedCard.getByRole('button', { name: 'Отправить', exact: true }).click()
+          const shareDialog = page.locator('.proposal-share-dialog')
+          await shareDialog.getByText(/Текст предложения скопирован/).waitFor()
+          const clipboardMessage = await page.evaluate(() => navigator.clipboard.readText())
+          assert.match(clipboardMessage, /Предложение для вашего мероприятия можете посмотреть по ссылке/)
+          assert.equal(await shareDialog.getByRole('textbox').inputValue(), clipboardMessage)
+          await shareDialog.getByRole('button', { name: /Электронная почта/ }).waitFor()
+          await page.screenshot({ path: path.join(os.tmpdir(), `vedelo-proposal-share-${width}-${theme}.png`), animations: 'disabled' })
+          await page.evaluate(() => { window.qaOriginalOpen = window.open; window.open = (url) => { window.qaContactUrl = url; return null } })
+          await shareDialog.getByRole('button', { name: /Электронная почта/ }).click()
+          const contactUrl = await page.evaluate(() => window.qaContactUrl)
+          assert.equal(new URL(contactUrl).protocol, 'mailto:')
+          assert.equal(new URL(contactUrl).searchParams.get('body'), clipboardMessage)
+          await shareDialog.getByRole('button', { name: /MAX/ }).click()
+          assert.equal(await page.evaluate(() => navigator.clipboard.readText()), clipboardMessage)
+          await page.evaluate(() => { window.open = window.qaOriginalOpen; delete window.qaOriginalOpen; delete window.qaContactUrl })
+          await page.getByRole('button', { name: 'Закрыть', exact: true }).last().click()
+          await shareDialog.waitFor({ state: 'hidden' })
+          await publishedCard
+            .getByRole('button', {
+              name: 'Редактировать в новой версии',
+              exact: true,
+            })
+            .click()
+          await editor.waitFor()
+          assert.equal(
+            await editor.locator('input').first().inputValue(),
+            'Несохранённое название КП'
+          )
+          await page
+            .getByRole('button', { name: 'Закрыть', exact: true })
+            .last()
             .click()
           await editor.waitFor({ state: 'hidden' })
-          await form
-            .getByText('Несохранённое название КП', { exact: true })
+          const copiedCard = form
+            .locator('.proposal-list-item')
+            .filter({ hasText: 'Несохранённое название КП' })
+            .filter({ hasText: 'черновик' })
             .first()
-            .waitFor()
+          await copiedCard
+            .getByRole('button', { name: 'Удалить предложение', exact: true })
+            .click()
+          await page
+            .getByRole('button', { name: 'Удалить', exact: true })
+            .last()
+            .click()
+          await copiedCard.waitFor({ state: 'hidden' })
           await page
             .getByRole('alert')
-            .filter({ hasText: 'Предложение опубликовано' })
+            .filter({ hasText: 'Черновик предложения удалён' })
             .last()
             .locator('svg')
             .last()
             .click()
+
+          const acceptedCard = form
+            .locator('.proposal-list-item')
+            .filter({ hasText: 'клиент выбрал вариант' })
+            .first()
+          assert.equal(
+            await acceptedCard
+              .getByRole('button', { name: 'Отозвать', exact: true })
+              .isDisabled(),
+            true
+          )
+          assert.equal(
+            await acceptedCard
+              .getByRole('button', {
+                name: 'Удалить предложение',
+                exact: true,
+              })
+              .isEnabled(),
+            true
+          )
+
+          await acceptedCard.getByRole('button', { name: 'Удалить предложение', exact: true }).click()
+          await page.getByText(/Клиент уже выбрал вариант в этом предложении/).waitFor()
+          await page.getByRole('button', { name: 'Отмена', exact: true }).last().click()
+          assert.ok(await acceptedCard.isVisible())
+          await acceptedCard.scrollIntoViewIfNeeded()
+          await page.screenshot({
+            path: path.join(
+              os.tmpdir(),
+              `vedelo-proposal-actions-${width}-${theme}.png`
+            ),
+          })
+          assert.doesNotMatch(await publishedCard.innerText(), /черновик/)
+          await form
+            .getByText('Несохранённое название КП', { exact: true })
+            .first()
+            .waitFor()
+          const publishedToast = page.getByRole('alert').filter({ hasText: 'Предложение опубликовано' }).last()
+          if (await publishedToast.isVisible()) await publishedToast.locator('svg').last().click()
           await form
             .getByRole('button', { name: 'Создать предложение', exact: true })
             .click()
@@ -1061,6 +1459,8 @@ export const runWebDocumentWorkflowSmoke = async ({
           await editor.waitFor({ state: 'hidden' })
           const beforeDelete = await form.locator('.proposal-list-item').count()
           await form
+            .locator('.proposal-list-item')
+            .filter({ hasText: 'черновик' })
             .getByRole('button', { name: 'Удалить предложение', exact: true })
             .first()
             .click()
@@ -1075,6 +1475,49 @@ export const runWebDocumentWorkflowSmoke = async ({
             await form.locator('.proposal-list-item').count(),
             beforeDelete - 1
           )
+          await db.collection('proposals').updateMany({ tenantId, eventId: draftEventId, status: 'published', selectedPackageId: '' }, { $set: { sentAt: new Date() } })
+          // Статус без перезагрузки проверен выше; отдельно проверяем вход в просмотр.
+          await page.goto('/cabinet/eventsUpcoming')
+          const statusEventCard = page.locator('.event-card-shell').filter({ hasText: 'Независимые документы QA' })
+          await statusEventCard.getByText('КП принято', { exact: true }).waitFor()
+          await statusEventCard.screenshot({ path: path.join(os.tmpdir(), `vedelo-event-proposal-status-${width}-${theme}.png`), animations: 'disabled' })
+          await statusEventCard.locator('.card-title').first().click()
+          const publishedSection = page.locator('.event-published-proposals')
+          await publishedSection.waitFor()
+          const viewCard = publishedSection
+            .locator('.published-proposal-card')
+            .filter({ hasText: 'Несохранённое название КП' })
+            .first()
+          await viewCard.waitFor()
+          await viewCard.getByText('КП отправлено', { exact: true }).waitFor()
+          await publishedSection.getByText('КП принято', { exact: true }).first().waitFor()
+          assert.doesNotMatch(
+            await publishedSection.innerText(),
+            /черновик|отозвано/
+          )
+          await viewCard.scrollIntoViewIfNeeded()
+          await page.waitForTimeout(400)
+          await page.screenshot({
+            path: path.join(
+              os.tmpdir(),
+              `vedelo-published-proposal-${width}-${theme}.png`
+            ),
+          })
+          const popupPromise = page.waitForEvent('popup')
+          await viewCard
+            .getByRole('button', { name: 'Открыть предложение', exact: true })
+            .click()
+          const popup = await popupPromise
+          await popup.waitForURL(/\/proposal\//)
+          await popup.goto(`${baseUrl}${new URL(popup.url()).pathname}`)
+          await popup.getByAltText('Логотип', { exact: true }).waitFor()
+          assert.equal(
+            await popup
+              .locator('.proposal-page-view')
+              .getAttribute('data-theme'),
+            'classic'
+          )
+          await popup.close()
           const templateName = `Шаблон предложения с длинным названием QA ${width} ${theme}`
           const templateResult = await post('/api/proposal-templates', {
             name: templateName,

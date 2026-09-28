@@ -8,6 +8,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import ImageGallery from '@components/ImageGallery'
 import Notice from '@components/Notice'
 import SurfaceCard from '@components/SurfaceCard'
+import EventPublishedProposals from '@components/EventPublishedProposals'
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
+import { canUseProposalBuilder } from '@helpers/proposalAccess'
 import TextLine from '@components/TextLine'
 import formatAddress from '@helpers/formatAddress'
 import { formatEventDateRange } from '@helpers/formatEventDateRange.mjs'
@@ -336,6 +339,7 @@ const eventViewFunc = (eventId, options = {}) => {
     setTopLeftComponent,
   }) => {
     const { data: event, isPending, isError } = useEventQuery(eventId)
+    const loggedUser = useAtomValue(loggedUserAtom)
     const services = useAtomValue(servicesAtom)
     const { data: transactions = [] } = useTransactionsQuery(undefined, {
       enabled: false,
@@ -823,6 +827,10 @@ const eventViewFunc = (eventId, options = {}) => {
                 )}
               </SectionBlock>
             )}
+
+            {canUseProposalBuilder(loggedUser) ? (
+              <EventPublishedProposals eventId={event._id} />
+            ) : null}
 
             {additionalEvents.length > 0 && (
               <SectionBlock title="Задачи/События">

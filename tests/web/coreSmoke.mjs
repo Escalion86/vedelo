@@ -128,6 +128,14 @@ export const runWebCoreSmoke = async ({
   })
   assert.equal(event.status, 201, JSON.stringify(event.body))
   const eventId = event.body.data._id
+  const historyPath = `/api/histories?entityType=event&entityId=${eventId}`
+  const history = await json(userA, historyPath)
+  assert.equal(history.status, 200)
+  assert.equal(history.body.data[0].operation, 'create')
+  assert.equal(history.body.data[0].semanticAction, '')
+  const foreignHistory = await json(userB, `${historyPath}&tenantId=${tenantA}`)
+  assert.equal(foreignHistory.status, 200)
+  assert.deepEqual(foreignHistory.body.data, [])
   const eventPath = `/api/events/${eventId}`
   assert.equal((await json(userB, eventPath)).status, 404)
   assert.equal(

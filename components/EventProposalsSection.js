@@ -5,7 +5,14 @@ import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import dynamic from 'next/dynamic'
 import Notice from '@components/Notice'
+import ProposalShareDialog from '@components/ProposalShareDialog'
+import { copyProposalText as copyText } from '@helpers/copyProposalText'
+import LoadingSpinner from '@components/LoadingSpinner'
 import useSnackbar from '@helpers/useSnackbar'
+import {
+  useEventProposalsQuery,
+  cacheEventProposal,
+} from '@helpers/useEventProposalsQuery'
 import Section from '@components/CompactEventSection'
 import Input from '@components/Input'
 import Textarea from '@components/Textarea'
@@ -17,7 +24,11 @@ import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import selectEventServicesFunc from '@layouts/modals/modalsFunc/selectEventServicesFunc'
 import { queryKeys } from '@helpers/queryKeys'
-import ProposalLineEditor from '@components/ProposalLineEditor'
+import ProposalLineDialog from '@components/ProposalLineDialog'
+import ProposalAppearanceEditor from '@components/ProposalAppearanceEditor'
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
+import IconCheckBox from '@components/IconCheckBox'
+import { faCircleCheck } from '@fortawesome/free-solid-svg-icons/faCircleCheck'
 import { useServicesQuery } from '@helpers/useEntityQueries'
 import {
   calculatePackageTotal,
@@ -42,30 +53,10 @@ const ProposalPageView = dynamic(() => import('@components/ProposalPageView'), {
   ssr: false,
 })
 
-const copyText = async (text) => {
-  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text)
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.style.position = 'fixed'
-  textarea.style.opacity = '0'
-  document.body.appendChild(textarea)
-  textarea.select()
-  document.execCommand('copy')
-  textarea.remove()
-}
-
 const dateInput = (value) => {
   const date = value ? new Date(value) : new Date(Date.now() + 7 * 86400000)
   if (Number.isNaN(date.getTime())) return ''
   return date.toISOString().slice(0, 10)
-}
-
-const hasPendingDeliveryFailures = (delivery) => {
-  const latest = new Map()
-  for (const item of Array.isArray(delivery) ? delivery : []) {
-    latest.set(item.mediaId || item.type, item.status)
-  }
-  return [...latest.values()].some((status) => status === 'failed')
 }
 
 const WITHOUT_TEMPLATE = '__without_template__'
@@ -104,9 +95,11 @@ const EventProposalsSection = ({
   eventId,
   onApplied,
   initialProposal,
-  onChanged,
   closeModal,
   setOnShowOnCloseConfirmDialog,
+  setOnConfirmFunc,
+  setConfirmButtonName,
+  setDisableConfirm,
 }) => {
   const snackbar = useSnackbar()
   const mediaInput = useRef(null)
@@ -118,7 +111,13 @@ const EventProposalsSection = ({
     isPending: servicesLoading,
   } = useServicesQuery()
   const [templates, setTemplates] = useState([])
-  const [items, setItems] = useState([])
+  const {
+    data: items = [],
+    error: proposalsError,
+    isFetching: proposalsFetching,
+  } = useEventProposalsQuery(eventId, {
+    enabled: !initialProposal,
+  })
   const [editing, setEditing] = useState(() =>
     initialProposal
       ? {
@@ -142,6 +141,7 @@ const EventProposalsSection = ({
   }, [editing, savedSnapshot, setOnShowOnCloseConfirmDialog])
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(() => !initialProposal)
+  const listLoading = !initialProposal && (loading || proposalsFetching)
   const [message, setMessage] = useState(null)
   const reportMessage = useCallback(
     (next) => {
@@ -158,25 +158,25 @@ const EventProposalsSection = ({
   const [showPreview, setShowPreview] = useState(false)
 
   const load = useCallback(async () => {
-    if (initialProposal) return onChanged?.()
+    if (initialProposal)
+      return queryClient.invalidateQueries({
+        queryKey: queryKeys.eventProposals(eventId),
+      })
     if (!eventId) {
       setLoading(false)
       return
     }
     setLoading(true)
     try {
-      const [templatesResponse, proposalsResponse] = await Promise.all([
+      const [templatesResponse] = await Promise.all([
         fetch('/api/proposal-templates', { cache: 'no-store' }),
-        fetch(`/api/events/${eventId}/proposals`, { cache: 'no-store' }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.proposalStatuses }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.eventProposals(eventId),
+        }),
       ])
-      const [templatesBody, proposalsBody] = await Promise.all([
-        templatesResponse.json().catch(() => ({})),
-        proposalsResponse.json().catch(() => ({})),
-      ])
-      if (
-        templatesResponse.status === 403 ||
-        proposalsResponse.status === 403
-      ) {
+      const templatesBody = await templatesResponse.json().catch(() => ({}))
+      if (templatesResponse.status === 403) {
         setUnavailable(true)
         return
       }
@@ -184,21 +184,16 @@ const EventProposalsSection = ({
         throw new Error(
           templatesBody?.error?.message || 'Не удалось загрузить шаблоны'
         )
-      if (!proposalsResponse.ok)
-        throw new Error(
-          proposalsBody?.error?.message || 'Не удалось загрузить предложения'
-        )
       const activeTemplates = (templatesBody.data || []).filter(
         (item) => item.status === 'active'
       )
       setTemplates(activeTemplates)
-      setItems(proposalsBody.data || [])
     } catch (error) {
       reportMessage({ tone: 'error', text: error.message })
     } finally {
       setLoading(false)
     }
-  }, [eventId, initialProposal, onChanged, reportMessage])
+  }, [eventId, initialProposal, queryClient, reportMessage])
 
   useEffect(() => {
     // Загрузка с сервера выставляет loading перед первым await.
@@ -213,7 +208,7 @@ const EventProposalsSection = ({
       closeButtonName: 'Закрыть',
       declineButtonName: 'Закрыть',
       Children: EventProposalsSection,
-      childrenProps: { eventId, initialProposal: proposal, onChanged: load },
+      childrenProps: { eventId, initialProposal: proposal },
     })
   }
 
@@ -224,9 +219,7 @@ const EventProposalsSection = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
-          sourceProposalId
-            ? { sourceProposalId }
-            : { templateId }
+          sourceProposalId ? { sourceProposalId } : { templateId }
         ),
       })
       const body = await response.json().catch(() => ({}))
@@ -234,6 +227,7 @@ const EventProposalsSection = ({
         throw new Error(
           body?.error?.message || 'Не удалось создать предложение'
         )
+      await cacheEventProposal(queryClient, eventId, body.data)
       openEditor(body.data)
       await load()
     } catch (error) {
@@ -261,43 +255,69 @@ const EventProposalsSection = ({
     })
   }
 
-  const saveDraft = async (notify = true) => {
-    setBusy(true)
-    try {
-      const response = await fetch(`/api/proposals/${editing._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: editing.title,
-          validUntil: editing.validUntil,
-          messageText: editing.messageText,
-          blocks: editing.blocksSnapshot,
-          packages: editing.packages,
-          media: editing.mediaSnapshot,
-        }),
-      })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok || body?.success === false)
-        throw new Error(body?.error?.message || 'Не удалось сохранить')
-      setEditing({ ...body.data, validUntil: dateInput(body.data.validUntil) })
-      setSavedSnapshot(
-        JSON.stringify({
+  const saveDraft = useCallback(
+    async (notify = true) => {
+      setBusy(true)
+      try {
+        const response = await fetch(`/api/proposals/${editing._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: editing.title,
+            validUntil: editing.validUntil,
+            messageText: editing.messageText,
+            blocks: editing.blocksSnapshot,
+            packages: editing.packages,
+            media: editing.mediaSnapshot,
+            appearance: normalizeProposalAppearance(editing.appearance),
+          }),
+        })
+        const body = await response.json().catch(() => ({}))
+        if (!response.ok || body?.success === false)
+          throw new Error(body?.error?.message || 'Не удалось сохранить')
+        await cacheEventProposal(queryClient, eventId, body.data)
+        setEditing({
           ...body.data,
           validUntil: dateInput(body.data.validUntil),
         })
-      )
-      if (notify) reportMessage({ tone: 'success', text: 'Черновик сохранён' })
-      await load()
-      return body.data
-    } catch (error) {
-      reportMessage({ tone: 'error', text: error.message })
-      return null
-    } finally {
-      setBusy(false)
-    }
-  }
+        setSavedSnapshot(
+          JSON.stringify({
+            ...body.data,
+            validUntil: dateInput(body.data.validUntil),
+          })
+        )
+        if (notify)
+          reportMessage({ tone: 'success', text: 'Черновик сохранён' })
+        await load()
+        return body.data
+      } catch (error) {
+        reportMessage({ tone: 'error', text: error.message })
+        return null
+      } finally {
+        setBusy(false)
+      }
+    },
+    [editing, eventId, queryClient, reportMessage, load]
+  )
+
+  const isDirty = Boolean(editing) && JSON.stringify(editing) !== savedSnapshot
+  useEffect(() => {
+    if (!initialProposal) return
+    setConfirmButtonName?.('Сохранить')
+    setDisableConfirm?.(busy)
+    setOnConfirmFunc?.(isDirty ? () => saveDraft() : undefined)
+  }, [
+    initialProposal,
+    isDirty,
+    busy,
+    saveDraft,
+    setConfirmButtonName,
+    setDisableConfirm,
+    setOnConfirmFunc,
+  ])
 
   const action = async (proposal, name) => {
+    if (busy || (name === 'revoke' && proposal.selectedPackageId)) return
     if (
       name === 'apply' &&
       !window.confirm(
@@ -315,7 +335,7 @@ const EventProposalsSection = ({
       const body = await response.json().catch(() => ({}))
       if (!response.ok || body?.success === false)
         throw new Error(body?.error?.message || 'Действие не выполнено')
-      if (name === 'publish') closeModal?.()
+      await cacheEventProposal(queryClient, eventId, body.data)
       if (name === 'apply') {
         if (body.event && typeof onApplied === 'function') {
           onApplied({
@@ -339,6 +359,7 @@ const EventProposalsSection = ({
               : 'Выбранный вариант применён к заявке',
       })
       await load()
+      if (name === 'publish') closeModal?.()
     } catch (error) {
       reportMessage({ tone: 'error', text: error.message })
     } finally {
@@ -346,10 +367,10 @@ const EventProposalsSection = ({
     }
   }
 
-  const deleteDraft = (proposal) => {
+  const deleteProposal = (proposal) => {
     modalsFunc.add({
       title: 'Удалить предложение?',
-      text: `Черновик «${proposal.title}», версия ${proposal.version}, будет удалён. Восстановить его будет нельзя.`,
+      text: `Вы уверены, что хотите удалить предложение «${proposal.title}», версия ${proposal.version}?${proposal.selectedPackageId ? ' Клиент уже выбрал вариант в этом предложении.' : ''} Ссылка перестанет работать. Восстановить предложение будет нельзя.${proposal.appliedAt ? ' Ранее применённые услуги и сумма заказа сохранятся.' : ''}`,
       confirmButtonName: 'Удалить',
       closeButtonName: 'Отмена',
       declineButtonName: 'Отмена',
@@ -365,12 +386,21 @@ const EventProposalsSection = ({
             throw new Error(
               body?.error?.message || 'Не удалось удалить предложение'
             )
-          setItems((current) =>
-            current.filter((item) => item._id !== proposal._id)
+          await queryClient.cancelQueries({
+            queryKey: queryKeys.eventProposals(eventId),
+          })
+          queryClient.setQueryData(
+            queryKeys.eventProposals(eventId),
+            (current = []) =>
+              current.filter((item) => item._id !== proposal._id)
           )
+          void queryClient.invalidateQueries({ queryKey: queryKeys.proposalStatuses })
           reportMessage({
             tone: 'success',
-            text: 'Черновик предложения удалён',
+            text:
+              proposal.status === 'draft'
+                ? 'Черновик предложения удалён'
+                : 'Предложение удалено',
           })
           return true
         } catch (error) {
@@ -396,6 +426,32 @@ const EventProposalsSection = ({
       })
     if (proposal.status === 'draft') openEditor(body.data)
     return body.data
+  }
+
+  const shareProposal = async (proposal) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const data = await loadDetails(proposal)
+      if (!data?.renderedMessage) return
+      let initiallyCopied = false
+      try {
+        await copyText(data.renderedMessage)
+        initiallyCopied = true
+      } catch {
+        // Keep the message available for manual copying in the dialog.
+      }
+      modalsFunc.add({
+        title: 'Отправить предложение',
+        closeButtonName: 'Закрыть',
+        Children: ProposalShareDialog,
+        childrenProps: { clientId: data.clientId, message: data.renderedMessage, initiallyCopied },
+      })
+    } catch {
+      reportMessage({ tone: 'error', text: 'Не удалось подготовить предложение для отправки' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const chooseServices = (packageIndex) => {
@@ -460,6 +516,53 @@ const EventProposalsSection = ({
       ),
     }))
 
+  const openLineEditor = (packageIndex, lineIndex = null) => {
+    const item = editing.packages[packageIndex]
+    modalsFunc.add({
+      title:
+        lineIndex === null
+          ? 'Добавление услуги в КП'
+          : 'Редактирование услуги в КП',
+      confirmButtonName: lineIndex === null ? 'Добавить' : 'Применить',
+      declineButtonBgClassName: 'bg-general',
+      closeButtonName: 'Отмена',
+      declineButtonName: 'Отмена',
+      Children: ProposalLineDialog,
+      childrenProps: {
+        initialLine:
+          lineIndex === null
+            ? { serviceId: '', title: '', description: '', price: 0 }
+            : item.lines[lineIndex],
+        index: lineIndex ?? item.lines.length,
+        services,
+        onApply: (line) => {
+          if (lineIndex === null) {
+            updatePackage(packageIndex, { lines: [...item.lines, line] })
+          } else {
+            updateLine(packageIndex, lineIndex, line)
+          }
+        },
+      },
+    })
+  }
+
+  const removeLine = (packageIndex, lineIndex) => {
+    const item = editing.packages[packageIndex]
+    const line = item.lines[lineIndex]
+    modalsFunc.add({
+      title: 'Удалить позицию из КП?',
+      declineButtonBgClassName: 'bg-general',
+      text: `Позиция «${line.title || 'Без названия'}» будет удалена из варианта.`,
+      confirmButtonName: 'Удалить',
+      closeButtonName: 'Отмена',
+      declineButtonName: 'Отмена',
+      onConfirm: () =>
+        updatePackage(packageIndex, {
+          lines: item.lines.filter((_, index) => index !== lineIndex),
+        }),
+    })
+  }
+
   const updateBlock = (blockIndex, patch) =>
     setEditing((current) => ({
       ...current,
@@ -467,6 +570,43 @@ const EventProposalsSection = ({
         index === blockIndex ? { ...block, ...patch } : block
       ),
     }))
+
+  const uploadLogo = async (file) => {
+    if (
+      !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
+      file.size > 5 * 1024 * 1024
+    ) {
+      reportMessage({
+        tone: 'error',
+        text: 'Выберите PNG, JPG или WebP до 5 МБ',
+      })
+      return
+    }
+    setBusy(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const response = await fetch(`/api/proposals/${editing._id}/logo`, {
+        method: 'POST',
+        body: form,
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok || !body.data?.url)
+        throw new Error(body?.error?.message || 'Не удалось загрузить логотип')
+      setEditing((current) => ({
+        ...current,
+        appearance: {
+          ...normalizeProposalAppearance(current.appearance),
+          logoUrl: body.data.url,
+        },
+      }))
+      setMessage(null)
+    } catch (error) {
+      reportMessage({ tone: 'error', text: error.message })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const uploadProposalMedia = async (file) => {
     if (!file || !editing) return
@@ -588,6 +728,14 @@ const EventProposalsSection = ({
           value={editing.validUntil || ''}
           onChange={(validUntil) => setEditing({ ...editing, validUntil })}
         />
+        <ProposalAppearanceEditor
+          value={editing.appearance}
+          onChange={(appearance) =>
+            setEditing((current) => ({ ...current, appearance }))
+          }
+          onUpload={uploadLogo}
+          busy={busy}
+        />
         {unresolved.size ? (
           <Notice tone="warning">
             Заполните переменные перед публикацией: {[...unresolved].join(', ')}
@@ -627,7 +775,7 @@ const EventProposalsSection = ({
                 noDivider
                 wrapSummary
               >
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     inputClassName="min-w-0"
                     label="Название варианта"
@@ -638,27 +786,33 @@ const EventProposalsSection = ({
                     value={item.title}
                     onChange={(title) => updatePackage(packageIndex, { title })}
                   />
-                  <label className="flex cursor-pointer items-center gap-1 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={item.recommended}
-                      onChange={(event) =>
-                        setEditing((current) => ({
-                          ...current,
-                          packages: current.packages.map(
-                            (candidate, index) => ({
-                              ...candidate,
-                              recommended:
-                                index === packageIndex
-                                  ? event.target.checked
-                                  : false,
-                            })
-                          ),
-                        }))
-                      }
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={Boolean(item.recommended)}
+                    aria-label="Рекомендуем"
+                    className="focus-visible:outline-general cursor-pointer rounded focus-visible:outline-2"
+                    onClick={() =>
+                      setEditing((current) => ({
+                        ...current,
+                        packages: current.packages.map((candidate, index) => ({
+                          ...candidate,
+                          recommended:
+                            index === packageIndex
+                              ? !candidate.recommended
+                              : false,
+                        })),
+                      }))
+                    }
+                  >
+                    <IconCheckBox
+                      checked={Boolean(item.recommended)}
+                      label="Рекомендуем"
+                      checkedIcon={faCircleCheck}
+                      checkedIconColor="#F97316"
+                      noMargin
                     />
-                    Рекомендуем
-                  </label>
+                  </button>
                 </div>
                 {editing.packages.length > 1 ? (
                   <IconActionButton
@@ -686,22 +840,42 @@ const EventProposalsSection = ({
                 />
                 <div className="mt-2 space-y-2">
                   {item.lines.map((line, lineIndex) => (
-                    <ProposalLineEditor
+                    <div
                       key={lineIndex}
-                      line={line}
-                      index={lineIndex}
-                      services={services}
-                      onChange={(patch) =>
-                        updateLine(packageIndex, lineIndex, patch)
-                      }
-                      onRemove={() =>
-                        updatePackage(packageIndex, {
-                          lines: item.lines.filter(
-                            (_, index) => index !== lineIndex
-                          ),
-                        })
-                      }
-                    />
+                      className="proposal-line-card flex items-start gap-2 rounded-lg border border-[var(--surface-card-border)] p-3 [background:var(--surface-card-bg)]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium break-words">
+                          {line.title || 'Без названия'}
+                        </div>
+                        {line.description ? (
+                          <p className="mt-1 line-clamp-2 text-sm break-words text-gray-600">
+                            {line.description}
+                          </p>
+                        ) : null}
+                        <div className="mt-2 text-sm font-semibold">
+                          {formatMoney(line.price)}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <IconActionButton
+                          icon={faPencilAlt}
+                          variant="warning"
+                          size="sm"
+                          title={`Редактировать позицию ${lineIndex + 1}`}
+                          onClick={() =>
+                            openLineEditor(packageIndex, lineIndex)
+                          }
+                        />
+                        <IconActionButton
+                          icon={faTrashAlt}
+                          variant="danger"
+                          size="sm"
+                          title={`Удалить позицию ${lineIndex + 1}`}
+                          onClick={() => removeLine(packageIndex, lineIndex)}
+                        />
+                      </div>
+                    </div>
                   ))}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -718,19 +892,7 @@ const EventProposalsSection = ({
                     variant="secondary"
                     size="sm"
                     disabled={item.lines.length >= 30}
-                    onClick={() =>
-                      updatePackage(packageIndex, {
-                        lines: [
-                          ...item.lines,
-                          {
-                            serviceId: '',
-                            title: '',
-                            description: '',
-                            price: 0,
-                          },
-                        ],
-                      })
-                    }
+                    onClick={() => openLineEditor(packageIndex)}
                   >
                     Своя позиция
                   </AppButton>
@@ -960,52 +1122,44 @@ const EventProposalsSection = ({
             }}
           />
         ) : null}
-        <div className="grid grid-cols-2 gap-2">
-          <AppButton
-            type="button"
-            disabled={busy}
-            variant="primary"
-            size="sm"
-            onClick={() => saveDraft()}
-          >
-            Сохранить
-          </AppButton>
-          <AppButton
-            type="button"
-            disabled={busy}
-            variant="primary"
-            size="sm"
-            onClick={async () => {
-              const saved = await saveDraft(false)
-              if (saved) await action(saved, 'publish')
-            }}
-          >
-            Опубликовать
-          </AppButton>
-        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-busy={Boolean(listLoading)}>
       {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
+      {proposalsError ? (
+        <Notice tone="error">Не удалось загрузить предложения</Notice>
+      ) : null}
       <div className="flex justify-end">
         <AddIconButton
           title="Создать предложение"
           label="Создать предложение"
           size="base"
-          disabled={busy || loading}
+          disabled={busy || listLoading}
           className="self-end px-3 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={startCreate}
         />
       </div>
+      {listLoading ? (
+        <div
+          role="status"
+          className="flex items-center gap-2 py-2 text-sm text-gray-600"
+        >
+          <div aria-hidden="true" className="shrink-0">
+            <LoadingSpinner size="xxs" heightClassName="h-auto" />
+          </div>
+          <span>
+            {items.length
+              ? 'Обновляем коммерческие предложения…'
+              : 'Загружаем коммерческие предложения…'}
+          </span>
+        </div>
+      ) : null}
       {items.length ? (
         <div className="space-y-2">
           {items.map((proposal) => {
-            const hasFailedDelivery = hasPendingDeliveryFailures(
-              proposal.delivery
-            )
             return (
               <div
                 key={proposal._id}
@@ -1036,42 +1190,62 @@ const EventProposalsSection = ({
                       {proposal.sentAt ? ' · отправлено' : ''}
                       {proposal.viewedAt ? ' · ссылка открывалась' : ''}
                     </div>
+                    {proposal.selectedPackageId ? (
+                      <div className="text-sm font-semibold text-emerald-700">
+                        {
+                          proposal.packages.find(
+                            (item) => item.id === proposal.selectedPackageId
+                          )?.title
+                        }
+                      </div>
+                    ) : null}
                   </div>
-                  {proposal.status === 'draft' ? (
-                    <div className="flex shrink-0 items-center gap-2">
-                      <IconActionButton
-                        icon={faPencilAlt}
-                        variant="warning"
-                        size="sm"
-                        title="Редактировать"
-                        disabled={busy}
-                        onClick={() => loadDetails(proposal)}
-                      />
-                      <IconActionButton
-                        icon={faTrashAlt}
-                        variant="danger"
-                        size="sm"
-                        title="Удалить предложение"
-                        disabled={busy}
-                        onClick={() => deleteDraft(proposal)}
-                      />
-                    </div>
-                  ) : null}
-                  {proposal.selectedPackageId ? (
-                    <div className="text-sm font-semibold text-emerald-700">
-                      {
-                        proposal.packages.find(
-                          (item) => item.id === proposal.selectedPackageId
-                        )?.title
+                  <div className="flex shrink-0 items-center gap-2">
+                    <IconActionButton
+                      icon={faPencilAlt}
+                      variant="warning"
+                      size="sm"
+                      title={
+                        proposal.status === 'draft'
+                          ? 'Редактировать'
+                          : 'Редактировать в новой версии'
                       }
-                    </div>
-                  ) : null}
+                      disabled={busy}
+                      onClick={() =>
+                        proposal.status === 'draft'
+                          ? loadDetails(proposal)
+                          : create(proposal._id)
+                      }
+                    />
+                    <IconActionButton
+                      icon={faTrashAlt}
+                      variant="danger"
+                      size="sm"
+                      title="Удалить предложение"
+                      disabled={busy}
+                      className="disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => deleteProposal(proposal)}
+                    />
+                  </div>
                 </div>
+                {proposal.status === 'draft' ? (
+                  <div className="mt-3 flex justify-end">
+                    <AppButton
+                      variant="primary"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => action(proposal, 'publish')}
+                    >
+                      Опубликовать
+                    </AppButton>
+                  </div>
+                ) : null}
                 {proposal.status !== 'draft' ? (
                   <div className="tablet:grid-cols-3 mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className="h-9 cursor-pointer rounded border px-2 text-xs"
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy}
                       onClick={async () => {
                         const data = await loadDetails(proposal)
                         if (data?.publicUrl)
@@ -1083,10 +1257,11 @@ const EventProposalsSection = ({
                       }}
                     >
                       Открыть
-                    </button>
-                    <button
-                      type="button"
-                      className="h-9 cursor-pointer rounded border px-2 text-xs"
+                    </AppButton>
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy}
                       onClick={async () => {
                         const data = await loadDetails(proposal)
                         if (data?.renderedMessage) {
@@ -1099,66 +1274,41 @@ const EventProposalsSection = ({
                       }}
                     >
                       Копировать
-                    </button>
-                    <button
-                      type="button"
-                      className="h-9 cursor-pointer rounded border px-2 text-xs"
-                      onClick={async () => {
-                        const response = await fetch(
-                          `/api/proposals/${proposal._id}/send-telegram`,
-                          {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              retryFailedOnly: hasFailedDelivery,
-                            }),
-                          }
-                        )
-                        const body = await response.json().catch(() => ({}))
-                        reportMessage(
-                          response.ok && body?.success !== false
-                            ? {
-                                tone: 'success',
-                                text: 'Предложение отправлено в Telegram',
-                              }
-                            : {
-                                tone: 'error',
-                                text:
-                                  body?.error?.message ||
-                                  'Не удалось отправить',
-                              }
-                        )
-                        load()
-                      }}
+                    </AppButton>
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => shareProposal(proposal)}
                     >
-                      {hasFailedDelivery ? 'Повторить ошибки' : 'В Telegram'}
-                    </button>
+                      Отправить
+                    </AppButton>
                     {proposal.selectedPackageId &&
                     !isProposalSelectionApplied(proposal) ? (
-                      <button
-                        type="button"
-                        className="h-9 cursor-pointer rounded border border-emerald-300 px-2 text-xs text-emerald-700"
+                      <AppButton
+                        variant="primary"
+                        size="sm"
+                        disabled={busy}
                         onClick={() => action(proposal, 'apply')}
                       >
                         Применить
-                      </button>
+                      </AppButton>
                     ) : null}
                     {proposal.status === 'published' ? (
-                      <button
-                        type="button"
-                        className="h-9 cursor-pointer rounded border border-red-200 px-2 text-xs text-red-700"
+                      <AppButton
+                        variant="danger"
+                        size="sm"
+                        disabled={busy || Boolean(proposal.selectedPackageId)}
+                        title={
+                          proposal.selectedPackageId
+                            ? 'Принятое клиентом предложение нельзя отозвать'
+                            : 'Закрыть доступ по ссылке'
+                        }
                         onClick={() => action(proposal, 'revoke')}
                       >
                         Отозвать
-                      </button>
+                      </AppButton>
                     ) : null}
-                    <button
-                      type="button"
-                      className="h-9 cursor-pointer rounded border px-2 text-xs"
-                      onClick={() => create(proposal._id)}
-                    >
-                      Новая версия
-                    </button>
                   </div>
                 ) : null}
               </div>

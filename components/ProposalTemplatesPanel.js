@@ -8,7 +8,7 @@ import IconActionButton from '@components/IconActionButton'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import { sendFile } from '@helpers/cloudinary'
-import { DEFAULT_PROPOSAL_BLOCKS } from '@helpers/proposalContent'
+import { DEFAULT_PROPOSAL_BLOCKS, DEFAULT_PROPOSAL_MESSAGE } from '@helpers/proposalContent'
 import {
   getProposalBlockContentHtml,
   PROPOSAL_RICH_TEXT_BLOCK_TYPES,
@@ -34,8 +34,7 @@ const emptyTemplate = () => ({
   name: '',
   status: 'active',
   blocks: cloneBlocks(),
-  messageTemplate:
-    'Здравствуйте, {{client.firstName}}! Подготовили предложение для вашего мероприятия: {{proposal.url}}',
+  messageTemplate: DEFAULT_PROPOSAL_MESSAGE,
   media: [],
 })
 const blockLabels = {

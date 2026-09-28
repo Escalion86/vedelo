@@ -1955,7 +1955,7 @@ const eventFunc = (
                   Нет событий для выбранного фильтра
                 </div>
               ) : (
-                <div className="tablet:grid-cols-2 laptop:grid-cols-3 grid grid-cols-1 gap-2">
+                <div className="grid w-full grid-cols-1 gap-2">
                   {filteredAdditionalEvents.map(({ item, index }) => (
                     <div
                       key={`additional-event-${index}`}
@@ -2441,6 +2441,7 @@ const eventFunc = (
             selectedClient={selectedClient}
             clientHighlighted={isAiFieldHighlighted('clientId')}
             onSelectClient={openClientSelectModal}
+            onEditClient={() => modalsFunc.client?.edit(clientId)}
             onCreateClient={() =>
               modalsFunc.client?.add((newClient) => {
                 if (!newClient?._id) return

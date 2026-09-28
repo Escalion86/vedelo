@@ -1,3 +1,4 @@
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
 import Events from '@models/Events'
@@ -65,6 +66,7 @@ export const POST = async (req, { params }) => {
       templateId: source.templateId || null,
       version: Number(latest?.version || 0) + 1,
       title: source.title,
+      appearance: normalizeProposalAppearance(source.appearance, resolved.context.tenantId),
       validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       blocksSnapshot: source.blocksSnapshot,
       packages: source.packages,

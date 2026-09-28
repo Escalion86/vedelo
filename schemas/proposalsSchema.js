@@ -7,6 +7,10 @@ const proposalsSchema = {
   templateId: { type: Schema.Types.ObjectId, ref: 'ProposalTemplates', default: null },
   version: { type: Number, default: 1, min: 1 },
   title: { type: String, required: true, trim: true, maxlength: 200 },
+  appearance: {
+    theme: { type: String, enum: ['classic', 'light', 'blue', 'dark'], default: 'classic' },
+    logoUrl: { type: String, default: '', maxlength: 1024 },
+  },
   status: {
     type: String,
     enum: ['draft', 'published', 'expired', 'revoked'],

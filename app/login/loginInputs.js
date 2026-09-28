@@ -194,10 +194,129 @@ function validate_login(
     })
 }
 
+const VerificationBlock = ({ flow, phone, verifyState, setVerifyState, primaryMethod, sendSmsFallback, checkSmsCode }) => (
+  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+    <div className="font-medium text-gray-900">Подтверждение телефона</div>
+    {!verifyState.callId && !verifyState.smsRequested && !verifyState.verified && (
+      <div className="mt-2 text-gray-600">
+        {primaryMethod === 'sms' ? 'Нажмите на кнопку ниже, чтобы получить код по СМС.' : 'Нажмите на кнопку ниже, чтобы подтвердить номер звонком.'}
+      </div>
+    )}
+
+    {(verifyState.callId || verifyState.smsRequested) && !verifyState.verified && (
+      <div className="mt-2 flex flex-col gap-2">
+        {verifyState.authPhone && !verifyState.smsRequested && (
+          <div className="rounded-md bg-white p-3 text-sm text-gray-800">
+            Подтвердите номер телефона, позвонив на{' '}
+            <span className="font-semibold text-black">
+              {formatPhoneForDisplay(verifyState.authPhone)}
+            </span>
+            . Звонок бесплатный.
+          </div>
+        )}
+        {verifyState.urlImage && !verifyState.smsRequested && (
+          <div className="hidden md:block">
+            <div className="mb-2 text-xs text-gray-600">
+              Или отсканируйте QR-код:
+            </div>
+            <div className="inline-flex rounded-md bg-white p-2">
+              <Image
+                src={verifyState.urlImage}
+                alt="QR-код для подтверждения телефона"
+                width={120}
+                height={120}
+                className="h-[120px] w-[120px]"
+                unoptimized
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {getPhoneForTel(verifyState.authPhone) && !verifyState.smsRequested && (
+            <a
+              href={`tel:${getPhoneForTel(verifyState.authPhone)}`}
+              className="ui-btn ui-btn-secondary w-full cursor-pointer rounded-md"
+            >
+              Позвонить
+            </a>
+          )}
+
+          {!verifyState.smsReady && (
+            <div className="w-full text-center text-xs text-gray-500">
+              {verifyState.smsRequested ? 'Код отправлен. Повторный запрос будет доступен через минуту.' : 'Кнопка SMS станет доступна через 60 секунд.'}
+            </div>
+          )}
+
+          {verifyState.smsReady && (
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary w-full cursor-pointer rounded-md"
+              onClick={() => sendSmsFallback({ flow, phone, setVerifyState })}
+              disabled={verifyState.loadingSmsSend}
+            >
+              {verifyState.loadingSmsSend
+                ? 'Отправка SMS...'
+                : verifyState.smsRequested ? 'Отправить СМС повторно' : 'Получить код по SMS'}
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+
+    {verifyState.smsRequested && !verifyState.verified && (
+      <div className="mt-3 flex flex-col gap-2">
+        <Input
+          label="Код из SMS"
+          value={verifyState.smsCode}
+          onChange={(value) =>
+            setVerifyState((prev) => ({
+              ...prev,
+              smsCode: String(value || ''),
+            }))
+          }
+          className="w-full"
+          noMargin
+        />
+
+        {verifyState.debugCode && (
+          <div className="text-[11px] text-gray-500">
+            Тестовый код (dev):{' '}
+            <span className="font-semibold">{verifyState.debugCode}</span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="cursor-pointer self-start rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
+          onClick={() =>
+            checkSmsCode({
+              flow,
+              phone,
+              code: verifyState.smsCode,
+              setVerifyState,
+            })
+          }
+          disabled={verifyState.loadingSmsCheck}
+        >
+          {verifyState.loadingSmsCheck ? 'Проверка...' : 'Подтвердить код'}
+        </button>
+      </div>
+    )}
+
+    {verifyState.verified && (
+      <div className="mt-2 font-medium text-green-700">
+        Телефон подтвержден
+      </div>
+    )}
+  </div>
+)
+
 const LoginInputs = ({
   callbackUrl = '/cabinet',
   initialMode = 'login',
   initialReferrerId = '',
+  primaryMethod = 'call',
 }) => {
   const vkOneTapContainerRef = useRef(null)
   const [vkConfig, setVkConfig] = useState({
@@ -287,6 +406,7 @@ const LoginInputs = ({
       const { res, json } = await postJson('/api/phone/verify/start', {
         phone,
         flow,
+        method: 'preferred',
       })
 
       if (!res.ok || json?.success === false) {
@@ -298,13 +418,13 @@ const LoginInputs = ({
         ...prev,
         callId: json?.data?.id ?? null,
         status: 'pending',
-        verified: false,
+        verified: Boolean(json?.data?.alreadyConfirmed),
         authPhone: json?.data?.auth_phone ?? '',
         urlImage: json?.data?.url_image ?? '',
-        smsRequested: false,
+        smsRequested: json?.data?.method === 'sms',
         smsCode: '',
-        debugCode: '',
-        smsAvailableAt: Date.now() + 60 * 1000,
+        debugCode: json?.data?.debugCode ?? '',
+        smsAvailableAt: Date.now() + (json?.data?.cooldownSec || 60) * 1000,
         smsReady: false,
       }))
     } catch (error) {
@@ -351,7 +471,7 @@ const LoginInputs = ({
       setVerifyState((prev) => ({
         ...prev,
         status,
-        verified: confirmed,
+        verified: prev.verified || confirmed,
       }))
     } catch (error) {
       if (!silent) {
@@ -381,12 +501,13 @@ const LoginInputs = ({
       setVerifyState((prev) => ({
         ...prev,
         smsRequested: true,
+        verified: Boolean(json?.data?.alreadyConfirmed) || prev.verified,
         debugCode: json?.data?.debugCode ?? '',
-        smsAvailableAt: Date.now() + 60 * 1000,
+        smsAvailableAt: Date.now() + (json?.data?.cooldownSec || 60) * 1000,
         smsReady: false,
       }))
 
-      alert('SMS-код отправлен')
+      if (!json?.data?.alreadyConfirmed) alert('SMS-код отправлен')
     } catch (error) {
       alert('Не удалось отправить SMS-код')
     } finally {
@@ -589,7 +710,7 @@ const LoginInputs = ({
   }, [resetVerify.smsAvailableAt, resetVerify.smsReady])
 
   useEffect(() => {
-    if (!registerVerify.callId || registerVerify.verified) return
+    if (!registerVerify.callId || registerVerify.verified || registerVerify.smsRequested) return
     if (registerVerify.status === 'expired') return
 
     const interval = setInterval(() => {
@@ -606,12 +727,13 @@ const LoginInputs = ({
   }, [
     registerVerify.callId,
     registerVerify.verified,
+    registerVerify.smsRequested,
     registerVerify.status,
     registerPhoneNormalized,
   ])
 
   useEffect(() => {
-    if (!resetVerify.callId || resetVerify.verified) return
+    if (!resetVerify.callId || resetVerify.verified || resetVerify.smsRequested) return
     if (resetVerify.status === 'expired') return
 
     const interval = setInterval(() => {
@@ -628,127 +750,10 @@ const LoginInputs = ({
   }, [
     resetVerify.callId,
     resetVerify.verified,
+    resetVerify.smsRequested,
     resetVerify.status,
     resetPhoneNormalized,
   ])
-
-  const VerificationBlock = ({ flow, phone, verifyState, setVerifyState }) => (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
-      <div className="font-medium text-gray-900">Подтверждение телефона</div>
-      {!verifyState.callId && (
-        <div className="mt-2 text-gray-600">
-          Нажмите на кнопку ниже, чтобы получить подтверждающий звонок.
-        </div>
-      )}
-
-      {verifyState.callId && !verifyState.verified && (
-        <div className="mt-2 flex flex-col gap-2">
-          {verifyState.authPhone && (
-            <div className="rounded-md bg-white p-3 text-sm text-gray-800">
-              Подтвердите номер телефона, позвонив на{' '}
-              <span className="font-semibold text-black">
-                {formatPhoneForDisplay(verifyState.authPhone)}
-              </span>
-              . Звонок бесплатный.
-            </div>
-          )}
-          {verifyState.urlImage && (
-            <div className="hidden md:block">
-              <div className="mb-2 text-xs text-gray-600">
-                Или отсканируйте QR-код:
-              </div>
-              <div className="inline-flex rounded-md bg-white p-2">
-                <Image
-                  src={verifyState.urlImage}
-                  alt="QR-код для подтверждения телефона"
-                  width={120}
-                  height={120}
-                  className="h-[120px] w-[120px]"
-                  unoptimized
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            {getPhoneForTel(verifyState.authPhone) && (
-              <a
-                href={`tel:${getPhoneForTel(verifyState.authPhone)}`}
-                className="ui-btn ui-btn-secondary w-full cursor-pointer rounded-md"
-              >
-                Позвонить
-              </a>
-            )}
-
-            {!verifyState.smsReady && (
-              <div className="w-full text-center text-xs text-gray-500">
-                Кнопка SMS станет доступна через 60 секунд.
-              </div>
-            )}
-
-            {verifyState.smsReady && (
-              <button
-                type="button"
-                className="ui-btn ui-btn-secondary w-full cursor-pointer rounded-md"
-                onClick={() => sendSmsFallback({ flow, phone, setVerifyState })}
-                disabled={verifyState.loadingSmsSend}
-              >
-                {verifyState.loadingSmsSend
-                  ? 'Отправка SMS...'
-                  : 'Получить код по SMS'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {verifyState.smsRequested && !verifyState.verified && (
-        <div className="mt-3 flex flex-col gap-2">
-          <Input
-            label="Код из SMS"
-            value={verifyState.smsCode}
-            onChange={(value) =>
-              setVerifyState((prev) => ({
-                ...prev,
-                smsCode: String(value || ''),
-              }))
-            }
-            className="w-full"
-            noMargin
-          />
-
-          {verifyState.debugCode && (
-            <div className="text-[11px] text-gray-500">
-              Тестовый код (dev):{' '}
-              <span className="font-semibold">{verifyState.debugCode}</span>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="cursor-pointer self-start rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
-            onClick={() =>
-              checkSmsCode({
-                flow,
-                phone,
-                code: verifyState.smsCode,
-                setVerifyState,
-              })
-            }
-            disabled={verifyState.loadingSmsCheck}
-          >
-            {verifyState.loadingSmsCheck ? 'Проверка...' : 'Подтвердить код'}
-          </button>
-        </div>
-      )}
-
-      {verifyState.verified && (
-        <div className="mt-2 font-medium text-green-700">
-          Телефон подтвержден
-        </div>
-      )}
-    </div>
-  )
 
   useEffect(() => {
     let isMounted = true
@@ -1085,6 +1090,9 @@ const LoginInputs = ({
             )}
 
             <VerificationBlock
+              primaryMethod={primaryMethod}
+              sendSmsFallback={sendSmsFallback}
+              checkSmsCode={checkSmsCode}
               flow="recovery"
               phone={resetPhoneNormalized}
               verifyState={resetVerify}
@@ -1103,7 +1111,7 @@ const LoginInputs = ({
               />
             )}
 
-            {(resetVerify.verified || !resetVerify.callId) && (
+            {(resetVerify.verified || (!resetVerify.callId && !resetVerify.smsRequested)) && (
               <button
                 type="submit"
                 className="ui-btn ui-btn-primary mt-2 w-full cursor-pointer rounded-lg"
@@ -1164,6 +1172,9 @@ const LoginInputs = ({
             )}
 
             <VerificationBlock
+              primaryMethod={primaryMethod}
+              sendSmsFallback={sendSmsFallback}
+              checkSmsCode={checkSmsCode}
               flow="register"
               phone={registerPhoneNormalized}
               verifyState={registerVerify}
@@ -1194,7 +1205,7 @@ const LoginInputs = ({
               </>
             )}
 
-            {(registerVerify.verified || !registerVerify.callId) && (
+            {(registerVerify.verified || (!registerVerify.callId && !registerVerify.smsRequested)) && (
               <button
                 type="submit"
                 className="ui-btn ui-btn-primary mt-2 w-full cursor-pointer rounded-lg"

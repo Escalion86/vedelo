@@ -14,6 +14,8 @@ import { EVENT_STATUSES } from '@helpers/constants'
 import Section from './CompactEventSection'
 import InputWrapper from './InputWrapper'
 import AppButton from './AppButton'
+import IconActionButton from './IconActionButton'
+import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import AiFieldHighlight from './AiFieldHighlight'
 import getPersonFullName from '@helpers/getPersonFullName'
 import formatAddress from '@helpers/formatAddress'
@@ -43,6 +45,7 @@ export default function CompactEventForm({
   selectedClient,
   clientHighlighted,
   onSelectClient,
+  onEditClient,
   onCreateClient,
   services,
   servicesIds,
@@ -123,7 +126,7 @@ export default function CompactEventForm({
                 <button
                   type="button"
                   onClick={onSelectClient}
-                  className="flex min-h-10 w-full cursor-pointer items-center gap-3 text-left"
+                  className="flex min-h-10 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                 >
                   <FontAwesomeIcon icon={faUser} className="text-gray-400" />
                   <span className="min-w-0 flex-1 truncate">
@@ -136,6 +139,17 @@ export default function CompactEventForm({
                     className="text-xs text-gray-400"
                   />
                 </button>
+                {selectedClient?._id && onEditClient ? (
+                  <IconActionButton
+                    icon={faPencilAlt}
+                    title="Редактировать клиента"
+                    variant="warning"
+                    size="base"
+                    className="ml-2 shrink-0 self-center disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={isClosed}
+                    onClick={onEditClient}
+                  />
+                ) : null}
               </InputWrapper>
               {errors.clientId ? (
                 <p role="alert" className="text-sm text-red-600">

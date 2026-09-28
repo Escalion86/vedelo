@@ -26,3 +26,24 @@ test('entity labels are human readable', () => {
   assert.equal(getHistoryEntityLabel('client', { firstName: 'Анна', secondName: 'Иванова' }), 'Анна Иванова')
   assert.equal(getHistoryEntityLabel('event', { status: 'draft', eventType: 'Свадьба' }), 'Заявка: Свадьба')
 })
+
+test('creating or deleting an event is not a task action, even with tasks', () => {
+  for (const additionalEvents of [[], [{ title: 'Позвонить', done: false }]]) {
+    for (const operation of ['create', 'delete']) {
+      const changes = buildHistoryChanges({
+        entityType: 'event', operation,
+        before: operation === 'delete' ? { additionalEvents } : null,
+        after: operation === 'create' ? { additionalEvents } : null,
+      })
+      assert.equal(getTaskSemanticAction(changes, operation), '')
+    }
+  }
+})
+
+test('normalizing an empty task list is not a task update', () => {
+  const changes = buildHistoryChanges({
+    entityType: 'event', operation: 'update',
+    before: {}, after: { additionalEvents: [] },
+  })
+  assert.equal(getTaskSemanticAction(changes, 'update'), '')
+})

@@ -43,6 +43,16 @@ const siteSettingsSchema = {
     type: String,
     default: 'telefonip',
   },
+  phoneVerification: {
+    type: {
+      primaryMethod: { type: String, enum: ['call', 'sms'], default: 'call' },
+    },
+    default: undefined,
+  },
+  telefonipBalance: {
+    type: { lastAlertAt: Date },
+    default: undefined,
+  },
   eventsTags: {
     type: [{ text: String, color: String }],
     default: [],

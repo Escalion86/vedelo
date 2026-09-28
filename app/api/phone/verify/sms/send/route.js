@@ -13,12 +13,12 @@ import {
   verifyConfig,
 } from '@server/phoneVerification'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
+import { getPhoneAuthSettings } from '@server/phoneAuthSettings'
 
 const isCooldownActive = (date, cooldownSec) =>
   date && Date.now() - new Date(date).getTime() < cooldownSec * 1000
 
-export const POST = async (req) => {
-  const body = await req.json().catch(() => ({}))
+const sendSmsVerification = async (req, body) => {
   const requestedFlow = body.flow
   const phone = normalizePhone(body.phone)
 
@@ -36,6 +36,14 @@ export const POST = async (req) => {
     )
   }
 
+  const ipLimit = await checkRateLimit({
+    req,
+    scope: 'phone_verify_sms_send_ip',
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  })
+  if (!ipLimit.ok) return rateLimitResponse(NextResponse, ipLimit)
+
   const limit = await checkRateLimit({
     req,
     scope: 'phone_verify_sms_send',
@@ -50,8 +58,10 @@ export const POST = async (req) => {
   const confirmQuery = requestedFlow
     ? { phone, flow: requestedFlow }
     : { phone }
-  const confirm = await PhoneConfirms.findOne(confirmQuery)
-  if (!confirm) {
+  let confirm = await PhoneConfirms.findOne(confirmQuery)
+  const allowInitialSms = !confirm && validateFlow(requestedFlow) &&
+    (await getPhoneAuthSettings()).primaryMethod === 'sms'
+  if (!confirm && !allowInitialSms) {
     return NextResponse.json(
       safeApiError(
         'CONFIRM_NOT_FOUND',
@@ -60,9 +70,9 @@ export const POST = async (req) => {
       { status: 404 }
     )
   }
-  const flow = confirm.flow
+  const flow = confirm?.flow || requestedFlow
   const user = await findUserByPhone(phone)
-  if (flow === 'register' && user) {
+  if (flow === 'register' && user?.password) {
     return NextResponse.json(
       safeApiError('PHONE_ALREADY_USED', 'Пользователь с таким номером уже существует', 'phone'),
       { status: 409 }
@@ -75,9 +85,17 @@ export const POST = async (req) => {
     )
   }
 
-  if (confirm.confirmed) {
+  if (!confirm) {
+    confirm = await PhoneConfirms.findOneAndUpdate(
+      { phone, flow },
+      { $setOnInsert: { phone, flow, expiresAt: getExpiresAt() } },
+      { upsert: true, returnDocument: 'after' }
+    )
+  }
+
+  if (confirm.confirmed && new Date(confirm.expiresAt).getTime() > Date.now()) {
     return NextResponse.json(
-      { success: true, data: { smsSent: false, alreadyConfirmed: true } },
+      { success: true, data: { method: 'sms', smsSent: false, alreadyConfirmed: true } },
       { status: 200 }
     )
   }
@@ -103,8 +121,7 @@ export const POST = async (req) => {
   let sendResult
   try {
     sendResult = await sendSmsCode({ phone, code, flow })
-  } catch (error) {
-    console.error('[phone/verify/sms/send] SMS provider error', error)
+  } catch {
     return NextResponse.json(
       safeApiError('SMS_SEND_ERROR', 'Не удалось отправить SMS-код'),
       { status: 500 }
@@ -128,9 +145,14 @@ export const POST = async (req) => {
       success: true,
       data: {
         smsSent: true,
+        method: 'sms',
+        cooldownSec: verifyConfig.smsCooldownSec,
         ...(sendResult.debugCode ? { debugCode: sendResult.debugCode } : {}),
       },
     },
     { status: 200 }
   )
 }
+
+export const POST = async (req) =>
+  sendSmsVerification(req, await req.json().catch(() => ({})))

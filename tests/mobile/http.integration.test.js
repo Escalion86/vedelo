@@ -134,7 +134,13 @@ test(
         cloudRequests.push(captured)
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(
-          JSON.stringify([{ url: 'https://files.example.test/document.docx' }])
+          JSON.stringify([
+            {
+              url: captured.body.includes('/logos/')
+                ? `https://cloud.escalion.ru/uploads/${captured.body.match(/name="directory"\r\n\r\n([^\r\n]+)/)[1]}/logo.webp`
+                : 'https://files.example.test/document.docx',
+            },
+          ])
         )
         return
       }
