@@ -114,14 +114,14 @@ const TariffCard = ({ tariff, style, onEdit, onDelete }) => {
             noMargin
           />
           <IconCheckBox
-            checked={tariff.allowPastRequests ?? false}
-            label="Контроль заявок с прошедшей датой"
+            checked={tariff.allowProposals ?? tariff.allowDocuments}
+            label="Коммерческие предложения"
             readOnly
             noMargin
           />
           <IconCheckBox
-            checked={tariff.allowProposals ?? tariff.allowDocuments}
-            label="Коммерческие предложения"
+            checked={tariff.allowClientReviews === true}
+            label="Отзывы клиентов"
             readOnly
             noMargin
           />
@@ -152,8 +152,8 @@ TariffCard.propTypes = {
     allowCalendarSync: PropTypes.bool,
     allowStatistics: PropTypes.bool,
     allowDocuments: PropTypes.bool,
-    allowPastRequests: PropTypes.bool,
     allowProposals: PropTypes.bool,
+    allowClientReviews: PropTypes.bool,
     allowTelephony: PropTypes.bool,
     allowAi: PropTypes.bool,
     allowAvitoIntegration: PropTypes.bool,

@@ -2,7 +2,7 @@ export const TARIFF_FEATURES = Object.freeze([
   { key: 'allowCalendarSync', label: 'Синхронизация с Google Calendar' },
   { key: 'allowStatistics', label: 'Расширенная статистика' },
   { key: 'allowDocuments', label: 'Документы и шаблоны' },
-  { key: 'allowPastRequests', label: 'Контроль заявок с прошедшей датой' },
+  { key: 'allowClientReviews', label: 'Отзывы клиентов' },
   { key: 'allowProposals', label: 'Коммерческие предложения' },
   { key: 'allowTelephony', label: 'Телефония' },
   { key: 'allowAi', label: 'ИИ-функции' },

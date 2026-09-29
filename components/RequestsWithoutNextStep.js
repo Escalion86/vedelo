@@ -16,7 +16,7 @@ import AppButton from '@components/AppButton'
 import Notice from '@components/Notice'
 import openEventAdditionalEventEditorModal from '@layouts/modals/modalsFunc/eventAdditionalEventEditorModal'
 
-const RequestsWithoutNextStep = ({ onOpenEvent, now, excludePastRequests = false }) => {
+const RequestsWithoutNextStep = ({ onOpenEvent, now }) => {
   const { data, isPending, isError, refetch } = useEventsQuery({
     scope: 'drafts',
   })
@@ -30,9 +30,9 @@ const RequestsWithoutNextStep = ({ onOpenEvent, now, excludePastRequests = false
   const [visibleCount, setVisibleCount] = useState(5)
   const requests = useMemo(
     () => getRequestsWithoutNextStep(data?.data).filter(
-      (event) => !excludePastRequests || !isPastRequest(event, now)
+      (event) => !isPastRequest(event, now)
     ),
-    [data, now, excludePastRequests]
+    [data, now]
   )
   const clientsById = useMemo(
     () => new Map(clients.map((client) => [String(client._id), client])),
@@ -108,7 +108,7 @@ const RequestsWithoutNextStep = ({ onOpenEvent, now, excludePastRequests = false
           <p className="card-muted mb-3 text-sm">
             Здесь заявки без невыполненной задачи с датой. Назначьте звонок,
             встречу или другое действие. Просроченные задачи показаны в
-            «Просрочено».{excludePastRequests && ' Заявки с прошедшей датой вынесены в отдельный блок.'}
+            «Просрочено». Заявки с прошедшей датой вынесены в отдельный блок.
           </p>
           <div className="flex flex-col gap-2">
             {requests.slice(0, visibleCount).map((request) => (

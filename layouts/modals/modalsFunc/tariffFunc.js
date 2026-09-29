@@ -33,9 +33,7 @@ const tariffFunc = (tariffId, clone = false) => {
     const [allowDocuments, setAllowDocuments] = useState(
       tariff?.allowDocuments ?? DEFAULT_TARIFF.allowDocuments
     )
-    const [allowPastRequests, setAllowPastRequests] = useState(
-      tariff?.allowPastRequests ?? DEFAULT_TARIFF.allowPastRequests
-    )
+    const [allowClientReviews, setAllowClientReviews] = useState(tariff?.allowClientReviews === true)
     const [allowProposals, setAllowProposals] = useState(
       tariff?.allowProposals ?? tariff?.allowDocuments ?? DEFAULT_TARIFF.allowProposals
     )
@@ -78,8 +76,8 @@ const tariffFunc = (tariffId, clone = false) => {
               allowCalendarSync,
               allowStatistics,
               allowDocuments,
-              allowPastRequests,
               allowProposals,
+              allowClientReviews,
               allowTelephony,
               allowAi,
               allowAvitoIntegration,
@@ -95,8 +93,8 @@ const tariffFunc = (tariffId, clone = false) => {
     }, [
       allowCalendarSync,
       allowDocuments,
-      allowPastRequests,
       allowProposals,
+      allowClientReviews,
       allowAvitoIntegration,
       allowStatistics,
       allowTelephony,
@@ -121,8 +119,8 @@ const tariffFunc = (tariffId, clone = false) => {
         tariff?.price !== price ||
         tariff?.allowCalendarSync !== allowCalendarSync ||
         tariff?.allowStatistics !== allowStatistics ||
-        (tariff?.allowPastRequests ?? false) !== allowPastRequests ||
         tariff?.allowDocuments !== allowDocuments ||
+        (tariff?.allowClientReviews === true) !== allowClientReviews ||
         (tariff?.allowProposals ?? tariff?.allowDocuments) !== allowProposals ||
         tariff?.allowTelephony !== allowTelephony ||
         tariff?.allowAi !== allowAi ||
@@ -140,8 +138,8 @@ const tariffFunc = (tariffId, clone = false) => {
     }, [
       allowCalendarSync,
       allowDocuments,
-      allowPastRequests,
       allowProposals,
+      allowClientReviews,
       allowAvitoIntegration,
       allowStatistics,
       allowTelephony,
@@ -158,8 +156,8 @@ const tariffFunc = (tariffId, clone = false) => {
       tariff?.allowCalendarSync,
       tariff?.allowAvitoIntegration,
       tariff?.allowDocuments,
-      tariff?.allowPastRequests,
       tariff?.allowProposals,
+      tariff?.allowClientReviews,
       tariff?.allowTelephony,
       tariff?.allowAi,
       tariff?.allowStatistics,
@@ -212,6 +210,15 @@ const tariffFunc = (tariffId, clone = false) => {
             />
           </FormWrapper>
           <div className="grid gap-2">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={allowClientReviews}
+              onClick={() => setAllowClientReviews((prev) => !prev)}
+              className="cursor-pointer rounded text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <IconCheckBox checked={allowClientReviews} label="Отзывы клиентов" noMargin />
+            </button>
             <IconCheckBox
               checked={allowCalendarSync}
               onClick={() => setAllowCalendarSync((prev) => !prev)}
@@ -240,12 +247,6 @@ const tariffFunc = (tariffId, clone = false) => {
               checked={allowAi}
               onClick={() => setAllowAi((prev) => !prev)}
               label="ИИ-возможности"
-              noMargin
-            />
-            <IconCheckBox
-              checked={allowPastRequests}
-              onClick={() => setAllowPastRequests((prev) => !prev)}
-              label="Контроль заявок с прошедшей датой"
               noMargin
             />
             <IconCheckBox

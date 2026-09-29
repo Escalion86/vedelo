@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import ImageGallery from '@components/ImageGallery'
 import Notice from '@components/Notice'
 import SurfaceCard from '@components/SurfaceCard'
+import EventClientReview from '@components/EventClientReview'
 import EventPublishedProposals from '@components/EventPublishedProposals'
 import tariffsAtom from '@state/atoms/tariffsAtom'
 import { getUserTariffAccess } from '@helpers/tariffAccess'
@@ -834,6 +835,8 @@ const eventViewFunc = (eventId, options = {}) => {
             {canUseProposalBuilder(getUserTariffAccess(loggedUser, tariffs)) ? (
               <EventPublishedProposals eventId={event._id} />
             ) : null}
+
+            <EventClientReview event={event} />
 
             {additionalEvents.length > 0 && (
               <SectionBlock title="Задачи/События">

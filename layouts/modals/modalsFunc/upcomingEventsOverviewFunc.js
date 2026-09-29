@@ -5,9 +5,6 @@ import QuickActionButtons from '@components/QuickActionButtons'
 import StatusChip from '@components/StatusChip'
 import RequestsWithoutNextStep from '@components/RequestsWithoutNextStep'
 import PastRequests from '@components/PastRequests'
-import loggedUserAtom from '@state/atoms/loggedUserAtom'
-import tariffsAtom from '@state/atoms/tariffsAtom'
-import { getUserTariffAccess } from '@helpers/tariffAccess'
 import { getPastRequests } from '@helpers/pastRequests'
 import formatDateTime from '@helpers/formatDateTime'
 import { PROVIDER_LABELS } from '@helpers/incomingMessageNotification'
@@ -109,9 +106,6 @@ const getInitials = (name) =>
     .toUpperCase()
 
 export const UpcomingEventsOverview = ({ closeModal }) => {
-  const loggedUser = useAtomValue(loggedUserAtom)
-  const tariffs = useAtomValue(tariffsAtom)
-  const { allowPastRequests } = getUserTariffAccess(loggedUser, tariffs)
   const { data: eventsPayload, isPending: isEventsPending } = useEventsQuery({
     scope: 'upcoming',
   })
@@ -154,8 +148,8 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
 
   const [now, setNow] = useState(() => new Date())
   const pastRequests = useMemo(
-    () => allowPastRequests ? getPastRequests(draftsPayload?.data, now) : [],
-    [allowPastRequests, draftsPayload?.data, now]
+    () => getPastRequests(draftsPayload?.data, now),
+    [draftsPayload?.data, now]
   )
   useEffect(() => {
     const refreshNow = () => setNow(new Date())
@@ -631,13 +625,13 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           ))}
         </div>
       ) : null}
-      {allowPastRequests && <PastRequests
+      <PastRequests
         requests={pastRequests}
         now={now}
         isError={isDraftsError}
         onRetry={refetchDrafts}
         onOpenEvent={openEvent}
-      />}
+      />
       {pastClosableCount > 0 ? (
         <ModalSection
           id="attention-close-past"
@@ -821,7 +815,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
         )
       })}
 
-      <RequestsWithoutNextStep onOpenEvent={openEvent} now={now} excludePastRequests={allowPastRequests} />
+      <RequestsWithoutNextStep onOpenEvent={openEvent} now={now} />
 
       <ModalSection
         id="attention-messages"

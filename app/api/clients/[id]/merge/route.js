@@ -4,6 +4,7 @@ import AvitoConversations from '@models/AvitoConversations'
 import AvitoMessages from '@models/AvitoMessages'
 import Calls from '@models/Calls'
 import Clients from '@models/Clients'
+import ClientReviews from '@models/ClientReviews'
 import Events from '@models/Events'
 import Transactions from '@models/Transactions'
 import VkConversations from '@models/VkConversations'
@@ -319,6 +320,11 @@ export const POST = async (req, { params }) => {
       { returnDocument: 'after', runValidators: true }
     ),
   ])
+
+  await ClientReviews.updateMany(
+    { tenantId, clientId: duplicateObjectId },
+    { $set: { clientId: targetObjectId } }
+  )
 
   const deleted = await Clients.findOneAndDelete({
     _id: duplicateObjectId,

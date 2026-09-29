@@ -1,3 +1,4 @@
+import ClientReviewsList from '@components/ClientReviewsList'
 import { useEffect, useMemo } from 'react'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
@@ -352,6 +353,8 @@ const clientViewFunc = (clientId) => {
             </div>
           </SectionBlock>
         )}
+
+        <SectionBlock title="Отзывы клиента"><ClientReviewsList clientId={clientId} /></SectionBlock>
 
         {significantDates.length > 0 && (
           <SectionBlock title="Значимые даты">

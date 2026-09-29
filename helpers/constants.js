@@ -425,8 +425,8 @@ export const DEFAULT_TARIFF = Object.freeze({
   allowCalendarSync: false,
   allowStatistics: false,
   allowDocuments: false,
-  allowPastRequests: false,
   allowProposals: false,
+  allowClientReviews: false,
   allowTelephony: false,
   allowAi: false,
   allowAvitoIntegration: false,
@@ -596,6 +596,13 @@ export const pages = [
     name: 'Список клиентов',
     href: 'clients',
     icon: faUser,
+  },
+  {
+    id: 42,
+    group: 4,
+    name: 'Отзывы клиентов',
+    href: 'client-reviews',
+    icon: faComments,
   },
   {
     id: 14,

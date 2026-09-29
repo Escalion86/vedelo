@@ -6,6 +6,7 @@ const ACCESS_FLAGS = [
   'allowStatistics',
   'allowDocuments',
   'allowProposals',
+  'allowClientReviews',
   'allowTelephony',
   'allowAi',
   'allowAvitoIntegration',

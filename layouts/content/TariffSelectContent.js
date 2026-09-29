@@ -312,14 +312,14 @@ const TariffSelectContent = () => {
                     noMargin
                   />
                   <IconCheckBox
-                    checked={tariff.allowPastRequests ?? false}
-                    label="Контроль заявок с прошедшей датой"
+                    checked={tariff.allowProposals ?? tariff.allowDocuments}
+                    label="Коммерческие предложения"
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
-                    checked={tariff.allowProposals ?? tariff.allowDocuments}
-                    label="Коммерческие предложения"
+                    checked={tariff.allowClientReviews === true}
+                    label="Отзывы клиентов"
                     readOnly
                     noMargin
                   />

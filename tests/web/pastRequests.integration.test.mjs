@@ -78,7 +78,6 @@ test(
         _id: tariffId,
         title: 'QA',
         eventsPerMonth: 100,
-        allowPastRequests: true,
         allowDocuments: true,
         allowStatistics: true,
       })
@@ -252,7 +251,7 @@ test(
           assert.equal((await request(`/api/tariffs/${tariffId}`, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ allowPastRequests: true }),
+            body: JSON.stringify({ allowStatistics: true }),
           })).status, 403)
           const query =
             '/api/events?scope=past&statusRequest=true&statusFinished=false&statusClosed=false&statusCanceled=false&transferredMode=all'
@@ -354,12 +353,11 @@ test(
                 page.on('console', (message) => {
                   if (message.type() === 'error') errors.push(message.text())
                 })
-                await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowPastRequests: false } })
+                // Legacy false must not hide control; missing flag is covered by the other theme.
+                await db.collection('tariffs').updateOne({ _id: tariffId }, theme === 'dark'
+                  ? { $set: { allowPastRequests: false } }
+                  : { $unset: { allowPastRequests: '' } })
                 await page.goto('/cabinet/attention')
-                await page.locator('#attention-no-next-step').getByText('QA без задач', { exact: true }).waitFor()
-                assert.equal(await page.locator('#attention-past-requests').count(), 0)
-                await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowPastRequests: true } })
-                await page.reload()
 
                 const section = page.locator('#attention-past-requests')
                 await section

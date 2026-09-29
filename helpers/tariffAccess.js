@@ -55,7 +55,7 @@ export const getUserTariffAccess = (user, tariffs = []) => {
     allowDocuments:
       unrestrictedTrialActive ||
       (hasTariff && Boolean(tariff?.allowDocuments)),
-    allowPastRequests: hasTariff && Boolean(tariff?.allowPastRequests),
+    allowClientReviews: hasTariff && tariff?.allowClientReviews === true,
     allowProposals: hasTariff && isProposalTariffEnabled(tariff),
     allowTelephony: hasTariff && Boolean(tariff?.allowTelephony),
     allowAi: hasTariff && Boolean(tariff?.allowAi),
