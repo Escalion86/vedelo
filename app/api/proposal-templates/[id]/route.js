@@ -1,3 +1,4 @@
+import getUserTariffAccess from '@server/getUserTariffAccess'
 import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
 import ProposalTemplates from '@models/ProposalTemplates'
@@ -16,12 +17,12 @@ const error = (message, status = 400, code = 'bad_request') =>
 const authorize = async () => {
   const context = await getTenantContext()
   if (!context.tenantId || !context.user?._id) return { response: error('Не авторизован', 401, 'unauthorized') }
-  if (!canUseProposalBuilder(context.user))
+  if (!canUseProposalBuilder(await getUserTariffAccess(context.user._id)))
     return {
       response: error(
         PROPOSAL_BUILDER_ACCESS_ERROR,
         403,
-        'developer_preview_only'
+        'proposal_tariff_required'
       ),
     }
   return { context }

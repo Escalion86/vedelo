@@ -179,7 +179,7 @@ const ProposalTemplatesPanel = ({ enabled }) => {
   if (!enabled)
     return (
       <Notice tone="warning">
-        Коммерческие предложения временно доступны только разработчику.
+        Коммерческие предложения недоступны на текущем тарифе.
       </Notice>
     )
 

@@ -137,7 +137,7 @@ const DocumentsContent = () => {
     [loggedUser, tariffs]
   )
   const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
-  const canUseProposals = canUseProposalBuilder(loggedUser)
+  const canUseProposals = canUseProposalBuilder(tariffAccess)
   const documentTemplates = useMemo(
     () => normalizeDocumentTemplatesFromSettings(customSettings),
     [customSettings]

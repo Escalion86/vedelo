@@ -201,6 +201,7 @@ const tariffFeatureRows = [
   { label: 'Синхронизация с Google Календарём', key: 'allowCalendarSync' },
   { label: 'Статистика и аналитика', key: 'allowStatistics' },
   { label: 'Договоры, акты и документы', key: 'allowDocuments' },
+  { label: 'Контроль заявок с прошедшей датой', key: 'allowPastRequests' },
   { label: 'Коммерческие предложения', key: 'allowProposals' },
   { label: 'IP-телефония', key: 'allowTelephony' },
   { label: 'ИИ-возможности', key: 'allowAi' },

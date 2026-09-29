@@ -22,6 +22,7 @@ let transactionEventId
 let transactionProps
 let renderTransactions = false
 let eventFromQuery
+let eventPending = false
 let transactions = empty
 const settings = {}
 const atoms = {
@@ -36,7 +37,7 @@ const mocks = {
     useAtomValue: (atom) => atom === 'user' ? user : atom,
     useAtom: () => [settings, noop],
   },
-  '@helpers/useEventsQuery': { useEventQuery: () => ({ data: eventFromQuery }), useEventsQuery: () => ({ data: undefined }) },
+  '@helpers/useEventsQuery': { useEventQuery: () => ({ data: eventFromQuery, isPending: eventPending }), useEventsQuery: () => ({ data: undefined }) },
   '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: empty }) },
   '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: transactions }), useDeleteTransactionMutation: () => ({}) },
   '@helpers/tariffAccess': { getUserTariffAccess: () => ({ allowDocuments: true }) },
@@ -246,6 +247,29 @@ test('finance shortcut opens only the finance section', async (t) => {
     .map((section) => section.querySelector('summary').textContent)
   assert.equal(openSections.length, 1)
   assert.match(openSections[0], /Финансы/)
+})
+
+test('date shortcut opens dates without changing the saved status', async (t) => {
+  const { el } = await mount(t, Compact, { ...compactBase, openDatesInitially: true })
+  const openSections = [...el.querySelectorAll('details')].filter((section) => section.open)
+  assert.equal(openSections.length, 1)
+  assert.match(openSections[0].textContent, /Дата и время/)
+})
+
+test('editor waits for an uncached past request before initializing fields', async (t) => {
+  eventFromQuery = undefined
+  eventPending = true
+  const Harness = modalHarness(eventFunc('uncached', false, null, { focusDates: true }).Children)
+  const { el, root } = await mount(t, Harness)
+  assert.equal(el.querySelector('[data-compact]'), null)
+  eventFromQuery = { _id: 'uncached', status: 'draft', clientId: 'client', description: 'Сохранённая заявка', eventDate: '2026-01-01T12:00:00Z' }
+  eventPending = false
+  await React.act(async () => root.render(React.createElement(Harness)))
+  assert.equal(compactProps.status, 'draft')
+  assert.equal(compactProps.eventDate, eventFromQuery.eventDate)
+  assert.equal(compactProps.openDatesInitially, true)
+  assert.equal(el.querySelector('textarea').value, 'Сохранённая заявка')
+  eventFromQuery = undefined
 })
 
 test('compact section headers reflect AI-filled fields until their highlights are cleared', async (t) => {

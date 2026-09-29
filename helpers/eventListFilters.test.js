@@ -28,6 +28,7 @@ test('restores persisted event list filters for the current page mode', () => {
       selectedTown: 'Красноярск',
       checkFilter: { checked: false, unchecked: true },
       statusFilter: {
+        request: true,
         finished: false,
         closed: true,
         canceled: true,
@@ -44,6 +45,7 @@ test('restores persisted event list filters for the current page mode', () => {
       selectedTown: 'Красноярск',
       checkFilter: { checked: false, unchecked: true },
       statusFilter: {
+        request: true,
         finished: false,
         closed: true,
         canceled: true,
@@ -61,6 +63,7 @@ test('falls back to defaults when persisted event filters are invalid', () => {
         selectedTown: 100,
         checkFilter: { checked: false, unchecked: false },
         statusFilter: {
+          request: false,
           finished: false,
           closed: false,
           canceled: false,

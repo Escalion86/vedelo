@@ -1,3 +1,4 @@
+import getUserTariffAccess from '@server/getUserTariffAccess'
 import { NextResponse } from 'next/server'
 import ProposalTemplates from '@models/ProposalTemplates'
 import dbConnect from '@server/dbConnect'
@@ -17,8 +18,8 @@ const error = (message, status = 400, code = 'bad_request') =>
 export const GET = async () => {
   const { tenantId, user } = await getTenantContext()
   if (!tenantId || !user?._id) return error('Не авторизован', 401, 'unauthorized')
-  if (!canUseProposalBuilder(user))
-    return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'developer_preview_only')
+  if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
+    return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'proposal_tariff_required')
   await dbConnect()
   const items = await ProposalTemplates.find({ tenantId }).sort({ updatedAt: -1 }).lean()
   return NextResponse.json({ success: true, data: items })
@@ -27,8 +28,8 @@ export const GET = async () => {
 export const POST = async (req) => {
   const { tenantId, user } = await getTenantContext()
   if (!tenantId || !user?._id) return error('Не авторизован', 401, 'unauthorized')
-  if (!canUseProposalBuilder(user))
-    return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'developer_preview_only')
+  if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
+    return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'proposal_tariff_required')
   const body = await req.json().catch(() => ({}))
   const name = String(body?.name || '').trim().slice(0, 160)
   if (!name) return error('Укажите название шаблона', 400, 'name_required')

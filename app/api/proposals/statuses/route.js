@@ -1,3 +1,4 @@
+import getUserTariffAccess from '@server/getUserTariffAccess'
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
 import getTenantContext from '@server/getTenantContext'
@@ -8,7 +9,7 @@ export const GET = async () => {
   const { tenantId, user } = await getTenantContext()
   if (!tenantId || !user?._id)
     return NextResponse.json({ success: false }, { status: 401 })
-  if (!canUseProposalBuilder(user))
+  if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
     return NextResponse.json({ success: false }, { status: 403 })
   const proposals = await Proposals.find({
     tenantId,

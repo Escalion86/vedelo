@@ -4,6 +4,11 @@ import ModalSection from '@components/ModalSection'
 import QuickActionButtons from '@components/QuickActionButtons'
 import StatusChip from '@components/StatusChip'
 import RequestsWithoutNextStep from '@components/RequestsWithoutNextStep'
+import PastRequests from '@components/PastRequests'
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
+import tariffsAtom from '@state/atoms/tariffsAtom'
+import { getUserTariffAccess } from '@helpers/tariffAccess'
+import { getPastRequests } from '@helpers/pastRequests'
 import formatDateTime from '@helpers/formatDateTime'
 import { PROVIDER_LABELS } from '@helpers/incomingMessageNotification'
 import {
@@ -34,7 +39,7 @@ import {
 } from '@helpers/clientSignificantDates'
 import { useRouter } from 'next/navigation'
 import { getData } from '@helpers/CRUD'
-import { getNounEvents } from '@helpers/getNoun'
+import getNoun, { getNounEvents } from '@helpers/getNoun'
 import { useMessengerSummaryQuery } from '@helpers/useMessengerSummary'
 import {
   getEventAddressLine,
@@ -104,10 +109,18 @@ const getInitials = (name) =>
     .toUpperCase()
 
 export const UpcomingEventsOverview = ({ closeModal }) => {
+  const loggedUser = useAtomValue(loggedUserAtom)
+  const tariffs = useAtomValue(tariffsAtom)
+  const { allowPastRequests } = getUserTariffAccess(loggedUser, tariffs)
   const { data: eventsPayload, isPending: isEventsPending } = useEventsQuery({
     scope: 'upcoming',
   })
-  const { data: draftsPayload, isPending: isDraftsPending } = useEventsQuery({
+  const {
+    data: draftsPayload,
+    isPending: isDraftsPending,
+    isError: isDraftsError,
+    refetch: refetchDrafts,
+  } = useEventsQuery({
     scope: 'drafts',
   })
   // Keep follow-ups visible even when a draft's work date is already in the past.
@@ -140,6 +153,10 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
   )
 
   const [now, setNow] = useState(() => new Date())
+  const pastRequests = useMemo(
+    () => allowPastRequests ? getPastRequests(draftsPayload?.data, now) : [],
+    [allowPastRequests, draftsPayload?.data, now]
+  )
   useEffect(() => {
     const refreshNow = () => setNow(new Date())
     const timer = setInterval(refreshNow, 60_000)
@@ -538,6 +555,13 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           count: pastClosableCount,
         },
         {
+          key: 'pastRequests',
+          targetId: 'attention-past-requests',
+          color: 'var(--ui-primary)',
+          label: `${getNoun(pastRequests.length, 'заявка', 'заявки', 'заявок', false)} с прошедшей датой`,
+          count: isDraftsError ? 0 : pastRequests.length,
+        },
+        {
           key: 'clientEvents',
           targetId: 'attention-client-events',
           color: '#0d9488',
@@ -545,7 +569,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           count: clientEvents.length,
         },
       ].filter((chip) => chip.count > 0),
-    [segmentedItems, totalUnreadMessages, pastClosableCount, clientEvents]
+    [segmentedItems, totalUnreadMessages, pastClosableCount, clientEvents, pastRequests.length, isDraftsError]
   )
 
   const scrollToSection = (id) => {
@@ -607,6 +631,13 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           ))}
         </div>
       ) : null}
+      {allowPastRequests && <PastRequests
+        requests={pastRequests}
+        now={now}
+        isError={isDraftsError}
+        onRetry={refetchDrafts}
+        onOpenEvent={openEvent}
+      />}
       {pastClosableCount > 0 ? (
         <ModalSection
           id="attention-close-past"
@@ -790,7 +821,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
         )
       })}
 
-      <RequestsWithoutNextStep onOpenEvent={openEvent} />
+      <RequestsWithoutNextStep onOpenEvent={openEvent} now={now} excludePastRequests={allowPastRequests} />
 
       <ModalSection
         id="attention-messages"

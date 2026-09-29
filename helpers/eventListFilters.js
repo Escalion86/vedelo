@@ -16,6 +16,7 @@ export const getStatusFilterDefaults = (filter) => {
   }
   if (filter === 'past') {
     return {
+      request: true,
       finished: true,
       closed: true,
       canceled: false,
@@ -32,7 +33,7 @@ export const getStatusFilterDefaults = (filter) => {
 
 export const getStatusFilterKeys = (filter) => {
   if (filter === 'upcoming') return ['request', 'active', 'canceled']
-  if (filter === 'past') return ['finished', 'closed', 'canceled']
+  if (filter === 'past') return ['request', 'finished', 'closed', 'canceled']
   return ['request', 'active', 'finished', 'closed', 'canceled']
 }
 

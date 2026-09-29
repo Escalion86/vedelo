@@ -3,6 +3,9 @@ import EventStatusPicker from '@components/ValuePicker/EventStatusPicker'
 import Button from '@components/Button'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
+import LoadingSpinner from '@components/LoadingSpinner'
+import { apiJson } from '@helpers/apiClient'
+import useSnackbar from '@helpers/useSnackbar'
 import { DEFAULT_EVENT } from '@helpers/constants'
 // import isEventExpiredFunc from '@helpers/isEventExpired'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
@@ -28,8 +31,10 @@ const normalizeCancelReasons = (list = []) =>
     )
   )
 
-const eventStatusEditFunc = (eventId) => {
+const eventStatusEditFunc = (eventId, options = {}) => {
   const EventStatusEditModal = ({
+    event,
+    transactions,
     closeModal,
     setOnConfirmFunc,
     setOnDeclineFunc,
@@ -38,12 +43,9 @@ const eventStatusEditFunc = (eventId) => {
     setDisableDecline,
     setTopLeftComponent,
   }) => {
-    const { data: event } = useEventQuery(eventId)
     const setEvent = useAtomValue(itemsFuncAtom).event.set
     const modalsFunc = useAtomValue(modalsFuncAtom)
-    const { data: transactions = [] } = useTransactionsQuery(undefined, {
-      enabled: false,
-    })
+    const snackbar = useSnackbar()
     const [siteSettings, setSiteSettings] = useAtom(siteSettingsAtom)
     // const isEventExpired = isEventExpiredFunc(event)
 
@@ -53,7 +55,10 @@ const eventStatusEditFunc = (eventId) => {
     // )
     // const canSetClosed = totalIncome >= expectedIncome && isEventExpired
 
-    const [status, setStatus] = useState(event?.status ?? DEFAULT_EVENT.status)
+    const [status, setStatus] = useState(
+      options.initialStatus ?? event?.status ?? DEFAULT_EVENT.status
+    )
+    const [saveError, setSaveError] = useState('')
     const [cancelReason, setCancelReason] = useState(
       event?.cancelReason ?? ''
     )
@@ -122,7 +127,7 @@ const eventStatusEditFunc = (eventId) => {
       [eventTransactions]
     )
     const closeBlockReasons = useMemo(() => {
-      if (status === 'closed') return []
+      if (event?.status === 'closed') return []
       const reasons = []
       if (closeState.hasObligations)
         reasons.push(
@@ -144,6 +149,7 @@ const eventStatusEditFunc = (eventId) => {
       closeState.incomeTotal,
       contractSum,
       event?.isByContract,
+      event?.status,
       hasPendingAdditionalEvents,
       hasTaxes,
       status,
@@ -156,10 +162,10 @@ const eventStatusEditFunc = (eventId) => {
       else modalsFunc.transaction?.add(eventId, { contractSum })
     }
     const statusDisabledValues = useMemo(() => {
-      if (status === 'closed') return []
+      if (event?.status === 'closed') return []
       if (!canClose || hasPendingAdditionalEvents) return ['closed']
       return []
-    }, [canClose, hasPendingAdditionalEvents, status])
+    }, [canClose, hasPendingAdditionalEvents, event?.status])
     const hasEvent = Boolean(event && eventId)
     const cancelReasons = useMemo(
       () => normalizeCancelReasons(siteSettings?.custom?.cancelReasons ?? []),
@@ -177,21 +183,31 @@ const eventStatusEditFunc = (eventId) => {
       normalizedCancelReason !== (event?.cancelReason ?? '')
 
     const applyStatus = async (removePendingAdditionalEvents = false) => {
+      setSaveError('')
+      const saved = await setEvent(
+        {
+          _id: event?._id,
+          status,
+          cancelReason: needsCancelReason ? normalizedCancelReason : '',
+          ...(removePendingAdditionalEvents
+            ? {
+                additionalEvents: (
+                  Array.isArray(event?.additionalEvents)
+                    ? event.additionalEvents
+                    : []
+                ).filter((item) => Boolean(item?.done)),
+              }
+            : {}),
+        },
+        false,
+        true
+      )
+      if (!saved?._id) {
+        setSaveError('Не удалось сохранить статус. Попробуйте ещё раз.')
+        return
+      }
+      snackbar.success('Статус сохранён')
       closeModal()
-      setEvent({
-        _id: event?._id,
-        status,
-        cancelReason: needsCancelReason ? normalizedCancelReason : '',
-        ...(removePendingAdditionalEvents
-          ? {
-              additionalEvents: (
-                Array.isArray(event?.additionalEvents)
-                  ? event.additionalEvents
-                  : []
-              ).filter((item) => Boolean(item?.done)),
-            }
-          : {}),
-      })
       if (needsCancelReason && normalizedCancelReason) {
         const nextReasons = normalizeCancelReasons([
           ...cancelReasons,
@@ -283,6 +299,7 @@ const eventStatusEditFunc = (eventId) => {
 
     return (
       <div className="flex flex-col gap-y-2">
+        {saveError ? <Notice tone="error">{saveError}</Notice> : null}
         <EventStatusPicker
           required
           status={status}
@@ -343,10 +360,43 @@ const eventStatusEditFunc = (eventId) => {
     )
   }
 
+  const LoadedEventStatusEditModal = (props) => {
+    const eventQuery = useEventQuery(eventId)
+    // Прошедшая заявка может отсутствовать в SSR-выборке транзакций «Важного».
+    const transactionsQuery = useTransactionsQuery(undefined, {
+      queryKey: ['transactions', 'event', eventId],
+      queryFn: async () =>
+        (await apiJson(`/api/transactions?eventIds=${encodeURIComponent(eventId)}`))?.data ?? [],
+      staleTime: 0,
+    })
+    if (eventQuery.isPending || transactionsQuery.isPending)
+      return <LoadingSpinner text="Проверяем заявку и оплаты…" />
+    if (!eventQuery.data || !transactionsQuery.data)
+      return (
+        <Notice tone="error">
+          <p>Не удалось загрузить данные для изменения статуса.</p>
+          <Button
+            name="Повторить"
+            onClick={() => {
+              eventQuery.refetch()
+              transactionsQuery.refetch()
+            }}
+          />
+        </Notice>
+      )
+    return (
+      <EventStatusEditModal
+        {...props}
+        event={eventQuery.data}
+        transactions={transactionsQuery.data}
+      />
+    )
+  }
+
   return {
     title: `Редактирование статуса мероприятия`,
     confirmButtonName: 'Применить',
-    Children: EventStatusEditModal,
+    Children: LoadedEventStatusEditModal,
     // TopLeftComponent: () => (
     //   <CardButtons
     //     item={{ _id: eventId }}

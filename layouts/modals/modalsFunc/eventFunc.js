@@ -9,6 +9,8 @@ import IconCheckBox from '@components/IconCheckBox'
 import AddIconButton from '@components/AddIconButton'
 import IconActionButton from '@components/IconActionButton'
 import Notice from '@components/Notice'
+import LoadingSpinner from '@components/LoadingSpinner'
+import AppButton from '@components/AppButton'
 import Textarea from '@components/Textarea'
 import { faCircleCheck, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
@@ -670,7 +672,7 @@ const eventFunc = (
       [loggedUser, tariffs]
     )
     const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
-    const canUseProposals = canUseProposalBuilder(loggedUser)
+    const canUseProposals = canUseProposalBuilder(tariffAccess)
     const [agreedProposal, setAgreedProposal] = useState(
       event?.agreedProposal || null
     )
@@ -2435,6 +2437,7 @@ const eventFunc = (
             errors={errors}
             validationAttempt={validationAttempt}
             initialTab={initialTab}
+            openDatesInitially={Boolean(options.focusDates)}
             isClosed={isClosed}
             isDraft={isDraft}
             isNew={!sourceEventId}
@@ -2571,10 +2574,27 @@ const eventFunc = (
     )
   }
 
+  const LoadedEventModal = (props) => {
+    const query = useEventQuery(eventId)
+    if (eventId && query.isPending)
+      return <LoadingSpinner text="Загружаем данные…" />
+    if (eventId && !query.data)
+      return (
+        <Notice tone="error">
+          <p>Не удалось загрузить данные для редактирования.</p>
+          <AppButton variant="secondary" onClick={() => query.refetch()}>
+            Повторить
+          </AppButton>
+        </Notice>
+      )
+    // Состояние полей создаётся только после получения сохранённой карточки.
+    return <EventModal {...props} />
+  }
+
   return {
     title: `${eventId && !clone ? 'Редактирование' : 'Создание'} рабочей карточки`,
     confirmButtonName: eventId && !clone ? 'Применить' : 'Создать',
-    Children: EventModal,
+    Children: LoadedEventModal,
   }
 }
 

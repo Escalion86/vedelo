@@ -39,6 +39,7 @@ export default function CompactEventForm({
   errors,
   validationAttempt,
   initialTab,
+  openDatesInitially = false,
   isClosed,
   isDraft,
   isNew,
@@ -213,6 +214,7 @@ export default function CompactEventForm({
         <div data-invalid={Boolean(errors.eventDate || errors.dateEnd)}>
           <Section
             title="Дата и время"
+            initiallyOpen={openDatesInitially}
             icon={faCalendarDays}
             summary={formatEventDateRange(eventDate, dateEnd)}
             wrapSummary

@@ -2245,6 +2245,10 @@ body.theme-dark .audio-player-control {
     height: 184px !important;
   }
 
+  .event-card-shell--past-request {
+    height: 248px !important;
+  }
+
   .card-title {
     font-size: 0.95rem;
   }

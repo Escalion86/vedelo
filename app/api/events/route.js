@@ -170,6 +170,7 @@ export const GET = async (req) => {
         ] })
       }
 
+      const statusRequest = parseBooleanParam(searchParams.get('statusRequest'))
       const statusFinished = parseBooleanParam(
         searchParams.get('statusFinished')
       )
@@ -186,6 +187,7 @@ export const GET = async (req) => {
       )
 
       if (
+        statusRequest !== null ||
         statusFinished !== null ||
         statusClosed !== null ||
         (!hasIndependentTransferredMode && statusTransferred !== null) ||
@@ -198,6 +200,8 @@ export const GET = async (req) => {
             ? { $and: [query, nonTransferredQuery] }
             : query
 
+        if (statusRequest === true)
+          statusConditions.push(withTransferScope({ status: 'draft' }))
         if (statusClosed === true)
           statusConditions.push(withTransferScope({ status: 'closed' }))
         if (!hasIndependentTransferredMode && statusTransferred === true) {

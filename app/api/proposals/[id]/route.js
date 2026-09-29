@@ -1,3 +1,4 @@
+import getUserTariffAccess from '@server/getUserTariffAccess'
 import { isProposalTheme, isProposalLogoUrl, normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
@@ -32,12 +33,12 @@ const authorize = async (id) => {
     return { response: error('Не авторизован', 401, 'unauthorized') }
   if (!mongoose.Types.ObjectId.isValid(id))
     return { response: error('Некорректный ID', 400, 'bad_id') }
-  if (!canUseProposalBuilder(context.user))
+  if (!canUseProposalBuilder(await getUserTariffAccess(context.user._id)))
     return {
       response: error(
         PROPOSAL_BUILDER_ACCESS_ERROR,
         403,
-        'developer_preview_only'
+        'proposal_tariff_required'
       ),
     }
   await dbConnect()

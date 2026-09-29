@@ -381,11 +381,9 @@ export const runWebDocumentWorkflowSmoke = async ({
   )
 
   assert.equal((await fetch(`${baseUrl}/api/proposals/statuses`)).status, 401)
-  assert.equal((await request('/api/proposals/statuses')).status, 403)
-  // Current proposal rollout remains dev-only; test it with a synthetic developer.
-  await db
-    .collection('users')
-    .updateOne({ _id: tenantId }, { $set: { role: 'dev' } })
+  await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowProposals: true } })
+  // Ordinary users with the feature enabled can complete the entire workflow.
+  assert.equal((await request('/api/proposals/statuses')).status, 200)
   const removable = await post(`/api/events/${draftEventId}/proposals`, {})
   const foreignProposalId = new mongoose.Types.ObjectId()
   await db.collection('proposals').insertOne({
@@ -486,6 +484,28 @@ export const runWebDocumentWorkflowSmoke = async ({
     .collection('tariffs')
     .updateOne({ _id: tariffId }, { $set: { allowProposals: false } })
   assert.equal((await uploadLogo(proposalId)).status, 403)
+  const blockedRoutes = [
+    ['/api/proposals/statuses', 'GET'],
+    ['/api/proposal-templates', 'GET'],
+    ['/api/proposal-templates', 'POST'],
+    [`/api/proposal-templates/${proposalId}`, 'GET'],
+    [`/api/proposal-templates/${proposalId}`, 'PATCH'],
+    [`/api/proposal-templates/${proposalId}`, 'DELETE'],
+    [`/api/events/${draftEventId}/proposals`, 'GET'],
+    [`/api/events/${draftEventId}/proposals`, 'POST'],
+    [proposalPath, 'GET'],
+    [proposalPath, 'PATCH'],
+    [proposalPath, 'DELETE'],
+    [`${proposalPath}/send-telegram`, 'POST'],
+  ]
+  for (const role of ['user', 'dev']) {
+    await db.collection('users').updateOne({ _id: tenantId }, { $set: { role } })
+    for (const [url, method] of blockedRoutes) {
+      assert.equal((await request(url, { method })).status, 403, `${role}: ${method} ${url}`)
+    }
+  }
+  await db.collection('users').updateOne({ _id: tenantId }, { $set: { role: 'user' } })
+
   await db
     .collection('tariffs')
     .updateOne({ _id: tariffId }, { $unset: { allowProposals: '' } })
@@ -644,6 +664,13 @@ export const runWebDocumentWorkflowSmoke = async ({
           viewport: { width, height: 900 },
         })
         await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+        await context.route('**/proposal/**', (route) => {
+          const target = new URL(route.request().url())
+          if (target.origin !== baseUrl) {
+            return route.fulfill({ status: 302, headers: { location: `${baseUrl}${target.pathname}${target.search}` } })
+          }
+          return route.continue()
+        })
         await context.addCookies(
           [...cookies].map(([name, value]) => ({ name, value, url: baseUrl }))
         )
@@ -1594,6 +1621,11 @@ export const runWebDocumentWorkflowSmoke = async ({
           await page
             .getByText('Редактирование шаблона', { exact: true })
             .waitFor()
+          await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowProposals: false } })
+          await page.goto('/cabinet/documents?section=proposals')
+          await page.getByText('Работа с документами', { exact: true }).waitFor()
+          assert.equal(await page.getByRole('button', { name: 'Предложения', exact: true }).count(), 0)
+          await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowProposals: true } })
         }
         assert.deepEqual(errors, [])
         assert.deepEqual(

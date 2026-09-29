@@ -233,7 +233,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
         addModal(eventFunc(eventId, false, null, options)),
       history: (eventId) =>
         addModal(historyFunc('event', eventId, workItemTerms)),
-      statusEdit: (eventId) => addModal(eventStatusEditFunc(eventId)),
+      statusEdit: (eventId, options) =>
+        addModal(eventStatusEditFunc(eventId, options)),
       close: (eventId) =>
         addModal({
           title: `Закрытие ${workItemTerms.genitive}`,

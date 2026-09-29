@@ -33,6 +33,9 @@ const tariffFunc = (tariffId, clone = false) => {
     const [allowDocuments, setAllowDocuments] = useState(
       tariff?.allowDocuments ?? DEFAULT_TARIFF.allowDocuments
     )
+    const [allowPastRequests, setAllowPastRequests] = useState(
+      tariff?.allowPastRequests ?? DEFAULT_TARIFF.allowPastRequests
+    )
     const [allowProposals, setAllowProposals] = useState(
       tariff?.allowProposals ?? tariff?.allowDocuments ?? DEFAULT_TARIFF.allowProposals
     )
@@ -75,6 +78,7 @@ const tariffFunc = (tariffId, clone = false) => {
               allowCalendarSync,
               allowStatistics,
               allowDocuments,
+              allowPastRequests,
               allowProposals,
               allowTelephony,
               allowAi,
@@ -91,6 +95,7 @@ const tariffFunc = (tariffId, clone = false) => {
     }, [
       allowCalendarSync,
       allowDocuments,
+      allowPastRequests,
       allowProposals,
       allowAvitoIntegration,
       allowStatistics,
@@ -116,6 +121,7 @@ const tariffFunc = (tariffId, clone = false) => {
         tariff?.price !== price ||
         tariff?.allowCalendarSync !== allowCalendarSync ||
         tariff?.allowStatistics !== allowStatistics ||
+        (tariff?.allowPastRequests ?? false) !== allowPastRequests ||
         tariff?.allowDocuments !== allowDocuments ||
         (tariff?.allowProposals ?? tariff?.allowDocuments) !== allowProposals ||
         tariff?.allowTelephony !== allowTelephony ||
@@ -134,6 +140,7 @@ const tariffFunc = (tariffId, clone = false) => {
     }, [
       allowCalendarSync,
       allowDocuments,
+      allowPastRequests,
       allowProposals,
       allowAvitoIntegration,
       allowStatistics,
@@ -151,6 +158,7 @@ const tariffFunc = (tariffId, clone = false) => {
       tariff?.allowCalendarSync,
       tariff?.allowAvitoIntegration,
       tariff?.allowDocuments,
+      tariff?.allowPastRequests,
       tariff?.allowProposals,
       tariff?.allowTelephony,
       tariff?.allowAi,
@@ -232,6 +240,12 @@ const tariffFunc = (tariffId, clone = false) => {
               checked={allowAi}
               onClick={() => setAllowAi((prev) => !prev)}
               label="ИИ-возможности"
+              noMargin
+            />
+            <IconCheckBox
+              checked={allowPastRequests}
+              onClick={() => setAllowPastRequests((prev) => !prev)}
+              label="Контроль заявок с прошедшей датой"
               noMargin
             />
             <IconCheckBox

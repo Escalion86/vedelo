@@ -425,6 +425,7 @@ export const DEFAULT_TARIFF = Object.freeze({
   allowCalendarSync: false,
   allowStatistics: false,
   allowDocuments: false,
+  allowPastRequests: false,
   allowProposals: false,
   allowTelephony: false,
   allowAi: false,

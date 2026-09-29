@@ -35,13 +35,13 @@ export const POST = async (req, { params }) => {
     return error('Не авторизован', 401, 'unauthorized')
   if (!mongoose.Types.ObjectId.isValid(id))
     return error('Некорректный ID', 400, 'bad_id')
-  if (!canUseProposalBuilder(user))
+  const access = await getUserTariffAccess(user._id)
+  if (!canUseProposalBuilder(access))
     return error(
       PROPOSAL_BUILDER_ACCESS_ERROR,
       403,
-      'developer_preview_only'
+      'proposal_tariff_required'
     )
-  const access = await getUserTariffAccess(user._id)
   if (!access?.allowTelegramIntegration)
     return error(
       'Интеграция Telegram недоступна на текущем тарифе',

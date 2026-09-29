@@ -31,6 +31,7 @@ import CardActions from '@components/CardActions'
 import CardWrapper from '@components/CardWrapper'
 import DropDown from '@components/DropDown'
 import StatusChip from '@components/StatusChip'
+import { isPastRequest } from '@helpers/pastRequests'
 import EventProposalStatus from '@components/EventProposalStatus'
 import { getSoonNoDepositEvents } from '@helpers/additionalEvents'
 import getGoogleCalendarLinkFromText from '@helpers/getGoogleCalendarLinkFromText'
@@ -210,7 +211,7 @@ const EventCard = ({
   const isDraft = rawStatus === 'draft'
   // const isActive = rawStatus === 'active'
   const isFinished =
-    !isCanceled && !isClosed && eventEnd && eventEnd.getTime() < now.getTime()
+    !isDraft && !isCanceled && !isClosed && eventEnd && eventEnd.getTime() < now.getTime()
   const statusMarkerClassName = getEventStatusMarkerClassName({
     isCanceled,
     isClosed,
@@ -328,7 +329,10 @@ const EventCard = ({
       onClick={() => !loading && modalsFunc.event?.view(event._id)}
       onSwipeLeft={() => !loading && modalsFunc.event?.edit(event._id)}
       onSwipeRight={() => !loading && modalsFunc.event?.delete(event._id)}
-      className="event-card-shell card-body-pad laptop:flex-row laptop:items-start laptop:gap-4 flex min-h-[160px] cursor-pointer flex-col gap-x-3 gap-y-1 overflow-hidden rounded-lg py-3 pr-3 pl-4"
+      className={cn(
+        'event-card-shell card-body-pad laptop:flex-row laptop:items-start laptop:gap-4 flex min-h-[160px] cursor-pointer flex-col gap-x-3 gap-y-1 overflow-hidden rounded-lg py-3 pr-3 pl-4',
+        isPastRequest(event, now) && 'event-card-shell--past-request'
+      )}
       noHorizontalPadding
     >
       <CardOverlay loading={loading} error={error} />
@@ -453,6 +457,12 @@ const EventCard = ({
             ) : null}
           </div>
 
+          {isPastRequest(event, now) ? (
+            <div className="flex flex-wrap gap-1">
+              <StatusChip tone="today">Заявка</StatusChip>
+              <span className="card-muted text-xs">Дата прошла — уточните результат</span>
+            </div>
+          ) : null}
           <div className="flex min-h-10 items-center gap-1 overflow-hidden">
             {hasSoonNoDepositWarning ? (
               <StatusChip tone="overdue">

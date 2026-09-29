@@ -9,6 +9,8 @@ import ImageGallery from '@components/ImageGallery'
 import Notice from '@components/Notice'
 import SurfaceCard from '@components/SurfaceCard'
 import EventPublishedProposals from '@components/EventPublishedProposals'
+import tariffsAtom from '@state/atoms/tariffsAtom'
+import { getUserTariffAccess } from '@helpers/tariffAccess'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { canUseProposalBuilder } from '@helpers/proposalAccess'
 import TextLine from '@components/TextLine'
@@ -340,6 +342,7 @@ const eventViewFunc = (eventId, options = {}) => {
   }) => {
     const { data: event, isPending, isError } = useEventQuery(eventId)
     const loggedUser = useAtomValue(loggedUserAtom)
+    const tariffs = useAtomValue(tariffsAtom)
     const services = useAtomValue(servicesAtom)
     const { data: transactions = [] } = useTransactionsQuery(undefined, {
       enabled: false,
@@ -828,7 +831,7 @@ const eventViewFunc = (eventId, options = {}) => {
               </SectionBlock>
             )}
 
-            {canUseProposalBuilder(loggedUser) ? (
+            {canUseProposalBuilder(getUserTariffAccess(loggedUser, tariffs)) ? (
               <EventPublishedProposals eventId={event._id} />
             ) : null}
 

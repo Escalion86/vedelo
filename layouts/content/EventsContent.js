@@ -38,6 +38,7 @@ import {
 } from '@helpers/useEventsQuery'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
 import { getEventStatusFlags } from '@helpers/eventStatusFilter'
+import { isPastRequest } from '@helpers/pastRequests'
 import {
   createEventListFiltersState,
   getStatusFilterDefaults,
@@ -110,9 +111,16 @@ const TRANSFERRED_FILTER_META = {
 
 const PAST_QUICK_FILTERS = [
   {
+    key: 'needsDecision',
+    label: 'Требуют решения',
+    statusFilter: { request: true, finished: true, closed: false, canceled: false },
+    transferredMode: 'all',
+  },
+  {
     key: 'needsClose',
     label: 'Нужно закрыть',
     statusFilter: {
+      request: false,
       finished: true,
       closed: false,
       canceled: false,
@@ -123,6 +131,7 @@ const PAST_QUICK_FILTERS = [
     key: 'closed',
     label: 'Закрытые',
     statusFilter: {
+      request: false,
       finished: false,
       closed: true,
       canceled: false,
@@ -133,6 +142,7 @@ const PAST_QUICK_FILTERS = [
     key: 'canceled',
     label: 'Отмененные',
     statusFilter: {
+      request: false,
       finished: false,
       closed: false,
       canceled: true,
@@ -531,6 +541,9 @@ const EventsContent = ({
   useEffect(() => {
     if (filter !== 'past') return
 
+    const requestParam = parseBooleanSearchParam(
+      searchParams?.get('statusRequest')
+    )
     const finishedParam = parseBooleanSearchParam(
       searchParams?.get('statusFinished')
     )
@@ -545,6 +558,7 @@ const EventsContent = ({
     )
 
     if (
+      requestParam === null &&
       finishedParam === null &&
       closedParam === null &&
       transferredParam === null &&
@@ -556,6 +570,8 @@ const EventsContent = ({
     // Deep link задаёт начальные фильтры; последующие изменения делает пользователь.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatusFilter({
+      // Старые ссылки на закрытие/отмену сохраняют прежнюю выборку.
+      request: requestParam ?? false,
       finished:
         finishedParam === null
           ? getStatusFilterDefaults('past').finished
@@ -569,9 +585,9 @@ const EventsContent = ({
           ? getStatusFilterDefaults('past').canceled
           : canceledParam,
     })
-    const hasSelectedStatus = [finishedParam, closedParam, canceledParam].some(
-      (value) => value === true
-    )
+    const hasSelectedStatus = [
+      requestParam, finishedParam, closedParam, canceledParam,
+    ].some((value) => value === true)
     if (transferredParam !== null) {
       setTransferredMode(
         transferredParam ? (hasSelectedStatus ? 'all' : 'only') : 'exclude'
@@ -865,6 +881,7 @@ const EventsContent = ({
     const search = new URLSearchParams({
       scope: 'past',
       countOnly: '1',
+      statusRequest: String(Boolean(statusFilter.request)),
       statusFinished: String(Boolean(statusFilter.finished)),
       statusClosed: String(Boolean(statusFilter.closed)),
       statusCanceled: String(Boolean(statusFilter.canceled)),
@@ -912,6 +929,7 @@ const EventsContent = ({
     statusFilter.canceled,
     statusFilter.closed,
     statusFilter.finished,
+    statusFilter.request,
     transferredMode,
   ])
 
@@ -1254,8 +1272,11 @@ const EventsContent = ({
   const getEventRowHeight = useCallback(
     // Последняя строка — спейсер под плавающую кнопку создания
     // (на телефоне FAB скрыт, а нижняя навигация в потоке — хватает 16px)
-    (index) => (index >= listContentRowCount ? (isPhone ? 16 : 96) : itemHeight),
-    [listContentRowCount, itemHeight, isPhone]
+    (index) => {
+      if (index >= listContentRowCount) return isPhone ? 16 : 96
+      return itemHeight + (isPastRequest(sortedEvents[index], new Date(nowTime)) ? 64 : 0)
+    },
+    [listContentRowCount, itemHeight, isPhone, sortedEvents, nowTime]
   )
 
   const {
@@ -1425,7 +1446,7 @@ const EventsContent = ({
               }
               hint={
                 filter === 'past'
-                  ? `Завершённые и закрытые ${workItemTerms.plural} появятся здесь автоматически.`
+                  ? `Заявки с прошедшей датой, завершённые и закрытые ${workItemTerms.plural} появятся здесь автоматически.`
                   : 'Создайте первую заявку — вручную, голосом или свободным текстом. Дальше Ведело напомнит о следующем контакте и задатке.'
               }
               actionLabel={filter === 'past' ? null : 'Создать заявку'}

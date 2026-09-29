@@ -1,4 +1,4 @@
-export const canUseProposalBuilder = (user) => user?.role === 'dev'
+export const canUseProposalBuilder = (access) => Boolean(access?.allowProposals)
 
 export const PROPOSAL_BUILDER_ACCESS_ERROR =
-  'Коммерческие предложения временно доступны только разработчику'
+  'Коммерческие предложения недоступны на текущем тарифе'

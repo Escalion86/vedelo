@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 import { getRequestsWithoutNextStep } from '@helpers/additionalEvents'
+import { isPastRequest } from '@helpers/pastRequests'
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import getPersonFullName from '@helpers/getPersonFullName'
 import formatDateTime from '@helpers/formatDateTime'
@@ -15,7 +16,7 @@ import AppButton from '@components/AppButton'
 import Notice from '@components/Notice'
 import openEventAdditionalEventEditorModal from '@layouts/modals/modalsFunc/eventAdditionalEventEditorModal'
 
-const RequestsWithoutNextStep = ({ onOpenEvent }) => {
+const RequestsWithoutNextStep = ({ onOpenEvent, now, excludePastRequests = false }) => {
   const { data, isPending, isError, refetch } = useEventsQuery({
     scope: 'drafts',
   })
@@ -27,7 +28,12 @@ const RequestsWithoutNextStep = ({ onOpenEvent }) => {
     latestEvents.current = data?.data ?? []
   }, [data])
   const [visibleCount, setVisibleCount] = useState(5)
-  const requests = useMemo(() => getRequestsWithoutNextStep(data?.data), [data])
+  const requests = useMemo(
+    () => getRequestsWithoutNextStep(data?.data).filter(
+      (event) => !excludePastRequests || !isPastRequest(event, now)
+    ),
+    [data, now, excludePastRequests]
+  )
   const clientsById = useMemo(
     () => new Map(clients.map((client) => [String(client._id), client])),
     [clients]
@@ -102,7 +108,7 @@ const RequestsWithoutNextStep = ({ onOpenEvent }) => {
           <p className="card-muted mb-3 text-sm">
             Здесь заявки без невыполненной задачи с датой. Назначьте звонок,
             встречу или другое действие. Просроченные задачи показаны в
-            «Просрочено».
+            «Просрочено».{excludePastRequests && ' Заявки с прошедшей датой вынесены в отдельный блок.'}
           </p>
           <div className="flex flex-col gap-2">
             {requests.slice(0, visibleCount).map((request) => (

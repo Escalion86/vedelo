@@ -113,3 +113,25 @@ test('commercial proposals inherit document access for legacy tariffs and allow 
   assert.equal(inheritedFromNull.allowProposals, true)
   assert.equal(disabled.allowProposals, false)
 })
+
+
+test('past request control is explicitly enabled by the selected tariff, including trial', () => {
+  for (const trialEndsAt of [undefined, new Date(Date.now() + 60_000).toISOString()]) {
+    for (const flag of [undefined, false, true]) {
+      const user = { tariffId: 'selected', trialEndsAt }
+      const tariffs = [{ _id: 'selected', allowPastRequests: flag }, { _id: 'other', allowPastRequests: true }]
+      assert.equal(getUserTariffAccess(user, tariffs).allowPastRequests, flag === true)
+    }
+    assert.equal(getUserTariffAccess({ trialEndsAt }, []).allowPastRequests, false)
+  }
+})
+
+test('expired registration offer cannot grant past request control', () => {
+  const user = {
+    tariffId: 'offer',
+    registrationOffer: { tariffId: 'offer', endsAt: new Date(Date.now() - 60_000).toISOString() },
+  }
+  const tariffs = [{ _id: 'offer', allowPastRequests: true }]
+  assert.equal(getUserTariffAccess(user, tariffs).allowPastRequests, false)
+  assert.equal(getUserTariffAccess({ ...user, nextChargeAt: new Date(Date.now() + 60_000).toISOString() }, tariffs).allowPastRequests, true)
+})

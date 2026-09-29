@@ -6,7 +6,6 @@ import Proposals from '@models/Proposals'
 import Events from '@models/Events'
 import getTenantContext from '@server/getTenantContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
-import { canUseProposalBuilder } from '@helpers/proposalAccess'
 import { isProposalLogoUrl } from '@helpers/proposalAppearance.mjs'
 import { uploadFilesToEscalionCloud } from '@server/escalionCloud'
 
@@ -17,8 +16,6 @@ const error = (message, status) =>
 export const POST = async (req, { params }) => {
   const { user, tenantId } = await getTenantContext()
   if (!user?._id || !tenantId) return error('Не авторизован', 401)
-  if (!canUseProposalBuilder(user))
-    return error('Нет доступа к предложениям', 403)
   const { id } = await params
   if (!mongoose.Types.ObjectId.isValid(id)) return error('Некорректный ID', 400)
   const proposal = await Proposals.findOne({ _id: id, tenantId }).lean()
