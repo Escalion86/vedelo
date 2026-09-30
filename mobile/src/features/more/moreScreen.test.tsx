@@ -1,7 +1,9 @@
 import React from 'react'
-import { fireEvent, render, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
 import MoreScreen from '../../../app/(tabs)/more'
 
+let mockRole = 'user'
+const mockSummary = jest.fn()
 const mockRefreshUser = jest.fn(() => Promise.resolve())
 const mockRouterPush = jest.fn<void, [unknown]>()
 const mockApiGet = jest.fn(() =>
@@ -49,7 +51,7 @@ jest.mock('@expo/vector-icons', () => ({
 }))
 
 jest.mock('../../shared/api/client', () => ({
-  api: { get: () => mockApiGet() },
+  api: { get: (path: string) => path === '/support-tickets/summary' ? mockSummary() : mockApiGet() },
 }))
 
 jest.mock('../../shared/auth/AuthProvider', () => ({
@@ -62,15 +64,21 @@ jest.mock('../../shared/auth/AuthProvider', () => ({
       secondName: 'Иванова',
       phone: '79000000000',
       email: '',
-      role: 'user',
+      role: mockRole,
       tariffId: 'tariff-id',
       tariffTitle: 'Профи',
     },
   }),
 }))
 
+jest.mock('../../shared/auth/tokenStore', () => ({
+  getAuthSession: async () => ({ user: { role: mockRole } }),
+}))
+
 describe('MoreScreen tariff card', () => {
   beforeEach(() => {
+    mockRole = 'user'
+    mockSummary.mockReset().mockResolvedValue({ success: true, data: { unreadCount: 7 } })
     mockRefreshUser.mockClear()
     mockRouterPush.mockClear()
     mockApiGet.mockClear()
@@ -90,5 +98,41 @@ describe('MoreScreen tariff card', () => {
     fireEvent.press(screen.getByTestId('more-change-tariff'))
 
     expect(mockRouterPush).toHaveBeenCalledWith('/billing')
+  })
+})
+
+
+describe('MoreScreen support access', () => {
+  beforeEach(() => {
+    mockSummary.mockReset().mockResolvedValue({ success: true, data: { unreadCount: 7 } })
+  })
+
+  it('показывает собственный счётчик пользователю', async () => {
+    mockRole = 'user'
+    const screen = render(<MoreScreen />)
+    await screen.findByText('7')
+    expect(mockSummary).toHaveBeenCalledTimes(1)
+  })
+
+  it('не запрашивает глобальный счётчик для dev и сохраняет личный тариф', async () => {
+    mockRole = 'dev'
+    const screen = render(<MoreScreen />)
+    await screen.findByText('Тариф: DEV')
+    expect(mockSummary).not.toHaveBeenCalled()
+    expect(screen.queryByText('7')).toBeNull()
+    expect(screen.getByText('Обратная связь')).toBeTruthy()
+  })
+
+  it('убирает счётчик при смене роли и игнорирует запоздавший ответ', async () => {
+    mockRole = 'user'
+    let resolveSummary!: (value: unknown) => void
+    mockSummary.mockReturnValue(new Promise((resolve) => { resolveSummary = resolve }))
+    const screen = render(<MoreScreen />)
+    await waitFor(() => expect(mockSummary).toHaveBeenCalledTimes(1))
+    mockRole = 'dev'
+    screen.rerender(<MoreScreen />)
+    await act(async () => { resolveSummary({ data: { unreadCount: 42 } }) })
+    expect(mockSummary).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('42')).toBeNull()
   })
 })

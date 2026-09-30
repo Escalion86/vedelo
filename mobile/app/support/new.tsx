@@ -1,5 +1,6 @@
+import { SupportUserAccess } from '../../src/features/support/SupportUserAccess'
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text } from 'react-native'
 import NetInfo from '@react-native-community/netinfo'
 import { router } from 'expo-router'
 import { Button, ErrorNotice, Field, PageHeader, Screen, SectionTitle, Surface } from '../../src/shared/ui/components'
@@ -11,6 +12,10 @@ import type { SelectedSupportImage, SupportCategory } from '../../src/features/s
 const choices: Array<[SupportCategory, string]> = [['bug', 'Ошибка'], ['idea', 'Идея'], ['question', 'Вопрос']]
 
 export default function NewSupportTicketScreen() {
+  return <SupportUserAccess><UserNewSupportTicketScreen /></SupportUserAccess>
+}
+
+function UserNewSupportTicketScreen() {
   const [category, setCategory] = useState<SupportCategory>('bug')
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')

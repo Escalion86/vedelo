@@ -12,10 +12,9 @@ import {
   Surface,
 } from '../../shared/ui/components'
 import { colors, radius, spacing } from '../../shared/ui/theme'
-import { AiUsagePanel } from './AiUsagePanel'
+import { AiUsagePanel, type AiProvider } from './AiUsagePanel'
 
 type Provider = 'telephony' | 'ai' | 'public-leads'
-type AiProvider = 'artistcrm' | 'aitunnel' | 'deepseek'
 type ApiKeyMetadata = {
   id: string
   name: string
@@ -31,10 +30,9 @@ type ManagedStatus = {
   status?: string
   transcriptionModel?: string
   analysisModel?: string
-  analysisProvider?: AiProvider
+  analysisProvider?: string
   transcriptionProvider?: string
   hasTranscriptionKey?: boolean
-  canUseDeepseek?: boolean
   platformConfigured?: boolean
   endpoint?: string
   keys?: ApiKeyMetadata[]
@@ -44,6 +42,9 @@ type OneTimeSecret = {
   value: string
   webhookUrl?: string
 }
+
+const parseAiProvider = (value?: string): AiProvider | null =>
+  value === 'artistcrm' || value === 'aitunnel' ? value : null
 
 const titles: Record<Provider, string> = {
   telephony: 'Novofon',
@@ -86,7 +87,7 @@ export function ManagedIntegrationsSection({
   const [sourceName, setSourceName] = useState('')
   const [transcriptionModel, setTranscriptionModel] = useState('whisper-1')
   const [analysisModel, setAnalysisModel] = useState('gpt-4o-mini')
-  const [aiProvider, setAiProvider] = useState<AiProvider>('artistcrm')
+  const [aiProvider, setAiProvider] = useState<AiProvider | null>(null)
   const [confirmAction, setConfirmAction] = useState('')
 
   const clearSensitiveState = () => {
@@ -110,14 +111,9 @@ export function ManagedIntegrationsSection({
     )
     setDetails(response.data)
     if (provider === 'ai') {
-      setAiProvider(response.data.analysisProvider || 'artistcrm')
+      setAiProvider(parseAiProvider(response.data.analysisProvider))
       setTranscriptionModel(response.data.transcriptionModel || 'whisper-1')
-      setAnalysisModel(
-        response.data.analysisModel ||
-          (response.data.analysisProvider === 'deepseek'
-            ? 'deepseek-v4-flash'
-            : 'gpt-4o-mini')
-      )
+      setAnalysisModel(response.data.analysisModel || 'gpt-4o-mini')
     }
     return response.data
   }
@@ -129,6 +125,7 @@ export function ManagedIntegrationsSection({
     clearSensitiveState()
     setSelected(provider)
     setDetails(null)
+    setAiProvider(null)
     try {
       await refresh(provider)
     } catch (reason) {
@@ -180,8 +177,9 @@ export function ManagedIntegrationsSection({
   }
 
   const connectAi = async () => {
+    if (!aiProvider || !details) return
     if (aiProvider !== 'artistcrm' && !credential.trim()) {
-      setError(`Укажите ключ ${aiProvider === 'deepseek' ? 'DeepSeek' : 'AITunnel'}`)
+      setError('Укажите ключ AITunnel')
       return
     }
     setLoading(true)
@@ -197,7 +195,7 @@ export function ManagedIntegrationsSection({
       setCredential('')
       await finishMutation(
         'ai',
-        `${aiProvider === 'deepseek' ? 'DeepSeek' : aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'} подключён`
+        `${aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'} подключён`
       )
     } catch (reason) {
       setCredential('')
@@ -396,6 +394,7 @@ export function ManagedIntegrationsSection({
       </> : null}
 
       {selected === 'ai' ? <>
+        {details && !parseAiProvider(details.analysisProvider) ? <ErrorNotice message="Сохранённый ИИ-провайдер не поддерживается в пользовательском приложении. Настройки на сервере не изменены. Для смены выберите и подключите ИИ Ведело или свой AITunnel." /> : null}
         <Text style={styles.muted}>Общий ИИ Ведело оплачивается из баланса. При собственном AITunnel списаний со стороны Ведело нет.</Text>
         <Button
           title={aiProvider === 'artistcrm' ? '✓ ИИ Ведело' : 'ИИ Ведело'}
@@ -406,60 +405,50 @@ export function ManagedIntegrationsSection({
             setTranscriptionModel('whisper-1')
             setCredential('')
           }}
-          disabled={loading}
+          disabled={loading || !details}
         />
         <Button
           title={aiProvider === 'aitunnel' ? '✓ Свой AITunnel' : 'Свой AITunnel'}
           variant={aiProvider === 'aitunnel' ? undefined : 'secondary'}
           onPress={() => {
             setAiProvider('aitunnel')
+            setTranscriptionModel('whisper-1')
             setAnalysisModel('gpt-4o-mini')
             setCredential('')
           }}
-          disabled={loading}
+          disabled={loading || !details}
         />
-        {details?.canUseDeepseek ? <Button
-          title={aiProvider === 'deepseek' ? '✓ DeepSeek' : 'DeepSeek'}
-          variant={aiProvider === 'deepseek' ? undefined : 'secondary'}
-          onPress={() => {
-            setAiProvider('deepseek')
-            setAnalysisModel('deepseek-v4-flash')
-            setCredential('')
-          }}
-          disabled={loading}
-        /> : null}
-        {aiProvider !== 'artistcrm' ? <Field
-          label={`API-ключ ${aiProvider === 'deepseek' ? 'DeepSeek' : 'AITunnel'}`}
+        {aiProvider === 'aitunnel' ? <Field
+          label="API-ключ AITunnel"
           value={credential}
           onChangeText={setCredential}
           secureTextEntry
           autoCapitalize="none"
-        /> : <Text style={styles.muted}>
+        /> : aiProvider === 'artistcrm' ? <Text style={styles.muted}>
           Ключ не нужен. Перед запросом баланс должен быть больше средней стоимости такой операции.
-        </Text>}
+        </Text> : null}
         {aiProvider === 'aitunnel' ? <Field
           label="Модель распознавания"
           value={transcriptionModel}
           onChangeText={setTranscriptionModel}
           autoCapitalize="none"
-        /> : aiProvider === 'deepseek' ? <Text style={styles.muted}>
-          DeepSeek работает с готовым текстом. Расшифровка записей звонков требует отдельно подключённого AITunnel.
-        </Text> : null}
-        {aiProvider !== 'artistcrm' ? <Field label="Модель AI-анализа" value={analysisModel} onChangeText={setAnalysisModel} autoCapitalize="none" /> : null}
-        <Button
+        /> : null}
+        {aiProvider === 'aitunnel' ? <Field label="Модель AI-анализа" value={analysisModel} onChangeText={setAnalysisModel} autoCapitalize="none" /> : null}
+        {aiProvider ? <Button
           title={details?.analysisProvider === aiProvider && details?.configured
             ? aiProvider === 'artistcrm' ? 'Включить ИИ Ведело' : 'Заменить ключ и включить'
-            : `Подключить ${aiProvider === 'deepseek' ? 'DeepSeek' : aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'}`}
+            : `Подключить ${aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'}`}
           onPress={connectAi}
           loading={loading}
-        />
-        {details?.analysisProvider === aiProvider && details?.configured ? <>
+          disabled={!details}
+        /> : null}
+        {aiProvider && details?.analysisProvider === aiProvider && details?.configured ? <>
           {aiProvider !== 'artistcrm' ? <Button
             title="Сохранить модель"
             variant="secondary"
             onPress={() => updateAi(
               { provider: aiProvider, transcriptionModel, analysisModel },
-              `Модель ${aiProvider === 'deepseek' ? 'DeepSeek' : 'AITunnel'} сохранена`
+              'Модель AITunnel сохранена'
             )}
             disabled={loading}
           /> : null}
@@ -475,8 +464,7 @@ export function ManagedIntegrationsSection({
         </> : null}
         {details ? (
           <AiUsagePanel
-            activeProvider={aiProvider}
-            isDeveloper={Boolean(details.canUseDeepseek)}
+            activeProvider={parseAiProvider(details.analysisProvider)}
           />
         ) : null}
       </> : null}

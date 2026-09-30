@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { api } from '../../shared/api/client'
-import { Button, ErrorNotice, Field } from '../../shared/ui/components'
+import { Button, ErrorNotice } from '../../shared/ui/components'
 import { colors, radius, spacing } from '../../shared/ui/theme'
 
-type AiProvider = 'artistcrm' | 'aitunnel' | 'deepseek'
+export type AiProvider = 'artistcrm' | 'aitunnel'
 
 type AiUsageItem = {
   id: string
@@ -29,37 +29,6 @@ type UserAiUsage = {
     charged: number
   }
   recent: AiUsageItem[]
-}
-
-type AdminAiUsage = {
-  summary: {
-    operations: number
-    providerCost: number
-    charged: number
-    margin: number
-    uncovered: number
-  }
-  breakdown: Array<{
-    feature: string
-    operations: number
-    providerCost: number
-    charged: number
-  }>
-  users: Array<{
-    tenantId: string
-    name: string
-    email: string
-    balance: number
-    operations: number
-    providerCost: number
-    charged: number
-    margin: number
-  }>
-}
-
-type AiBillingSettings = {
-  markupCoefficient: number
-  platformConfigured: boolean
 }
 
 const featureLabels: Record<string, string> = {
@@ -107,51 +76,25 @@ const Metric = ({ label, value }: { label: string; value: string }) => (
 
 export const AiUsagePanel = ({
   activeProvider,
-  isDeveloper,
 }: {
-  activeProvider: AiProvider
-  isDeveloper: boolean
+  activeProvider: AiProvider | null
 }) => {
   const [usage, setUsage] = useState<UserAiUsage | null>(null)
-  const [adminUsage, setAdminUsage] = useState<AdminAiUsage | null>(null)
-  const [settings, setSettings] = useState<AiBillingSettings | null>(null)
-  const [coefficient, setCoefficient] = useState('1.5')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true)
       setError('')
       try {
-        const userPromise = api.get<{ success: true; data: UserAiUsage }>(
+        const userResponse = await api.get<{ success: true; data: UserAiUsage }>(
           '/ai/usage',
           { signal }
         )
-        const developerPromise = isDeveloper
-          ? Promise.all([
-              api.get<{ success: true; data: AiBillingSettings }>(
-                '/ai/settings',
-                { signal }
-              ),
-              api.get<{ success: true; data: AdminAiUsage }>(
-                '/ai/usage?scope=admin',
-                { signal }
-              ),
-            ])
-          : Promise.resolve([null, null] as const)
-        const [userResponse, [settingsResponse, adminResponse]] =
-          await Promise.all([userPromise, developerPromise])
         if (signal?.aborted) return
 
         setUsage(userResponse.data)
-        setSettings(settingsResponse?.data || null)
-        setAdminUsage(adminResponse?.data || null)
-        if (settingsResponse?.data) {
-          setCoefficient(String(settingsResponse.data.markupCoefficient))
-        }
       } catch (reason) {
         if (signal?.aborted) return
         setError(
@@ -163,7 +106,7 @@ export const AiUsagePanel = ({
         if (!signal?.aborted) setLoading(false)
       }
     },
-    [isDeveloper]
+    []
   )
 
   useEffect(() => {
@@ -171,35 +114,6 @@ export const AiUsagePanel = ({
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
-
-  const saveCoefficient = async () => {
-    const value = Number(String(coefficient).replace(',', '.'))
-    if (!Number.isFinite(value) || value < 1 || value > 10) {
-      setError('Коэффициент должен быть от 1 до 10')
-      return
-    }
-    setSaving(true)
-    setError('')
-    setMessage('')
-    try {
-      const response = await api.post<{
-        success: true
-        data: AiBillingSettings
-      }>('/ai/settings', { markupCoefficient: value })
-      setSettings(response.data)
-      setCoefficient(String(response.data.markupCoefficient))
-      setMessage('Коэффициент наценки сохранён')
-      await load()
-    } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : 'Не удалось сохранить коэффициент'
-      )
-    } finally {
-      setSaving(false)
-    }
-  }
 
   if (loading && !usage) {
     return (
@@ -211,7 +125,6 @@ export const AiUsagePanel = ({
   }
 
   const platformActive = activeProvider === 'artistcrm'
-  const adminSummary = adminUsage?.summary
 
   return (
     <View style={styles.container}>
@@ -227,174 +140,88 @@ export const AiUsagePanel = ({
       </View>
 
       {error ? <ErrorNotice message={error} /> : null}
-      {message ? <Text style={styles.success}>{message}</Text> : null}
 
-      <View style={styles.metrics}>
-        <Metric label="Баланс" value={formatMoney(usage?.balance)} />
-        <Metric
-          label="Макс. текущий порог"
-          value={formatMoney(usage?.requiredBalance)}
-        />
-        <Metric
-          label="Всего списано"
-          value={formatMoney(usage?.summary?.charged)}
-        />
-        <Metric
-          label="Операции"
-          value={String(usage?.summary?.operations || 0)}
-        />
-      </View>
-
-      {!usage?.platformConfigured ? (
-        <View style={[styles.notice, styles.dangerNotice]}>
-          <Text style={styles.dangerText}>
-            Общий ИИ временно не настроен администратором.
-          </Text>
-        </View>
-      ) : platformActive && !usage.available ? (
-        <View style={[styles.notice, styles.warningNotice]}>
-          <Text style={styles.warningText}>
-            Для части операций недостаточно средств. Баланс должен быть больше
-            средней стоимости нужной операции.
-          </Text>
-        </View>
-      ) : !platformActive ? (
-        <View style={[styles.notice, styles.neutralNotice]}>
-          <Text style={styles.muted}>
-            Сейчас используется собственный провайдер. Ведело не списывает
-            баланс за такие запросы.
-          </Text>
-        </View>
-      ) : (
-        <View style={[styles.notice, styles.successNotice]}>
-          <Text style={styles.successText}>Общий ИИ доступен.</Text>
-        </View>
-      )}
-
-      {(usage?.quotes || []).length > 0 ? (
-        <View style={styles.listBox}>
-          <Text style={styles.listTitle}>Пороги по операциям</Text>
-          {usage?.quotes.map((quote) => (
-            <View key={quote.feature} style={styles.row}>
-              <Text style={styles.rowLabel}>
-                {featureLabels[quote.feature] || quote.feature}
-              </Text>
-              <Text style={quote.available ? styles.rowValue : styles.warningText}>
-                больше {formatMoney(quote.requiredBalance)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      {(usage?.recent || []).length > 0 ? (
-        <View style={styles.listBox}>
-          <Text style={styles.listTitle}>Последние операции</Text>
-          {usage?.recent.slice(0, 5).map((item) => (
-            <View key={item.id} style={styles.row}>
-              <View style={styles.grow}>
-                <Text style={styles.rowLabel}>
-                  {featureLabels[item.feature] || item.feature}
-                </Text>
-                <Text style={styles.muted}>{formatDateTime(item.createdAt)}</Text>
-              </View>
-              <Text style={styles.rowValue}>{operationStatus(item)}</Text>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.muted}>Операций общего ИИ пока нет.</Text>
-      )}
-
-      {isDeveloper ? (
-        <View style={styles.adminBox}>
-          <Text style={styles.sectionTitle}>Администрирование</Text>
-          <Text style={styles.muted}>
-            Фактическая стоимость AITunnel умножается на этот коэффициент.
-          </Text>
-          <Field
-            testID="ai-markup-coefficient"
-            label="Коэффициент наценки"
-            value={coefficient}
-            onChangeText={setCoefficient}
-            keyboardType="decimal-pad"
-          />
-          <Button
-            title="Сохранить коэффициент"
-            onPress={saveCoefficient}
-            loading={saving}
-            disabled={loading}
-          />
-          {!settings?.platformConfigured ? (
-            <Text style={styles.dangerText}>AITUNNEL_KEY не настроен.</Text>
-          ) : null}
-
+      {usage ? (
+        <>
           <View style={styles.metrics}>
+            <Metric label="Баланс" value={formatMoney(usage?.balance)} />
             <Metric
-              label="Себестоимость"
-              value={formatMoney(adminSummary?.providerCost)}
+              label="Макс. текущий порог"
+              value={formatMoney(usage?.requiredBalance)}
             />
             <Metric
-              label="Списано"
-              value={formatMoney(adminSummary?.charged)}
+              label="Всего списано"
+              value={formatMoney(usage?.summary?.charged)}
             />
-            <Metric label="Маржа" value={formatMoney(adminSummary?.margin)} />
             <Metric
-              label="Всего операций"
-              value={String(adminSummary?.operations || 0)}
+              label="Операции"
+              value={String(usage?.summary?.operations || 0)}
             />
           </View>
 
-          {(adminUsage?.breakdown || []).length > 0 ? (
+          {activeProvider === null ? (
+            <Text style={styles.muted}>Текущий провайдер не поддерживается приложением.</Text>
+          ) : !usage?.platformConfigured ? (
+            <View style={[styles.notice, styles.dangerNotice]}>
+              <Text style={styles.dangerText}>
+                Общий ИИ временно не настроен администратором.
+              </Text>
+            </View>
+          ) : platformActive && !usage.available ? (
+            <View style={[styles.notice, styles.warningNotice]}>
+              <Text style={styles.warningText}>
+                Для части операций недостаточно средств. Баланс должен быть больше
+                средней стоимости нужной операции.
+              </Text>
+            </View>
+          ) : !platformActive ? (
+            <View style={[styles.notice, styles.neutralNotice]}>
+              <Text style={styles.muted}>
+                Сейчас используется собственный провайдер. Ведело не списывает
+                баланс за такие запросы.
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.notice, styles.successNotice]}>
+              <Text style={styles.successText}>Общий ИИ доступен.</Text>
+            </View>
+          )}
+
+          {(usage?.quotes || []).length > 0 ? (
             <View style={styles.listBox}>
-              <Text style={styles.listTitle}>По функциям</Text>
-              {adminUsage?.breakdown.map((item) => (
-                <View key={item.feature} style={styles.adminRow}>
+              <Text style={styles.listTitle}>Пороги по операциям</Text>
+              {usage?.quotes.map((quote) => (
+                <View key={quote.feature} style={styles.row}>
+                  <Text style={styles.rowLabel}>
+                    {featureLabels[quote.feature] || quote.feature}
+                  </Text>
+                  <Text style={quote.available ? styles.rowValue : styles.warningText}>
+                    больше {formatMoney(quote.requiredBalance)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {(usage?.recent || []).length > 0 ? (
+            <View style={styles.listBox}>
+              <Text style={styles.listTitle}>Последние операции</Text>
+              {usage?.recent.slice(0, 5).map((item) => (
+                <View key={item.id} style={styles.row}>
                   <View style={styles.grow}>
                     <Text style={styles.rowLabel}>
                       {featureLabels[item.feature] || item.feature}
                     </Text>
-                    <Text style={styles.muted}>{item.operations} операций</Text>
+                    <Text style={styles.muted}>{formatDateTime(item.createdAt)}</Text>
                   </View>
-                  <View style={styles.right}>
-                    <Text style={styles.rowValue}>{formatMoney(item.charged)}</Text>
-                    <Text style={styles.muted}>
-                      затраты {formatMoney(item.providerCost)}
-                    </Text>
-                  </View>
+                  <Text style={styles.rowValue}>{operationStatus(item)}</Text>
                 </View>
               ))}
             </View>
-          ) : null}
-
-          {(adminUsage?.users || []).length > 0 ? (
-            <View style={styles.listBox}>
-              <Text style={styles.listTitle}>Основные пользователи</Text>
-              {adminUsage?.users.slice(0, 5).map((item) => (
-                <View key={item.tenantId} style={styles.adminRow}>
-                  <View style={styles.grow}>
-                    <Text style={styles.rowLabel}>{item.name}</Text>
-                    <Text style={styles.muted}>
-                      {item.operations} операций · баланс {formatMoney(item.balance)}
-                    </Text>
-                  </View>
-                  <View style={styles.right}>
-                    <Text style={styles.rowValue}>{formatMoney(item.charged)}</Text>
-                    <Text style={styles.muted}>
-                      маржа {formatMoney(item.margin)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {Number(adminSummary?.uncovered || 0) > 0 ? (
-            <Text style={styles.warningText}>
-              Не покрыто балансом: {formatMoney(adminSummary?.uncovered)}
-            </Text>
-          ) : null}
-        </View>
+          ) : (
+            <Text style={styles.muted}>Операций общего ИИ пока нет.</Text>
+          )}
+        </>
       ) : null}
     </View>
   )
@@ -440,7 +267,6 @@ const styles = StyleSheet.create({
   dangerText: { color: colors.danger, fontSize: 12, lineHeight: 18 },
   warningText: { color: colors.warning, fontSize: 12, lineHeight: 18 },
   successText: { color: colors.success, fontSize: 12, fontWeight: '700' },
-  success: { color: colors.success, fontSize: 13, fontWeight: '700' },
   muted: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
   listBox: {
     gap: spacing.xs,
@@ -460,25 +286,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
-  adminRow: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: spacing.sm,
-  },
   rowLabel: { flexShrink: 1, color: colors.text, fontSize: 12, fontWeight: '600' },
   rowValue: { color: colors.text, fontSize: 12, fontWeight: '700' },
   grow: { flex: 1 },
-  right: { alignItems: 'flex-end' },
-  adminBox: {
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-  },
 })

@@ -1,8 +1,8 @@
+import { SupportUserAccess } from '../../src/features/support/SupportUserAccess'
 import { useCallback, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { useAuth } from '../../src/shared/auth/AuthProvider'
 import { Button, EmptyState, ErrorNotice, PageHeader, Screen, StatusChip, Surface } from '../../src/shared/ui/components'
 import { colors, spacing } from '../../src/shared/ui/theme'
 import { listSupportTickets } from '../../src/features/support/api'
@@ -12,8 +12,10 @@ const categories = { bug: 'Ошибка', idea: 'Идея', question: 'Вопр�
 const statuses = { open: 'Открыт', in_progress: 'В работе', resolved: 'Решён' }
 
 export default function SupportTicketsScreen() {
-  const { user } = useAuth()
-  const developer = user?.role === 'dev'
+  return <SupportUserAccess><UserSupportTicketsScreen /></SupportUserAccess>
+}
+
+function UserSupportTicketsScreen() {
   const [items, setItems] = useState<SupportTicket[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -38,6 +40,6 @@ export default function SupportTicketsScreen() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось загрузить обращения') }
     finally { setLoading(false) }
   }
-  return <Screen><PageHeader title="Обратная связь" subtitle={developer ? 'Обращения пользователей' : 'Диалог с разработчиком'} action={!developer ? <Pressable accessibilityLabel="Новое обращение" style={styles.add} onPress={() => router.push('/support/new' as never)}><MaterialCommunityIcons name="plus" size={24} color="#fff" /></Pressable> : undefined} />{error ? <ErrorNotice message={error} /> : null}<View style={styles.list}>{items.map((ticket) => <Pressable key={ticket.id} onPress={() => router.push(`/support/${ticket.id}` as never)}><Surface><View style={styles.row}><View style={[styles.dot, ticket.unread && styles.dotUnread]} /><View style={styles.grow}><View style={styles.meta}><StatusChip label={categories[ticket.category]} tone="neutral" /><Text style={styles.muted}>{statuses[ticket.status]}</Text></View><Text style={[styles.title, ticket.unread && styles.unread]}>{ticket.title}</Text>{developer && ticket.createdByLabel ? <Text style={styles.muted}>{ticket.createdByLabel}</Text> : null}<Text style={styles.date}>{new Date(ticket.lastMessageAt).toLocaleString('ru-RU')}</Text></View><MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} /></View></Surface></Pressable>)}{!loading && !items.length ? <EmptyState title="Обращений пока нет" description={developer ? 'Новые тикеты пользователей появятся здесь.' : 'Создайте обращение, чтобы написать разработчику.'} /> : null}{cursor ? <Button title="Показать ещё" variant="secondary" onPress={loadMore} loading={loading} /> : null}{loading && !items.length ? <Text style={styles.loading}>Загружаем…</Text> : null}</View></Screen>
+  return <Screen><PageHeader title="Обратная связь" subtitle="Диалог с разработчиком" action={ <Pressable accessibilityLabel="Новое обращение" style={styles.add} onPress={() => router.push('/support/new' as never)}><MaterialCommunityIcons name="plus" size={24} color="#fff" /></Pressable>} />{error ? <ErrorNotice message={error} /> : null}<View style={styles.list}>{items.map((ticket) => <Pressable key={ticket.id} onPress={() => router.push(`/support/${ticket.id}` as never)}><Surface><View style={styles.row}><View style={[styles.dot, ticket.unread && styles.dotUnread]} /><View style={styles.grow}><View style={styles.meta}><StatusChip label={categories[ticket.category]} tone="neutral" /><Text style={styles.muted}>{statuses[ticket.status]}</Text></View><Text style={[styles.title, ticket.unread && styles.unread]}>{ticket.title}</Text><Text style={styles.date}>{new Date(ticket.lastMessageAt).toLocaleString('ru-RU')}</Text></View><MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} /></View></Surface></Pressable>)}{!loading && !items.length ? <EmptyState title="Обращений пока нет" description="Создайте обращение, чтобы написать разработчику." /> : null}{cursor ? <Button title="Показать ещё" variant="secondary" onPress={loadMore} loading={loading} /> : null}{loading && !items.length ? <Text style={styles.loading}>Загружаем…</Text> : null}</View></Screen>
 }
 const styles = StyleSheet.create({ add: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary }, list: { gap: spacing.sm }, row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, grow: { flex: 1 }, dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.border }, dotUnread: { backgroundColor: colors.danger }, meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, title: { marginTop: 6, color: colors.text, fontSize: 15, fontWeight: '600' }, unread: { fontWeight: '800' }, muted: { color: colors.textMuted, fontSize: 12 }, date: { marginTop: 4, color: colors.textMuted, fontSize: 11 }, loading: { padding: spacing.lg, textAlign: 'center', color: colors.textMuted } })

@@ -7,6 +7,7 @@ import { api } from '../../src/shared/api/client'
 import { getTariffDisplayName } from '../../src/shared/domain/tariff'
 import { formatBalanceRunway } from '../../src/features/billing/format'
 import type { MobileBilling } from '../../src/features/billing/types'
+import { canUseUserSupport } from '../../src/features/support/userAccess'
 import { getSupportUnreadCount } from '../../src/features/support/api'
 import { PageHeader, Screen, SectionTitle, Surface } from '../../src/shared/ui/components'
 import { colors, spacing } from '../../src/shared/ui/theme'
@@ -34,6 +35,7 @@ export default function MoreScreen() {
   const { refreshUser, user } = useAuth()
   const [billing, setBilling] = useState<MobileBilling | null>(null)
   const [supportUnread, setSupportUnread] = useState(0)
+  const supportAvailable = canUseUserSupport(user)
   const tariffName = billing?.currentTariff?.title || getTariffDisplayName(user)
 
   useFocusEffect(
@@ -46,13 +48,16 @@ export default function MoreScreen() {
           if (active) setBilling(response.data)
         })
         .catch(() => undefined)
-      getSupportUnreadCount()
-        .then((response) => { if (active) setSupportUnread(response.data.unreadCount || 0) })
-        .catch(() => undefined)
+      setSupportUnread(0)
+      if (supportAvailable && user?._id && user?.tenantId) {
+        getSupportUnreadCount()
+          .then((response) => { if (active) setSupportUnread(response.data.unreadCount || 0) })
+          .catch(() => undefined)
+      }
       return () => {
         active = false
       }
-    }, [refreshUser])
+    }, [refreshUser, supportAvailable, user?._id, user?.tenantId])
   )
 
   return (
@@ -77,7 +82,7 @@ export default function MoreScreen() {
           <View style={styles.tariffIcon}><MaterialCommunityIcons name="credit-card-outline" size={20} color={colors.primary} /></View><View style={styles.profileText}><Text style={styles.tariffActionTitle}>Тариф: {tariffName}</Text><Text style={styles.tariffActionSubtitle}>{formatBalanceRunway(billing)}</Text></View><MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />
         </Pressable>
       </Surface>
-      {sections.map((section) => <View key={section.title} style={styles.section}><SectionTitle>{section.title}</SectionTitle><Surface>{section.items.map(([iconName, title, subtitle, href], index) => <Pressable key={href} style={[styles.row, index > 0 && styles.rowBorder]} onPress={() => router.push(href as never)}><View style={styles.icon}><MaterialCommunityIcons name={iconName} size={22} color={colors.primary} /></View><View style={styles.rowText}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowSubtitle}>{subtitle}</Text></View>{href === '/support' && supportUnread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{supportUnread > 99 ? '!' : supportUnread}</Text></View> : null}<MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} /></Pressable>)}</Surface></View>)}
+      {sections.map((section) => <View key={section.title} style={styles.section}><SectionTitle>{section.title}</SectionTitle><Surface>{section.items.map(([iconName, title, subtitle, href], index) => <Pressable key={href} style={[styles.row, index > 0 && styles.rowBorder]} onPress={() => router.push(href as never)}><View style={styles.icon}><MaterialCommunityIcons name={iconName} size={22} color={colors.primary} /></View><View style={styles.rowText}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowSubtitle}>{subtitle}</Text></View>{href === '/support' && supportAvailable && supportUnread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{supportUnread > 99 ? '!' : supportUnread}</Text></View> : null}<MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} /></Pressable>)}</Surface></View>)}
     </Screen>
   )
 }
