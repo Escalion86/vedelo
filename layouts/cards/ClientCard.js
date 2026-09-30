@@ -169,7 +169,6 @@ const ClientCard = ({ client, style, onEdit, onView, onDelete }) => {
               user={client}
               showChat
               compactButtons
-              forceTelegram={false}
               className="my-0 justify-end"
             />
           </div>
