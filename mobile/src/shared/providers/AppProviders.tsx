@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type PropsWithChildren } from 'react'
 import { AuthProvider } from '../auth/AuthProvider'
+import { ThemeProvider } from '../ui/ThemeProvider'
 
 export const AppProviders = ({ children }: PropsWithChildren) => {
   const [queryClient] = useState(
@@ -14,8 +15,11 @@ export const AppProviders = ({ children }: PropsWithChildren) => {
   )
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
-    </QueryClientProvider>
+    // Stage AJ removes the light lock after all user screens are migrated.
+    <ThemeProvider forcedMode="light">
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>{children}</AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }
