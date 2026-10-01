@@ -4,7 +4,8 @@ import { router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import type { Client, Event, Service, Transaction } from '../../src/shared/domain/types'
 import { useCachedEntities } from '../../src/shared/hooks/useCachedEntities'
-import { EmptyState, ErrorNotice, PageHeader, Screen } from '../../src/shared/ui/components'
+import { Button, EmptyState, ErrorNotice, PageHeader, Screen } from '../../src/shared/ui/components'
+import { isPastUnclosed } from '../../src/features/attention/selectors'
 import { colors, radius, spacing } from '../../src/shared/ui/theme'
 import { EventCalendar } from '../../src/features/events/EventCalendar'
 import { MobileEventCard } from '../../src/features/events/MobileEventCard'
@@ -17,7 +18,7 @@ type EventRow = { key: string; event: Event; occurrence?: EventCalendarOccurrenc
 const filters: Array<[Filter, string]> = [['requests', 'Заявки'], ['upcoming', 'Предстоящие'], ['past', 'Прошедшие'], ['all', 'Все']]
 export default function EventsScreen() {
   const terminology = useWorkItemTerminology()
-  const { filter, setFilter, selection } = useEventsScope()
+  const { filter, setFilter, selection, unclosedOnly } = useEventsScope()
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   useEffect(() => { if (selection > 0) setViewMode('list') }, [selection])
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
@@ -29,13 +30,14 @@ export default function EventsScreen() {
   const events = useMemo(() => {
     const now = Date.now()
     return (query.data || []).filter((event) => {
+      if (unclosedOnly) return isPastUnclosed(event, new Date(now))
       const date = event.eventDate ? new Date(event.eventDate).getTime() : 0
       if (filter === 'requests') return event.status === 'draft'
       if (filter === 'upcoming') return event.status === 'active' && (!date || date >= now)
       if (filter === 'past') return event.status === 'closed' || (date > 0 && date < now)
       return true
     }).sort((a, b) => new Date(a.eventDate || 0).getTime() - new Date(b.eventDate || 0).getTime())
-  }, [filter, query.data])
+  }, [filter, query.data, unclosedOnly])
   const occurrences = useMemo(() => buildEventCalendarOccurrences(events), [events])
   const clientsById = useMemo(
     () => new Map((clientsQuery.data || []).map((client) => [client._id, client])),
@@ -81,11 +83,12 @@ export default function EventsScreen() {
     <Screen scroll={false} contentStyle={styles.screenContent}>
       <PageHeader title={terminology.pluralCapitalized} subtitle="Заявки, календарь и контроль оплат" action={<Pressable testID="add-event" accessibilityRole="button" accessibilityLabel={`Добавить ${terminology.accusative}`} style={styles.add} onPress={() => router.push('/events/edit/new' as never)}><MaterialCommunityIcons name="plus" size={26} color="#fff" /></Pressable>} />
       <ScrollView horizontal style={styles.filterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{filters.map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} style={[styles.filter, filter === value && styles.filterActive]} onPress={() => setFilter(value)}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{label}</Text></Pressable>)}</ScrollView>
+      {unclosedOnly ? <Button title="Не закрыто · Сбросить фильтр" variant="secondary" onPress={() => setFilter('past')} /> : null}
       <View style={styles.viewSwitch}>
         <Pressable testID="events-view-list" accessibilityRole="button" accessibilityState={{ selected: viewMode === 'list' }} style={[styles.viewButton, viewMode === 'list' && styles.viewButtonActive]} onPress={() => setViewMode('list')}><MaterialCommunityIcons name="format-list-bulleted" size={18} color={viewMode === 'list' ? colors.primary : colors.textMuted} /><Text style={[styles.viewText, viewMode === 'list' && styles.viewTextActive]}>Список</Text></Pressable>
         <Pressable testID="events-view-calendar" accessibilityRole="button" accessibilityState={{ selected: viewMode === 'calendar' }} style={[styles.viewButton, viewMode === 'calendar' && styles.viewButtonActive]} onPress={() => setViewMode('calendar')}><MaterialCommunityIcons name="calendar-month-outline" size={18} color={viewMode === 'calendar' ? colors.primary : colors.textMuted} /><Text style={[styles.viewText, viewMode === 'calendar' && styles.viewTextActive]}>Календарь</Text></Pressable>
       </View>
-      {query.error ? <ErrorNotice message="Не удалось прочитать локальный календарь" /> : null}
+      {query.error ? <View><ErrorNotice message="Не удалось прочитать локальный календарь" /><Button title="Повторить чтение" onPress={() => void query.refetch()} /></View> : null}
       <FlatList
         key={viewMode}
         style={styles.eventList}
@@ -102,7 +105,7 @@ export default function EventsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={rows.length || viewMode === 'calendar' ? styles.list : styles.emptyList}
         ListHeaderComponent={viewMode === 'calendar' ? <View style={styles.calendarHeader}><EventCalendar month={month} selectedDateKey={selectedDateKey} counts={occurrenceCounts} undatedCount={events.filter((event) => !event.eventDate).length} onMonthChange={setMonth} onSelectDate={selectDate} /><Text style={styles.selectedDate}>{selectedDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</Text></View> : null}
-        ListEmptyComponent={<EmptyState title={viewMode === 'calendar' ? 'На эту дату записей нет' : 'Здесь пока пусто'} description={viewMode === 'calendar' ? `Выберите другой день или создайте ${terminology.accusative}.` : 'Создайте новую заявку — изменения сохранятся даже без сети.'} />}
+        ListEmptyComponent={query.isError || query.isPending ? null : unclosedOnly ? <EmptyState title="Незакрытых работ не найдено" description="Сбросьте фильтр, чтобы увидеть остальные прошедшие работы." action={{ title: 'Сбросить фильтр', onPress: () => setFilter('past') }} /> : <EmptyState title={viewMode === 'calendar' ? 'На эту дату записей нет' : 'Здесь пока пусто'} description={viewMode === 'calendar' ? `Выберите другой день или создайте ${terminology.accusative}.` : 'Создайте новую заявку — изменения сохранятся даже без сети.'} />}
         renderItem={({ item }) => {
           const eventServices = (item.event.servicesIds || [])
             .map((serviceId) => servicesById.get(serviceId))
