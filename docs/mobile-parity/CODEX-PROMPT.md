@@ -10,10 +10,8 @@
 
 ## Что уже сделано (не переделывать)
 
-Выполнены этапы **A–O** плана: `35172cd` план и разбор отличий, `3f1847c` удаление developer-функций,
-`d2e34fe` токены и тема, `9210145` нижняя панель и меню, `4965928` экран «Важное», `cbe1a15` фильтры-оверлей
-и карточка работы, `52dea55` просмотр работы и каркас трёхсекционного редактора. Отдельно исправлены два
-дефекта PWA (карточка/просмотр пользователя) — коммит `9616b06`.
+Выполнены этапы **A–O** плана; все 13 коммитов лежат поверх актуального `vedelo/codex`. Отдельно исправлены
+два дефекта PWA (карточка и просмотр пользователя).
 
 ## Главные документы
 
@@ -26,7 +24,8 @@
 
 ## Правила, которые нельзя нарушать
 
-1. **Перед началом:** `git fetch origin codex` и `git rev-list --left-right --count origin/codex...HEAD`.
+1. **Перед началом:** `git remote -v` (канонический репозиторий — `vedelo.git`, не `ArtistCRM.git`),
+   затем `git fetch origin codex` и `git rev-list --left-right --count origin/codex...HEAD`.
 2. Меняй только файлы внутри `mobile/` и `docs/`. Web-код (`app/`, `server/`, `layouts/`, `helpers/`,
    `components/`, `models/`, `schemas/`, `state/`) не трогай.
 3. **Не редактируй** `mobile/src/shared/storage/**` и `mobile/src/shared/sync/**` (схема SQLCipher, outbox,
@@ -57,8 +56,8 @@
 4. Прогони проверки и **приведи вывод**:
 
 ```bash
-cd mobile && npm run typecheck   # допустима ровно одна исходная ошибка: src/shared/notifications/index.ts:8
-cd mobile && npm test            # baseline: 56 наборов / 343 теста — не меньше
+cd mobile && npm run typecheck   # ожидается чисто (ноль ошибок)
+cd mobile && npm test            # baseline: 58 наборов / 349 тестов — не меньше
 cd .. && git diff --check
 ```
 

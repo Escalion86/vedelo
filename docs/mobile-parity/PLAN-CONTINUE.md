@@ -9,15 +9,15 @@
 - Репозиторий: `~/projects/ArtistCRM` (Orange Pi) / `D:\Programming\Projects\ArtistCRM` (ПК), ветка **`codex`**.
 - Выполнены этапы **A–O**: `35172cd` (план), `3f1847c` (B+C), `d2e34fe` (D+E), `9210145` (F+G+H), `4965928` (I+J),
   `cbe1a15` (L+M), `52dea55` (N+O). Дальше — заходы **P…AK** по §6.2.
-- Baseline проверок на момент O: `cd mobile && npm run typecheck` даёт **ровно одну** исходную ошибку —
-  в неотслеживаемом чужом `mobile/src/shared/notifications/index.ts:8`; `cd mobile && npm test` —
-  **56 наборов / 343 теста** зелёные. Ухудшение этих чисел = регрессия.
-- Версии: `package.json` 1.20.3, `mobile/app.json` version 1.1.0 / versionCode 18 / package `ru.escalion.vedelo`.
+- Baseline проверок на актуальной базе `vedelo/codex` (версия 1.32.1): `cd mobile && npm run typecheck` —
+  **чисто**, `cd mobile && npm test` — **58 наборов / 349 тестов** зелёные. Ухудшение этих чисел = регрессия.
+- Версии: `package.json` 1.32.1, `mobile/app.json` version 1.1.0 / versionCode 18 / package `ru.escalion.vedelo`.
 
 ## 2. Незыблемые границы (нарушение = откат захода)
 
 1. **Перед началом:** `git fetch origin codex` и `git rev-list --left-right --count origin/codex...HEAD`.
-   Работать от актуального среза, а не от устаревшего `origin/codex`.
+   Работать от актуального среза, а не от устаревшего. Канонический репозиторий — `vedelo.git`
+   (в старом клоне `origin` мог смотреть на устаревший `ArtistCRM.git` — проверить `git remote -v`).
 2. Меняются **только файлы внутри `mobile/`** (+ `docs/`). Web-код (`app/`, `server/`, `layouts/`, `helpers/`,
    `components/`, `models/`, `schemas/`, `state/`) в этом треке не трогается вообще. Исключения возможны только
    по отдельной просьбе владельца.
@@ -55,8 +55,8 @@ systemctl --user is-active astra-stage-<x>
 3. После завершения — **проверить самому**: глазами по дифу, затем
 
 ```bash
-cd ~/projects/ArtistCRM/mobile && npm run typecheck   # допустима ровно 1 исходная ошибка notifications/index.ts
-cd ~/projects/ArtistCRM/mobile && npm test            # 56 наборов / 343 теста — не меньше
+cd mobile && npm run typecheck   # ожидается чисто (ноль ошибок)
+cd mobile && npm test            # 58 наборов / 349 тестов — не меньше
 cd ~/projects/ArtistCRM && git diff --check
 ```
 
