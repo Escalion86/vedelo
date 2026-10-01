@@ -139,7 +139,7 @@ const userViewFunc = (userId, params = {}) => {
 
     return (
       <FormWrapper flex className="flex-col">
-        <ImageGallery images={user?.images} />
+        <ImageGallery images={user?.images} unoptimized />
         <div className="mt-1 flex flex-1 flex-col">
           <div className="relative mb-1 flex min-h-6 items-center gap-x-2">
             {/* {user.status === 'member' && (

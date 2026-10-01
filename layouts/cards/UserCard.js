@@ -145,7 +145,6 @@ const UserCard = ({ userId, user: userProp, hidden = false, style }) => {
             <ContactsIconsButtons
               user={user}
               compactButtons
-              forceTelegram={false}
               className="my-0 justify-end"
             />
           </div>

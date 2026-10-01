@@ -140,6 +140,7 @@ export const UserItem = ({
         alt="Фотография пользователя"
         width={42}
         height={42}
+        unoptimized
       />
       <div className="relative flex flex-1 items-center gap-x-0.5 px-1 py-0.5">
         <div

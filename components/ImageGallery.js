@@ -3,14 +3,16 @@ import Image from 'next/image'
 import ReactImageGallery from 'react-image-gallery'
 import Zoom from 'react-medium-image-zoom'
 
-const ImageGallery = ({ images, noImage, className }) => {
-  if (images?.length === 0 && !noImage) return null
+const ImageGallery = ({ images, noImage, className, unoptimized = false }) => {
+  const items = Array.isArray(images) ? images : []
+
+  if (items.length === 0 && !noImage) return null
 
   return (
     <div className="flex justify-center w-full border border-gray-400 h-60 laptop:h-80">
-      {images?.length > 0 ? (
+      {items.length > 0 ? (
         <ReactImageGallery
-          items={images.map((image) => ({
+          items={items.map((image) => ({
             original: image,
             originalClass:
               'object-contain h-60 laptop:h-80 max-h-60 laptop:max-h-80 w-full',
@@ -24,6 +26,7 @@ const ImageGallery = ({ images, noImage, className }) => {
                 height="0"
                 sizes="100vw"
                 className={e.originalClass}
+                unoptimized={unoptimized}
               />
             </Zoom>
           )}
@@ -43,6 +46,7 @@ const ImageGallery = ({ images, noImage, className }) => {
             height="0"
             sizes="100vw"
             className={className}
+            unoptimized={unoptimized}
           />
         </Zoom>
       )}

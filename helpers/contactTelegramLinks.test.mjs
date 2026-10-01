@@ -15,12 +15,14 @@ test('phone messenger fallbacks can be confirmed or hidden everywhere for client
   const [
     source,
     eventCardSource,
+    userCardSource,
     clientSchemaSource,
     modalSource,
     modalButtonsSource,
   ] = await Promise.all([
     readFile('components/ContactsIconsButtons.js', 'utf8'),
     readFile('layouts/cards/EventCard.js', 'utf8'),
+    readFile('layouts/cards/UserCard.js', 'utf8'),
     readFile('schemas/clientsSchema.js', 'utf8'),
     readFile('layouts/modals/Modal.js', 'utf8'),
     readFile('layouts/modals/ModalButtons.js', 'utf8'),
@@ -34,6 +36,9 @@ test('phone messenger fallbacks can be confirmed or hidden everywhere for client
   assert.doesNotMatch(eventCardSource, /forceTelegram=\{false\}/)
   assert.doesNotMatch(eventCardSource, /handlePhoneMessengerAttempt/)
   assert.match(source, /\[confirmedField\]:\s+provider === 'max' \? maxAction\.phone : targetClient\.phone/)
+  // Карточка пользователя должна показывать Telegram по телефону так же,
+  // как окно просмотра: красная иконка = попытка открыть Telegram по номеру.
+  assert.doesNotMatch(userCardSource, /forceTelegram=\{false\}/)
   assert.match(source, /\[unavailableField\]: true/)
   assert.match(source, /crossActsAsDecline: false/)
   assert.match(source, /neutralButtonName: 'Не знаю'/)
