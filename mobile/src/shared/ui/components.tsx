@@ -13,14 +13,14 @@ export { Notice } from './Notice'
 export { CompactField } from './CompactField'
 export { FilterOverlay, FilterControl } from './FilterOverlay'
 
-export const Screen = ({ children, scroll = true, contentStyle }: PropsWithChildren<{
-  scroll?: boolean; contentStyle?: StyleProp<ViewStyle>
+export const Screen = ({ children, scroll = true, contentStyle, keyboardShouldPersistTaps }: PropsWithChildren<{
+  scroll?: boolean; contentStyle?: StyleProp<ViewStyle>; keyboardShouldPersistTaps?: 'always' | 'never' | 'handled'
 }>) => {
   const styles = useThemeStyles(createStyles)
   const content = <View style={[styles.screenContent, contentStyle]}>{children}</View>
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {scroll ? <ScrollView contentContainerStyle={styles.scrollContent}>{content}</ScrollView> : content}
+      {scroll ? <ScrollView keyboardShouldPersistTaps={keyboardShouldPersistTaps} contentContainerStyle={styles.scrollContent}>{content}</ScrollView> : content}
     </SafeAreaView>
   )
 }

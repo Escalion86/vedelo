@@ -76,6 +76,11 @@ export type Event = {
   contractSum?: number
   isByContract?: boolean
   isTransferred?: boolean
+  colleagueId?: string | null
+  images?: string[]
+  tags?: string[]
+  importedFromFile?: boolean
+  fileImportChecked?: boolean
   waitDeposit?: boolean
   depositDueAt?: string | null
   depositExpectedAmount?: number | null

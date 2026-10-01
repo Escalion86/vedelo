@@ -1,14 +1,19 @@
 import React from 'react'
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
+import { Alert, Keyboard } from 'react-native'
 import EventEditScreen from '../../../app/events/edit/[id]'
 
 let mockParams: Record<string, unknown>
+let mockPrevented = false
+let mockOnRemove: (event: any) => void
+const mockDispatch = jest.fn()
 const mockSave = jest.fn()
 const mockGetEntity = jest.fn()
 const mockReplace = jest.fn()
 const mockInvalidate = jest.fn(async () => undefined)
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
-jest.mock('expo-router', () => ({ router: { replace: (path: unknown) => mockReplace(path) }, useLocalSearchParams: () => mockParams }))
+jest.mock('expo-router', () => ({ router: { replace: (path: unknown) => mockReplace(path) }, useLocalSearchParams: () => mockParams, useNavigation: () => ({ dispatch: mockDispatch }) }))
+jest.mock('@react-navigation/native', () => ({ usePreventRemove: (prevent: boolean, handler: (event: any) => void) => { mockPrevented = prevent; mockOnRemove = handler } }))
 jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }))
 jest.mock('../../shared/storage/cache', () => ({
   listCachedEntities: async () => [], getCachedEntity: (...args: unknown[]) => mockGetEntity(...args),
@@ -39,7 +44,7 @@ it.each([
   await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
   expect(mockSave.mock.calls[0][0]).toMatchObject({ entityType: 'events', values: { status: expected, eventType: 'Тестовая работа' } })
   expect(mockSave.mock.calls[0][0].entityId).toBeUndefined()
-  expect(mockReplace).toHaveBeenCalledWith('/events/local-event')
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/events/local-event'))
 })
 
 it('смена URL не перезаписывает статус и введённые поля в уже открытой форме', async () => {
@@ -73,5 +78,60 @@ it('уход из новой формы ничего не сохраняет', a
   await act(async () => undefined)
   expect(screen.getByText('mode:voice')).toBeTruthy()
   screen.unmount()
+  expect(mockSave).not.toHaveBeenCalled()
+})
+
+it('общий draft переживает смену вкладок, клавиатуру, Back и ошибку сохранения', async () => {
+  mockSave.mockRejectedValueOnce(new Error('Очередь временно недоступна'))
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined)
+  const screen = render(<EventEditScreen />)
+  await screen.findByTestId('event-type')
+  fireEvent.changeText(screen.getByTestId('event-type'), 'Новый заказ')
+  fireEvent.changeText(screen.getByLabelText('Описание'), 'Сохранить текст')
+  fireEvent.press(screen.getByTestId('event-section-finance'))
+  fireEvent.changeText(screen.getByLabelText('Сумма договора'), '17000')
+  fireEvent.press(screen.getByTestId('event-section-contacts'))
+  fireEvent.press(screen.getByText('Добавить следующий контакт'))
+  fireEvent.changeText(screen.getByLabelText('Что сделать'), 'Перезвонить')
+  fireEvent.press(screen.getByTestId('event-section-general'))
+  act(() => Keyboard.dismiss())
+  expect(screen.getByDisplayValue('Новый заказ')).toBeTruthy()
+  expect(mockSave).not.toHaveBeenCalled()
+  expect(mockPrevented).toBe(true)
+  act(() => mockOnRemove({ data: { action: { type: 'GO_BACK' } } }))
+  expect(alert).toHaveBeenCalled()
+  expect(mockDispatch).not.toHaveBeenCalled()
+  expect(screen.getByDisplayValue('Сохранить текст')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('save-event'))
+  await screen.findByText('Очередь временно недоступна')
+  expect(screen.getByDisplayValue('Новый заказ')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('event-section-finance'))
+  expect(screen.getByDisplayValue('17000')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('event-section-contacts'))
+  expect(screen.getByDisplayValue('Перезвонить')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  expect(mockSave).toHaveBeenCalledTimes(2)
+  expect(mockSave.mock.calls[1][0].values).toMatchObject({ eventType: 'Новый заказ', contractSum: 17000,
+    additionalEvents: [expect.objectContaining({ title: 'Перезвонить' })] })
+  alert.mockRestore()
+})
+
+it('прямой переход в секцию и local ID сохраняют редактирование через outbox', async () => {
+  mockParams = { id: 'local-event', section: 'finance' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByLabelText('Сумма договора')
+  fireEvent.changeText(screen.getByLabelText('Сумма договора'), '200')
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockSave).toHaveBeenCalled())
+  expect(mockSave.mock.calls[0][0]).toMatchObject({ entityId: 'local-event', values: { contractSum: 200 } })
+})
+
+it('ошибка загрузки существующей работы не разрешает перезаписать её пустым draft', async () => {
+  mockParams = { id: 'missing' }
+  mockGetEntity.mockResolvedValue(null)
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('Запись не найдена в локальных данных')
+  expect(screen.queryByTestId('save-event')).toBeNull()
   expect(mockSave).not.toHaveBeenCalled()
 })
