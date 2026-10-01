@@ -11,13 +11,16 @@ import {
 } from 'expo-audio'
 import { api } from '../../shared/api/client'
 import { Button, ErrorNotice, Field, SectionTitle, Surface } from '../../shared/ui/components'
-import { colors, radius, spacing } from '../../shared/ui/theme'
+import { radius, spacing, type Palette } from '../../shared/ui/theme'
 import { countApplicableVoiceDraftFields, type VoiceDraftFields } from './voiceDraft'
+import { useThemeStyles, useTheme } from '../../shared/ui/ThemeProvider'
+import { useAiDraftAccess } from './useAiDraftAccess'
 
 const MAX_RECORDING_MS = 120_000
 
 type Props = {
   onApply: (fields: VoiceDraftFields) => void
+  initialMode?: 'manual' | 'voice' | 'text'
 }
 
 type TranscriptResponse = { success: boolean; transcript?: string }
@@ -30,7 +33,17 @@ const durationLabel = (durationMillis: number) => {
   return `${minutes}:${seconds}`
 }
 
-export const VoiceDraftSection = ({ onApply }: Props) => {
+export const VoiceDraftSection = (props: Props) => {
+  const access = useAiDraftAccess()
+  if (access.loading) return props.initialMode && props.initialMode !== 'manual' ? <Surface><SectionTitle>Проверяем доступ к ИИ…</SectionTitle></Surface> : null
+  if (!access.allowAi) return props.initialMode && props.initialMode !== 'manual'
+    ? <ErrorNotice message={access.error || 'ИИ недоступен на текущем тарифе. Заполните форму вручную.'} /> : null
+  return <VoiceDraftEditor {...props} access={access} />
+}
+
+const VoiceDraftEditor = ({ onApply, initialMode, access }: Props & { access: ReturnType<typeof useAiDraftAccess> }) => {
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
   const recorderState = useAudioRecorderState(recorder, 250)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -48,6 +61,7 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
   }
 
   const requestDraft = async (text: string) => {
+    await access.assertAvailable()
     const response = await api.post<DraftResponse>('/mobile/v1/events/ai-draft', { text })
     const fields = response.fields || null
     if (!fields || countApplicableVoiceDraftFields(fields) === 0) {
@@ -72,6 +86,7 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
       await setAudioModeAsync({ allowsRecording: false })
       if (!uri) throw new Error('Файл записи не создан')
 
+      await access.assertAvailable()
       const form = new FormData()
       form.append('audio', {
         uri,
@@ -106,7 +121,9 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
     setError('')
     setMessage('')
     setPendingFields(null)
+    setBusy(true)
     try {
+      await access.assertAvailable()
       const permission = await requestRecordingPermissionsAsync()
       if (!permission.granted) {
         setError('Без доступа к микрофону запись невозможна. Можно ввести текст вручную ниже.')
@@ -123,10 +140,13 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
       setRecording(false)
       await setAudioModeAsync({ allowsRecording: false }).catch(() => undefined)
       setError(reason instanceof Error ? reason.message : 'Не удалось начать запись')
+    } finally {
+      setBusy(false)
     }
   }
 
   const analyzeText = async () => {
+    if (busy || recordingRef.current) return
     const text = transcript.trim()
     if (!text) {
       setError('Запишите голос или введите описание мероприятия')
@@ -155,22 +175,23 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
   return (
     <Surface>
       <View style={styles.titleRow}>
-        <View style={styles.icon}><MaterialCommunityIcons name="microphone-outline" size={22} color={colors.primary} /></View>
+        <View style={styles.icon}><MaterialCommunityIcons name="microphone-outline" size={22} color={palette.primary} /></View>
         <View style={styles.grow}>
-          <SectionTitle>AI-черновик по голосу</SectionTitle>
+          <SectionTitle>{initialMode === 'text' ? 'ИИ: свободный текст' : 'ИИ: голосовой черновик'}</SectionTitle>
           <Text style={styles.hint}>Работает только с интернетом. Аудио и текст отправляются настроенному провайдеру распознавания и AI.</Text>
         </View>
       </View>
 
-      {recording ? (
+      {initialMode !== 'text' ? (recording ? (
         <Pressable testID="voice-draft-stop" accessibilityRole="button" style={styles.recording} onPress={() => void finishRecording()}>
           <View style={styles.recordingDot} />
           <Text style={styles.recordingText}>Идёт запись · {durationLabel(recorderState.durationMillis)}</Text>
           <Text style={styles.stopText}>Остановить</Text>
         </Pressable>
       ) : (
-        <Button testID="voice-draft-start" title="Записать голос" variant="secondary" onPress={() => void startRecording()} disabled={busy} />
-      )}
+        <Button testID="voice-draft-start" title="Записать голос" variant="secondary" onPress={() => void startRecording()} disabled={busy || !access.online} />
+      )) : null}
+      {!access.online ? <ErrorNotice message="Для ИИ нужен интернет. Форму можно заполнить вручную." /> : null}
 
       <Field
         testID="voice-draft-text"
@@ -181,7 +202,7 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
         multiline
         editable={!recording && !busy}
       />
-      <Button title="Разобрать текст" onPress={() => void analyzeText()} loading={busy} disabled={recording || !transcript.trim()} />
+      <Button title="Разобрать текст" onPress={() => void analyzeText()} loading={busy} disabled={recording || !transcript.trim() || !access.online} />
       {pendingFields ? <Button testID="voice-draft-apply" title="Применить к форме" variant="secondary" onPress={() => { onApply(pendingFields); setPendingFields(null); setMessage('Поля применены. Проверьте форму перед сохранением.') }} /> : null}
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {error ? <ErrorNotice message={error} /> : null}
@@ -189,15 +210,15 @@ export const VoiceDraftSection = ({ onApply }: Props) => {
   )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.emptyIconBackground },
   grow: { flex: 1 },
-  hint: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4 },
-  recording: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.dangerSoft },
-  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
-  recordingText: { flex: 1, color: colors.danger, fontSize: 14, fontWeight: '700' },
-  stopText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
-  message: { color: colors.success, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  hint: { color: palette.cardMuted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  recording: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: palette.notice.danger.background },
+  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.notice.danger.text },
+  recordingText: { flex: 1, color: palette.notice.danger.text, fontSize: 14, fontWeight: '700' },
+  stopText: { color: palette.notice.danger.text, fontSize: 13, fontWeight: '800' },
+  message: { color: palette.notice.success.text, fontSize: 13, lineHeight: 19, fontWeight: '600' },
 })
 

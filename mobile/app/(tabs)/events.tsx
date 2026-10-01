@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -10,15 +10,16 @@ import { EventCalendar } from '../../src/features/events/EventCalendar'
 import { MobileEventCard } from '../../src/features/events/MobileEventCard'
 import { buildEventCalendarOccurrences, countOccurrencesByDate, startOfMonth, toDateKey, type EventCalendarOccurrence } from '../../src/features/events/calendar'
 import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
+import { useEventsScope, type EventsFilter as Filter } from '../../src/features/navigation/EventsScope'
 
-type Filter = 'requests' | 'upcoming' | 'past' | 'all'
 type ViewMode = 'list' | 'calendar'
 type EventRow = { key: string; event: Event; occurrence?: EventCalendarOccurrence }
 const filters: Array<[Filter, string]> = [['requests', 'Заявки'], ['upcoming', 'Предстоящие'], ['past', 'Прошедшие'], ['all', 'Все']]
 export default function EventsScreen() {
   const terminology = useWorkItemTerminology()
-  const [filter, setFilter] = useState<Filter>('upcoming')
+  const { filter, setFilter, selection } = useEventsScope()
   const [viewMode, setViewMode] = useState<ViewMode>('list')
+  useEffect(() => { if (selection > 0) setViewMode('list') }, [selection])
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()) as string)
   const query = useCachedEntities<Event>('events')

@@ -27,6 +27,7 @@ import { colors, radius, spacing } from '../../../src/shared/ui/theme'
 import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
 import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
+import { initialWorkItemMode, initialWorkItemStatus } from '../../../src/features/events/createOptions'
 
 type OtherContactDraft = {
   localKey: string
@@ -68,7 +69,7 @@ const eventTasksToDrafts = (event: Event, cloning: boolean): EventTaskDraft[] =>
 
 export default function EventEditScreen() {
   const terms = useWorkItemTerminology()
-  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string }>()
+  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[] }>()
   const isNew = params.id === 'new'
   const isClone = Boolean(params.cloneId)
   const queryClient = useQueryClient()
@@ -79,7 +80,10 @@ export default function EventEditScreen() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([])
   const [tasks, setTasks] = useState<EventTaskDraft[]>([])
   const [otherContacts, setOtherContacts] = useState<OtherContactDraft[]>([])
-  const [values, setValues] = useState({ ...emptyValues, clientId: params.clientId || '' })
+  const [values, setValues] = useState(() => ({ ...emptyValues, clientId: params.clientId || '',
+    status: isNew && !isClone ? initialWorkItemStatus(params.initialStatus) : emptyValues.status,
+  }))
+  const [initialMode] = useState(() => isNew && !isClone ? initialWorkItemMode(params.mode) : 'manual')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -256,10 +260,10 @@ export default function EventEditScreen() {
   return (
     <Screen>
       <PageHeader
-        title={isNew || isClone ? 'Новая заявка' : 'Редактирование'}
+        title={isNew || isClone ? (values.status === 'draft' ? 'Новая заявка' : `Создать ${terms.accusative}`) : 'Редактирование'}
         subtitle="Изменения можно сохранить без сети"
       />
-      <VoiceDraftSection onApply={applyVoiceDraft} />
+      <VoiceDraftSection onApply={applyVoiceDraft} initialMode={initialMode} />
       <Surface>
         <Field
           testID="event-type"

@@ -29,6 +29,7 @@ import { Button, EmptyState, ErrorNotice, Field, PageHeader, Screen, SectionTitl
 import { colors, radius, spacing } from '../../src/shared/ui/theme'
 import { useQueryClient } from '@tanstack/react-query'
 import { MOBILE_SETTINGS_QUERY_KEY, useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
+import { getMenuSection } from '../../src/features/navigation/menu'
 
 const titles: Record<string, [string, string]> = {
   calls: ['Звонки', 'Журнал IP-телефонии и результаты'], statistics: ['Статистика', 'Показатели по сохранённым данным'], services: ['Услуги', 'Прайс и группы услуг'], documents: ['Документы', 'Шаблоны, договоры и акты'], lists: ['Списки', 'Пользовательские справочники'], notifications: ['Уведомления', 'Push и напоминания'], integrations: ['Интеграции', 'Подключённые внешние сервисы'], referrals: ['Рефералы', 'Приглашения и вознаграждения'], settings: ['Настройки', 'Организация и термины'],
@@ -36,8 +37,12 @@ const titles: Record<string, [string, string]> = {
 
 export default function MoreSectionScreen() {
   const { section = '' } = useLocalSearchParams<{ section: string }>()
-  const [title, subtitle] = titles[section] || ['Раздел', 'Ведело']
-  return <Screen><PageHeader title={title} subtitle={subtitle} />{section === 'calls' ? <Calls /> : section === 'statistics' ? <Statistics /> : section === 'services' ? <ServicesSection /> : section === 'referrals' ? <Referrals /> : section === 'integrations' ? <IntegrationsSection /> : section === 'notifications' ? <Notifications /> : section === 'documents' ? <Documents /> : section === 'settings' ? <Settings /> : <Lists />}</Screen>
+  const item = getMenuSection(section)
+  if (!item) return <Screen><PageHeader title="Раздел недоступен" /><EmptyState title="Раздел недоступен" description="Этот адрес не входит в пользовательские разделы приложения." /><Button title="Открыть меню" onPress={() => router.replace('/(tabs)/more')} /></Screen>
+  if (section === 'import') return <Screen><PageHeader title={item.title} /><EmptyState title="Пока недоступно в приложении" description="Импорт файлов и полный экспорт данных ещё не реализованы в Android. Этот раздел появится на следующих этапах обновления." /></Screen>
+  const [, subtitle] = titles[section]
+  const title = item.title
+  return <Screen><PageHeader title={title} subtitle={subtitle} />{section === 'calls' ? <Calls /> : section === 'statistics' ? <Statistics /> : section === 'services' ? <ServicesSection /> : section === 'referrals' ? <Referrals /> : section === 'integrations' ? <IntegrationsSection /> : section === 'notifications' ? <Notifications /> : section === 'documents' ? <Documents /> : section === 'settings' ? <Settings /> : section === 'lists' ? <Lists /> : null}</Screen>
 }
 
 const terminologyOptions = [
