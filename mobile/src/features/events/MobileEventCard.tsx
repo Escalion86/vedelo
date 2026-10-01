@@ -1,301 +1,150 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import type { Client, Event, Service, Transaction } from '../../shared/domain/types'
-import { StatusChip, Surface } from '../../shared/ui/components'
-import { colors, radius, spacing } from '../../shared/ui/theme'
+import type { Client, Service, Transaction } from '../../shared/domain/types'
+import { Surface } from '../../shared/ui/components'
+import { QuickActionsSheet, QuickContacts, openContactUrl } from '../../shared/ui/QuickContacts'
+import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
+import type { Palette } from '../../shared/ui/theme'
 import type { EventCalendarOccurrence } from './calendar'
-import {
-  formatEventCardDate,
-  formatEventCardMoney,
-  getEventCardAddress,
-  getEventCardAttention,
-  getEventCardClientName,
-  getEventCardFinance,
-  getEventCardStatus,
-  getEventCardTitle,
-  type EventCardTone,
-} from './eventCard'
+import { buildEventNavigationLinks } from './navigation'
+import { eventPublicApiSource, isEventImportChecked, type ListEvent } from './filters'
+import { formatEventCardDate, formatEventCardMoney, getEventCardAddress, getEventCardAttention,
+  getEventCardClientName, getEventCardFinance, getEventCardFinanceLabel, getEventCardStatus,
+  getEventCardStatusKey, getEventCardTitle, getEventCardDateParts } from './eventCard'
 
 type Props = {
-  event: Event
-  client?: Client
-  services: Service[]
-  transactions: Transaction[]
-  occurrence?: EventCalendarOccurrence
-  testID: string
-  onPress: () => void
+  event: ListEvent; client?: Client; clientsById?: ReadonlyMap<string, Client>
+  services: Service[]; transactions: Transaction[]; occurrence?: EventCalendarOccurrence
+  testID: string; onPress: () => void; loading?: boolean; error?: string
 }
-
-const markerColors = {
-  danger: colors.danger,
-  success: colors.success,
-  warning: colors.warning,
-  neutral: '#9A9CA1',
-  blue: colors.blue,
-} as const
-
-const attentionStyles = {
-  neutral: { backgroundColor: colors.surfaceMuted, color: colors.textMuted },
-  success: { backgroundColor: colors.successSoft, color: colors.success },
-  warning: { backgroundColor: colors.warningSoft, color: colors.warning },
-  danger: { backgroundColor: colors.dangerSoft, color: colors.danger },
-  blue: { backgroundColor: colors.blueSoft, color: colors.blue },
-} as const
-
-export const MobileEventCard = ({
-  event,
-  client,
-  services,
-  transactions,
-  occurrence,
-  testID,
-  onPress,
-}: Props) => {
+export const MobileEventCard = ({ event, client, clientsById, services, transactions, occurrence, testID, onPress, loading = false, error }: Props) => {
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
+  const { width } = useWindowDimensions()
+  const [sheet, setSheet] = useState<'actions' | 'contacts' | null>(null)
   const status = getEventCardStatus(event)
   const finance = getEventCardFinance(event, transactions)
   const attention = getEventCardAttention(event, transactions)
   const address = getEventCardAddress(event)
-  const otherContactsCount = (event.otherContacts || []).filter(
-    (contact) => contact.clientId
-  ).length
-  const selectedContact = occurrence?.kind === 'contact'
-    ? {
-        label: occurrence.title || 'Следующий контакт',
-        tone: occurrence.done ? 'success' as EventCardTone : 'blue' as EventCardTone,
-        hiddenCount: 0,
-      }
-    : null
-  const displayedAttention = selectedContact || attention
-  const isFinished = event.status === 'closed' || event.status === 'canceled'
-  const financeLabel =
-    isFinished ? 'Итог' : 'Оплачено / договор'
-  const toneStyle = displayedAttention
-    ? attentionStyles[displayedAttention.tone]
-    : attentionStyles.neutral
-  const hasIndicators = Boolean(
-    event.isTransferred ||
-      event.isByContract ||
-      event.calendarSyncError ||
-      !client ||
-      attention?.overdueCount
-  )
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${getEventCardTitle(event, services)}, ${status.label}`}
-      testID={testID}
-      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
-      onPress={onPress}
-    >
-      <Surface style={styles.card}>
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={[styles.statusMarker, { backgroundColor: markerColors[status.marker] }]}
-        />
+  const date = getEventCardDateParts(event.eventDate)
+  const source = eventPublicApiSource(event)
+  const otherContacts = (event.otherContacts || []).filter((contact) => contact.clientId)
+  const selectedTask = occurrence?.kind === 'contact' ? (event.additionalEvents || []).find((task, index) =>
+    occurrence.key === `${event._id}:contact:${task._id || index}`) : null
+  const attentionLabel = selectedTask ? `${selectedTask.title || 'Следующий контакт'}: ${formatEventCardDate(selectedTask.date)}` : attention?.label
+  const attentionTone = selectedTask?.done ? palette.notice.success : attention?.tone === 'danger' ? palette.notice.danger : palette.notice.info
+  const busy = loading || event.syncStatus === 'syncing'
+  const syncError = error || (event.syncStatus === 'failed' ? 'Не удалось синхронизировать' : event.syncStatus === 'conflict' ? 'Конфликт изменений' : '')
+  const mapUrl = buildEventNavigationLinks(event.address)[0]?.url
+  const indicator = (name: keyof typeof MaterialCommunityIcons.glyphMap, label: string, color: string) =>
+    <MaterialCommunityIcons accessible accessibilityLabel={label} name={name} size={15} color={color} />
+  const navigate = (path: string) => { setSheet(null); router.push(path as never) }
+  return <View style={styles.outer}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${getEventCardTitle(event, services)}, ${status.label}`}
+      accessibilityState={{ busy, disabled: busy }} disabled={busy} onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+      <Surface style={styles.shell} testID={`${testID}-shell`}>
+        <View style={[styles.marker, { backgroundColor: palette.eventViewStatus[getEventCardStatusKey(event)].text }]} />
         <View style={styles.header}>
-          <View style={styles.titleArea}>
-            {hasIndicators ? <View style={styles.indicators}>
-              {event.isTransferred ? (
-                <MaterialCommunityIcons name="share-outline" size={16} color={colors.warning} />
-              ) : null}
-              {event.isByContract ? (
-                <MaterialCommunityIcons name="file-document-check-outline" size={16} color={colors.blue} />
-              ) : null}
-              {event.calendarSyncError ? (
-                <MaterialCommunityIcons name="calendar-alert" size={16} color={colors.danger} />
-              ) : null}
-              {!client ? (
-                <MaterialCommunityIcons name="account-off-outline" size={16} color={colors.danger} />
-              ) : null}
-              {attention?.overdueCount ? (
-                <View style={styles.overdueBadge}>
-                  <Text style={styles.overdueBadgeText}>{attention.overdueCount}</Text>
-                </View>
-              ) : null}
+          {event.isTransferred ? indicator('share-outline', 'Передано коллеге', palette.notice.warning.text) : null}
+          {event.isByContract ? indicator('file-document-check-outline', 'По договору', palette.notice.info.text) : null}
+          {!isEventImportChecked(event) ? indicator('alert-outline', 'Импорт не проверен', palette.notice.warning.text) : null}
+          {event.calendarSyncError ? indicator('calendar-alert', 'Ошибка календаря', palette.notice.danger.text) : null}
+          {!client && !loading ? indicator('account-off-outline', 'Клиент не указан', palette.notice.danger.text) : null}
+          <Text style={[styles.title, { fontSize: width < 420 ? 15.2 : 16 }]} numberOfLines={1}>{getEventCardTitle(event, services)}</Text>
+        </View>
+        <Pressable testID={`${testID}-overflow`} accessibilityRole="button" accessibilityLabel="Действия с работой" accessibilityState={{ expanded: sheet === 'actions', disabled: busy }}
+          disabled={busy} style={styles.overflow} onPress={(e) => { e.stopPropagation(); setSheet('actions') }}>
+          <MaterialCommunityIcons name="dots-vertical" size={22} color={palette.cardMuted} />
+        </Pressable>
+        <View style={styles.middle}>
+          <View style={styles.date} testID={`${testID}-date`}>
+            {date ? <><Text style={styles.meta}>{date.weekday}</Text><Text style={styles.day}>{date.day}</Text><Text style={styles.meta}>{date.month}</Text><Text style={styles.meta}>{date.time}</Text></>
+              : <Text style={styles.meta}>Без даты</Text>}
+          </View>
+          <View style={styles.details}>
+            {mapUrl ? <Pressable accessibilityRole="link" accessibilityLabel={`Открыть адрес в 2ГИС: ${address || 'Координаты места'}`} style={styles.address}
+              onPress={(e) => { e.stopPropagation(); void openContactUrl(mapUrl) }}>
+              <Text numberOfLines={2} style={styles.meta}>{address || 'Координаты места'}</Text><Text style={styles.map}>2ГИС ↗</Text>
+            </Pressable> : <Text style={styles.muted}>Адрес не указан</Text>}
+            {attentionLabel ? <View style={[styles.attention, { backgroundColor: attentionTone.background }]}>
+              <Text numberOfLines={3} style={[styles.attentionText, { color: attentionTone.text }]}>{attentionLabel}</Text>
+              {!selectedTask && attention && attention.hiddenCount > 0 ? <Text style={[styles.attentionText, { color: attentionTone.text }]}>+{attention.hiddenCount}</Text> : null}
             </View> : null}
-            <Text style={styles.title} numberOfLines={2}>
-              {getEventCardTitle(event, services)}
-            </Text>
           </View>
-          <StatusChip label={status.label} tone={status.tone} />
-        </View>
-
-        <View style={styles.dateRow}>
-          <MaterialCommunityIcons name="calendar-outline" size={18} color={colors.text} />
-          <Text style={styles.dateText}>{formatEventCardDate(event.eventDate)}</Text>
-        </View>
-
-        {displayedAttention ? (
-          <View style={styles.attentionRow}>
-            <View style={[styles.attention, { backgroundColor: toneStyle.backgroundColor }]}>
-              <MaterialCommunityIcons
-                name={selectedContact?.tone === 'success' ? 'check-circle-outline' : 'clock-alert-outline'}
-                size={16}
-                color={toneStyle.color}
-              />
-              <Text style={[styles.attentionText, { color: toneStyle.color }]} numberOfLines={1}>
-                {displayedAttention.label}
-              </Text>
-            </View>
-            {displayedAttention.hiddenCount > 0 ? (
-              <View style={[styles.moreBadge, { backgroundColor: toneStyle.backgroundColor }]}>
-                <Text style={[styles.moreBadgeText, { color: toneStyle.color }]}>
-                  +{displayedAttention.hiddenCount}
-                </Text>
-              </View>
-            ) : null}
+          <View style={styles.amount}>
+            {finance.hasObligations ? <Text style={styles.obligation} numberOfLines={1}>Обязательство</Text> : null}
+            {source ? <Text style={styles.source} numberOfLines={1}>{source}</Text> : null}
+            <Text style={styles.financeLabel}>{getEventCardFinanceLabel(event)}</Text>
+            {event.status === 'closed' ? <Text style={[styles.money, { color: finance.net < 0 ? palette.notice.danger.text : finance.net > 0 ? palette.notice.success.text : palette.cardMuted }]}>{formatEventCardMoney(finance.net)}</Text>
+              : <Text style={styles.money}><Text style={styles.paid}>{formatEventCardMoney(finance.paid)}</Text>{' /\n'}<Text style={styles.contract}>{formatEventCardMoney(finance.contractSum)}</Text></Text>}
           </View>
-        ) : null}
-
-        {address ? (
-          <View style={styles.metaRow}>
-            <MaterialCommunityIcons name="map-marker-outline" size={17} color={colors.textMuted} />
-            <Text style={styles.metaText} numberOfLines={1}>{address}</Text>
-          </View>
-        ) : null}
-        <View style={styles.metaRow}>
-          <MaterialCommunityIcons
-            name={client ? 'account-outline' : 'account-alert-outline'}
-            size={17}
-            color={client ? colors.textMuted : colors.danger}
-          />
-          <Text style={[styles.metaText, !client && styles.missing]} numberOfLines={1}>
-            {getEventCardClientName(client)}
-          </Text>
-          {otherContactsCount > 0 ? (
-            <View style={styles.contactsBadge}>
-              <Text style={styles.contactsBadgeText}>+{otherContactsCount}</Text>
-            </View>
-          ) : null}
         </View>
-
-        <View style={styles.financeRow}>
-          <Text style={styles.financeLabel}>{financeLabel}</Text>
-          {isFinished ? (
-            <Text style={[styles.financeValue, finance.net > 0 ? styles.financePaid : styles.financeMuted]}>
-              {formatEventCardMoney(finance.net)}
-            </Text>
-          ) : finance.paid > 0 || finance.contractSum > 0 ? (
-            <Text style={styles.financeValue}>
-              {finance.paid > 0 ? (
-                <Text style={styles.financePaid}>{formatEventCardMoney(finance.paid)}</Text>
-              ) : null}
-              {finance.paid > 0 && finance.contractSum > 0 ? (
-                <Text style={styles.financeSeparator}> / </Text>
-              ) : null}
-              {finance.contractSum > 0 ? (
-                <Text style={styles.financeContract}>{formatEventCardMoney(finance.contractSum)}</Text>
-              ) : null}
-            </Text>
-          ) : (
-            <Text style={[styles.financeValue, styles.financeMuted]}>—</Text>
-          )}
+        <View style={styles.footer} testID={`${testID}-footer`}>
+          <Text style={[styles.client, !client && styles.missing]} numberOfLines={1}>{loading ? 'Загрузка сведений…' : getEventCardClientName(client)}</Text>
+          <QuickContacts client={client} maxVisible={width < 360 ? 1 : 2} />
+          {otherContacts.length ? <Pressable accessibilityRole="button" accessibilityLabel={`Дополнительные контакты: ${otherContacts.length}`}
+            accessibilityState={{ expanded: sheet === 'contacts' }} style={styles.contactsMore}
+            onPress={(e) => { e.stopPropagation(); setSheet('contacts') }}><Text style={styles.moreText}>+{otherContacts.length}</Text></Pressable> : null}
         </View>
+        {event.syncStatus === 'pending' ? <Text style={styles.pending}>Ожидает отправки</Text> : null}
+        {busy ? <View testID={`${testID}-loading`} style={styles.loading} pointerEvents="auto"><ActivityIndicator accessibilityLabel="Загрузка" color={palette.primary} /></View> : null}
+        {syncError ? <Pressable testID={`${testID}-error`} accessibilityRole="button" accessibilityLabel={`${syncError}. Открыть синхронизацию`}
+          style={styles.error} onPress={(e) => { e.stopPropagation(); router.push('/sync' as never) }}><Text style={styles.errorText}>{syncError}</Text></Pressable> : null}
       </Surface>
     </Pressable>
-  )
+    <QuickActionsSheet title={sheet === 'contacts' ? 'Дополнительные контакты' : 'Действия с работой'} visible={sheet !== null} onClose={() => setSheet(null)}>
+      {sheet === 'contacts' ? otherContacts.map((contact, index) => {
+        const other = clientsById?.get(contact.clientId!)
+        return <View key={`${contact.clientId}:${index}`} style={styles.contactRow}>
+          <Text style={styles.contactName}>{other ? getEventCardClientName(other) : 'Контакт недоступен'}</Text>
+          {contact.comment ? <Text style={styles.meta}>{contact.comment}</Text> : null}
+          <QuickContacts client={other} maxVisible={7} />
+          {other ? <ButtonRow title="Открыть клиента" onPress={() => navigate(`/clients/${other._id}`)} /> : null}
+        </View>
+      }) : <>
+        <ButtonRow title="Открыть" onPress={() => { setSheet(null); onPress() }} />
+        {event.status !== 'closed' ? <ButtonRow title="Редактировать" onPress={() => navigate(`/events/edit/${event._id}`)} /> : null}
+        <ButtonRow title="Документы" onPress={() => navigate(`/events/${event._id}/documents`)} />
+        {event.status === 'active' ? <ButtonRow title="Добавить оплату или расход" onPress={() => {
+          setSheet(null); router.push({ pathname: '/finance/edit/new', params: { eventId: event._id, clientId: event.clientId || '' } } as never)
+        }} /> : null}
+        {client ? <ButtonRow title="Открыть клиента" onPress={() => navigate(`/clients/${client._id}`)} /> : null}
+        {syncError || event.syncStatus === 'pending' ? <ButtonRow title="Синхронизация" onPress={() => navigate('/sync')} /> : null}
+      </>}
+    </QuickActionsSheet>
+  </View>
 }
-
-const styles = StyleSheet.create({
-  pressable: { width: '100%' },
-  pressed: { opacity: 0.82, transform: [{ scale: 0.995 }] },
-  card: {
-    position: 'relative',
-    overflow: 'hidden',
-    gap: 8,
-    paddingTop: 13,
-    paddingRight: 13,
-    paddingBottom: 11,
-    paddingLeft: 17,
-    borderRadius: radius.md,
-  },
-  statusMarker: {
-    position: 'absolute',
-    top: 12,
-    bottom: 12,
-    left: 0,
-    width: 4,
-    borderTopRightRadius: 4,
-    borderBottomRightRadius: 4,
-  },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  titleArea: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 5,
-  },
-  indicators: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingTop: 2,
-  },
-  title: { flex: 1, color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '800' },
-  overdueBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.danger,
-  },
-  overdueBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  dateText: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '700' },
-  attentionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  attention: {
-    minWidth: 0,
-    flex: 1,
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    borderRadius: radius.pill,
-  },
-  attentionText: { flex: 1, fontSize: 11, fontWeight: '800' },
-  moreBadge: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 7,
-  },
-  moreBadgeText: { fontSize: 11, fontWeight: '800' },
-  metaRow: { minHeight: 22, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { flex: 1, color: colors.textMuted, fontSize: 12, lineHeight: 17 },
-  missing: { color: colors.danger },
-  contactsBadge: {
-    minWidth: 25,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-  },
-  contactsBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  financeRow: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginTop: 2,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  financeLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
-  financeValue: { color: colors.text, fontSize: 13, fontWeight: '800' },
-  financePaid: { color: colors.success },
-  financeContract: { color: colors.blue },
-  financeSeparator: { color: colors.textMuted },
-  financeMuted: { color: colors.textMuted },
+function ButtonRow({ title, onPress }: { title: string; onPress: () => void }) {
+  const styles = useThemeStyles(createStyles)
+  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><Text style={styles.actionText}>{title}</Text></Pressable>
+}
+const createStyles = (palette: Palette) => StyleSheet.create({
+  outer: { paddingHorizontal: 8, paddingVertical: 4 }, pressed: { opacity: 0.82 },
+  // Measured rows: minimum shell 184, grows for accessibility font sizes. No fixed getItemLayout.
+  shell: { minHeight: 184, padding: 0, paddingLeft: 4, gap: 0, borderRadius: 8, overflow: 'hidden' },
+  marker: { position: 'absolute', left: 0, width: 4, top: 12, bottom: 12, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
+  header: { minHeight: 40, paddingLeft: 4, paddingRight: 42, flexDirection: 'row', alignItems: 'center', gap: 4, borderBottomWidth: 1, borderColor: palette.border },
+  title: { flex: 1, minWidth: 0, color: palette.cardTitle, fontWeight: '600', lineHeight: 21 },
+  overflow: { position: 'absolute', top: 0, right: 0, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  middle: { flex: 1, flexDirection: 'row', gap: 12, paddingRight: 4 },
+  date: { width: 58, borderRightWidth: 1, borderColor: palette.border, justifyContent: 'center', alignItems: 'center', paddingVertical: 4 },
+  day: { fontSize: 26, fontWeight: '600', color: palette.cardTitle }, meta: { fontSize: 12, lineHeight: 17, color: palette.cardMeta },
+  muted: { color: palette.cardMuted, fontSize: 12, lineHeight: 17 }, details: { flex: 1, minWidth: 0, paddingVertical: 6, gap: 4, justifyContent: 'center' },
+  address: { minHeight: 40, justifyContent: 'center' }, map: { color: palette.primary, fontSize: 11 },
+  attention: { padding: 4, borderRadius: 4 }, attentionText: { fontSize: 10, lineHeight: 14 },
+  amount: { maxWidth: '34%', alignItems: 'flex-end', justifyContent: 'center', paddingVertical: 6, gap: 3 },
+  obligation: { color: palette.notice.warning.text, backgroundColor: palette.notice.warning.background, fontSize: 10, padding: 3, borderRadius: 4 },
+  source: { color: palette.notice.info.text, backgroundColor: palette.notice.info.background, fontSize: 10, padding: 3, borderRadius: 4 },
+  financeLabel: { color: palette.cardMuted, fontSize: 10, textAlign: 'right' }, money: { fontSize: 13, lineHeight: 18, fontWeight: '600', color: palette.cardTitle, textAlign: 'right' },
+  paid: { color: palette.notice.success.text }, contract: { color: palette.notice.info.text },
+  footer: { minHeight: 40, paddingLeft: 6, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderColor: palette.border },
+  client: { flex: 1, minWidth: 0, color: palette.cardMeta, fontSize: 13.12 }, missing: { color: palette.notice.danger.text },
+  contactsMore: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }, moreText: { color: palette.primary, fontSize: 12, fontWeight: '600' },
+  pending: { position: 'absolute', top: 40, right: 4, color: palette.cardMuted, fontSize: 9, backgroundColor: palette.canvas },
+  loading: { ...StyleSheet.absoluteFillObject, backgroundColor: palette.secondaryBackground, alignItems: 'center', justifyContent: 'center' },
+  error: { position: 'absolute', left: 4, right: 0, top: 40, minHeight: 32, backgroundColor: palette.notice.danger.background, padding: 6 },
+  errorText: { color: palette.notice.danger.text, fontSize: 12 }, action: { minHeight: 48, justifyContent: 'center', paddingVertical: 12 }, actionText: { color: palette.text, fontSize: 16 },
+  contactRow: { paddingVertical: 8, borderBottomWidth: 1, borderColor: palette.border }, contactName: { color: palette.text, fontSize: 16, fontWeight: '600' },
 })

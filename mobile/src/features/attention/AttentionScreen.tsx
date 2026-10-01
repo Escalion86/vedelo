@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, AppState, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -30,6 +30,7 @@ export default function AttentionScreen() {
   const events = useCachedEntities<Event>('events')
   const transactions = useCachedEntities<Transaction>('transactions')
   const clients = useCachedEntities<Client>('clients')
+  const clientsById = useMemo(() => new Map((clients.data || []).map((client) => [client._id, client])), [clients.data])
   const services = useCachedEntities<Service>('services')
   const sync = useSyncRunState()
   const syncPresentation = getSyncStatePresentation(sync)
@@ -118,7 +119,7 @@ export default function AttentionScreen() {
             <SectionTitle>{terms.pluralCapitalized} на 3 дня</SectionTitle>
             <OverviewList id="upcoming" items={data.upcoming} empty={`На ближайшие 3 дня ${terms.pluralGenitive} нет`}
               render={(event) => <MobileEventCard key={event._id} event={event} testID={`attention-event-${event._id}`}
-                client={clients.data?.find((client) => client._id === event.clientId)}
+                client={clients.data?.find((client) => client._id === event.clientId)} clientsById={clientsById}
                 services={(services.data || []).filter((service) => event.servicesIds?.includes(service._id))}
                 transactions={(transactions.data || []).filter((transaction) => transaction.eventId === event._id)}
                 onPress={() => router.push(`/events/${event._id}` as never)} />} />

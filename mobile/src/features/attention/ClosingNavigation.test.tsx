@@ -6,7 +6,8 @@ import EventsScreen from '../../../app/(tabs)/events'
 import { useCachedEntities } from '../../shared/hooks/useCachedEntities'
 
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }))
+jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: (fn: () => void) => require('react').useEffect(fn, [fn]) }))
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
 jest.mock('../../shared/hooks/useCachedEntities', () => ({ useCachedEntities: jest.fn() }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы', accusative: 'заказ' }) }))
 jest.mock('../events/EventCalendar', () => ({ EventCalendar: () => null }))
@@ -53,7 +54,7 @@ test('пустой фильтр предлагает сброс, а ошибка
   expect(screen.queryByText('Незакрытых работ не найдено')).toBeNull()
   error = true
   screen.rerender(<EventsScopeProvider><Entry /></EventsScopeProvider>)
-  expect(screen.getByText('Не удалось прочитать локальный календарь')).toBeTruthy()
+  expect(screen.getByText('Не удалось прочитать список работ')).toBeTruthy()
   expect(screen.queryByText('Здесь пока пусто')).toBeNull()
   fireEvent.press(screen.getByText('Повторить чтение'))
   expect(refetch).toHaveBeenCalledTimes(1)

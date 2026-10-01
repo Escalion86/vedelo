@@ -22,7 +22,7 @@ const mockEvents: Event[] = [
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
 jest.mock('expo-router', () => ({ router: {
   navigate: (href: unknown) => mockNavigate(href), push: (href: unknown) => mockPush(href),
-}, usePathname: () => mockPath }))
+}, usePathname: () => mockPath, useFocusEffect: (fn: () => void) => require('react').useEffect(fn, [fn]) }))
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
   useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }),
@@ -94,15 +94,18 @@ it('подменю переключает реальный список, вре�
     expect(screen.getByText('Будущая работа')).toBeTruthy()
     expect(screen.queryByText('Прошлая работа')).toBeNull()
     fireEvent.press(screen.getByTestId('bottom-slot-events'))
-    fireEvent.press(within(screen.UNSAFE_getByType(Modal)).getByRole('button', { name: 'Прошедшие' }))
+    fireEvent.press(within(screen.UNSAFE_getAllByType(Modal).find((modal) => modal.props.visible)!).getByRole('button', { name: 'Прошедшие' }))
     expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/events')
     expect(screen.getByText('Прошлая работа')).toBeTruthy()
     expect(screen.queryByText('Будущая работа')).toBeNull()
-    fireEvent.press(screen.getByText('Все'))
+    fireEvent.press(screen.getByTestId('events-filters-trigger'))
+    fireEvent.press(screen.getByRole('button', { name: 'Без передачи коллеге' }))
+    fireEvent.press(screen.getByTestId('events-filters-outside', { includeHiddenElements: true }))
     fireEvent.press(screen.getByTestId('bottom-slot-menu'))
     fireEvent.press(screen.getByTestId('navigation-backdrop'))
     expect(screen.getByText('Прошлая работа')).toBeTruthy()
-    expect(screen.getByText('Будущая работа')).toBeTruthy()
+    expect(screen.queryByText('Будущая работа')).toBeNull()
+    expect(screen.getByTestId('events-filters-trigger').props.accessibilityState.selected).toBe(true)
     act(() => { jest.runOnlyPendingTimers() })
   } finally {
     screen.unmount()

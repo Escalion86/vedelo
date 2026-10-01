@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Surface } from '../../shared/ui/components'
-import { colors, radius, spacing } from '../../shared/ui/theme'
+import { radius, spacing, type Palette } from '../../shared/ui/theme'
+import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { buildCalendarMonth, formatMonthTitle, moveMonth, startOfMonth, toDateKey } from './calendar'
 
 const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
@@ -23,6 +24,8 @@ export const EventCalendar = ({
   onMonthChange,
   onSelectDate,
 }: Props) => {
+  const styles = useThemeStyles(createStyles)
+  const { palette: colors } = useTheme()
   const days = buildCalendarMonth(month)
   const changeMonth = (amount: number) => {
     const next = moveMonth(month, amount)
@@ -61,6 +64,7 @@ export const EventCalendar = ({
               key={day.dateKey}
               accessibilityRole="button"
               accessibilityLabel={`${day.date.toLocaleDateString('ru-RU')}${count ? `, записей: ${count}` : ', записей нет'}`}
+              accessibilityState={{ selected }}
               testID={`calendar-day-${day.dateKey}`}
               style={[styles.day, selected && styles.daySelected, day.isToday && !selected && styles.dayToday]}
               onPress={() => {
@@ -79,25 +83,25 @@ export const EventCalendar = ({
   )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: colors.kpiBackground },
   monthTitle: { flex: 1, color: colors.text, fontSize: 17, fontWeight: '700', textAlign: 'center' },
-  todayButton: { alignSelf: 'center', minHeight: 36, justifyContent: 'center', paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.primarySoft },
+  todayButton: { alignSelf: 'center', minHeight: 36, justifyContent: 'center', paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.emptyIconBackground },
   todayText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
   weekRow: { flexDirection: 'row' },
-  weekDay: { width: '14.2857%', color: colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  weekDay: { width: '14.2857%', color: colors.cardMuted, fontSize: 11, fontWeight: '700', textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   day: { width: '14.2857%', minHeight: 46, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: radius.sm },
   daySelected: { backgroundColor: colors.primary },
   dayToday: { borderWidth: 1, borderColor: colors.primary },
   dayText: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  dayOutside: { color: colors.border },
-  dayTextSelected: { color: '#FFFFFF' },
-  count: { minWidth: 17, height: 17, paddingHorizontal: 3, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
-  countSelected: { backgroundColor: '#FFFFFF' },
+  dayOutside: { color: colors.cardMuted },
+  dayTextSelected: { color: colors.onPrimary },
+  count: { minWidth: 17, height: 17, paddingHorizontal: 3, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.emptyIconBackground },
+  countSelected: { backgroundColor: colors.surface },
   countText: { color: colors.primary, fontSize: 9, fontWeight: '800' },
   countTextSelected: { color: colors.primary },
-  undated: { color: colors.textMuted, fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  undated: { color: colors.cardMuted, fontSize: 12, lineHeight: 17, textAlign: 'center' },
 })
 

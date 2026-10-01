@@ -1,4 +1,5 @@
 import type { Client, Event, Service, Transaction } from '../../shared/domain/types'
+import { eventFilterStatus } from './filters'
 
 export type EventCardTone = 'neutral' | 'success' | 'warning' | 'danger' | 'blue'
 
@@ -50,7 +51,7 @@ export const getEventCardAddress = (event: Event) =>
     .join(', ')
 
 export const getEventCardStatus = (event: Event, now = new Date()) => {
-  const eventEnd = validDate(event.dateEnd || event.eventDate)
+  const eventEnd = validDate(event.dateEnd ?? event.eventDate)
   if (event.status === 'canceled') {
     return { label: 'Отменено', tone: 'danger' as EventCardTone, marker: 'danger' as const }
   }
@@ -89,6 +90,7 @@ export const getEventCardFinance = (
   const contractSum = Number(event.contractSum || 0)
   const expectedDeposit = Number(event.depositExpectedAmount || 0)
   return {
+    hasObligations: transactions.some((transaction) => transaction.paymentMethod === 'obligation'),
     paid,
     expense,
     net: paid - expense,
@@ -168,5 +170,22 @@ export const getEventCardAttention = (
         : 'blue') as EventCardTone,
     hiddenCount: Math.max(0, tasks.length - 1),
     overdueCount: overdue.length,
+  }
+}
+
+// Only closed has a financial result. Canceled keeps the paid/contract projection.
+export const getEventCardFinanceLabel = (event: Event) => event.status === 'closed' ? 'Итог' : 'Оплачено / договор'
+export const getEventCardStatusKey = (event: Event, now = new Date()) => {
+  const status = eventFilterStatus(event, now)
+  return status === 'request' ? 'draft' : status
+}
+export const getEventCardDateParts = (value?: string | null) => {
+  const date = validDate(value)
+  if (!date) return null
+  return {
+    weekday: date.toLocaleDateString('ru-RU', { weekday: 'short' }),
+    day: String(date.getDate()),
+    month: date.toLocaleDateString('ru-RU', { month: 'short' }),
+    time: date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
   }
 }
