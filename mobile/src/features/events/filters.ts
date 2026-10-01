@@ -3,7 +3,7 @@ import { isPastUnclosed } from '../attention/selectors'
 
 export type EventsListScope = 'upcoming' | 'past'
 export type StatusFilter = 'request' | 'active' | 'finished' | 'closed' | 'canceled'
-export type PastPreset = '' | 'unclosed' | 'closed' | 'canceled'
+export type PastPreset = '' | 'needsDecision' | 'unclosed' | 'closed' | 'canceled'
 // Read-only presentation fields already present in the sync payload; no persisted schema changes.
 export type ListEvent = Event & {
   importedFromFile?: boolean
@@ -18,14 +18,14 @@ export type EventFiltersState = {
   preset: PastPreset
 }
 export const statusFilterKeys = (scope: EventsListScope): StatusFilter[] => scope === 'past'
-  ? ['finished', 'closed', 'canceled'] : ['request', 'active', 'canceled']
+  ? ['request', 'finished', 'closed', 'canceled'] : ['request', 'active', 'canceled']
 export const defaultEventFilters = (scope: EventsListScope): EventFiltersState => ({
-  town: '', checked: 'all', statuses: scope === 'past' ? ['finished', 'closed'] : ['request', 'active'],
+  town: '', checked: 'all', statuses: scope === 'past' ? ['request', 'finished', 'closed'] : ['request', 'active'],
   transferred: 'all', preset: '',
 })
 export const applyPastPreset = (filters: EventFiltersState, preset: PastPreset): EventFiltersState => ({
   ...filters, preset,
-  statuses: preset === 'unclosed' ? ['finished'] : preset ? [preset] : defaultEventFilters('past').statuses,
+  statuses: preset === 'needsDecision' ? ['request', 'finished'] : preset === 'unclosed' ? ['finished'] : preset ? [preset] : defaultEventFilters('past').statuses,
   transferred: preset === 'unclosed' ? 'exclude' : 'all',
 })
 export const hasEventFilters = (scope: EventsListScope, filters: EventFiltersState) => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as DocumentPicker from 'expo-document-picker'
 import * as Sharing from 'expo-sharing'
@@ -39,6 +39,8 @@ export default function MoreSectionScreen() {
   const { section = '' } = useLocalSearchParams<{ section: string }>()
   const item = getMenuSection(section)
   if (!item) return <Screen><PageHeader title="Раздел недоступен" /><EmptyState title="Раздел недоступен" description="Этот адрес не входит в пользовательские разделы приложения." /><Button title="Открыть меню" onPress={() => router.replace('/(tabs)/more')} /></Screen>
+  if (section === 'profile' || section === 'billing-history') return <Redirect href={item.href as never} />
+  if (item.pendingDescription) return <Screen><PageHeader title={item.title} /><EmptyState title="Пока недоступно в приложении" description={item.pendingDescription} /></Screen>
   if (section === 'import') return <Screen><PageHeader title={item.title} /><EmptyState title="Пока недоступно в приложении" description="Импорт файлов и полный экспорт данных ещё не реализованы в Android. Этот раздел появится на следующих этапах обновления." /></Screen>
   const [, subtitle] = titles[section]
   const title = item.title

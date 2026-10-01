@@ -21,7 +21,7 @@ export function MenuCatalogue({ onNavigate, supportUnread = 0, groups = menuGrou
     const accordion = group.items.length > 1
     const open = expanded === group.title
     return <View key={group.title}>
-      {accordion ? <MenuRow title={group.title} icon="cog-outline" expanded={open}
+      {accordion ? <MenuRow title={group.title} icon={group.title === 'Поддержка' ? 'message-alert-outline' : 'cog-outline'} badge={group.title === 'Поддержка' ? supportUnread : 0} expanded={open}
         onPress={() => setExpanded(open ? null : group.title)} /> : null}
       {(!accordion || open) ? group.items.map((item) => <MenuRow key={item.href}
         title={item.title} icon={item.icon} nested={accordion}

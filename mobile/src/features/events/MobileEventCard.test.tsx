@@ -51,8 +51,8 @@ it('overflow and contacts do not open the card; local ID routes to existing edit
 it('zero, one and many contact actions; additional contacts expand names, comments and actions', () => {
   expect(getQuickContactActions()).toEqual([])
   expect(getQuickContactActions({ _id: 'x' })).toEqual([])
-  expect(getQuickContactActions({ _id: 'x', phone: '123' })).toHaveLength(1)
-  expect(getQuickContactActions(client)).toHaveLength(5)
+  expect(getQuickContactActions({ _id: 'x', phone: '123', whatsappPhoneUnavailable: true, telegramPhoneUnavailable: true })).toHaveLength(1)
+  expect(getQuickContactActions(client)).toHaveLength(6)
   const screen = setup({ otherContacts: [{ clientId: client._id, comment: 'Организатор на площадке' }, { clientId: 'deleted', comment: 'Старый контакт' }] }, { clientsById: new Map([[client._id, client]]) })
   press(screen.getByLabelText('Дополнительные контакты: 2'))
   expect(screen.getByText('Организатор на площадке')).toBeTruthy()

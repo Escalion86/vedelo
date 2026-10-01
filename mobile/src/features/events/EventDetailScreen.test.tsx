@@ -18,7 +18,7 @@ jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() 
   useLocalSearchParams: () => ({ id: mockEvent._id }), useFocusEffect: jest.fn() }))
 jest.mock('@react-native-community/netinfo', () => ({ useNetInfo: () => ({ isConnected: mockOnline, isInternetReachable: mockOnline }) }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }))
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }))
+jest.mock('@tanstack/react-query', () => ({ QueryClientContext: jest.requireActual('@tanstack/react-query').QueryClientContext, useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }))
 jest.mock('../../shared/storage/mutations', () => ({ saveLocalEntity: (...args: unknown[]) => mockSave(...args) }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ labelCapitalized: 'Заказ', pluralGenitive: 'заказов' }) }))
 jest.mock('../../shared/hooks/useCachedEntities', () => ({ useCachedEntities: (kind: string) => ({

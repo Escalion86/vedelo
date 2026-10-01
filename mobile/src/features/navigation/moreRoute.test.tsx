@@ -7,6 +7,7 @@ const mockReplace = jest.fn()
 const mockLists = jest.fn(() => null)
 const mockApi = jest.fn()
 jest.mock('expo-router', () => ({
+  Redirect: ({ href }: { href: string }) => { mockReplace(href); return null },
   router: { replace: (path: string) => mockReplace(path) },
   useLocalSearchParams: () => ({ section: mockSection }),
 }))
@@ -22,7 +23,7 @@ jest.mock('../../shared/notifications/useExpoPushNotifications', () => ({}))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({}))
 
 beforeEach(() => jest.clearAllMocks())
-it.each(['unknown', 'users', 'tariffs', 'ai', 'constructor', '__proto__', ['lists']])('прямой адрес %s недоступен и не монтирует Списки', (section) => {
+it.each(['phone-auth', 'billing-operations', 'service-analytics', 'unknown', 'users', 'tariffs', 'ai', 'constructor', '__proto__', ['lists']])('прямой адрес %s недоступен и не монтирует Списки', (section) => {
   mockSection = section
   const screen = render(<MoreSectionScreen />)
   expect(screen.getAllByText('Раздел недоступен').length).toBeGreaterThan(0)
@@ -36,5 +37,20 @@ it('импорт/экспорт обозначает текущий пробел
   const screen = render(<MoreSectionScreen />)
   expect(screen.getByText('Пока недоступно в приложении')).toBeTruthy()
   expect(mockLists).not.toHaveBeenCalled()
+  expect(mockApi).not.toHaveBeenCalled()
+})
+
+it.each(['learning', 'client-reviews'])('новый раздел %s сообщает о незавершённом этапе без API-запросов', (section) => {
+  mockSection = section
+  const screen = render(<MoreSectionScreen />)
+  expect(screen.getByText('Пока недоступно в приложении')).toBeTruthy()
+  expect(mockLists).not.toHaveBeenCalled()
+  expect(mockApi).not.toHaveBeenCalled()
+})
+
+it.each([['profile', '/(tabs)/profile'], ['billing-history', '/billing']])('личный alias %s ведёт в существующий экран', (section, path) => {
+  mockSection = section
+  render(<MoreSectionScreen />)
+  expect(mockReplace).toHaveBeenCalledWith(path)
   expect(mockApi).not.toHaveBeenCalled()
 })

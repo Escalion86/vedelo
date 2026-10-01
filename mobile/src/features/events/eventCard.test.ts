@@ -40,13 +40,13 @@ describe('event card presentation', () => {
     ).toMatchObject({ label: 'Завершено', marker: 'neutral' })
   })
 
-  it('не считает обязательства фактической оплатой', () => {
+  it('повторяет сумму карточки PWA, включая обязательства', () => {
     const result = getEventCardFinance(event({ contractSum: 30_000 }), [
       transaction({ amount: 10_000, category: 'deposit' }),
       transaction({ amount: 5_000, paymentMethod: 'obligation' }),
       transaction({ amount: 2_000, type: 'expense' }),
     ])
-    expect(result).toMatchObject({ paid: 10_000, expense: 2_000, net: 8_000 })
+    expect(result).toMatchObject({ paid: 15_000, expense: 2_000, net: 13_000 })
   })
 
   it('ставит просроченный задаток выше следующего контакта', () => {
@@ -78,20 +78,20 @@ it('multiday work remains active until its end and handles invalid dates', () =>
   expect(getEventCardDateParts('bad')).toBeNull()
   expect(getEventCardDateParts()).toBeNull()
 })
-it('finance fixture: keeps native fact totals, legacy deposit, refunds and obligation marker', () => {
+it('finance fixture: matches PWA totals, legacy deposit, refunds and obligation marker', () => {
   const rows = [transaction({ amount: 1000, category: 'advance' }), transaction({ amount: 3000, category: 'final_payment' }),
     transaction({ amount: 500, type: 'expense', category: 'refund' }), transaction({ amount: 200, type: 'expense', category: 'travel' }),
     transaction({ amount: 2000, paymentMethod: 'obligation', category: 'deposit' }),
     transaction({ amount: 700, type: 'expense', paymentMethod: 'obligation' })]
-  expect(getEventCardFinance(event({ contractSum: 6000 }), rows)).toMatchObject({ paid: 4000, expense: 700, net: 3300, depositPaid: 1000, contractSum: 6000, hasObligations: true })
-  // PWA EventCard.js sums all income/expense, even obligations. Deliberately not copied.
+  expect(getEventCardFinance(event({ contractSum: 6000 }), rows)).toMatchObject({ paid: 6000, expense: 1400, net: 4600, depositPaid: 3000, contractSum: 6000, hasObligations: true })
+  // Current PWA list sums all rows; the detail screen separately excludes obligations.
   const webIncome = rows.filter((row) => row.type === 'income').reduce((sum, row) => sum + row.amount, 0)
   const webExpense = rows.filter((row) => row.type === 'expense').reduce((sum, row) => sum + row.amount, 0)
   expect({ paid: webIncome, expense: webExpense, net: webIncome - webExpense }).toEqual({ paid: 6000, expense: 1400, net: 4600 })
 })
-it('obligation deposit does not suppress native overdue warning; positive legacy advance does', () => {
+it('positive deposit/advance suppresses the PWA warning, including obligations', () => {
   const work = event({ waitDeposit: true, depositDueAt: '2026-09-01' })
   const now = new Date('2026-10-01')
-  expect(getEventCardAttention(work, [transaction({ amount: 500, category: 'deposit', paymentMethod: 'obligation' })], now)?.label).toContain('Просрочен задаток')
+  expect(getEventCardAttention(work, [transaction({ amount: 500, category: 'deposit', paymentMethod: 'obligation' })], now)).toBeNull()
   expect(getEventCardAttention(work, [transaction({ amount: 500, category: 'advance' })], now)).toBeNull()
 })

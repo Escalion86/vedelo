@@ -4,7 +4,7 @@ const event: Event = { _id: 'local-event', status: 'active', contractSum: 1000 }
 const transaction = (category: string, amount: number, overrides: Partial<Transaction> = {}): Transaction => ({
   _id: category, category, amount, eventId: event._id, type: 'income', paymentMethod: 'cash', ...overrides,
 })
-it('KPI учитывают только факт, а договор — только клиентские оплаты, включая legacy', () => {
+it('KPI и остаток как в PWA учитывают все фактические доходы текущей работы', () => {
   const transactions = [transaction('deposit', 100), transaction('final_payment', 200), transaction('advance', 50),
     transaction('client_payment', 100), transaction('tips', 30), transaction('referral_in', 20),
     transaction('travel', 10, { type: 'expense' }), transaction('referral_out', 5, { type: 'expense' }),
@@ -12,9 +12,9 @@ it('KPI учитывают только факт, а договор — толь
     transaction('expense', 60, { paymentMethod: 'obligation', type: 'expense' }),
     transaction('final_payment', 800, { eventId: 'other-event' })]
   expect(getEventDetailFinance(event, transactions)).toMatchObject({ paid: 500, expense: 15, net: 485,
-    clientPaid: 450, remaining: 550, hasObligations: true, depositPaid: 150 })
+    clientPaid: 500, remaining: 500, hasObligations: true, depositPaid: 150 })
   transactions[8].paymentMethod = 'transfer'
-  expect(getEventDetailFinance(event, transactions)).toMatchObject({ clientPaid: 1000, remaining: 0, paid: 1050 })
+  expect(getEventDetailFinance(event, transactions)).toMatchObject({ clientPaid: 1050, remaining: 0, overpaid: 50, paid: 1050 })
 })
 it.each(['draft', 'active', 'closed', 'canceled'] as const)('оплата доступна только для active: %s', (status) => {
   expect(Boolean(eventActionReasons({ ...event, status }, false).payment)).toBe(status !== 'active')

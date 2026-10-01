@@ -11,7 +11,7 @@ const select = (events: Event[], transactions: Transaction[] = [], clients: Clie
 describe('attention selectors', () => {
   it('пустой cache не придумывает задачи, сообщения или даты', () => {
     expect(select([])).toEqual({ groups: { overdue: [], today: [], tomorrow: [] }, pending: { overdue: 0, today: 0, tomorrow: 0 },
-      deposits: [], upcoming: [], clientDates: [], pastUnclosed: [] })
+      deposits: [], upcoming: [], clientDates: [], pastRequests: [], withoutNextStep: [], pastUnclosed: [] })
   })
   it('просрочено по времени, границы today/tomorrow полуоткрытые', () => {
     expect(getTaskSegment(iso(1, 11, 59), now)).toBe('overdue')
@@ -112,4 +112,20 @@ describe('attention selectors', () => {
     select(input)
     expect(JSON.stringify(input)).toBe(before)
   })
+})
+
+it('ALIGN: прошедшие заявки отдельны от отсутствия шага, просроченная задача остаётся назначенной', () => {
+  const now = new Date('2026-10-01T12:00:00Z')
+  const events: Event[] = [
+    { _id: 'past', status: 'draft', eventDate: '2026-09-01', additionalEvents: [{ title: 'Позвонить', date: '2026-09-20' }] },
+    { _id: 'empty', status: 'draft' },
+    { _id: 'overdue', status: 'draft', additionalEvents: [{ title: 'Назначено', date: '2026-09-20' }] },
+    { _id: 'invalid', status: 'draft', dateEnd: 'invalid', additionalEvents: [{ title: 'Без срока', date: 'bad' }] },
+    { _id: 'done', status: 'draft', additionalEvents: [{ title: 'Готово', date: '2026-09-20', done: true }] },
+    { _id: 'closed', status: 'closed', eventDate: '2026-09-01' },
+  ]
+  const result = selectAttention(events, [], [], now)
+  expect(result.pastRequests.map((event) => event._id)).toEqual(['past'])
+  expect(result.withoutNextStep.map((event) => event._id)).toEqual(['empty', 'invalid', 'done'])
+  expect(result.groups.overdue.map((item) => item.event._id)).toEqual(['past', 'overdue'])
 })

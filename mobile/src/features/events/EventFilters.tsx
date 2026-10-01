@@ -19,7 +19,7 @@ export function EventFilters({ scope, value, towns, onChange }: {
     ...statusFilterKeys(scope).map((key) => ({ value: `status:${key}`, label: labels[key], selected: value.statuses.includes(key) })),
     ...([['all', 'Любая передача'], ['only', 'Передано коллеге'], ['exclude', 'Без передачи коллеге']] as const)
       .map(([key, label]) => ({ value: `transferred:${key}`, label, selected: value.transferred === key })),
-    ...(scope === 'past' ? ([['unclosed', 'Не закрыто'], ['closed', 'Только закрытые'], ['canceled', 'Только отменённые']] as const)
+    ...(scope === 'past' ? ([['needsDecision', 'Требуют решения'], ['unclosed', 'Нужно закрыть'], ['closed', 'Только закрытые'], ['canceled', 'Только отменённые']] as const)
       .map(([key, label]) => ({ value: `preset:${key}`, label, selected: value.preset === key })) : []),
   ]
   const select = (option: string) => {

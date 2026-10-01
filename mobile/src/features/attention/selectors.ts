@@ -39,6 +39,11 @@ export const isPastUnclosed = (event: Event, now: Date) => {
   return event.status === 'active' && !event.isTransferred && Boolean(end && end < now)
 }
 
+export const isPastRequest = (event: Event, now: Date) => {
+  const end = parseDate(event.dateEnd ?? event.eventDate)
+  return event.status === 'draft' && Boolean(end && end < now)
+}
+
 export function selectAttention(events: Event[], transactions: Transaction[], clients: Client[], now: Date) {
   const groups: Record<Segment, AttentionItem[]> = { overdue: [], today: [], tomorrow: [] }
   const open = events.filter(isOpen)
@@ -92,5 +97,10 @@ export function selectAttention(events: Event[], transactions: Transaction[], cl
       comment: item.comment?.trim() || '', nextDate,
       daysLeft: Math.round((nextDate.getTime() - dayStart(now).getTime()) / 86_400_000) }]
   })).sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime())
-  return { groups, pending, deposits, upcoming, clientDates, pastUnclosed: events.filter((event) => isPastUnclosed(event, now)) }
+  const pastRequests = events.filter((event) => isPastRequest(event, now))
+    .sort((a, b) => parseDate(a.dateEnd ?? a.eventDate)!.getTime() - parseDate(b.dateEnd ?? b.eventDate)!.getTime())
+  const withoutNextStep = events.filter((event) => event.status === 'draft' && !isPastRequest(event, now) &&
+    !(event.additionalEvents || []).some((task) => !task.done && parseDate(task.date)))
+    .sort((a, b) => (parseDate(a.requestCreatedAt || a.createdAt)?.getTime() ?? 0) - (parseDate(b.requestCreatedAt || b.createdAt)?.getTime() ?? 0))
+  return { groups, pending, deposits, upcoming, clientDates, pastRequests, withoutNextStep, pastUnclosed: events.filter((event) => isPastUnclosed(event, now)) }
 }

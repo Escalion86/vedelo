@@ -97,7 +97,7 @@ export const emptyEventValues = {
   clientId: '', town: '', street: '', house: '', entrance: '', floor: '', flat: '', addressComment: '',
   contractSum: '', waitDeposit: false, depositExpectedAmount: '', depositDueAt: '',
   isTransferred: false, colleagueId: '', calendarImportChecked: true, fileImportChecked: false,
-  requestCreatedAt: '',
+  requestCreatedAt: '', cancelReason: '',
 }
 export type EventFormValues = typeof emptyEventValues
 export type OtherContactDraft = { localKey: string; clientId: string; comment: string }
@@ -114,6 +114,7 @@ export const createEventDraft = (event?: Event, cloning = false): EventDraft => 
   cloning,
   values: {
     ...emptyEventValues,
+    cancelReason: event?.cancelReason || '',
     eventType: event?.eventType || '', description: eventPlainText(event?.description),
     eventDate: formatEventDateInput(event?.eventDate), dateEnd: formatEventDateInput(event?.dateEnd),
     status: cloning ? 'draft' : eventStatus(event?.status), clientId: event?.clientId || '',
@@ -139,7 +140,9 @@ export const createEventDraft = (event?: Event, cloning = false): EventDraft => 
 
 export const validateEventDraft = (draft: EventDraft) => {
   const { values, tasks, otherContacts } = draft
-  if (!values.eventType.trim() && !values.description.trim()) return 'Укажите тип или описание'
+  if (!values.clientId) return 'Выберите клиента'
+  if (values.status !== 'draft' && !values.eventDate.trim()) return 'Укажите дату начала'
+  if (values.status === 'canceled' && !values.cancelReason.trim()) return 'Укажите причину отмены'
   if (!['draft', 'active', 'closed', 'canceled'].includes(values.status)) return 'Выберите допустимый статус'
   const dates = validateEventDates({ ...values, depositDueAt: values.waitDeposit ? values.depositDueAt : '', tasks })
   if (dates) return dates
@@ -171,6 +174,7 @@ export const serializeEventDraft = (draft: EventDraft, allowed: { clientIds: Rea
     description: v.description === eventPlainText(source?.description) ? source?.description || '' : v.description.trim(),
     eventDate: serializeDate(v.eventDate, source?.eventDate), dateEnd: serializeDate(v.dateEnd, source?.dateEnd),
     status: v.status, clientId: v.clientId || null,
+    cancelReason: v.status === 'canceled' ? v.cancelReason.trim() : '',
     servicesIds: [...new Set(draft.serviceIds.filter((id) => typeof id === 'string' &&
       (allowed.serviceIds.has(id) || source?.servicesIds?.includes(id))))],
     address: {

@@ -117,6 +117,7 @@ it.each(['draft', 'active', 'voice', 'text'] as const)('центральное �
   const titles = { draft: 'Заявка', active: 'Подтверждено', voice: 'Голосом', text: 'Свободным текстом' }
   const screen = render(shell(props()))
   fireEvent.press(screen.getByTestId('bottom-slot-create'))
+  expect(screen.getByText('Создать заказ')).toBeTruthy()
   fireEvent.press(screen.getByText(titles[choice]))
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/events/edit/new', params: {
     initialStatus: choice === 'active' ? 'active' : 'draft', mode: ['voice', 'text'].includes(choice) ? choice : 'manual',
@@ -128,6 +129,7 @@ it('ручное создание доступно offline, ИИ скрыт бе
   mockAllowAi = false
   const screen = render(shell(props()))
   fireEvent.press(screen.getByTestId('bottom-slot-create'))
+  expect(screen.getByText('Создать заказ')).toBeTruthy()
   expect(screen.queryByText('Голосом')).toBeNull()
   mockAllowAi = true
   mockOnline = false

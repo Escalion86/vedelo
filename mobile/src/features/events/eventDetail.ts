@@ -4,9 +4,9 @@ import { parseEventDateInput } from '../../shared/domain/eventForm'
 
 export const getEventDetailFinance = (event: Event, transactions: Transaction[]) => {
   const related = transactions.filter((item) => item.eventId === event._id && Number.isFinite(item.amount) && item.amount >= 0)
-  const summary = getEventCardFinance(event, related)
-  const clientPaid = related.filter((item) => item.type === 'income' && item.paymentMethod !== 'obligation' &&
-    ['deposit', 'advance', 'final_payment', 'client_payment'].includes(item.category || ''))
+  const summary = { ...getEventCardFinance(event, related.filter((item) => item.paymentMethod !== 'obligation')),
+    hasObligations: related.some((item) => item.paymentMethod === 'obligation') }
+  const clientPaid = related.filter((item) => item.type === 'income' && item.paymentMethod !== 'obligation')
     .reduce((sum, item) => sum + item.amount, 0)
   return { ...summary, clientPaid, remaining: Math.max(0, summary.contractSum - clientPaid),
     overpaid: Math.max(0, clientPaid - summary.contractSum) }

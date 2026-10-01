@@ -66,6 +66,8 @@ export const lightPalette = {
   transactionExpenseText: '#ffffff',
   transactionExpenseOutline: '#ef4444',
   transactionExpensePressedFill: 'rgba(239,68,68,0.08)',
+  // Contact brands are identical in both PWA themes; trial channels stay red.
+  contacts: { max: '#615cff', whatsapp: '#16a34a', telegram: '#2563eb', trial: '#f87171', onBadge: '#ffffff' },
   rowPressed: 'rgba(0,0,0,0.05)',
   rowSelected: 'rgba(154,107,39,0.14)',
   notice: {

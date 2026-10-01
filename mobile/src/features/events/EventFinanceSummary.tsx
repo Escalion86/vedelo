@@ -17,9 +17,9 @@ export const EventFinanceSummary = ({ event, transactions }: { event: Event; tra
     ].map(([label, amount]) => <Surface variant="kpi" key={label} style={styles.kpi}>
       <Text style={styles.label}>{label}</Text><Text style={styles.amount}>{formatEventCardMoney(Number(amount))}</Text>
     </Surface>)}</View>
-    <Text style={styles.meta}>Оплата договора: {formatEventCardMoney(summary.clientPaid)}</Text>
+    <Text style={styles.meta}>Получено по работе: {formatEventCardMoney(summary.clientPaid)}</Text>
     <Text style={styles.meta}>{summary.overpaid > 0 ? `Переплата: ${formatEventCardMoney(summary.overpaid)}` : `Осталось получить: ${formatEventCardMoney(summary.remaining)}`}</Text>
-    <Text style={styles.muted}>Чаевые и рекомендации учитываются в доходе, но не уменьшают остаток договора.</Text>
+    <Text style={styles.muted}>Обязательства не входят в полученные оплаты и расходы.</Text>
   </Surface>
 }
 const createStyles = (p: Palette) => StyleSheet.create({

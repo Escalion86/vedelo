@@ -71,9 +71,7 @@ export const getEventCardFinance = (
   event: Event,
   transactions: Transaction[]
 ) => {
-  const actual = transactions.filter(
-    (transaction) => transaction.paymentMethod !== 'obligation'
-  )
+  const actual = transactions.filter((transaction) => (!transaction.eventId || transaction.eventId === event._id) && Number.isFinite(Number(transaction.amount)))
   const paid = actual
     .filter((transaction) => transaction.type === 'income')
     .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)

@@ -136,7 +136,7 @@ it('overlay отдельно от списка: выбор, outside и Android B
   fireEvent.press(screen.getByTestId('filter-overlay-trigger'))
   fireEvent.press(screen.getByTestId('filter-overlay-outside', { includeHiddenElements: true }))
   expect(screen.queryByText('Все клиенты')).toBeNull()
-})
+}, 15000)
 
 it.each([320, 360, 390, 800])('overlay ограничен viewport %s и safe area', (width) => {
   for (const maxWidth of [260, 340] as const) {

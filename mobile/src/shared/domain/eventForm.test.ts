@@ -109,7 +109,7 @@ it('проверяет статус, суммы, дату заявки и кол
   expect(serializeEventDraft(draft, allowed).colleagueId).toBe('local-client')
 })
 it.each(['draft', 'active', 'closed', 'canceled'] as const)('сохраняет допустимый статус %s', (status) => {
-  expect(serializeEventDraft(createEventDraft({ ...fixture, status }), allowed).status).toBe(status)
+  expect(serializeEventDraft(createEventDraft({ ...fixture, status, cancelReason: status === 'canceled' ? 'Передумал' : '' }), allowed).status).toBe(status)
 })
 it('недопустимая вкладка заменяется общими данными; HTML преобразуется в текст', () => {
   expect(eventSection(['finance'])).toBe('general')
@@ -135,4 +135,25 @@ it('сериализует общие поля и проверку импорт�
     additionalEvents: [{ title: 'Задача', date: fixture.eventDate, description: '<p>Детали</p>', done: true }] })
   expect(createEventDraft({ ...fixture, additionalEvents: [{ _id: 'task', done: true }] }, true).tasks[0])
     .toMatchObject({ _id: undefined, done: false, doneAt: null })
+})
+
+it('ALIGN: тип/описание/услуги необязательны, клиент обязателен, дата не нужна только draft', () => {
+  const draft = createEventDraft()
+  expect(validateEventDraft(draft)).toBe('Выберите клиента')
+  draft.values.clientId = 'local-client'
+  expect(validateEventDraft(draft)).toBe('')
+  draft.values.status = 'active'
+  expect(validateEventDraft(draft)).toBe('Укажите дату начала')
+  draft.values.eventDate = '2026-10-15'
+  expect(validateEventDraft(draft)).toBe('')
+  draft.values.status = 'canceled'
+  expect(validateEventDraft(draft)).toBe('Укажите причину отмены')
+  draft.values.cancelReason = ' Передумал '
+  expect(serializeEventDraft(draft, allowed).cancelReason).toBe('Передумал')
+})
+
+it('ALIGN: при возврате отменённой заявки в работу прежняя причина очищается', () => {
+  const draft = createEventDraft({ ...fixture, status: 'canceled', cancelReason: 'Отказ' })
+  draft.values.status = 'active'
+  expect(serializeEventDraft(draft, allowed).cancelReason).toBe('')
 })

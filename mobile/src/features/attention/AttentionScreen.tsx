@@ -89,6 +89,8 @@ export default function AttentionScreen() {
     style={styles.section} onLayout={(event) => { positions.current[id] = event.nativeEvent.layout.y }}>{content}</View>
   const summary = [
     ...segments.map((id) => ({ id, title: segmentLabels[id], count: data.pending[id] })),
+    { id: 'past-requests', title: 'Заявки с прошедшей датой', count: data.pastRequests.length },
+    { id: 'no-next-step', title: 'Без следующего шага', count: data.withoutNextStep.length },
     { id: 'closing', title: 'Не закрыто', count: data.pastUnclosed.length },
     { id: 'dates', title: 'Даты клиентов', count: data.clientDates.length },
   ].filter((item) => item.count > 0)
@@ -105,6 +107,19 @@ export default function AttentionScreen() {
             {summary.map((item) => <Button key={item.id} testID={`attention-summary-${item.id}`} title={`${item.title} · ${item.count}`} variant="secondary"
               onPress={() => scroll.current?.scrollTo({ y: positions.current[item.id] ?? 0, animated: true })} />)}
           </ScrollView> : null}
+          {data.pastRequests.length ? section('past-requests', <>
+            <SectionTitle>Заявки с прошедшей датой · {data.pastRequests.length}</SectionTitle>
+            <Text style={styles.muted}>Дата прошла — уточните результат. Проверьте оплаты и закройте заявку, отмените её или перенесите дату.</Text>
+            <OverviewList id="past-requests" items={data.pastRequests} empty="" render={(event) => <Surface key={event._id}>
+              <SectionTitle>{event.eventType || 'Заявка'}</SectionTitle>
+              <Text style={styles.text}>{[clientsById.get(event.clientId || '')?.firstName, clientsById.get(event.clientId || '')?.secondName].filter(Boolean).join(' ') || 'Клиент не указан'}</Text>
+              <Text style={styles.muted}>{new Date((event.dateEnd ?? event.eventDate)!).toLocaleString('ru-RU')}</Text>
+              <Button title="Закрыть" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, decision: 'closed', section: 'finance' } } as never)} />
+              <Button title="Отменить" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, decision: 'canceled' } } as never)} />
+              <Button title="Перенести дату" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, section: 'general' } } as never)} />
+              <Button title="Открыть заявку" variant="secondary" onPress={() => router.push(`/events/${event._id}` as never)} />
+            </Surface>} />
+          </>) : null}
           {data.pastUnclosed.length ? section('closing', <Surface>
             <SectionTitle>Закрытие {terms.pluralGenitive}</SectionTitle>
             <Text style={styles.text}>Не закрыто: {data.pastUnclosed.length}. Проверьте итоги прошедших работ.</Text>
@@ -115,6 +130,15 @@ export default function AttentionScreen() {
             <OverviewList id={segment} items={data.groups[segment]} empty={emptyText[segment]}
               render={(item) => <TaskCard key={item.key} item={item} segment={segment} busy={busy} onAction={runAction} />} />
           </>))}
+          {section('no-next-step', <>
+            <SectionTitle>Заявки без следующего шага · {data.withoutNextStep.length}</SectionTitle>
+            <OverviewList id="no-next-step" items={data.withoutNextStep} empty="Заявок без следующего шага нет" render={(event) => <Surface key={event._id}>
+              <SectionTitle>{event.eventType || 'Заявка'}</SectionTitle>
+              <Text style={styles.text}>{[clientsById.get(event.clientId || '')?.firstName, clientsById.get(event.clientId || '')?.secondName].filter(Boolean).join(' ') || 'Клиент не указан'}</Text>
+              <Button title="Назначить контакт" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, section: 'contacts' } } as never)} />
+              <Button title="Открыть заявку" variant="secondary" onPress={() => router.push(`/events/${event._id}` as never)} />
+            </Surface>} />
+          </>)}
           {section('upcoming', <>
             <SectionTitle>{terms.pluralCapitalized} на 3 дня</SectionTitle>
             <OverviewList id="upcoming" items={data.upcoming} empty={`На ближайшие 3 дня ${terms.pluralGenitive} нет`}

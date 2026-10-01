@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { Client, Service } from '../../shared/domain/types'
 import { type EventDraft, type EventFormValues } from '../../shared/domain/eventForm'
-import { CompactField as Field, SectionTitle, Surface } from '../../shared/ui/components'
+import { Button, CompactField as Field, SectionTitle, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
 import { getEventCardClientName } from './eventCard'
@@ -32,6 +32,7 @@ export const EventGeneralSection = ({ draft, onChange, services, clients, eventT
       <Text style={styles.muted}>Местное время устройства. Формат: ГГГГ-ММ-ДД ЧЧ:ММ. Дата без времени означает 00:00.</Text>
       {field('eventDate', 'Начало', '2026-10-15 18:00')}
       {field('dateEnd', 'Окончание', '2026-10-15 22:00')}
+      {v.status === 'draft' && v.eventDate ? <Button title="Дата пока неизвестна" variant="secondary" onPress={() => onChange({ ...draft, values: { ...v, eventDate: '', dateEnd: '' } })} /> : null}
     </Surface>
     <Surface>
       <SectionTitle>Локация</SectionTitle>
@@ -56,6 +57,7 @@ export const EventGeneralSection = ({ draft, onChange, services, clients, eventT
       {draft.source?.importedFromFile ? <GeneralChoice label="Импорт из файла проверен" selected={v.fileImportChecked} onPress={() => set('fileImportChecked', !v.fileImportChecked)} />
         : draft.source && !draft.source.calendarImportChecked ? <GeneralChoice label="Проверка импорта завершена" selected={v.calendarImportChecked} onPress={() => set('calendarImportChecked', !v.calendarImportChecked)} /> : null}
       {field('requestCreatedAt', 'Дата заявки', '2026-10-01 12:00')}
+      {v.status === 'canceled' ? field('cancelReason', 'Причина отмены') : null}
       <SectionTitle>Статус</SectionTitle>
       <View style={styles.options}>{([['draft', 'Заявка'], ['active', 'Подтверждено'], ['closed', 'Закрыто'], ['canceled', 'Отменено']] as const)
         .map(([value, label]) => <GeneralChoice key={value} label={label} selected={v.status === value} onPress={() => set('status', value)} />)}</View>

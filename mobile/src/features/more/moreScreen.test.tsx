@@ -120,6 +120,7 @@ describe('MoreScreen support access', () => {
     await screen.findByText('Тариф: DEV')
     expect(mockSummary).not.toHaveBeenCalled()
     expect(screen.queryByText('7')).toBeNull()
+    fireEvent.press(screen.getByText('Поддержка'))
     expect(screen.getByText('Обратная связь')).toBeTruthy()
   })
 

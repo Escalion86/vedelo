@@ -12,11 +12,11 @@ const mockGetEntity = jest.fn()
 const mockReplace = jest.fn()
 const mockInvalidate = jest.fn(async () => undefined)
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
-jest.mock('expo-router', () => ({ router: { replace: (path: unknown) => mockReplace(path) }, useLocalSearchParams: () => mockParams, useNavigation: () => ({ dispatch: mockDispatch }) }))
+jest.mock('expo-router', () => ({ useFocusEffect: jest.fn(), router: { push: jest.fn(), replace: (path: unknown) => mockReplace(path) }, useLocalSearchParams: () => mockParams, useNavigation: () => ({ dispatch: mockDispatch }) }))
 jest.mock('@react-navigation/native', () => ({ usePreventRemove: (prevent: boolean, handler: (event: any) => void) => { mockPrevented = prevent; mockOnRemove = handler } }))
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }))
+jest.mock('@tanstack/react-query', () => ({ QueryClientContext: jest.requireActual('@tanstack/react-query').QueryClientContext, useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }))
 jest.mock('../../shared/storage/cache', () => ({
-  listCachedEntities: async () => [], getCachedEntity: (...args: unknown[]) => mockGetEntity(...args),
+  listCachedEntities: async (kind: string) => kind === 'clients' ? [{ _id: 'client', firstName: 'Анна' }] : [], getCachedEntity: (...args: unknown[]) => mockGetEntity(...args),
 }))
 jest.mock('../../shared/storage/mutations', () => ({ saveLocalEntity: (...args: unknown[]) => mockSave(...args), deleteLocalEntity: jest.fn() }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ genitive: 'заказа', accusative: 'заказ' }) }))
@@ -27,19 +27,20 @@ jest.mock('./VoiceDraftSection', () => {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockParams = { id: 'new' }
+  mockParams = { id: 'new', clientId: 'client' }
   mockSave.mockResolvedValue({ _id: 'local-event' })
-  mockGetEntity.mockResolvedValue({ _id: 'existing', status: 'closed', description: 'Существующая работа' })
+  mockGetEntity.mockResolvedValue({ _id: 'existing', status: 'closed', clientId: 'client', eventDate: '2026-10-15', description: 'Существующая работа' })
 })
 
 it.each([
   ['active', 'active'], ['draft', 'draft'], ['canceled', 'draft'], ['closed', 'draft'],
   [undefined, 'draft'], [['active'], 'draft'],
 ])('форма сохраняет начальный status %s как %s через штатную локальную очередь', async (initialStatus, expected) => {
-  mockParams = { id: 'new', initialStatus }
+  mockParams = { id: 'new', clientId: 'client', initialStatus }
   const screen = render(<EventEditScreen />)
   await act(async () => undefined)
   fireEvent.changeText(screen.getByTestId('event-type'), 'Тестовая работа')
+  if (expected === 'active') fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15 12:00')
   fireEvent.press(screen.getByTestId('save-event'))
   await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
   expect(mockSave.mock.calls[0][0]).toMatchObject({ entityType: 'events', values: { status: expected, eventType: 'Тестовая работа' } })
@@ -48,13 +49,13 @@ it.each([
 })
 
 it('смена URL не перезаписывает статус и введённые поля в уже открытой форме', async () => {
-  mockParams = { id: 'new', initialStatus: 'active', mode: 'text' }
+  mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'text' }
   const screen = render(<EventEditScreen />)
   await act(async () => undefined)
   expect(screen.getByText('mode:text')).toBeTruthy()
   fireEvent.changeText(screen.getByTestId('event-type'), 'Введённая работа')
   fireEvent.press(screen.getByText('Заявка'))
-  mockParams = { id: 'new', initialStatus: 'active', mode: 'voice' }
+  mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'voice' }
   screen.rerender(<EventEditScreen />)
   expect(screen.getByText('mode:text')).toBeTruthy()
   fireEvent.press(screen.getByTestId('save-event'))
@@ -73,7 +74,7 @@ it.each([['existing', undefined, 'closed'], ['new', 'existing', 'draft']])('URL 
 })
 
 it('уход из новой формы ничего не сохраняет', async () => {
-  mockParams = { id: 'new', initialStatus: 'active', mode: 'voice' }
+  mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'voice' }
   const screen = render(<EventEditScreen />)
   await act(async () => undefined)
   expect(screen.getByText('mode:voice')).toBeTruthy()
@@ -134,4 +135,29 @@ it('ошибка загрузки существующей работы не р�
   await screen.findByText('Запись не найдена в локальных данных')
   expect(screen.queryByTestId('save-event')).toBeNull()
   expect(mockSave).not.toHaveBeenCalled()
+})
+
+it('ALIGN: отмена прошедшей заявки требует причину и явное сохранение', async () => {
+  mockParams = { id: 'past-draft', decision: 'canceled' }
+  mockGetEntity.mockResolvedValue({ _id: 'past-draft', status: 'draft', clientId: 'client', eventDate: '2026-09-01' })
+  const screen = render(<EventEditScreen />)
+  await screen.findByLabelText('Причина отмены')
+  expect(mockSave).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByTestId('save-event'))
+  expect(mockSave).not.toHaveBeenCalled()
+  fireEvent.changeText(screen.getByLabelText('Причина отмены'), 'Клиент отменил')
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
+  expect(mockSave.mock.calls[0][0]).toMatchObject({ entityId: 'past-draft', values: { status: 'canceled', cancelReason: 'Клиент отменил' } })
+})
+it('ALIGN: Дата пока неизвестна очищает обе даты только у заявки', async () => {
+  const screen = render(<EventEditScreen />)
+  await screen.findByLabelText('Начало')
+  fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15 12:00')
+  fireEvent.changeText(screen.getByLabelText('Окончание'), '2026-10-15 14:00')
+  fireEvent.press(screen.getByText('Дата пока неизвестна'))
+  expect(screen.getByLabelText('Начало').props.value).toBe('')
+  expect(screen.getByLabelText('Окончание').props.value).toBe('')
+  fireEvent.press(screen.getByText('Подтверждено'))
+  expect(screen.queryByText('Дата пока неизвестна')).toBeNull()
 })

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { router, useLocalSearchParams, useNavigation } from 'expo-router'
+import { router, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router'
 import { usePreventRemove } from '@react-navigation/native'
 import { useQueryClient } from '@tanstack/react-query'
 import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, type EventDraft, type EventFormValues, type EventTaskDraft, type OtherContactDraft } from '../../../src/shared/domain/eventForm'
@@ -10,6 +10,7 @@ import { formatPhoneForDisplay } from '../../../src/shared/format/phone'
 import { getCachedEntity, listCachedEntities } from '../../../src/shared/storage/cache'
 import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/mutations'
 import { Button, ErrorNotice, Field, PageHeader, Screen, SectionTitle, Surface } from '../../../src/shared/ui/components'
+import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
 import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
 import { EventGeneralSection, GeneralChoice as Option } from '../../../src/features/events/EventGeneralSection'
@@ -24,7 +25,7 @@ const clientName = (client: Client) => [client.firstName, client.secondName].fil
 export default function EventEditScreen() {
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
-  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[] }>()
+  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[]; decision?: string }>()
   // Freeze the entry context: URL updates and tab switches must not rehydrate a dirty form.
   const [entry] = useState(params)
   const isNew = entry.id === 'new', isClone = Boolean(entry.cloneId)
@@ -81,6 +82,7 @@ export default function EventEditScreen() {
         const next = event ? createEventDraft(event, isClone) : current
         return { ...next, values: { ...next.values,
           clientId: entry.clientId || next.values.clientId,
+          ...(event?.status === 'draft' && !isClone && (entry.decision === 'closed' || entry.decision === 'canceled') ? { status: entry.decision } : {}),
           town: event ? next.values.town : settingsItems[0]?.defaultTown || next.values.town,
         } }
       })
@@ -88,6 +90,11 @@ export default function EventEditScreen() {
     }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Не удалось загрузить данные') })
     return () => { active = false }
   }, [entry, isClone, isNew, attempt])
+  useFocusEffect(useCallback(() => {
+    let active = true
+    if (ready) void listCachedEntities<Client>('clients').then((items) => { if (active) setClients(items) }).catch(() => undefined)
+    return () => { active = false }
+  }, [ready]))
   const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) => setValues((current) => ({ ...current, [key]: value }))
   const updateTask = (key: string, patch: Partial<EventTaskDraft>) => setTasks((current) => current.map((task) => task.localKey === key ? { ...task, ...patch } : task))
   const updateOtherContact = (key: string, patch: Partial<OtherContactDraft>) => setOtherContacts((current) => current.map((contact) => contact.localKey === key ? { ...contact, ...patch } : contact))
@@ -147,6 +154,10 @@ export default function EventEditScreen() {
             />
           ))}
         </ScrollView>
+        {values.clientId ? <>
+          <QuickContacts client={clients.find((client) => client._id === values.clientId)} maxVisible={8} />
+          <Button title="Редактировать клиента" variant="secondary" onPress={() => router.push(`/clients/edit/${values.clientId}` as never)} />
+        </> : null}
         </Surface>
       <Surface>
         <SectionTitle>Дополнительные контакты</SectionTitle>

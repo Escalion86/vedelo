@@ -28,7 +28,7 @@ describe('scope navigation and PWA filters', () => {
   })
   it('selects status defaults and all-status bypass exactly as PWA', () => {
     const events = ['draft', 'active', 'canceled', 'closed'].map((status) => event(status, { status: status as ListEvent['status'], eventDate: past }))
-    expect(ids(selectEvents(events, 'past', defaultEventFilters('past'), now))).toEqual(['active', 'closed'])
+    expect(ids(selectEvents(events, 'past', defaultEventFilters('past'), now))).toEqual(['draft', 'active', 'closed'])
     expect(ids(selectEvents(events, 'past', { ...defaultEventFilters('past'), statuses: statusFilterKeys('past') }, now))).toEqual(['draft', 'active', 'canceled', 'closed'])
   })
   it('combines town, import check, status and transfer instead of replacing scope', () => {
@@ -67,4 +67,10 @@ describe('scope navigation and PWA filters', () => {
     expect(hasEventFilters('past', applyPastPreset(defaultEventFilters('past'), 'unclosed'))).toBe(true)
     expect(hasEventFilters('past', defaultEventFilters('past'))).toBe(false)
   })
+})
+
+it('ALIGN: Требуют решения включает прошедшие draft и active, включая переданные', () => {
+  const events = [event('draft', { status: 'draft', eventDate: past }), event('active', { eventDate: past }),
+    event('transferred', { status: 'draft', eventDate: past, isTransferred: true }), event('closed', { status: 'closed', eventDate: past })]
+  expect(ids(selectEvents(events, 'past', applyPastPreset(defaultEventFilters('past'), 'needsDecision'), now))).toEqual(['draft', 'active', 'transferred'])
 })

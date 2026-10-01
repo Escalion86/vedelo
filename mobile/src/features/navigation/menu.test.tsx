@@ -29,14 +29,14 @@ it.each(['user', 'admin', 'dev'])('каталог роли %s одинаков, 
   const screen = render(<MenuSheet />)
   await act(async () => undefined)
   expect(screen.getAllByRole('button').map((item) => item.props.accessibilityLabel)).toEqual([
-    'Профиль', 'Тариф: Профи', 'Синхронизация', 'История действий', 'Статистика',
-    'Транзакции', 'Звонки', 'Настройки', 'Обратная связь',
+    'Профиль', 'Тариф: Профи', 'Синхронизация', 'Отзывы клиентов', 'История действий', 'Статистика',
+    'Транзакции', 'Звонки', 'Настройки', 'Поддержка',
   ])
   expect(mockGet).toHaveBeenCalledTimes(1)
   expect(mockGet).toHaveBeenCalledWith('/mobile/v1/billing')
   if (role === 'dev') expect(mockSummary).not.toHaveBeenCalled()
   else expect(screen.getByText('99+')).toBeTruthy()
-  for (const section of ['users', 'tariffs', 'ai-settings', 'developer', 'unknown', '__proto__', 'constructor']) {
+  for (const section of ['phone-auth', 'billing-operations', 'service-analytics', 'users', 'tariffs', 'ai-settings', 'developer', 'unknown', '__proto__', 'constructor']) {
     expect(getMenuSection(section)).toBeUndefined()
   }
 })
@@ -49,9 +49,9 @@ it('аккордеон закрыт, сохраняет точный поряд�
   expect(settings.props.accessibilityState.expanded).toBe(false)
   fireEvent.press(settings)
   expect(screen.getAllByRole('button').map((item) => item.props.accessibilityLabel)).toEqual([
-    'История действий', 'Статистика', 'Транзакции', 'Звонки', 'Настройки',
-    'Общие настройки', 'Мои услуги', 'Интеграции', 'Импорт и экспорт', 'Документы',
-    'Списки', 'Уведомления', 'Реферальная система', 'Обратная связь',
+    'Отзывы клиентов', 'История действий', 'Статистика', 'Транзакции', 'Звонки', 'Настройки',
+    'Общие настройки', 'Личный профиль', 'Мои услуги', 'Интеграции', 'Импорт и экспорт', 'Документы',
+    'Списки', 'Уведомления', 'Реферальная система', 'Баланс и платежи', 'Поддержка',
   ])
   fireEvent.press(screen.getByText('Мои услуги'))
   expect(navigate).toHaveBeenCalledWith('/more/services')
@@ -63,7 +63,7 @@ it('аккордеон закрыт, сохраняет точный поряд�
 it('пустая группа скрыта, одиночная сразу ведёт по адресу', () => {
   const navigate = jest.fn()
   const screen = render(<MenuCatalogue onNavigate={navigate} groups={[
-    { title: 'Пустая', items: [] }, menuGroups[0],
+    { title: 'Пустая', items: [] }, menuGroups.find((group) => group.title === 'История действий')!,
   ]} />)
   expect(screen.queryByText('Пустая')).toBeNull()
   fireEvent.press(screen.getByText('История действий'))

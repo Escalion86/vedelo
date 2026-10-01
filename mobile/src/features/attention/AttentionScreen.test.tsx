@@ -16,7 +16,7 @@ import { useQuery } from '@tanstack/react-query'
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }))
 const mockInvalidate = jest.fn().mockResolvedValue(undefined)
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mockInvalidate }), useQuery: jest.fn() }))
+jest.mock('@tanstack/react-query', () => ({ QueryClientContext: jest.requireActual('@tanstack/react-query').QueryClientContext, useQueryClient: () => ({ invalidateQueries: mockInvalidate }), useQuery: jest.fn() }))
 jest.mock('../../shared/hooks/useCachedEntities', () => ({ useCachedEntities: jest.fn() }))
 jest.mock('../../shared/hooks/useSyncRunState', () => ({ useSyncRunState: jest.fn() }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ labelCapitalized: 'Заказ', accusative: 'заказ', pluralCapitalized: 'Заказы', pluralGenitive: 'заказов' }) }))
@@ -54,7 +54,7 @@ afterEach(() => { jest.useRealTimers() })
 test('порядок секций, полноценные карточки, без выдуманных сообщений и финансов месяца', () => {
   const screen = render(<AttentionScreen />)
   const ids = screen.UNSAFE_getAllByType(View).map((node) => node.props.testID).filter((id) => id?.startsWith('attention-section-'))
-  expect(ids).toEqual(['attention-section-closing', 'attention-section-overdue', 'attention-section-today', 'attention-section-tomorrow', 'attention-section-upcoming', 'attention-section-dates', 'attention-section-sync'])
+  expect(ids).toEqual(['attention-section-closing', 'attention-section-overdue', 'attention-section-today', 'attention-section-tomorrow', 'attention-section-no-next-step', 'attention-section-upcoming', 'attention-section-dates', 'attention-section-sync'])
   expect(screen.getByTestId('attention-event-e')).toBeTruthy()
   expect(screen.getByText('Закрытие заказов')).toBeTruthy()
   expect(screen.queryByText('Финансы месяца')).toBeNull()
@@ -175,4 +175,20 @@ test('sync сохраняет переход к подробностям и шт
   expect(router.push).toHaveBeenCalledWith('/sync')
   await act(async () => fireEvent.press(screen.getByText('Повторить синхронизацию')))
   expect(require('../../shared/sync/syncEngine').runSync).toHaveBeenCalledTimes(1)
+})
+
+test('ALIGN: прошедшая заявка и заявка без шага ведут в редактор, без автоматического изменения статуса', () => {
+  fixtures.events = [
+    { _id: 'past-draft', status: 'draft', eventType: 'Прошедшая заявка', eventDate: date(0) },
+    { _id: 'no-step', status: 'draft', eventType: 'Нет контакта' },
+  ]
+  const screen = render(<AttentionScreen />)
+  expect(screen.getByTestId('attention-section-past-requests')).toBeTruthy()
+  fireEvent.press(screen.getByText('Отменить'))
+  expect(router.push).toHaveBeenLastCalledWith({ pathname: '/events/edit/[id]', params: { id: 'past-draft', decision: 'canceled' } })
+  fireEvent.press(screen.getByText('Закрыть'))
+  expect(router.push).toHaveBeenLastCalledWith({ pathname: '/events/edit/[id]', params: { id: 'past-draft', decision: 'closed', section: 'finance' } })
+  fireEvent.press(screen.getByText('Назначить контакт'))
+  expect(router.push).toHaveBeenLastCalledWith({ pathname: '/events/edit/[id]', params: { id: 'no-step', section: 'contacts' } })
+  expect(performAttentionAction).not.toHaveBeenCalled()
 })

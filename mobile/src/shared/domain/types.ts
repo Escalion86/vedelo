@@ -15,6 +15,10 @@ export type Client = {
   viber?: number | string | null
   instagram?: string
   max?: string
+  telegramPhone?: number | string | null
+  whatsappPhoneUnavailable?: boolean
+  telegramPhoneUnavailable?: boolean
+  maxPhoneUnavailable?: boolean
   preferredContactChannel?:
     | 'phone'
     | 'telegram'
@@ -31,7 +35,7 @@ export type Client = {
   significantDates?: Array<{
     _id?: string
     title?: string
-    date?: string
+    date?: string | null
     comment?: string
   }>
   legalName?: string
@@ -73,6 +77,7 @@ export type Event = {
   eventDate?: string | null
   dateEnd?: string | null
   status: 'draft' | 'active' | 'canceled' | 'closed'
+  cancelReason?: string
   contractSum?: number
   isByContract?: boolean
   isTransferred?: boolean

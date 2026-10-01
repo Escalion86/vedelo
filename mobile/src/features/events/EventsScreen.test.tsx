@@ -40,7 +40,7 @@ it('scope comes from navigation; unclosed shortcut, filter selection/reset and B
   expect(screen.getByText('Прошедший заказ')).toBeTruthy()
   expect(screen.queryByText('Закрытый заказ')).toBeNull()
   fireEvent.press(screen.getByTestId('events-filters-trigger'))
-  expect(screen.getByRole('button', { name: 'Не закрыто' }).props.accessibilityState.selected).toBe(true)
+  expect(screen.getByRole('button', { name: 'Нужно закрыть' }).props.accessibilityState.selected).toBe(true)
   fireEvent.press(screen.getByRole('button', { name: 'Сбросить фильтры' }))
   fireEvent(screen.UNSAFE_getByType(Modal), 'requestClose')
   expect(screen.getByText('Закрытый заказ')).toBeTruthy()

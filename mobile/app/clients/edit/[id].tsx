@@ -1,3 +1,5 @@
+import { resetClientMessengerAvailability } from '../../../src/shared/domain/clientMessengerAvailability'
+import { normalizeMaxContactInput } from '../../../src/shared/domain/maxContact'
 import { useEffect, useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -41,7 +43,7 @@ const CONTACT_CHANNELS = [
 
 const emptyValues = {
   firstName: '', secondName: '', thirdName: '', phone: '', email: '', telegram: '',
-  whatsapp: '', viber: '', instagram: '', vk: '', town: '', clientType: 'none',
+  whatsapp: '', max: '', viber: '', instagram: '', vk: '', town: '', clientType: 'none',
   preferredContactChannel: '' as NonNullable<Client['preferredContactChannel']>,
   preferredContactChannelOther: '', messengerPushMuted: false, comment: '',
   legalName: '', inn: '', kpp: '', ogrn: '', bankName: '', bik: '',
@@ -70,7 +72,7 @@ export default function ClientEditScreen() {
       setValues({
         firstName: client.firstName || '', secondName: client.secondName || '',
         thirdName: client.thirdName || '', phone: String(client.phone || ''),
-        email: client.email || '', telegram: client.telegram || '',
+        max: client.max || '', email: client.email || '', telegram: client.telegram || '',
         whatsapp: String(client.whatsapp || ''), viber: String(client.viber || ''),
         instagram: client.instagram || '', vk: client.vk || '', town: client.town || '',
         clientType: client.clientType || 'none',
@@ -104,6 +106,10 @@ export default function ClientEditScreen() {
       setError('Укажите имя или телефон')
       return
     }
+    if (values.max.trim() && !normalizeMaxContactInput(values.max)) {
+      setError('MAX: укажите ссылку max.ru на контакт или российский номер телефона')
+      return
+    }
     const dateError = validateSignificantDates(significantDates)
     if (dateError) {
       setError(dateError)
@@ -112,22 +118,23 @@ export default function ClientEditScreen() {
     setLoading(true)
     setError('')
     try {
+      const existing = isNew ? null : await getCachedEntity<Client>('clients', id)
       const entity = await saveLocalEntity({
         entityType: 'clients',
         entityId: isNew ? undefined : id,
-        values: {
+        values: resetClientMessengerAvailability(existing, {
           ...values,
           firstName: values.firstName.trim(), secondName: values.secondName.trim(),
           thirdName: values.thirdName.trim(), phone: phoneNumber(values.phone),
           whatsapp: phoneNumber(values.whatsapp), viber: phoneNumber(values.viber),
-          email: values.email.trim(), telegram: values.telegram.trim(),
+          max: normalizeMaxContactInput(values.max), email: values.email.trim(), telegram: values.telegram.trim(),
           instagram: values.instagram.trim(), vk: values.vk.trim(), town: values.town.trim(),
           comment: values.comment.trim(),
           preferredContactChannelOther: values.preferredContactChannel === 'other'
             ? values.preferredContactChannelOther.trim()
             : '',
           significantDates: serializeSignificantDates(significantDates),
-        },
+        }),
       })
       await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] })
       router.replace(`/clients/${entity._id}` as never)
@@ -174,6 +181,7 @@ export default function ClientEditScreen() {
         <SectionTitle>Контакты</SectionTitle>
         <Field testID="client-phone" label="Телефон" value={values.phone} onChangeText={(value) => set('phone', value)} keyboardType="phone-pad" />
         <Field label="WhatsApp" value={values.whatsapp} onChangeText={(value) => set('whatsapp', value)} keyboardType="phone-pad" />
+        <Field label="MAX" value={values.max} onChangeText={(value) => set('max', value)} placeholder="https://max.ru/… или +7…" />
         <Field label="Telegram" value={values.telegram} onChangeText={(value) => set('telegram', value)} autoCapitalize="none" />
         <Field label="Viber" value={values.viber} onChangeText={(value) => set('viber', value)} keyboardType="phone-pad" />
         <Field label="Email" value={values.email} onChangeText={(value) => set('email', value)} keyboardType="email-address" autoCapitalize="none" />

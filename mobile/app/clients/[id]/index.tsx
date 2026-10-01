@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
+import { useCallback, useMemo, useState } from 'react'
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import type { Client, Event, Transaction } from '../../../src/shared/domain/types'
 import { formatPhoneForDisplay } from '../../../src/shared/format/phone'
@@ -24,18 +25,21 @@ export default function ClientDetailScreen() {
   const [events, setEvents] = useState<Event[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true
     if (!id) return
     Promise.all([
       getCachedEntity<Client>('clients', id),
       listCachedEntities<Event>('events'),
       listCachedEntities<Transaction>('transactions'),
     ]).then(([clientItem, eventItems, transactionItems]) => {
+      if (!active) return
       setClient(clientItem)
       setEvents(eventItems)
       setTransactions(transactionItems)
     })
-  }, [id])
+    return () => { active = false }
+  }, [id]))
 
   const relatedEvents = useMemo(() => events
     .filter((event) => event.clientId === id || event.otherContacts?.some((contact) => contact.clientId === id))
@@ -48,10 +52,6 @@ export default function ClientDetailScreen() {
   if (!client) return <Screen><PageHeader title="Клиент" /><EmptyState title="Клиент не найден" description="Возможно, запись удалена на другом устройстве." /></Screen>
 
   const name = [client.firstName, client.secondName, client.thirdName].filter(Boolean).join(' ') || 'Без имени'
-  const phone = String(client.phone || '').replace(/\D/g, '')
-  const whatsapp = String(client.whatsapp || client.phone || '').replace(/\D/g, '')
-  const telegram = (client.telegram || '').replace(/^@/, '')
-  const vkUrl = client.vk?.startsWith('http') ? client.vk : client.vk ? `https://vk.com/${client.vk.replace(/^@/, '')}` : ''
   const income = relatedTransactions.filter((item) => item.type === 'income' && item.paymentMethod !== 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
   const expense = relatedTransactions.filter((item) => item.type === 'expense' && item.paymentMethod !== 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
   const obligations = relatedTransactions.filter((item) => item.paymentMethod === 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
@@ -69,10 +69,7 @@ export default function ClientDetailScreen() {
       />
       {client.syncStatus && client.syncStatus !== 'synced' ? <View style={styles.statusRow}><StatusChip label="Ожидает синхронизации" tone="warning" /></View> : null}
       <View style={styles.actions}>
-        {phone ? <Action icon="phone-outline" label="Позвонить" onPress={() => open(`tel:${phone}`)} /> : null}
-        {whatsapp ? <Action icon="whatsapp" label="WhatsApp" onPress={() => open(`https://wa.me/${whatsapp}`)} /> : null}
-        {telegram ? <Action icon="send-outline" label="Telegram" onPress={() => open(client.telegram?.startsWith('http') ? client.telegram : `https://t.me/${telegram}`)} /> : null}
-        {vkUrl ? <Action icon="alpha-v-box" label="VK" onPress={() => open(vkUrl)} /> : null}
+        <QuickContacts client={client} maxVisible={8} />
         {client.town ? <Action icon="map-marker-outline" label="Карты" onPress={() => open(`geo:0,0?q=${encodeURIComponent(client.town || '')}`)} /> : null}
       </View>
 
@@ -80,6 +77,7 @@ export default function ClientDetailScreen() {
         <SectionTitle>Контакты</SectionTitle>
         <Info label="Телефон" value={formatPhoneForDisplay(client.phone)} />
         <Info label="Email" value={client.email} />
+        <Info label="MAX" value={client.max} />
         <Info label="Telegram" value={client.telegram} />
         <Info label="Instagram" value={client.instagram} />
         <Info label="VK" value={client.vk} />
