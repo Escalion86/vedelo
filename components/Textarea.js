@@ -14,6 +14,8 @@ const Textarea = ({
   rows = 3,
   required,
   defaultValue,
+  disabled = false,
+  maxLength,
   noMargin = false,
   smallMargin = false,
   fullWidth = false,
@@ -27,6 +29,7 @@ const Textarea = ({
       className={wrapperClassName}
       required={required}
       error={error}
+      disabled={disabled}
       noMargin={noMargin}
       smallMargin={smallMargin}
       fullWidth={fullWidth}
@@ -37,6 +40,8 @@ const Textarea = ({
         rows={rows}
         value={value}
         defaultValue={defaultValue}
+        disabled={disabled}
+        maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
       />
     </InputWrapper>

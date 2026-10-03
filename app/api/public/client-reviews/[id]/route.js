@@ -7,6 +7,7 @@ import {
   reviewError,
   reviewResponse,
 } from '@server/clientReviews'
+import { tenantReviewAppearance } from '@server/reviewAppearance'
 import { validateReviewAnswer } from '@helpers/clientReviews.mjs'
 
 const resolve = async (req, params) => {
@@ -35,15 +36,19 @@ const resolve = async (req, params) => {
     }
   return { review }
 }
-const dto = (review) => ({
+// Секретный GET дополнительно возвращает явно сохранённое публичное
+// оформление страницы; без него нейтральный fallback на клиенте.
+const dto = async (review) => ({
   performerName: review.performerName,
   eventDate: review.eventDate,
   submitted: Boolean(review.submittedAt),
+  appearance: await tenantReviewAppearance(review.tenantId),
 })
 
 export const GET = async (req, { params }) => {
   const result = await resolve(req, params)
-  return result.response || reviewResponse(dto(result.review))
+  if (result.response) return result.response
+  return reviewResponse(await dto(result.review))
 }
 export const POST = async (req, { params }) => {
   const result = await resolve(req, params)
