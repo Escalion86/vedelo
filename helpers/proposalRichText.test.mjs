@@ -43,3 +43,35 @@ test('legacy proposal block text and benefits become rich text', () => {
     '<ul><li>Опыт</li><li>Шоу</li></ul>'
   )
 })
+
+test('proposal rich text keeps images and videos uploaded to the cloud', () => {
+  const directory =
+    'https://cloud.escalion.ru/uploads/artistcrm/proposal-templates/1'
+  const result = sanitizeProposalRichText(
+    `<p><img src="${directory}/photo.jpg" alt="Фото" loading="lazy"></p>` +
+      `<p><video src="${directory}/clip.mp4" controls preload="metadata"></video></p>`
+  )
+  assert.equal(result.includes('<img'), true)
+  assert.equal(result.includes('photo.jpg'), true)
+  assert.equal(result.includes('<video'), true)
+  assert.equal(result.includes('controls'), true)
+  assert.equal(result.includes('preload="metadata"'), true)
+})
+
+test('proposal rich text drops media without a remote source', () => {
+  const result = sanitizeProposalRichText(
+    '<p><img src="data:image/png;base64,AAAA"><img src="javascript:alert(1)"><img src="blob:https://x/1"></p><p>Текст</p>'
+  )
+  assert.equal(result.includes('<img'), false)
+  assert.equal(result.includes('data:'), false)
+  assert.equal(result.includes('javascript:'), false)
+  assert.equal(result.includes('Текст'), true)
+})
+
+test('proposal rich text drops a video without a remote source', () => {
+  const result = sanitizeProposalRichText(
+    '<p><video src="data:video/mp4;base64,AAAA"></video></p>'
+  )
+  assert.equal(result.includes('<video'), false)
+  assert.equal(result.includes('data:'), false)
+})

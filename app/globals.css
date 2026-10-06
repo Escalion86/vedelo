@@ -32,6 +32,7 @@
 body {
   background: #fffefa;
   color: #1c1d1f;
+  --cabinet-canvas-bg: #f3f1eb;
   --surface-card-bg: #ffffff;
   --surface-card-border: #dedbd3;
   --surface-card-hover-border: #c9bfae;
@@ -1720,7 +1721,7 @@ body.theme-dark .surface-card {
 }
 
 .cabinet-canvas {
-  background: #fffefa;
+  background: var(--cabinet-canvas-bg);
 }
 
 body.theme-dark .cabinet-canvas {
@@ -1859,6 +1860,23 @@ body.theme-dark .cabinet-canvas {
     color: #b45309;
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+
+  .proposal-rich-text-content img,
+  .proposal-rich-text-content video {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 30rem;
+    border-radius: 0.75rem;
+  }
+
+  .proposal-rich-text-content img {
+    object-fit: contain;
+  }
+
+  .proposal-rich-text-content video {
+    background-color: #000;
   }
 
   .news-rich-text-content > * + * {
@@ -4919,7 +4937,13 @@ body.theme-dark .attention-summary-chip {
 
 .card-swipe-row {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   height: 100%;
+  /* Fixed card heights can exceed the padded virtual row by a few pixels.
+     Let the shared clip grow to its content so every edge stays visible. */
+  min-height: min-content;
+  box-shadow: var(--surface-card-shadow);
   border-radius: 8px;
   overflow: hidden;
   transition:

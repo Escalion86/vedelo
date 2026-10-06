@@ -14,6 +14,7 @@ import {
   PROPOSAL_BUILDER_ACCESS_ERROR,
 } from '@helpers/proposalAccess'
 import { buildProposalSnapshot } from '@server/proposals'
+import { normalizeProposalTemplateDefaults } from '@helpers/proposalContent'
 
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
@@ -90,11 +91,22 @@ export const POST = async (req, { params }) => {
     Proposals.findOne({ tenantId: resolved.context.tenantId, eventId: id }).sort({ version: -1 }).select('version').lean(),
   ])
   if (!template) return error('Шаблон не найден', 404, 'template_not_found')
+  // Услуги, выбранные в шаблоне, заполняют вариант сразу.
+  const templateServiceIds = normalizeProposalTemplateDefaults(
+    template?.defaults
+  ).servicesIds
+  const templateServices = templateServiceIds.length
+    ? await Services.find({
+        _id: { $in: templateServiceIds },
+        tenantId: resolved.context.tenantId,
+      }).lean()
+    : []
   const snapshot = buildProposalSnapshot({
     template,
     event: resolved.event,
     client,
     services,
+    templateServices,
     artist: resolved.context.user,
     input: body,
   })

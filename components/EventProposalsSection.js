@@ -1007,6 +1007,7 @@ const EventProposalsSection = ({
                         updateBlock(blockIndex, { contentHtml })
                       }
                       placeholder="Введите текст блока…"
+                      directory={`proposals/${editing._id || 'draft'}`}
                     />
                   </div>
                 ) : null}

@@ -188,6 +188,49 @@ export const normalizeProposalPackages = (packages) => {
   })
 }
 
+export const PROPOSAL_TEMPLATE_SERVICES_LIMIT = 30
+
+const isProposalServiceId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''))
+
+// Шаблон хранит только выбранные услуги каталога: они сразу становятся
+// позициями основного варианта при создании предложения по этому шаблону.
+export const normalizeProposalTemplateDefaults = (defaults) => {
+  const source = defaults && typeof defaults === 'object' ? defaults : {}
+  const raw = Array.isArray(source.servicesIds) ? source.servicesIds : []
+  const servicesIds = [
+    ...new Set(
+      raw.map((id) => String(id || '').trim()).filter(isProposalServiceId)
+    ),
+  ].slice(0, PROPOSAL_TEMPLATE_SERVICES_LIMIT)
+  return { servicesIds }
+}
+
+const proposalServiceLine = (service) => ({
+  serviceId: String(service._id),
+  title: clean(service.title, 300),
+  description: clean(service.description, 1000),
+  price: Math.max(0, Number(service.price) || 0),
+})
+
+// Услуги шаблона заполняют вариант сразу; без выбранных услуг поведение
+// прежнее — вариант собирается из услуг заявки.
+export const buildProposalDefaultLines = ({
+  templateDefaults,
+  templateServices = [],
+  eventServices = [],
+}) => {
+  const selected = normalizeProposalTemplateDefaults(templateDefaults)
+    .servicesIds.map((serviceId) =>
+      (templateServices || []).find(
+        (service) => String(service._id) === serviceId
+      )
+    )
+    .filter(Boolean)
+  return (selected.length ? selected : eventServices || []).map(
+    proposalServiceLine
+  )
+}
+
 const getByPath = (source, path) =>
   path.split('.').reduce((value, key) => value?.[key], source)
 

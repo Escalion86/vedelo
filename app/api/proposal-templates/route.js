@@ -10,6 +10,7 @@ import {
 import {
   normalizeProposalBlocks,
   normalizeProposalMedia,
+  normalizeProposalTemplateDefaults,
 } from '@helpers/proposalContent'
 
 const error = (message, status = 400, code = 'bad_request') =>
@@ -41,7 +42,7 @@ export const POST = async (req) => {
     blocks: normalizeProposalBlocks(body?.blocks),
     messageTemplate: String(body?.messageTemplate || '').trim().slice(0, 4000),
     media: normalizeProposalMedia(body?.media),
-    defaults: body?.defaults && typeof body.defaults === 'object' ? body.defaults : {},
+    defaults: normalizeProposalTemplateDefaults(body?.defaults),
   })
   return NextResponse.json({ success: true, data: item }, { status: 201 })
 }

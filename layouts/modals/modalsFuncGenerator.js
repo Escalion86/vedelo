@@ -16,6 +16,7 @@ import eventsTagsFunc from './modalsFunc/eventsTagsFunc'
 import townsFunc from './modalsFunc/townsFunc'
 import whatsNewFunc from './modalsFunc/whatsNewFunc'
 import newsFunc from './modalsFunc/newsFunc'
+import proposalTemplateFunc from './modalsFunc/proposalTemplateFunc'
 import eventTypesFunc from './modalsFunc/eventTypesFunc'
 import artistRequisitesEditorFunc from './modalsFunc/artistRequisitesEditorFunc'
 import jsonFunc from './modalsFunc/jsonFunc'
@@ -197,6 +198,11 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
         loggedUser?.role === 'dev'
           ? addModal(newsFunc(newsItem, onSaved))
           : null,
+    },
+    proposalTemplate: {
+      add: (onSaved) => addModal(proposalTemplateFunc(null, onSaved)),
+      edit: (template, onSaved) =>
+        addModal(proposalTemplateFunc(template, onSaved)),
     },
     transaction: {
       add: (eventId, props) =>

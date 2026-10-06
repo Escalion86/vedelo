@@ -3,6 +3,7 @@ import { formatMoney } from '@helpers/formatMoney'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
   DEFAULT_PROPOSAL_MESSAGE,
+  buildProposalDefaultLines,
   normalizeProposalMessage,
   normalizeProposalBlocks,
   normalizeProposalMedia,
@@ -70,7 +71,7 @@ export const buildProposalVariables = ({ event, client, services, artist }) => {
   }
 }
 
-export const buildProposalSnapshot = ({ template, event, client, services, artist, input = {} }) => {
+export const buildProposalSnapshot = ({ template, event, client, services, artist, templateServices = [], input = {} }) => {
   const variables = buildProposalVariables({ event, client, services, artist })
   const sourceBlocks = input.blocks || template?.blocks
   const blocksSnapshot = normalizeProposalBlocks(sourceBlocks).map((block) => ({
@@ -78,12 +79,13 @@ export const buildProposalSnapshot = ({ template, event, client, services, artis
     title: renderProposalVariables(block.title, variables).text,
     text: renderProposalVariables(block.text, variables).text,
   }))
-  const defaultLines = services.map((service) => ({
-    serviceId: String(service._id),
-    title: service.title,
-    description: service.description || '',
-    price: Number(service.price) || 0,
-  }))
+  // Услуги шаблона заполняют вариант сразу; без выбранных услуг поведение
+  // прежнее — вариант собирается из услуг заявки.
+  const defaultLines = buildProposalDefaultLines({
+    templateDefaults: template?.defaults,
+    templateServices,
+    eventServices: services,
+  })
   const packages = normalizeProposalPackages(
     input.packages?.length
       ? input.packages

@@ -34,6 +34,8 @@ const ALLOWED_TAGS = [
   'blockquote',
   'a',
   'span',
+  'img',
+  'video',
 ]
 const ALLOWED_ATTR = [
   'href',
@@ -41,7 +43,32 @@ const ALLOWED_ATTR = [
   'rel',
   'data-proposal-variable',
   'data-proposal-variable-label',
+  'src',
+  'alt',
+  'title',
+  'loading',
+  'controls',
+  'preload',
+  'playsinline',
+  'poster',
+  'width',
+  'height',
 ]
+// Медиа в текстовых блоках хранится в cloud.escalion.ru. DOMPurify по умолчанию
+// разрешает data:-источники для img/video, поэтому после очистки удаляем медиа
+// без внешнего http(s)-источника целиком (data:, blob:, javascript:).
+const hasRemoteMediaSource = (tag) =>
+  /src\s*=\s*["']?(?:https?:|\/uploads\/)/i.test(tag)
+
+const stripNonRemoteMedia = (html) =>
+  String(html ?? '')
+    .replace(/<video\b[^>]*>[\s\S]*?<\/video>/gi, (tag) =>
+      hasRemoteMediaSource(tag) ? tag : ''
+    )
+    .replace(/<video\b[^>]*\/?>/gi, (tag) =>
+      hasRemoteMediaSource(tag) ? tag : ''
+    )
+    .replace(/<img\b[^>]*>/gi, (tag) => (hasRemoteMediaSource(tag) ? tag : ''))
 
 export const escapeProposalHtml = (value) =>
   String(value ?? '')
@@ -71,11 +98,13 @@ export const proposalItemsToHtml = (items) => {
 }
 
 export const sanitizeProposalRichText = (value) =>
-  DOMPurify.sanitize(String(value ?? '').slice(0, MAX_RICH_TEXT_LENGTH), {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: true,
-  }).trim()
+  stripNonRemoteMedia(
+    DOMPurify.sanitize(String(value ?? '').slice(0, MAX_RICH_TEXT_LENGTH), {
+      ALLOWED_TAGS,
+      ALLOWED_ATTR,
+      ALLOW_DATA_ATTR: true,
+    })
+  ).trim()
 
 export const getProposalBlockContentHtml = (block) => {
   if (!block || !PROPOSAL_RICH_TEXT_BLOCK_TYPES.includes(block.type)) return ''

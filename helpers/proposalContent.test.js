@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   DEFAULT_PROPOSAL_MESSAGE,
+  buildProposalDefaultLines,
   normalizeProposalMessage,
   getProposalUnknownVariables,
   normalizeProposalBlocks,
   normalizeProposalMedia,
   normalizeProposalPackages,
+  normalizeProposalTemplateDefaults,
   renderProposalVariables,
 } from './proposalContent.js'
 
@@ -83,4 +85,59 @@ test('standard proposal message is neutral and legacy defaults upgrade without r
   assert.equal(renderProposalVariables(normalizeProposalMessage(legacy), {
     client: { firstName: 'Надежда Буренкова' }, proposal: { url: 'https://example.test/proposal' },
   }).text, 'Здравствуйте, Надежда Буренкова! Предложение для вашего мероприятия можете посмотреть по ссылке: https://example.test/proposal')
+})
+
+test('template defaults keep only unique valid service ids', () => {
+  const first = 'a'.repeat(24)
+  const second = 'B'.repeat(24)
+  assert.deepEqual(
+    normalizeProposalTemplateDefaults({
+      servicesIds: [first, first, second, 'bad', 42, null, `${first} `],
+    }).servicesIds,
+    [first, second]
+  )
+  assert.deepEqual(normalizeProposalTemplateDefaults('junk').servicesIds, [])
+  assert.deepEqual(normalizeProposalTemplateDefaults(null).servicesIds, [])
+  const many = Array.from({ length: 35 }, (_, index) =>
+    index.toString(16).padStart(24, '0')
+  )
+  assert.equal(
+    normalizeProposalTemplateDefaults({ servicesIds: many }).servicesIds.length,
+    30
+  )
+})
+
+test('proposal default lines prefer template services and fall back to event services', () => {
+  const showService = { _id: 'a'.repeat(24), title: 'Шоу', price: 5000 }
+  const extraService = { _id: 'b'.repeat(24), title: 'Доп', price: 1000 }
+  const eventService = { _id: 'c'.repeat(24), title: 'Из заявки', price: 7000 }
+
+  const fromTemplate = buildProposalDefaultLines({
+    templateDefaults: { servicesIds: [extraService._id, showService._id] },
+    templateServices: [showService, extraService],
+    eventServices: [eventService],
+  })
+  assert.deepEqual(
+    fromTemplate.map((line) => line.title),
+    ['Доп', 'Шоу']
+  )
+  assert.equal(fromTemplate[0].serviceId, extraService._id)
+
+  assert.deepEqual(
+    buildProposalDefaultLines({
+      templateDefaults: { servicesIds: ['f'.repeat(24)] },
+      templateServices: [],
+      eventServices: [eventService],
+    }).map((line) => line.title),
+    ['Из заявки']
+  )
+
+  assert.deepEqual(
+    buildProposalDefaultLines({
+      templateDefaults: {},
+      templateServices: [showService],
+      eventServices: [eventService],
+    }).map((line) => line.title),
+    ['Из заявки']
+  )
 })

@@ -9,7 +9,11 @@ import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
 } from '@helpers/proposalAccess'
-import { normalizeProposalBlocks, normalizeProposalMedia } from '@helpers/proposalContent'
+import {
+  normalizeProposalBlocks,
+  normalizeProposalMedia,
+  normalizeProposalTemplateDefaults,
+} from '@helpers/proposalContent'
 
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
@@ -51,7 +55,7 @@ export const PATCH = async (req, { params }) => {
   if (body.blocks !== undefined) update.blocks = normalizeProposalBlocks(body.blocks)
   if (body.messageTemplate !== undefined) update.messageTemplate = String(body.messageTemplate || '').trim().slice(0, 4000)
   if (body.media !== undefined) update.media = normalizeProposalMedia(body.media)
-  if (body.defaults !== undefined) update.defaults = body.defaults && typeof body.defaults === 'object' ? body.defaults : {}
+  if (body.defaults !== undefined) update.defaults = normalizeProposalTemplateDefaults(body.defaults)
   if (update.name === '') return error('Укажите название шаблона', 400, 'name_required')
   await dbConnect()
   const item = await ProposalTemplates.findOneAndUpdate(
