@@ -98,6 +98,11 @@
 Профессии: `vedushchie`, `fokusniki`, `fotografy`, `muzykanty`, `beauty`,
 `remont`, `konditery`.
 
+У каждого файла есть JPEG-копия с тем же именем (`poster.jpg`,
+`carousel/01.jpg`–`06.jpg`, `ads/*.jpg`, `collection.jpg`) — для площадок,
+которые не принимают WebP. Просьба «приложите картинку» в чате или ВК — это
+как раз JPEG.
+
 ## Календарь
 
 | День | Действие | Материал и ссылка | Результат дня |

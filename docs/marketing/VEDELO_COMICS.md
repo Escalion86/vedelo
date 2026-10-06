@@ -8,28 +8,35 @@
 
 | Аудитория | Постер | Вертикальное видео |
 | --- | --- | --- |
-| Фокусники | [Постер](../../public/marketing/comics/fokusniki/poster.webp) | [MP4](../../public/marketing/comics/fokusniki/comic-vertical.mp4) |
-| Ведущие | [Постер](../../public/marketing/comics/vedushchie/poster.webp) | [MP4](../../public/marketing/comics/vedushchie/comic-vertical.mp4) |
-| Музыканты | [Постер](../../public/marketing/comics/muzykanty/poster.webp) | [MP4](../../public/marketing/comics/muzykanty/comic-vertical.mp4) |
-| Фотографы и видеографы | [Постер](../../public/marketing/comics/fotografy/poster.webp) | [MP4](../../public/marketing/comics/fotografy/comic-vertical.mp4) |
-| Бьюти-мастера | [Постер](../../public/marketing/comics/beauty/poster.webp) | [MP4](../../public/marketing/comics/beauty/comic-vertical.mp4) |
-| Ремонт и бытовые услуги | [Постер](../../public/marketing/comics/remont/poster.webp) | [MP4](../../public/marketing/comics/remont/comic-vertical.mp4) |
-| Кондитеры и изделия на заказ | [Постер](../../public/marketing/comics/konditery/poster.webp) | [MP4](../../public/marketing/comics/konditery/comic-vertical.mp4) |
+| Фокусники | [Постер](../../public/marketing/comics/fokusniki/poster.webp) · [JPG](../../public/marketing/comics/fokusniki/poster.jpg) | [MP4](../../public/marketing/comics/fokusniki/comic-vertical.mp4) |
+| Ведущие | [Постер](../../public/marketing/comics/vedushchie/poster.webp) · [JPG](../../public/marketing/comics/vedushchie/poster.jpg) | [MP4](../../public/marketing/comics/vedushchie/comic-vertical.mp4) |
+| Музыканты | [Постер](../../public/marketing/comics/muzykanty/poster.webp) · [JPG](../../public/marketing/comics/muzykanty/poster.jpg) | [MP4](../../public/marketing/comics/muzykanty/comic-vertical.mp4) |
+| Фотографы и видеографы | [Постер](../../public/marketing/comics/fotografy/poster.webp) · [JPG](../../public/marketing/comics/fotografy/poster.jpg) | [MP4](../../public/marketing/comics/fotografy/comic-vertical.mp4) |
+| Бьюти-мастера | [Постер](../../public/marketing/comics/beauty/poster.webp) · [JPG](../../public/marketing/comics/beauty/poster.jpg) | [MP4](../../public/marketing/comics/beauty/comic-vertical.mp4) |
+| Ремонт и бытовые услуги | [Постер](../../public/marketing/comics/remont/poster.webp) · [JPG](../../public/marketing/comics/remont/poster.jpg) | [MP4](../../public/marketing/comics/remont/comic-vertical.mp4) |
+| Кондитеры и изделия на заказ | [Постер](../../public/marketing/comics/konditery/poster.webp) · [JPG](../../public/marketing/comics/konditery/poster.jpg) | [MP4](../../public/marketing/comics/konditery/comic-vertical.mp4) |
 
-[Общий обзор серии](../../public/marketing/comics/collection.webp).
+[Общий обзор серии](../../public/marketing/comics/collection.webp)
+([JPG](../../public/marketing/comics/collection.jpg)).
 
 ## Форматы
 
 В `public/marketing/comics/<профессия>/`:
 
-- `poster.webp` и `poster.png`: полный комикс 1024×1536 с официальным знаком рядом с названием;
-- `carousel/01.webp`–`06.webp`: шесть кадров 1080×1920, с подписью «Ведело» и адресом на каждом;
-- `ads/zayavki.webp`, `ads/detali-zakaza.webp`, `ads/zadatki-i-dela.webp`: одиночные креативы 1080×1350;
+- `poster.webp`, `poster.png` и `poster.jpg`: полный комикс 1024×1536 с официальным знаком рядом с названием;
+- `carousel/01.webp`–`06.webp` и `carousel/01.jpg`–`06.jpg`: шесть кадров 1080×1920, с подписью «Ведело» и адресом на каждом;
+- `ads/zayavki.webp`, `ads/detali-zakaza.webp`, `ads/zadatki-i-dela.webp` (и те же `.jpg`): одиночные креативы 1080×1350;
 - `comic-vertical.mp4`: 18 секунд, 1080×1920, 30 fps, без звука, по три секунды на кадр.
+
+JPEG-копии собираются тем же скриптом из PNG-исходников: качество 92 (постеры и кадры),
+4:4:4 без цветовой субдискретизации, прогрессивные, альфа-канал залит фоном
+`#080b0d`. Они нужны площадкам, которые не принимают WebP — ВК, чаты, часть
+рекламных кабинетов. Для веба по-прежнему использовать WebP: он легче.
 
 В трёх старых сериях `ads/ai-chernovik.webp` сохранён как совместимый адрес
 копии `detali-zakaza.webp`; для новых публикаций использовать новое имя.
-Всего: 7 постеров, 42 кадра, 21 самостоятельный креатив, 7 роликов.
+Всего: 7 постеров, 42 кадра, 21 самостоятельный креатив, 7 роликов
+и 74 файла в JPEG (7 постеров, 42 кадра, 24 креатива, общий обзор серии).
 
 ## Содержание и ограничения
 

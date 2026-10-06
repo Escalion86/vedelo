@@ -9,6 +9,8 @@ const sourceRoot = path.join(projectRoot, 'assets', 'marketing', 'comics')
 const outputRoot = path.join(projectRoot, 'public', 'marketing', 'comics')
 const { comics } = JSON.parse(await readFile(path.join(sourceRoot, 'manifest.json'), 'utf8'))
 const background = '#080b0d'
+// JPEG-копии нужны площадкам, которые не принимают WebP: ВК, чаты, часть рекламных кабинетов.
+const jpegOptions = (quality) => ({ quality, chromaSubsampling: '4:4:4', mozjpeg: true, progressive: true })
 const brandMark = (await readFile(path.join(projectRoot, 'public', 'brand', 'vedelo-mark.svg'))).toString('base64')
 const ffmpegCheck = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' })
 if (ffmpegCheck.error || ffmpegCheck.status !== 0) {
@@ -63,6 +65,7 @@ for (const comic of sources) {
     }])
     await poster.clone().png().toFile(path.join(destination, 'poster.png'))
     await poster.clone().webp({ quality: 93 }).toFile(path.join(destination, 'poster.webp'))
+    await poster.clone().flatten({ background }).jpeg(jpegOptions(92)).toFile(path.join(destination, 'poster.jpg'))
     const frames = []
     for (let row = 0; row < 2; row += 1) {
       for (let column = 0; column < 3; column += 1) {
@@ -77,15 +80,20 @@ for (const comic of sources) {
         const name = String(frames.length).padStart(2, '0')
         const slide = await card(frame, 1920)
         await slide.clone().webp({ quality: 92 }).toFile(path.join(destination, 'carousel', name + '.webp'))
-        await slide.clone().jpeg({ quality: 94 }).toFile(path.join(temporaryFrames, name + '.jpg'))
+        await slide.clone().jpeg(jpegOptions(92)).toFile(path.join(destination, 'carousel', name + '.jpg'))
+        await slide.clone().jpeg(jpegOptions(94)).toFile(path.join(temporaryFrames, name + '.jpg'))
       }
     }
     for (const [name, index] of [['zayavki', 0], ['detali-zakaza', 2], ['zadatki-i-dela', 3]]) {
-      await (await card(frames[index], 1350)).webp({ quality: 92 }).toFile(path.join(destination, 'ads', name + '.webp'))
+      const ad = await card(frames[index], 1350)
+      await ad.clone().webp({ quality: 92 }).toFile(path.join(destination, 'ads', name + '.webp'))
+      await ad.clone().jpeg(jpegOptions(92)).toFile(path.join(destination, 'ads', name + '.jpg'))
     }
     // Keep previously distributed URLs usable, with updated order-details copy.
     if (comic.legacyAiAsset) {
-      await (await card(frames[2], 1350)).webp({ quality: 92 }).toFile(path.join(destination, 'ads', 'ai-chernovik.webp'))
+      const legacy = await card(frames[2], 1350)
+      await legacy.clone().webp({ quality: 92 }).toFile(path.join(destination, 'ads', 'ai-chernovik.webp'))
+      await legacy.clone().jpeg(jpegOptions(92)).toFile(path.join(destination, 'ads', 'ai-chernovik.jpg'))
     }
     const ffmpeg = spawnSync('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-y', '-framerate', '1/3',
@@ -113,6 +121,8 @@ const thumbnails = await Promise.all(sources.map(async (comic, index) => ({
   left: (index % 4) * 400 + 8,
   top: Math.floor(index / 4) * 592 + 8,
 })))
-await sharp({ create: { width: 1600, height: 1184, channels: 3, background } })
-  .composite(thumbnails).webp({ quality: 90 }).toFile(path.join(outputRoot, 'collection.webp'))
+const collection = sharp({ create: { width: 1600, height: 1184, channels: 3, background } })
+  .composite(thumbnails)
+await collection.clone().webp({ quality: 90 }).toFile(path.join(outputRoot, 'collection.webp'))
+await collection.clone().jpeg(jpegOptions(90)).toFile(path.join(outputRoot, 'collection.jpg'))
 console.log('Маркетинговые материалы собраны в ' + outputRoot)
