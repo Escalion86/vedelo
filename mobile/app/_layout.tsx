@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native'
 import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
-import { StatusBar } from 'expo-status-bar'
+import { ThemeSystemUI } from '../src/shared/ui/ThemeSystemUI'
 import NetInfo from '@react-native-community/netinfo'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AppProviders } from '../src/shared/providers/AppProviders'
@@ -15,9 +15,12 @@ import {
 import { useExpoPushNotifications } from '../src/shared/notifications/useExpoPushNotifications'
 import { flushPendingLogout } from '../src/shared/auth/pendingLogout'
 import { normalizeRegistrationReferrer } from '../src/shared/auth/registrationReferral'
-import { colors } from '../src/shared/ui/theme'
+import { useTheme, useThemeStyles } from '../src/shared/ui/ThemeProvider'
+import type { Palette } from '../src/shared/ui/theme'
 
 const RootNavigator = () => {
+  const { palette } = useTheme()
+  const styles = useThemeStyles(createStyles)
   const { authenticated, loading, onboardingRequired } = useAuth()
   const router = useRouter()
   const segments = useSegments()
@@ -83,23 +86,24 @@ const RootNavigator = () => {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ThemeSystemUI />
+        <ActivityIndicator size="large" color={palette.primary} />
       </View>
     )
   }
 
   return (
-    <>
-      <StatusBar style="dark" />
+    <View style={styles.root}>
+      <ThemeSystemUI />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: palette.canvas },
         }}
       >
         <Stack.Screen name="history" options={{ presentation: 'modal' }} />
       </Stack>
-    </>
+    </View>
   )
 }
 
@@ -113,11 +117,12 @@ export default function RootLayout() {
   )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: palette.canvas },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: palette.canvas,
   },
 })

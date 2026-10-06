@@ -15,8 +15,7 @@ export const AppProviders = ({ children }: PropsWithChildren) => {
   )
 
   return (
-    // Stage AJ removes the light lock after all user screens are migrated.
-    <ThemeProvider forcedMode="light">
+    <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>{children}</AuthProvider>
       </QueryClientProvider>

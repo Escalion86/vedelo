@@ -20,6 +20,7 @@ export const CompactField = ({ label, error, loading = false, search = false, st
         accessibilityLabel={label}
         accessibilityRole={search ? 'search' : undefined}
         placeholderTextColor={palette.cardMuted}
+        keyboardAppearance={palette.mode}
         returnKeyType={search ? 'search' : undefined}
         {...props}
         // Loading a filtered list must not erase text or disable typing.

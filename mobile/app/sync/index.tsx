@@ -51,16 +51,18 @@ import {
 import {
   Button,
   EmptyState,
-  ErrorNotice,
+  Notice,
   PageHeader,
   Screen,
   SectionTitle,
   StatusChip,
   Surface,
 } from '../../src/shared/ui/components'
-import { colors, spacing } from '../../src/shared/ui/theme'
+import { useThemeStyles } from '../../src/shared/ui/ThemeProvider'
+import { spacing, type Palette } from '../../src/shared/ui/theme'
 
 export default function SyncScreen() {
+  const styles = useThemeStyles(createStyles)
   const queryClient = useQueryClient()
   const syncRunState = useSyncRunState()
   const syncRunPresentation = getSyncStatePresentation(syncRunState)
@@ -79,7 +81,8 @@ export default function SyncScreen() {
   const [error, setError] = useState('')
   const [retryingId, setRetryingId] = useState('')
   const [loading, setLoading] = useState(false)
-  const load = async () => {
+  const [readState, setReadState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
+  const readLocalState = async () => {
     const [
       items,
       counts,
@@ -149,6 +152,17 @@ export default function SyncScreen() {
         ]),
       ])
     )
+  }
+  // Presentation only: the existing read and sync operation order stays unchanged.
+  const load = async () => {
+    setReadState('loading')
+    try {
+      await readLocalState()
+      setReadState('ready')
+    } catch (reason) {
+      setReadState('unavailable')
+      throw reason
+    }
   }
   useEffect(() => {
     void load().catch((reason) => {
@@ -236,25 +250,32 @@ export default function SyncScreen() {
       setRetryingId('')
     }
   }
+  const reading = readState === 'loading'
+  const confirmed = readState === 'ready'
+  const blocked = Boolean(retryingId) || loading || reading
   return (
-    <Screen>
+    <Screen contentStyle={styles.screen}>
       <PageHeader
         title="Синхронизация"
         subtitle="Очередь и конфликты между устройствами"
       />
       <View style={styles.summary}>
-        <Count label="Ожидает" value={summary.pending || 0} />
-        <Count label="Ошибки" value={summary.failed || 0} />
-        <Count label="Конфликты" value={summary.conflict || 0} />
+        <Count label="Ожидает" value={confirmed ? summary.pending || 0 : '—'} />
+        <Count label="Ошибки" value={confirmed ? summary.failed || 0 : '—'} />
+        <Count label="Конфликты" value={confirmed ? summary.conflict || 0 : '—'} />
       </View>
       <Button
         testID="sync-now"
         title="Синхронизировать сейчас"
         onPress={sync}
         loading={loading}
+        disabled={Boolean(retryingId) || reading}
       />
-      {error ? <ErrorNotice message={error} /> : null}
+      {error ? <Notice tone="danger" message={error} /> : null}
+      {reading ? <Notice testID="sync-reading" tone="info" message="Читаем локальную очередь и конфликты…" accessibilityState={{ busy: true }} /> : null}
+      {!reading && !confirmed ? <Notice tone="warning" message="Очередь и конфликты не подтверждены. Повторите синхронизацию, чтобы обновить состояние." /> : null}
       <Surface testID="sync-run-state">
+        {syncRunState?.status === 'success' && !confirmed ? <Notice tone="info" message="Актуальное состояние очереди ещё не подтверждено." /> : (<>
         <View style={styles.backgroundRow}>
           <View style={styles.flex}>
             <Text style={styles.entity}>{syncRunPresentation.title}</Text>
@@ -275,6 +296,7 @@ export default function SyncScreen() {
             tone={syncRunPresentation.tone}
           />
         </View>
+        </>)}
       </Surface>
       <Surface>
         <View style={styles.backgroundRow}>
@@ -287,13 +309,15 @@ export default function SyncScreen() {
           </View>
           <StatusChip
             label={
-              backgroundInfo?.registered
+              !confirmed || !backgroundInfo
+                ? reading ? 'Проверяем…' : 'Нет данных'
+                : backgroundInfo.registered
                 ? 'Включена'
                 : backgroundInfo?.available === false
                   ? 'Ограничена системой'
                   : 'Не активна'
             }
-            tone={backgroundInfo?.registered ? 'success' : 'warning'}
+            tone={confirmed && backgroundInfo?.registered ? 'success' : 'warning'}
           />
         </View>
       </Surface>
@@ -307,14 +331,16 @@ export default function SyncScreen() {
           </View>
           <StatusChip
             label={
-              databaseDiagnostics?.sqlCipherActive
+              !confirmed || !databaseDiagnostics
+                ? reading ? 'Проверяем…' : 'Нет данных'
+                : databaseDiagnostics.sqlCipherActive
                 ? 'SQLCipher активен'
                 : 'Нет данных'
             }
-            tone={databaseDiagnostics?.sqlCipherActive ? 'success' : 'warning'}
+            tone={confirmed && databaseDiagnostics?.sqlCipherActive ? 'success' : 'warning'}
           />
         </View>
-        {databaseDiagnostics ? (
+        {confirmed && databaseDiagnostics ? (
           <View style={styles.databaseDetails}>
             <Text style={styles.base}>
               Схема: v{databaseDiagnostics.schemaVersion} из v
@@ -341,13 +367,11 @@ export default function SyncScreen() {
             </Text>
           </View>
         ) : (
-          <Text style={styles.base}>
-            Не удалось прочитать состояние локальной базы.
-          </Text>
+          <Notice tone={reading ? 'info' : 'warning'} message={reading ? 'Читаем состояние локальной базы…' : 'Не удалось прочитать состояние локальной базы.'} />
         )}
       </Surface>
       <SectionTitle>Очередь изменений</SectionTitle>
-      {outboxItems.length || fileItems.length ? (
+      {!confirmed ? <Notice tone={reading ? 'info' : 'warning'} message={reading ? 'Загружаем очередь…' : 'Данные очереди недоступны.'} /> : outboxItems.length || fileItems.length ? (
         <Surface testID="sync-queue-items">
           {outboxItems.map((item) => {
             const status = getOutboxStatusPresentation(item.status)
@@ -375,7 +399,7 @@ export default function SyncScreen() {
                   <StatusChip label={status.label} tone={status.tone} />
                 </View>
                 {itemError ? (
-                  <Text style={styles.queueError}>{itemError}</Text>
+                  <Notice tone="danger" message={itemError} />
                 ) : null}
                 {item.status === 'failed' ? (
                   <Button
@@ -383,7 +407,7 @@ export default function SyncScreen() {
                     title="Повторить"
                     variant="secondary"
                     loading={retryingId === `operation:${item.operationId}`}
-                    disabled={Boolean(retryingId) || loading}
+                    disabled={blocked}
                     onPress={() => retryOperation(item.operationId)}
                   />
                 ) : item.status === 'conflict' ? (
@@ -415,7 +439,7 @@ export default function SyncScreen() {
                   <StatusChip label={status.label} tone={status.tone} />
                 </View>
                 {itemError ? (
-                  <Text style={styles.queueError}>{itemError}</Text>
+                  <Notice tone="danger" message={itemError} />
                 ) : null}
                 {item.status === 'failed' ? (
                   <Button
@@ -423,7 +447,7 @@ export default function SyncScreen() {
                     title="Повторить файл"
                     variant="secondary"
                     loading={retryingId === `file:${item.id}`}
-                    disabled={Boolean(retryingId) || loading}
+                    disabled={blocked}
                     onPress={() => retryFile(item.id)}
                   />
                 ) : null}
@@ -440,7 +464,7 @@ export default function SyncScreen() {
         </Surface>
       )}
       <SectionTitle>Требуют решения</SectionTitle>
-      {conflicts.length ? (
+      {!confirmed ? <Notice tone={reading ? 'info' : 'warning'} message={reading ? 'Загружаем конфликты…' : 'Данные конфликтов недоступны.'} /> : conflicts.length ? (
         conflicts.map((conflict) => (
           <Surface key={conflict.id}>
             <Text style={styles.entity}>
@@ -474,23 +498,23 @@ export default function SyncScreen() {
               </View>
             </View>
             <View style={styles.actions}>
-              <View style={styles.flex}>
+              <View style={styles.action}>
                 <Button
                   testID="keep-local-conflict"
                   title="Оставить моё"
                   onPress={() => decide(conflict, 'local')}
                   loading={retryingId === `conflict:${conflict.id}:local`}
-                  disabled={Boolean(retryingId) || loading}
+                  disabled={blocked}
                 />
               </View>
-              <View style={styles.flex}>
+              <View style={styles.action}>
                 <Button
                   testID="accept-server-conflict"
                   title="Принять сервер"
                   variant="secondary"
                   onPress={() => decide(conflict, 'remote')}
                   loading={retryingId === `conflict:${conflict.id}:remote`}
-                  disabled={Boolean(retryingId) || loading}
+                  disabled={blocked}
                 />
               </View>
             </View>
@@ -506,51 +530,61 @@ export default function SyncScreen() {
   )
 }
 
-const Count = ({ label, value }: { label: string; value: number }) => (
+const Count = ({ label, value }: { label: string; value: number | string }) => {
+  const styles = useThemeStyles(createStyles)
+  return (
   <View style={styles.count}>
-    <Text style={styles.countValue}>{value}</Text>
+    <Text accessibilityLabel={`${label}: ${value === '—' ? 'нет данных' : value}`} style={styles.countValue}>{value}</Text>
     <Text style={styles.label}>{label}</Text>
   </View>
 )
-const styles = StyleSheet.create({
-  summary: { flexDirection: 'row', gap: spacing.sm },
+}
+const createStyles = (palette: Palette) => StyleSheet.create({
+  screen: { gap: spacing.md },
+  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   count: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+    flexGrow: 1,
+    flexBasis: 80,
+    padding: spacing.sm,
+    backgroundColor: palette.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.border,
     alignItems: 'center',
   },
-  countValue: { color: colors.text, fontSize: 22, fontWeight: '800' },
-  label: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
-  entity: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  base: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  countValue: { color: palette.text, fontSize: 22, fontWeight: '600' },
+  label: { color: palette.cardMuted, fontSize: 11, fontWeight: '700' },
+  entity: { color: palette.text, fontSize: 14, fontWeight: '600' },
+  base: { color: palette.cardMuted, fontSize: 12, lineHeight: 17 },
   backgroundRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.md,
   },
   databaseHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     gap: spacing.md,
   },
   databaseDetails: { gap: spacing.xs },
   queueItem: {
     gap: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: palette.border,
   },
   queueHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     gap: spacing.md,
   },
-  queueError: { color: colors.danger, fontSize: 12, lineHeight: 17 },
-  values: { flexDirection: 'row', gap: spacing.sm },
-  value: { flex: 1, gap: 4 },
-  content: { color: colors.text, fontSize: 12, lineHeight: 17 },
-  actions: { flexDirection: 'row', gap: spacing.sm },
-  flex: { flex: 1 },
+  values: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  value: { flexGrow: 1, flexBasis: 140, minWidth: 0, gap: 4 },
+  content: { color: palette.text, fontSize: 12, lineHeight: 17 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  action: { flexGrow: 1, flexBasis: 150 },
+  flex: { flexGrow: 1, flexBasis: 160, minWidth: 0 },
 })

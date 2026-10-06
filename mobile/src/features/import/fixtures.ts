@@ -1,0 +1,9 @@
+import type { Job, JobSummary } from './contract'
+export const JOB_ID = 'a'.repeat(24), OTHER_ID = 'b'.repeat(24), EVENT_ID = 'c'.repeat(24)
+export const QUOTE_ID = '12345678-abcd-4321-8901-123456789abc', NEW_QUOTE_ID = '12345678-abcd-4321-8901-123456789def'
+export const makeJob = (patch: Partial<Job> = {}): Job => ({ id: JOB_ID, fileName: 'Длинное имя файла.csv', status: 'uploaded', warnings: [], note: '', analysis: null, ignored: [], records: [], selectedIds: [], answers: {}, quote: { id: QUOTE_ID, phase: 'analysis', count: 1, amountKopecks: 105, estimatedKopecks: 105, markup: 1.5, provider: 'artistcrm', model: 'model-test', createdAt: '2026-10-03T00:00:00Z' }, error: '', balanceRub: 1.05, actualCostRub: 0, analysisCostRub: 0, reservedRub: 0, refundPending: false, expiresAt: '2099-10-01T00:00:00Z', ...patch })
+export const makeReview = (patch: Partial<Job> = {}): Job => makeJob({ status: 'review', analysis: { summary: 'Структура файла', rules: 'Каждая строка — работа', examples: ['Строка → пример'], questions: [{ id: 'q1', question: 'Какой год?', options: ['2026'] }] }, ignored: [{ id: 'L2', section: 'Лист', text: 'Общий заголовок' }], records: [{ id: '1', title: 'Первая запись', source: 'Лист / L1: исходник', status: 'pending', error: '', warnings: [] }], selectedIds: ['1'], ...patch })
+export const makeQuoted = (patch: Partial<Job> = {}): Job => makeReview({ status: 'quoted', answers: { q1: '2026', comment: '' }, quote: { ...makeJob().quote!, id: NEW_QUOTE_ID, phase: 'import' }, ...patch })
+export const summary = (job = makeJob()): JobSummary => ({ id: job.id, fileName: job.fileName, status: job.status, createdAt: '2026-10-03T00:00:00Z' })
+export const response = (data: unknown) => ({ success: true, data })
+export function deferred<T>() { let resolve!: (v: T) => void, reject!: (v: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }

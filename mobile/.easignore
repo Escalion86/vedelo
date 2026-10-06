@@ -2,8 +2,8 @@ node_modules
 **/node_modules
 .expo
 **/.expo
-.next
-**/.next
+.next*
+**/.next*
 android
 **/android
 ios

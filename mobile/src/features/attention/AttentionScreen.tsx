@@ -12,7 +12,7 @@ import { getSyncQueueCounts } from '../../shared/sync/syncState'
 import { getOutboxSummary } from '../../shared/storage/outbox'
 import { runSync } from '../../shared/sync/syncEngine'
 import { Button, EmptyState, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../shared/ui/components'
-import { useThemeStyles } from '../../shared/ui/ThemeProvider'
+import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { spacing, type Palette } from '../../shared/ui/theme'
 import { MobileEventCard } from '../events/MobileEventCard'
 import { useEventsScope } from '../navigation/EventsScope'
@@ -25,6 +25,7 @@ const emptyText = { overdue: 'Просроченных задач нет', today
 export default function AttentionScreen() {
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
   const { selectScope } = useEventsScope()
   const queryClient = useQueryClient()
   const events = useCachedEntities<Event>('events')
@@ -100,7 +101,7 @@ export default function AttentionScreen() {
       <PageHeader title="Важное" subtitle="Задачи, оплаты и ближайшие даты" />
       {actionError ? <Notice tone="danger" message={actionError} /> : null}
       {readError ? <Surface><Notice tone="danger" message="Не удалось прочитать локальные данные обзора" /><Button title="Повторить чтение" onPress={retryRead} /></Surface>
-        : loading ? <ActivityIndicator accessibilityLabel="Загрузка обзора" /> : <>
+        : loading ? <ActivityIndicator accessibilityLabel="Загрузка обзора" color={palette.primary} /> : <>
           {!events.data?.length ? <EmptyState title="Здесь пока нет работ" description="Создайте первую заявку — она сохранится и без сети."
             action={{ title: 'Новая заявка', onPress: () => router.push('/events/edit/new' as never) }} /> : null}
           {summary.length ? <ScrollView horizontal testID="attention-summary" contentContainerStyle={styles.summary}>

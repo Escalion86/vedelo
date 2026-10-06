@@ -157,3 +157,47 @@ it('ALIGN: при возврате отменённой заявки в рабо
   draft.values.status = 'active'
   expect(serializeEventDraft(draft, allowed).cancelReason).toBe('')
 })
+
+it('H: правка финансов не снимает сохранённую передачу коллеге', () => {
+  const draft = createEventDraft({ ...fixture, isTransferred: true, colleagueId: 'colleague' })
+  expect(draft.values.isTransferred).toBe(true)
+  draft.values.financeComment = 'Оплата после выполнения'
+  expect(serializeEventDraft(draft, {
+    ...allowed, clientIds: new Set(['local-client', 'colleague']),
+  })).toMatchObject({ isTransferred: true, colleagueId: 'colleague', financeComment: 'Оплата после выполнения' })
+})
+
+it('P/Q: финансовый комментарий и договорность проецируются только как поддерживаемые поля', () => {
+  const draft = createEventDraft({ ...fixture, financeComment: 'Аванс 30%', isByContract: true })
+  expect(draft.values.financeComment).toBe('Аванс 30%')
+  expect(draft.values.isByContract).toBe(true)
+  draft.values.financeComment = '  Оплата частями  '
+  const result = serializeEventDraft(draft, allowed)
+  expect(result.financeComment).toBe('Оплата частями')
+  expect(result.isByContract).toBe(true)
+  for (const key of ['tenantId', 'role', '_id', '$set', 'showOnSite', 'localKey', 'source']) expect(result).not.toHaveProperty(key)
+})
+
+it('Q: оплаченный задаток выключает ожидание и очищает срок только при явном флаге факта', () => {
+  const draft = createEventDraft()
+  draft.values.clientId = 'local-client'
+  draft.values.waitDeposit = true
+  draft.values.depositExpectedAmount = '5000'
+  draft.values.depositDueAt = '2026-10-20 12:00'
+  const withoutFact = serializeEventDraft(draft, allowed)
+  expect(withoutFact).toMatchObject({ waitDeposit: true, depositExpectedAmount: 5000, depositDueAt: new Date(2026, 9, 20, 12, 0).toISOString() })
+  const withFact = serializeEventDraft(draft, { ...allowed, depositPaid: true })
+  expect(withFact).toMatchObject({ waitDeposit: false, depositExpectedAmount: null, depositDueAt: null })
+})
+
+it('Q: пустые финансы не выдумывают суммы и не отправляют undefined-поля', () => {
+  const draft = createEventDraft()
+  draft.values.clientId = 'local-client'
+  const result = serializeEventDraft({ ...draft, source: undefined }, allowed)
+  expect(result.contractSum).toBe(0)
+  expect(result.depositExpectedAmount).toBeNull()
+  expect(result.depositDueAt).toBeNull()
+  expect(result.financeComment).toBe('')
+  expect(result.isByContract).toBe(false)
+  expect(result.waitDeposit).toBe(false)
+})

@@ -1,3 +1,5 @@
+import { ThemeProvider } from '../../shared/ui/ThemeProvider'
+import { lightPalette, darkPalette } from '../../shared/ui/theme'
 import React from 'react'
 import { Linking } from 'react-native'
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
@@ -104,6 +106,7 @@ it('читает переписку, располагает developer-сообщ
   expect(openUrl).toHaveBeenCalledWith('https://example.test/image.jpg')
   fireEvent.changeText(screen.getByPlaceholderText('Напишите сообщение…'), ' Спасибо ')
   fireEvent.press(screen.getByText('Добавить тестовое вложение'))
+  ;(api.getSupportTicket as jest.Mock).mockResolvedValue({ ...detail, data: { ticket, messages: [...detail.data.messages, { ...outgoing, id: 'reply', body: 'Спасибо' }] } })
   fireEvent.press(screen.getByText('Отправить'))
   await screen.findByText('Спасибо')
   expect(api.replySupportTicket).toHaveBeenCalledWith('ticket-1', 'Спасибо', [image])
@@ -149,4 +152,83 @@ it('не показывает прежнюю переписку после пе�
   expect(screen.getByText(SUPPORT_UNAVAILABLE_MESSAGE)).toBeTruthy()
   expect(screen.queryByText('Ответ поддержки')).toBeNull()
   for (const request of Object.values(api).filter((value) => typeof value === 'function')) expect(request).not.toHaveBeenCalled()
+})
+
+it('ошибка списка не выдаётся за пустую поддержку', async () => {
+  ;(api.listSupportTickets as jest.Mock).mockRejectedValue(new Error('Нет сети'))
+  const screen = render(<SupportTicketsScreen />)
+  await screen.findByText('Нет сети')
+  expect(screen.queryByText('Обращений пока нет')).toBeNull()
+})
+
+it('двойное создание блокируется до завершения NetInfo, потерянный ответ сохраняет черновик и не повторяется', async () => {
+  let finishNetwork: (value: unknown) => void = () => undefined
+  mockNetwork.mockImplementationOnce(() => new Promise(resolve => { finishNetwork = resolve }))
+  ;(api.createSupportTicket as jest.Mock).mockRejectedValue(new Error('Ответ потерян'))
+  const screen = render(<NewSupportTicketScreen />)
+  fireEvent.changeText(screen.getByPlaceholderText('Коротко опишите обращение'), 'Тема')
+  fireEvent.changeText(screen.getByPlaceholderText('Что произошло или что вы хотите предложить?'), 'Черновик')
+  fireEvent.press(screen.getByText('Создать тикет')); fireEvent.press(screen.getByText('Создать тикет'))
+  expect(mockNetwork).toHaveBeenCalledTimes(1)
+  await act(async () => finishNetwork({ isConnected: true }))
+  await screen.findByText('Ответ потерян')
+  expect(screen.getByPlaceholderText('Что произошло или что вы хотите предложить?').props.value).toBe('Черновик')
+  fireEvent.press(screen.getByText('Создать тикет'))
+  expect(api.createSupportTicket).toHaveBeenCalledTimes(1)
+  expect(mockReplace).not.toHaveBeenCalled()
+})
+
+it('позднее создание после переключения пользователя не открывает чужой тикет', async () => {
+  let finish: (value: unknown) => void = () => undefined
+  ;(api.createSupportTicket as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  const screen = render(<NewSupportTicketScreen />)
+  fireEvent.changeText(screen.getByPlaceholderText('Коротко опишите обращение'), 'Тема')
+  fireEvent.changeText(screen.getByPlaceholderText('Что произошло или что вы хотите предложить?'), 'Черновик')
+  fireEvent.press(screen.getByText('Создать тикет'))
+  await waitFor(() => expect(api.createSupportTicket).toHaveBeenCalledTimes(1))
+  mockUser = { _id: 'another', tenantId: 'another-tenant', role: 'user' }
+  screen.rerender(<NewSupportTicketScreen />)
+  await act(async () => finish({ data: { ticket } }))
+  expect(mockReplace).not.toHaveBeenCalled()
+  expect(api.getSupportTicket).not.toHaveBeenCalled()
+  expect(screen.getByPlaceholderText('Коротко опишите обращение').props.value).toBe('')
+})
+
+it('reply read-back mismatch не очищает черновик и не объявляет доставку', async () => {
+  const screen = render(<SupportTicketScreen />)
+  await screen.findByText('Ответ поддержки')
+  fireEvent.changeText(screen.getByPlaceholderText('Напишите сообщение…'), 'Остался черновик')
+  fireEvent.press(screen.getByText('Отправить'))
+  await screen.findByText('Ответ не подтверждён повторным чтением')
+  expect(screen.getByPlaceholderText('Напишите сообщение…').props.value).toBe('Остался черновик')
+  expect(screen.queryByText('Спасибо')).toBeNull()
+})
+
+it('фильтр поддержки инвалидирует старую страницу и не дублирует курсор', async () => {
+  let finish: (value: unknown) => void = () => undefined
+  ;(api.listSupportTickets as jest.Mock).mockResolvedValueOnce({ data: [ticket], meta: { hasMore: true, nextCursor: 'next' } })
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    .mockResolvedValueOnce({ data: [{ ...ticket, id: 'resolved', title: 'Решённый вопрос', status: 'resolved' }], meta: { hasMore: true, nextCursor: 'again' } })
+    .mockResolvedValueOnce({ data: [{ ...ticket, id: 'resolved', title: 'Решённый вопрос', status: 'resolved' }], meta: { hasMore: true, nextCursor: 'again' } })
+  const screen = render(<SupportTicketsScreen />); await screen.findByText('Мой вопрос')
+  fireEvent.press(screen.getByText('Показать ещё')); fireEvent.press(screen.getByText('Решён'))
+  await screen.findByText('Решённый вопрос')
+  await act(async () => finish({ data: [{ ...ticket, id: 'late', title: 'Поздний тикет' }], meta: { hasMore: false } }))
+  expect(screen.queryByText('Поздний тикет')).toBeNull()
+  fireEvent.press(screen.getByText('Показать ещё'))
+  await screen.findByText('Сервер повторил страницу. Обновите список обращений.')
+  expect(screen.queryByText('Показать ещё')).toBeNull()
+  expect(screen.getAllByText('Решённый вопрос')).toHaveLength(1)
+})
+
+
+it.each(['light', 'dark'] as const)('%s: пользовательская переписка и форма используют тему и доступные категории', async (mode) => {
+  const palette = mode === 'dark' ? darkPalette : lightPalette
+  const detailScreen = render(<ThemeProvider storage={null} forcedMode={mode}><SupportTicketScreen /></ThemeProvider>)
+  await detailScreen.findByText('Ответ поддержки')
+  expect(detailScreen.getByText('Ответ поддержки')).toHaveStyle({ color: palette.text })
+  detailScreen.unmount()
+  const form = render(<ThemeProvider storage={null} forcedMode={mode}><NewSupportTicketScreen /></ThemeProvider>)
+  expect(form.getByLabelText('Тема')).toHaveStyle({ color: palette.text })
+  expect(form.getByRole('button', { name: 'Вопрос' })).toBeTruthy()
 })

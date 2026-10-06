@@ -97,7 +97,7 @@ export default function EventsScreen() {
       description={scope === 'past' ? 'Здесь появятся записи после даты окончания.' : 'Создайте заявку — изменения сохранятся даже без сети.'}
       action={scope === 'past' ? undefined : { title: 'Создать заявку', onPress: () => router.push('/events/edit/new' as never) }} />
   }
-  const renderRow = ({ item }: { item: EventRow }) => <MobileEventCard event={item.event}
+  const renderRow = ({ item }: { item: EventRow }) => <MobileEventCard event={item.event} defaultTown={terminology.settings?.defaultTown}
     client={item.event.clientId ? clientsById.get(item.event.clientId) : undefined} clientsById={clientsById}
     services={(item.event.servicesIds || []).map((id) => servicesById.get(id)).filter((service): service is Service => Boolean(service))}
     transactions={transactionsByEvent.get(item.event._id) || []} occurrence={item.occurrence}

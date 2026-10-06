@@ -20,6 +20,7 @@ type ThemeContextValue = {
   preference: ThemePreference
   hydrated: boolean
   persistenceError: boolean
+  persistenceStatus: 'idle' | 'saving' | 'saved' | 'error'
   setPreference: (preference: ThemePreference) => Promise<boolean>
 }
 const ThemeContext = createContext<ThemeContextValue>({
@@ -27,6 +28,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   preference: 'light',
   hydrated: true,
   persistenceError: false,
+  persistenceStatus: 'idle',
   setPreference: async () => false,
 })
 
@@ -44,38 +46,41 @@ export const ThemeProvider = ({
   const systemMode = useColorScheme()
   const [preference, updatePreference] = useState(initialPreference)
   const [hydrated, setHydrated] = useState(!storage)
-  const [persistenceError, setPersistenceError] = useState(false)
+  const [persistenceStatus, setPersistenceStatus] = useState<ThemeContextValue['persistenceStatus']>('idle')
+  const mounted = useRef(true)
   const revision = useRef(0)
   const writes = useRef<Promise<unknown>>(Promise.resolve())
 
   useEffect(() => {
-    if (!storage) return
+    mounted.current = true
+    if (!storage) return () => { mounted.current = false }
     let active = true
     const readRevision = revision.current
     setHydrated(false)
-    storage.read().then((value) => {
+    Promise.resolve().then(() => storage.read()).then((value) => {
       if (active && revision.current === readRevision && isPreference(value)) {
         updatePreference(value)
       }
     }).catch(() => {
-      if (active && revision.current === readRevision) setPersistenceError(true)
+      if (active && revision.current === readRevision) setPersistenceStatus('error')
     }).finally(() => {
       if (active) setHydrated(true)
     })
-    return () => { active = false }
+    return () => { active = false; mounted.current = false }
   }, [storage])
 
   const setPreference = useCallback(async (value: ThemePreference) => {
-    if (!isPreference(value)) return false
+    if (!isPreference(value) || !mounted.current) return false
     const writeRevision = ++revision.current
     updatePreference(value)
     if (!storage) return true
+    setPersistenceStatus('saving')
     // Serialize writes so a slow previous write cannot win over the latest choice.
     const write = writes.current.then(() => storage.write(value)).then(() => {
-      if (revision.current === writeRevision) setPersistenceError(false)
+      if (mounted.current && revision.current === writeRevision) setPersistenceStatus('saved')
       return true
     }).catch(() => {
-      if (revision.current === writeRevision) setPersistenceError(true)
+      if (mounted.current && revision.current === writeRevision) setPersistenceStatus('error')
       return false
     })
     writes.current = write
@@ -84,8 +89,9 @@ export const ThemeProvider = ({
 
   const mode = forcedMode ?? (preference === 'system' ? systemMode ?? 'light' : preference)
   const palette = mode === 'dark' ? darkPalette : lightPalette
-  const value = useMemo(() => ({ palette, preference, hydrated, persistenceError, setPreference }),
-    [palette, preference, hydrated, persistenceError, setPreference])
+  const value = useMemo(() => ({ palette, preference, hydrated, persistenceStatus,
+    persistenceError: persistenceStatus === 'error', setPreference }),
+    [palette, preference, hydrated, persistenceStatus, setPreference])
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
 

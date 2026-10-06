@@ -6,6 +6,7 @@ import { AiUsagePanel } from './AiUsagePanel'
 import { ManagedIntegrationsSection } from './ManagedIntegrationsSection'
 
 let mockRole = 'user'
+jest.mock('expo-router', () => ({ useFocusEffect: (fn: any) => require('react').useEffect(fn, [fn]) }))
 jest.mock('../../shared/auth/AuthProvider', () => ({
   useAuth: () => ({ user: { _id: 'own-user', tenantId: 'own-tenant', role: mockRole } }),
 }))
@@ -35,23 +36,23 @@ let status: Record<string, unknown>
 beforeEach(() => {
   jest.resetAllMocks()
   mockRole = 'user'
-  status = { available: true, configured: true, enabled: true, analysisProvider: 'artistcrm' }
+  status = { provider: 'ai', available: true, configured: true, enabled: true, analysisProvider: 'artistcrm', transcriptionModel: 'whisper-1', analysisModel: 'gpt-4o-mini', hasTranscriptionKey: false, platformConfigured: true }
   getMock.mockImplementation(async (path: string) => {
     if (path === '/ai/usage') return { success: true, data: usage }
     if (path === '/mobile/v1/integrations/ai') return { success: true, data: status }
     throw new Error(`Unexpected GET: ${path}`)
   })
   postMock.mockImplementation(async (_path, body) => {
-    status = { ...status, analysisProvider: body.provider }
-    return { success: true }
+    status = { ...status, ...body, provider: 'ai', analysisProvider: body.provider, configured: true, enabled: true, hasTranscriptionKey: body.provider === 'aitunnel' }
+    return { success: true, data: status }
   })
   patchMock.mockImplementation(async (_path, body) => {
-    status = { ...status, ...body }
-    return { success: true }
+    status = { ...status, ...body, provider: 'ai', analysisProvider: body.provider }
+    return { success: true, data: status }
   })
   deleteMock.mockImplementation(async () => {
-    status = { ...status, configured: false }
-    return { success: true }
+    status = { ...status, analysisProvider: 'artistcrm', hasTranscriptionKey: false, enabled: false }
+    return { success: true, data: status }
   })
 })
 
@@ -86,7 +87,8 @@ describe('Личный ИИ', () => {
   it('сохраняет ошибку и повтор загрузки без фиктивного нулевого баланса', async () => {
     getMock.mockRejectedValueOnce(new Error('Нет сети'))
     const screen = render(<AiUsagePanel activeProvider="aitunnel" />)
-    await screen.findByText('Нет сети')
+    await screen.findByText('Не удалось загрузить баланс и расходы ИИ.')
+    expect(screen.queryByText('Нет сети')).toBeNull()
     expect(screen.queryByText('Баланс')).toBeNull()
     fireEvent.press(screen.getByText('Обновить'))
     await screen.findByText(/Сейчас используется собственный провайдер/)
@@ -123,7 +125,7 @@ describe('Личный ИИ', () => {
     await screen.findByText('ИИ Ведело подключён')
     expect(postMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', {
       provider: 'artistcrm', transcriptionModel: 'whisper-1', analysisModel: 'gpt-4o-mini',
-    })
+    }, { skipRefresh: true })
     expectOnlyPersonalRequests()
   })
 
@@ -137,23 +139,40 @@ describe('Личный ИИ', () => {
     fireEvent.changeText(inputs[0], 'test-key')
     fireEvent.press(screen.getByText('Подключить AITunnel'))
     await screen.findByText('AITunnel подключён')
-    expect(postMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', expect.objectContaining({ provider: 'aitunnel', key: 'test-key' }))
+    expect(postMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', expect.objectContaining({ provider: 'aitunnel', key: 'test-key' }), { skipRefresh: true })
     expect(screen.UNSAFE_getAllByType(TextInput)[0].props.value).toBe('')
     fireEvent.changeText(screen.UNSAFE_getAllByType(TextInput)[2], 'custom-model')
     fireEvent.press(screen.getByText('Сохранить модель'))
     await screen.findByText('Модель AITunnel сохранена')
-    expect(patchMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', { provider: 'aitunnel', transcriptionModel: 'whisper-1', analysisModel: 'custom-model' })
+    expect(patchMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', { provider: 'aitunnel', transcriptionModel: 'whisper-1', analysisModel: 'custom-model' }, { skipRefresh: true })
     fireEvent.press(screen.getByText('Приостановить ИИ'))
     await screen.findByText('Возобновить ИИ')
-    expect(patchMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', { provider: 'aitunnel', enabled: false })
+    expect(patchMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', { provider: 'aitunnel', enabled: false }, { skipRefresh: true })
     fireEvent.press(screen.getByText('Возобновить ИИ'))
     await screen.findByText('Приостановить ИИ')
-    expect(patchMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', { provider: 'aitunnel', enabled: true })
+    expect(patchMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', { provider: 'aitunnel', enabled: true }, { skipRefresh: true })
     fireEvent.press(screen.getByText('Отключить интеграцию'))
     expect(deleteMock).not.toHaveBeenCalled()
     fireEvent.press(screen.getByText('Подтвердить отключение и удаление ключей'))
-    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai'))
+    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith('/mobile/v1/integrations/ai', undefined, { skipRefresh: true }))
     await screen.findByText(/отключён, серверные ключи удалены/)
     expectOnlyPersonalRequests()
   })
+})
+
+it.each([null, { success: false, data: usage }, { success: true, data: { balance: 0 } }])('расходы: invalid DTO %p не выдаёт нулевой баланс', async (response) => {
+  getMock.mockResolvedValueOnce(response)
+  const screen = render(<AiUsagePanel activeProvider="artistcrm" />)
+  await screen.findByText('Не удалось загрузить баланс и расходы ИИ.')
+  expect(screen.queryByText('Баланс')).toBeNull(); expect(screen.queryByText('Общий ИИ доступен.')).toBeNull()
+})
+it('пауза ИИ не выдаётся за действующее подключение по eligibility баланса', async () => {
+  const screen = render(<AiUsagePanel activeProvider="artistcrm" activeEnabled={false} activeConfigured />)
+  await screen.findByText('ИИ-интеграция приостановлена. Баланс и история остаются доступными.')
+  expect(screen.queryByText('Общий ИИ доступен.')).toBeNull(); expect(screen.getByText('Баланс')).toBeTruthy()
+})
+it('свой провайдер без ключа не выдаётся за активное использование', async () => {
+  const screen = render(<AiUsagePanel activeProvider="aitunnel" activeEnabled activeConfigured={false} />)
+  await screen.findByText('Текущий ИИ требует настройки. История относится к общему ИИ Ведело.')
+  expect(screen.queryByText(/Сейчас используется собственный провайдер/)).toBeNull()
 })

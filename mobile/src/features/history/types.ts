@@ -18,6 +18,9 @@ export type HistoryItem = {
   actorLabel?: string
   source?: string
   occurredAt: string
+  actorType?: string
+  createdAt?: string
+  batchId?: string
   legacy?: boolean
   entityExists?: boolean
 }

@@ -6,7 +6,7 @@
 
 ## 1. Точка старта
 
-- Репозиторий: `~/projects/ArtistCRM` (Orange Pi) / `D:\Programming\Projects\ArtistCRM` (ПК), ветка **`codex`**.
+- Репозиторий: `~/projects/vedelo` (Orange Pi), origin `git@github.com:Escalion86/vedelo.git`, рабочая ветка **`mobile-parity`**. Старый клон `~/projects/ArtistCRM` не использовать. Если ветка паритета уже влита, выбирать актуальную ветку после проверки истории.
 - Выполнены этапы **A–O**: `35172cd` (план), `3f1847c` (B+C), `d2e34fe` (D+E), `9210145` (F+G+H), `4965928` (I+J),
   `cbe1a15` (L+M), `52dea55` (N+O). Дальше — заходы **P…AK** по §6.2.
 - Baseline проверок на актуальной базе `vedelo/codex` (версия 1.32.1): `cd mobile && npm run typecheck` —
@@ -15,7 +15,7 @@
 
 ## 2. Незыблемые границы (нарушение = откат захода)
 
-1. **Перед началом:** `git fetch origin codex` и `git rev-list --left-right --count origin/codex...HEAD`.
+1. **Перед началом:** проверить origin и рабочую ветку, затем `git fetch origin mobile-parity` и `git rev-list --left-right --count origin/mobile-parity...HEAD`.
    Работать от актуального среза, а не от устаревшего. Канонический репозиторий — `vedelo.git`
    (в старом клоне `origin` мог смотреть на устаревший `ArtistCRM.git` — проверить `git remote -v`).
 2. Меняются **только файлы внутри `mobile/`** (+ `docs/`). Web-код (`app/`, `server/`, `layouts/`, `helpers/`,
@@ -31,8 +31,7 @@
    `mobile/src/shared/config/deepLink.js`, `mobile/src/shared/notifications/index.ts`,
    `app/v1/`, `app/api/events/[id]/quick-actions/`, `app/api/events/voice-transcribe/`, `app/api/push/expo/test/`,
    `helpers/deepLink.js`, `helpers/use{Services,SiteSettings,Tariffs,Users}Query.js`.
-6. Коммиты — **адресные** (`git add <конкретные файлы>`), **без `git add -A`**. Один заход = один коммит
-   `feat(mobile): <этапы> — <суть>`. Не пушить и не открывать PR без просьбы. Никаких `reset --hard`/`checkout --`.
+6. **Коммитов, staging, push и PR не делать**: публикует владелец после проверки. Если позже явно поручен коммит — только адресные файлы, без `git add -A`. Никаких `reset --hard`/`checkout --`.
 7. Developer-функционал не возвращать: он вырезан в B+C, включая сетевые вызовы (см. `docs/MOBILE_PWA_PARITY.md` §7).
 8. Внутренние идентификаторы `events`/`eventId` и legacy-совместимость не переименовывать ради терминологии;
    склонения брать из `helpers/workItemTerminology.mjs` / мобильного resolver.
@@ -48,7 +47,7 @@ export XDG_RUNTIME_DIR=/run/user/1000
 systemd-run --user --unit=astra-stage-<x> --collect \
   --property=StandardOutput=file:/tmp/astra-<x>.log \
   --property=StandardError=file:/tmp/astra-<x>.log \
-  /home/aleksei/.hermes/cache/scratch/astra-stage-<x>.sh   # внутри: codex exec -m gpt-6-astra -s workspace-write -c model_reasoning_effort=high
+  /home/aleksei/.hermes/cache/scratch/astra-stage-<x>.sh   # внутри: codex exec -m gpt-6.1-sol -s workspace-write -c model_reasoning_effort=high
 systemctl --user is-active astra-stage-<x>
 ```
 
@@ -57,10 +56,10 @@ systemctl --user is-active astra-stage-<x>
 ```bash
 cd mobile && npm run typecheck   # ожидается чисто (ноль ошибок)
 cd mobile && npm test            # 58 наборов / 349 тестов — не меньше
-cd ~/projects/ArtistCRM && git diff --check
+cd ~/projects/vedelo && git diff --check
 ```
 
-4. Закоммитить только файлы захода, добавить строку в `docs/mobile-parity/STATUS.md` (выполнено/осталось).
+4. Коммит не делать. Добавить строку в `docs/mobile-parity/STATUS.md` (реализовано/проверено/осталось) и сохранить отчёт. Перед заходом K подтверждённый итог H/I/J: **75 наборов / 486 тестов**, typecheck чист.
 5. Визуальная приёмка (V) на Orange Pi недоступна — `adb`/Java нет. Отмечать как непроверенное
    и копить для приёмочного захода AK; отдельные сценарии — Maestro-flow `mobile/maestro/*.yaml` на устройстве.
 
@@ -82,11 +81,17 @@ cd ~/projects/ArtistCRM && git diff --check
 | **Q** | AE + AF | Google-импорт и общий экспорт: `src/features/import/{CalendarImportSection,calendarImportApi,ExportSection,exportDatasets}.ts(x)` | Синхронизация Google не выдаётся за отдельный import-flow; до UI сверить import-auth/calendars/select/status и возврат native (web callback = внешняя зависимость, не имитировать); bearer не в URL. Экспорт: три набора, все данные без текущих фильтров, тариф `allowStatistics`, CSV с экранированием и cleanup; сверить payload с `buildExportDatasets`, недостающие колонки не выдумывать. |
 | **R** | AG + AH | Профиль и тариф; Уведомления и support presentation. Файлы: `app/(tabs)/profile.tsx`, `app/billing/index.tsx`, новые `src/features/profile/ArtistRequisitesSection.tsx`, `src/features/billing/format.ts`; `app/more/[section].tsx` (Notifications), `app/support/index.tsx`, `new.tsx`, `[id].tsx`, `src/features/support/ImagePicker.tsx` | Контакты/реквизиты/аватар/сессии и выбор тарифа/баланс сохранены; названия DEV-тарифа не трактуются как admin UI; без реальной оплаты в QA. Разрешения Expo и online-поддержка остаются; удалённый operator-код (C) не возвращать. |
 | **S** | AI | Auth/onboarding/sync — только presentation: `app/(auth)/login.tsx`, `app/onboarding/index.tsx`, `app/sync/index.tsx`, `app/_layout.tsx` | Тёмная тема и контраст проходят, поля/клавиатура/Back работают, sync diagnostics/retry/conflict доступны. **Не трогать** auth/sync lifecycle-эффекты. |
-| **T** | AJ | Включить выбор light/dark и theme-aware StatusBar: `src/shared/ui/ThemeProvider.tsx`, `theme.ts`, `src/features/settings/SettingsSection.tsx`, `app/_layout.tsx` | Все пользовательские экраны используют palette; hardcoded-цвета проверены по роли, без массовых regex-замен. Непереведённые экраны блокируют объявление тёмного паритета. |
+| **T** | AJ | **Реализовано и независимо проверено 04.10.2026**: выбор light/dark/system и строка состояния по теме; подробности `REPORT-T.md`, `THEME-AUDIT-T.md`. Файлы: `src/shared/ui/ThemeProvider.tsx`, `theme.ts`, `src/features/settings/SettingsSection.tsx`, `app/_layout.tsx`, `AppProviders.tsx` | 132 набора / 1296 тестов, typecheck и diff-check без ошибок. Палитры включены после аудита достижимых экранов; настоящий Android/системная строка/холодный запуск — приёмка U. |
 | **U** | AK | Интеграционный приёмочный заход: одна согласованная **EAS preview-сборка**, один основной тестовый девайс, сквозной сценарий из `docs/MOBILE_PWA_PARITY.md` §8.4; Maestro-flows `mobile/maestro/*` | Фиксация build ID/версии/остатков. Дополнительные устройства — повтор захода, а не матрица за одну сессию. Пункт roadmap `M1-T7` автоматически не закрывать. |
 
 **Отложено по контракту:** этап **K** (сообщения на «Важном») блокирован — нужен user-scoped API переписок и
 staging-проверка двух tenant, иначе «0 сообщений» будет враньём (§6.3, Telegram Business).
+
+### Нативное расширение после текущего паритета: виджет и определитель звонков
+
+По запросу владельца 04.10.2026 уточнены M1-T8/M1-T9: виджет рабочего стола; получение номеров входящих/исходящих телефонных звонков; всплывающая карточка входящего звонка с ФИО найденного клиента, ближайшим связанным мероприятием/заказом и кратким описанием. Детальные требования, разрешения, приватность, ограничения и последовательность прототип → CRM-интеграция → виджет → приёмка: [ANDROID-WIDGETS-AND-CALLER-ID.md](ANDROID-WIDGETS-AND-CALLER-ID.md).
+
+Это отдельные нативные заходы, не часть T/AJ и не основание менять storage/sync или Android-конфигурацию в текущем паритете. Сейчас продолжаем **T → U**; затем отдельный бриф и прототип на реальном телефоне. M1-T8/M1-T9 остаются `[ ]`, функции ещё не реализованы.
 
 ## 5. Внешние зависимости, которые нельзя закрыть кодом Android
 

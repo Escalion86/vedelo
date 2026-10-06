@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { z } from 'zod'
@@ -18,12 +18,13 @@ import {
 } from '../../src/shared/format/phone'
 import {
   Button,
-  ErrorNotice,
-  Field,
   Screen,
   Surface,
 } from '../../src/shared/ui/components'
-import { colors, radius, spacing } from '../../src/shared/ui/theme'
+import { CompactField } from '../../src/shared/ui/CompactField'
+import { Notice } from '../../src/shared/ui/Notice'
+import { useThemeStyles } from '../../src/shared/ui/ThemeProvider'
+import { radius, spacing, type Palette } from '../../src/shared/ui/theme'
 
 type Mode = 'login' | 'register' | 'recovery'
 type Verification = { callId: number; authPhone?: string }
@@ -37,23 +38,40 @@ const webBaseUrl = env.apiBaseUrl.replace(/\/api\/?$/, '')
 WebBrowser.maybeCompleteAuthSession()
 
 const LegalConsentRow = ({
-  checked,
-  onToggle,
-  children,
+  checked, onToggle, prefix, link, url, disabled,
 }: {
   checked: boolean
   onToggle: () => void
-  children: ReactNode
-}) => (
-  <Pressable style={styles.consent} onPress={onToggle}>
-    <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-      <Text style={styles.checkmark}>{checked ? '✓' : ''}</Text>
+  prefix: string
+  link: string
+  url: string
+  disabled: boolean
+}) => {
+  const styles = useThemeStyles(createStyles)
+  return (
+    <View>
+      <Pressable
+        style={({ pressed }) => [styles.consent, pressed && styles.pressed, disabled && styles.disabled]}
+        accessibilityRole="checkbox"
+        accessibilityLabel={`${prefix} ${link}`}
+        accessibilityState={{ checked, disabled }}
+        disabled={disabled}
+        onPress={onToggle}
+      >
+        <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+          <Text style={styles.checkmark}>{checked ? '✓' : ''}</Text>
+        </View>
+        <Text style={styles.consentText}>{prefix}</Text>
+      </Pressable>
+      <Text accessibilityRole="link" style={styles.consentLink} onPress={() => Linking.openURL(url)}>
+        {link}
+      </Text>
     </View>
-    <Text style={styles.consentText}>{children}</Text>
-  </Pressable>
-)
+  )
+}
 
 export default function LoginScreen() {
+  const styles = useThemeStyles(createStyles)
   const { completeSignIn } = useAuth()
   const params = useLocalSearchParams<{ mode?: string; ref?: string }>()
   const referralId = normalizeRegistrationReferrer(params.ref)
@@ -301,7 +319,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <Screen>
+    <Screen keyboardShouldPersistTaps="handled" contentStyle={styles.screen}>
       <View style={styles.hero}>
         <Image
           source={require('../../assets/images/brand-mark.png')}
@@ -314,7 +332,7 @@ export default function LoginScreen() {
 
       <Surface>
         {mode === 'recovery' ? (
-          <Text style={styles.recoveryTitle}>Восстановление доступа</Text>
+          <Text accessibilityRole="header" style={styles.recoveryTitle}>Восстановление доступа</Text>
         ) : (
           <View style={styles.segmented}>
             {(
@@ -325,8 +343,11 @@ export default function LoginScreen() {
             ).map(([value, label]) => (
               <Pressable
                 key={value}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: mode === value, disabled: loading }}
+                disabled={loading}
                 onPress={() => changeMode(value)}
-                style={[styles.segment, mode === value && styles.segmentActive]}
+                style={({ pressed }) => [styles.segment, mode === value && styles.segmentActive, pressed && styles.pressed, loading && styles.disabled]}
               >
                 <Text
                   style={[
@@ -343,7 +364,7 @@ export default function LoginScreen() {
 
         {!verification ? (
           <>
-            <Field
+            <CompactField editable={!loading}
               testID="auth-phone"
               label="Телефон"
               value={phone}
@@ -353,7 +374,7 @@ export default function LoginScreen() {
               placeholder="+7 (999) 000-00-00"
               maxLength={18}
             />
-            <Field
+            <CompactField editable={!loading}
               testID="auth-password"
               label={mode === 'recovery' ? 'Новый пароль' : 'Пароль'}
               value={password}
@@ -362,7 +383,8 @@ export default function LoginScreen() {
               autoComplete="password"
             />
             {mode !== 'login' ? (
-              <Field
+              <CompactField editable={!loading}
+                testID="Повторите пароль"
                 label="Повторите пароль"
                 value={passwordRepeat}
                 onChangeText={setPasswordRepeat}
@@ -374,44 +396,30 @@ export default function LoginScreen() {
                 <LegalConsentRow
                   checked={termsAccepted}
                   onToggle={() => setTermsAccepted((value) => !value)}
-                >
-                  Принимаю{' '}
-                  <Text
-                    style={styles.link}
-                    onPress={() => Linking.openURL(`${webBaseUrl}/terms`)}
-                  >
-                    Пользовательское соглашение
-                  </Text>
-                </LegalConsentRow>
+                  prefix="Принимаю"
+                  link="Пользовательское соглашение"
+                  url={`${webBaseUrl}/terms`}
+                  disabled={loading}
+                />
                 <LegalConsentRow
                   checked={privacyAccepted}
                   onToggle={() => setPrivacyAccepted((value) => !value)}
-                >
-                  Ознакомился с{' '}
-                  <Text
-                    style={styles.link}
-                    onPress={() => Linking.openURL(`${webBaseUrl}/privacy`)}
-                  >
-                    Политикой обработки персональных данных
-                  </Text>
-                </LegalConsentRow>
+                  prefix="Ознакомился с"
+                  link="Политикой обработки персональных данных"
+                  url={`${webBaseUrl}/privacy`}
+                  disabled={loading}
+                />
                 <LegalConsentRow
                   checked={personalDataAccepted}
                   onToggle={() => setPersonalDataAccepted((value) => !value)}
-                >
-                  Отдельно даю{' '}
-                  <Text
-                    style={styles.link}
-                    onPress={() =>
-                      Linking.openURL(`${webBaseUrl}/personal-data-consent`)
-                    }
-                  >
-                    согласие на обработку персональных данных
-                  </Text>
-                </LegalConsentRow>
+                  prefix="Отдельно даю"
+                  link="согласие на обработку персональных данных"
+                  url={`${webBaseUrl}/personal-data-consent`}
+                  disabled={loading}
+                />
               </View>
             ) : null}
-            {error ? <ErrorNotice message={error} /> : null}
+            {error ? <Notice tone="danger" message={error} /> : null}
             <Button
               testID="submit-auth"
               title={mode === 'login' ? 'Войти' : 'Подтвердить телефон'}
@@ -434,7 +442,7 @@ export default function LoginScreen() {
           </>
         ) : (
           <>
-            <Text style={styles.verifyTitle}>
+            <Text accessibilityRole="header" style={styles.verifyTitle}>
               {smsMode ? 'Код из SMS' : 'Подтверждение звонком'}
             </Text>
             <Text style={styles.verifyText}>
@@ -443,14 +451,14 @@ export default function LoginScreen() {
                 : `Позвоните с номера ${phone} на ${verification.authPhone || 'номер, показанный сервисом'}. Звонок будет сброшен автоматически и останется бесплатным.`}
             </Text>
             {smsMode ? (
-              <Field
+              <CompactField editable={!loading}
                 label="Код"
                 value={smsCode}
                 onChangeText={setSmsCode}
                 keyboardType="number-pad"
               />
             ) : null}
-            {error ? <ErrorNotice message={error} /> : null}
+            {error ? <Notice tone="danger" message={error} /> : null}
             <Button
               title={smsMode ? 'Подтвердить код' : 'Я позвонил — проверить'}
               onPress={smsMode ? checkSms : checkCall}
@@ -478,6 +486,9 @@ export default function LoginScreen() {
         {mode === 'login' ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
+            disabled={loading}
+            style={styles.bottomAction}
             hitSlop={10}
             onPress={() => changeMode('recovery')}
           >
@@ -489,6 +500,9 @@ export default function LoginScreen() {
         {mode === 'recovery' ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
+            disabled={loading}
+            style={styles.bottomAction}
             hitSlop={10}
             onPress={() => changeMode('login')}
           >
@@ -500,7 +514,11 @@ export default function LoginScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
+  screen: { gap: spacing.md },
+  pressed: { backgroundColor: palette.rowPressed },
+  disabled: { opacity: 0.65 },
+  bottomAction: { minHeight: 40, justifyContent: 'center' },
   hero: {
     paddingTop: spacing.xl,
     minHeight: 58,
@@ -510,67 +528,69 @@ const styles = StyleSheet.create({
   },
   brandMark: { width: 40, height: 52 },
   wordmark: {
-    color: colors.text,
+    color: palette.text,
     fontSize: 27,
     fontWeight: '800',
     letterSpacing: -1.1,
   },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceMuted,
+    flexWrap: 'wrap',
+    backgroundColor: palette.notice.neutral.background,
     borderRadius: radius.md,
     padding: 3,
   },
   segment: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 100,
     minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
     paddingHorizontal: 5,
   },
-  segmentActive: { backgroundColor: colors.surface },
-  segmentText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  segmentTextActive: { color: colors.text },
+  segmentActive: { backgroundColor: palette.surface },
+  segmentText: { color: palette.cardMuted, fontSize: 12, fontWeight: '700' },
+  segmentTextActive: { color: palette.text },
   recoveryTitle: {
-    color: colors.text,
+    color: palette.text,
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
     paddingVertical: 5,
   },
   consents: { gap: spacing.sm },
-  consent: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  consent: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
-  checkmark: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  checkmark: { color: palette.onPrimary, fontSize: 14, fontWeight: '800' },
   consentText: {
     flex: 1,
-    color: colors.textMuted,
+    color: palette.cardMuted,
     fontSize: 13,
     lineHeight: 19,
   },
-  link: { color: colors.primary, textDecorationLine: 'underline' },
-  verifyTitle: { color: colors.text, fontSize: 20, fontWeight: '700' },
-  verifyText: { color: colors.textMuted, fontSize: 14, lineHeight: 21 },
+  consentLink: { minHeight: 40, marginLeft: 30, paddingVertical: 8, color: palette.primary, fontSize: 13, lineHeight: 19, textDecorationLine: 'underline' },
+  verifyTitle: { color: palette.text, fontSize: 20, fontWeight: '700' },
+  verifyText: { color: palette.cardMuted, fontSize: 14, lineHeight: 21 },
   bottomActions: {
     marginTop: 'auto',
     alignItems: 'center',
     paddingTop: spacing.sm,
   },
   recoveryLink: {
-    color: colors.textMuted,
+    color: palette.cardMuted,
     fontSize: 12,
     lineHeight: 18,
     textDecorationLine: 'underline',

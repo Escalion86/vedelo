@@ -88,7 +88,7 @@ const createStyles = (colors: Palette) => StyleSheet.create({
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, backgroundColor: colors.kpiBackground },
   monthTitle: { flex: 1, color: colors.text, fontSize: 17, fontWeight: '700', textAlign: 'center' },
   todayButton: { alignSelf: 'center', minHeight: 36, justifyContent: 'center', paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.emptyIconBackground },
-  todayText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
+  todayText: { color: colors.selectionText, fontSize: 13, fontWeight: '700' },
   weekRow: { flexDirection: 'row' },
   weekDay: { width: '14.2857%', color: colors.cardMuted, fontSize: 11, fontWeight: '700', textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -100,7 +100,7 @@ const createStyles = (colors: Palette) => StyleSheet.create({
   dayTextSelected: { color: colors.onPrimary },
   count: { minWidth: 17, height: 17, paddingHorizontal: 3, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.emptyIconBackground },
   countSelected: { backgroundColor: colors.surface },
-  countText: { color: colors.primary, fontSize: 9, fontWeight: '800' },
+  countText: { color: colors.selectionText, fontSize: 9, fontWeight: '800' },
   countTextSelected: { color: colors.primary },
   undated: { color: colors.cardMuted, fontSize: 12, lineHeight: 17, textAlign: 'center' },
 })

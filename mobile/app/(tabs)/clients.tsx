@@ -1,54 +1,77 @@
-import { useMemo, useState } from 'react'
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native'
 import { router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import type { Client } from '../../src/shared/domain/types'
-import { formatPhoneForDisplay } from '../../src/shared/format/phone'
+import { useQueryClient } from '@tanstack/react-query'
+import type { Client, Event } from '../../src/shared/domain/types'
 import { useCachedEntities } from '../../src/shared/hooks/useCachedEntities'
-import { EmptyState, PageHeader, Screen, StatusChip } from '../../src/shared/ui/components'
-import { colors, radius, spacing } from '../../src/shared/ui/theme'
-
-const clientName = (client: Client) => [client.firstName, client.secondName, client.thirdName].filter(Boolean).join(' ') || 'Без имени'
+import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
+import { deleteLocalEntity } from '../../src/shared/storage/mutations'
+import { Button, CompactField, EmptyState, ErrorNotice, FilterControl, FilterOverlay, PageHeader, Screen } from '../../src/shared/ui/components'
+import { useTheme, useThemeStyles } from '../../src/shared/ui/ThemeProvider'
+import type { Palette } from '../../src/shared/ui/theme'
+import { MobileClientCard } from '../../src/features/clients/MobileClientCard'
+import { clientName, clientSummary, selectClients, type ClientFilter } from '../../src/features/clients/clientList'
 
 export default function ClientsScreen() {
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
+  const terms = useWorkItemTerminology()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<ClientFilter>('all')
+  const [overlay, setOverlay] = useState(false)
+  const [error, setError] = useState('')
+  const deleting = useRef(false)
   const query = useCachedEntities<Client>('clients')
-  const clients = useMemo(() => {
-    const needle = search.trim().toLocaleLowerCase('ru')
-    return (query.data || []).filter((client) => !needle || `${clientName(client)} ${formatPhoneForDisplay(client.phone)} ${client.phone || ''} ${client.email || ''}`.toLocaleLowerCase('ru').includes(needle)).sort((a, b) => clientName(a).localeCompare(clientName(b), 'ru'))
-  }, [query.data, search])
+  const events = useCachedEntities<Event>('events')
+  const clients = useMemo(() => selectClients(query.data || [], events.data || [], search, filter), [query.data, events.data, search, filter])
+  const summaries = useMemo(() => new Map(clients.map((client) => [client._id, clientSummary(client._id, events.data || [])])), [clients, events.data])
+  const hasFilters = Boolean(search.trim() || filter !== 'all')
+  const reset = () => { setSearch(''); setFilter('all') }
+  const add = () => router.push('/clients/edit/new' as never)
+  const remove = useCallback((client: Client) => Alert.alert('Удалить клиента?', clientName(client), [
+    { text: 'Отмена', style: 'cancel' }, { text: 'Удалить', style: 'destructive', onPress: async () => {
+      if (deleting.current) return
+      deleting.current = true; setError('')
+      try { await deleteLocalEntity('clients', client._id); await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] }) }
+      catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось удалить клиента') }
+      finally { deleting.current = false }
+    } },
+  ]), [queryClient])
+  const selectedLabel = filter === 'requests' ? 'С заявками' : filter === 'events' ? terms.pluralCapitalized : filter === 'canceled' ? 'Есть отмены' : 'Все клиенты'
+  const loading = query.isPending || events.isPending
+  const failed = query.isError || events.isError
+  const retry = () => { void query.refetch(); void events.refetch() }
+  return <Screen scroll={false} contentStyle={styles.screen}>
+    <PageHeader title="Клиенты" count={failed || loading ? undefined : clients.length} />
+    <View style={styles.searchRow}>
+      <View style={styles.search}><CompactField label="Поиск клиента" testID="clients-search" value={search} onChangeText={setSearch} placeholder="Введите имя или телефон" /></View>
+      <Pressable testID="add-client" accessibilityRole="button" accessibilityLabel="Добавить клиента" style={styles.add} onPress={add}>
+        <MaterialCommunityIcons name="plus" size={22} color={palette.secondaryText} />
+      </Pressable>
+    </View>
+    <View style={styles.controls}>
+      <FilterControl title={selectedLabel} selected={filter === 'all'} onPress={() => setFilter('all')} />
+      <FilterOverlay testID="clients-filters" maxWidth={260} visible={overlay} selected={filter !== 'all'} onOpen={() => setOverlay(true)} onClose={() => setOverlay(false)}
+        options={([['all', 'Все клиенты'], ['requests', 'С заявками'], ['events', terms.pluralCapitalized], ['canceled', 'Есть отмены'], ['reset', 'Сбросить фильтры']] as const).map(([value, label]) => ({ value, label, selected: filter === value }))}
+        onSelect={(value) => value === 'reset' ? reset() : setFilter(value as ClientFilter)} />
+    </View>
+    {error ? <ErrorNotice message={error} /> : null}
+    {failed ? <><ErrorNotice message="Не удалось прочитать клиентов или связанные работы. Статистика может быть неполной." /><Button title="Повторить чтение" variant="secondary" onPress={retry} /></> : null}
+    {loading ? <ActivityIndicator accessibilityLabel="Загрузка клиентов" color={palette.primary} /> : null}
+    <FlatList testID="clients-list" style={styles.list} data={failed || loading ? [] : clients} keyExtractor={(item) => item._id}
+      refreshing={query.isFetching || events.isFetching} onRefresh={() => { void query.refresh(); void events.refresh() }}
+      keyboardShouldPersistTaps="handled" contentContainerStyle={clients.length ? styles.rows : styles.empty}
+      ListEmptyComponent={!loading && !failed ? <EmptyState title={hasFilters ? 'Ничего не найдено' : 'Клиентов пока нет'}
+        description={hasFilters ? 'Попробуйте изменить запрос или фильтры.' : 'Добавьте первого клиента.'}
+        action={{ title: hasFilters ? 'Сбросить фильтры' : 'Создать клиента', onPress: hasFilters ? reset : add }} /> : null}
+      renderItem={({ item }) => <MobileClientCard client={item} summary={summaries.get(item._id)!} onDelete={remove} />} />
 
-  return (
-    <Screen scroll={false} contentStyle={styles.screenContent}>
-      <PageHeader title="Клиенты" subtitle={`${clients.length} в адресной книге`} action={<Pressable testID="add-client" accessibilityLabel="Добавить клиента" style={styles.add} onPress={() => router.push('/clients/edit/new' as never)}><MaterialCommunityIcons name="account-plus-outline" size={23} color="#fff" /></Pressable>} />
-      <View style={styles.search}><MaterialCommunityIcons name="magnify" size={21} color={colors.textMuted} /><TextInput value={search} onChangeText={setSearch} style={styles.searchInput} placeholder="Имя, телефон или email" placeholderTextColor={colors.textMuted} /></View>
-      <FlatList
-        style={styles.listView}
-        data={clients}
-        keyExtractor={(item) => item._id}
-        refreshing={query.isFetching}
-        onRefresh={query.refresh}
-        contentContainerStyle={clients.length ? styles.list : styles.emptyList}
-        ListEmptyComponent={<EmptyState title={search ? 'Ничего не найдено' : 'Нет клиентов'} description={search ? 'Попробуйте изменить запрос.' : 'Добавьте первого клиента — запись будет доступна офлайн.'} />}
-        renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => router.push(`/clients/${item._id}` as never)}>
-            <View style={styles.avatar}><Text style={styles.avatarText}>{(item.firstName || item.secondName || '?').slice(0, 1).toUpperCase()}</Text></View>
-            <View style={styles.info}><Text style={styles.name} numberOfLines={1}>{clientName(item)}</Text><Text style={styles.detail} numberOfLines={1}>{formatPhoneForDisplay(item.phone) || item.email || item.town || 'Контакты не указаны'}</Text></View>
-            {item.syncStatus && item.syncStatus !== 'synced' ? <StatusChip label="Офлайн" tone="warning" /> : <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />}
-          </Pressable>
-        )}
-      />
-    </Screen>
-  )
+  </Screen>
 }
-
-const styles = StyleSheet.create({
-  screenContent: { paddingBottom: 0 },
-  add: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  search: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.md }, searchInput: { flex: 1, color: colors.text, fontSize: 15 },
-  listView: { flex: 1, minHeight: 0 },
-  list: { gap: spacing.sm, paddingBottom: spacing.lg }, emptyList: { flexGrow: 1, justifyContent: 'center', paddingBottom: spacing.lg },
-  card: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.lg },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }, avatarText: { color: colors.primary, fontSize: 18, fontWeight: '800' },
-  info: { flex: 1 }, name: { color: colors.text, fontSize: 15, fontWeight: '700' }, detail: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+const createStyles = (palette: Palette) => StyleSheet.create({
+  screen: { paddingBottom: 0 }, searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 }, search: { flex: 1, minWidth: 0 },
+  add: { width: 40, height: 40, marginBottom: 8, borderWidth: 1, borderColor: palette.secondaryBorder, backgroundColor: palette.secondaryBackground, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  controls: { flexDirection: 'row', gap: 8 }, list: { flex: 1, minHeight: 0 }, rows: { gap: 8, paddingBottom: 16 }, empty: { flexGrow: 1, justifyContent: 'center' },
 })

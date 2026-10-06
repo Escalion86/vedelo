@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { api } from '../../shared/api/client'
-import { Button, ErrorNotice } from '../../shared/ui/components'
-import { colors, radius, spacing } from '../../shared/ui/theme'
+import { Button, ErrorNotice, Notice } from '../../shared/ui/components'
+import { radius, spacing, type Palette } from '../../shared/ui/theme'
+import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
+import { isObject, responseData, safeError } from './integrationContract'
 
 export type AiProvider = 'artistcrm' | 'aitunnel'
 
@@ -29,6 +32,21 @@ type UserAiUsage = {
     charged: number
   }
   recent: AiUsageItem[]
+}
+
+export const readUsage = (response: unknown): UserAiUsage => {
+  const data = responseData(response)
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+  if (!finite(data.balance) || !finite(data.requiredBalance) || typeof data.available !== 'boolean' || typeof data.platformConfigured !== 'boolean' || !isObject(data.summary) || !finite(data.summary.operations) || !finite(data.summary.charged) || !Array.isArray(data.quotes) || !Array.isArray(data.recent)) throw new Error('INVALID_USAGE')
+  const quotes = data.quotes.map((item) => {
+    if (!isObject(item) || typeof item.feature !== 'string' || !finite(item.requiredBalance) || typeof item.available !== 'boolean') throw new Error('INVALID_QUOTE')
+    return { feature: item.feature, requiredBalance: item.requiredBalance, available: item.available }
+  })
+  const recent = data.recent.map((item) => {
+    if (!isObject(item) || typeof item.id !== 'string' || typeof item.feature !== 'string' || typeof item.status !== 'string' || !finite(item.charged) || typeof item.createdAt !== 'string') throw new Error('INVALID_USAGE_ITEM')
+    return { id: item.id, feature: item.feature, status: item.status, charged: item.charged, createdAt: item.createdAt }
+  })
+  return { balance: data.balance, requiredBalance: data.requiredBalance, available: data.available, platformConfigured: data.platformConfigured, summary: { operations: data.summary.operations, charged: data.summary.charged }, quotes, recent }
 }
 
 const featureLabels: Record<string, string> = {
@@ -67,58 +85,58 @@ const operationStatus = (item: AiUsageItem) => {
   return 'Обрабатывается'
 }
 
-const Metric = ({ label, value }: { label: string; value: string }) => (
+const Metric = ({ label, value }: { label: string; value: string }) => {
+  const styles = useThemeStyles(createStyles)
+  return (
   <View style={styles.metric}>
     <Text style={styles.metricLabel}>{label}</Text>
     <Text style={styles.metricValue}>{value}</Text>
   </View>
-)
+  )
+}
 
 export const AiUsagePanel = ({
-  activeProvider,
+  activeProvider, activeEnabled, activeConfigured,
 }: {
   activeProvider: AiProvider | null
+  activeEnabled?: boolean
+  activeConfigured?: boolean
 }) => {
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
   const [usage, setUsage] = useState<UserAiUsage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const load = useCallback(
-    async (signal?: AbortSignal) => {
-      setLoading(true)
-      setError('')
-      try {
-        const userResponse = await api.get<{ success: true; data: UserAiUsage }>(
-          '/ai/usage',
-          { signal }
-        )
-        if (signal?.aborted) return
-
-        setUsage(userResponse.data)
-      } catch (reason) {
-        if (signal?.aborted) return
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : 'Не удалось загрузить расходы на ИИ'
-        )
-      } finally {
-        if (!signal?.aborted) setLoading(false)
+  const lifecycle = useRef({ active: false, revision: 0, busy: false })
+  const load = useCallback(async () => {
+    if (!lifecycle.current.active || lifecycle.current.busy) return
+    lifecycle.current.busy = true
+    const revision = ++lifecycle.current.revision
+    setLoading(true); setError('')
+    try {
+      const data = readUsage(await api.get('/ai/usage'))
+      if (lifecycle.current.active && lifecycle.current.revision === revision) setUsage(data)
+    } catch (reason) {
+      if (lifecycle.current.active && lifecycle.current.revision === revision) {
+        setUsage(null)
+        setError(safeError(reason, 'Не удалось загрузить баланс и расходы ИИ.'))
       }
-    },
-    []
-  )
-
-  useEffect(() => {
-    const controller = new AbortController()
-    void load(controller.signal)
-    return () => controller.abort()
-  }, [load])
+    } finally {
+      if (lifecycle.current.active && lifecycle.current.revision === revision) {
+        lifecycle.current.busy = false; setLoading(false)
+      }
+    }
+  }, [])
+  useFocusEffect(useCallback(() => {
+    lifecycle.current.active = true; lifecycle.current.busy = false
+    void load()
+    return () => { lifecycle.current.active = false; ++lifecycle.current.revision; lifecycle.current.busy = false }
+  }, [load]))
 
   if (loading && !usage) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={palette.primary} />
         <Text style={styles.muted}>Загрузка баланса и расходов...</Text>
       </View>
     )
@@ -161,31 +179,17 @@ export const AiUsagePanel = ({
 
           {activeProvider === null ? (
             <Text style={styles.muted}>Текущий провайдер не поддерживается приложением.</Text>
-          ) : !usage?.platformConfigured ? (
-            <View style={[styles.notice, styles.dangerNotice]}>
-              <Text style={styles.dangerText}>
-                Общий ИИ временно не настроен администратором.
-              </Text>
-            </View>
-          ) : platformActive && !usage.available ? (
-            <View style={[styles.notice, styles.warningNotice]}>
-              <Text style={styles.warningText}>
-                Для части операций недостаточно средств. Баланс должен быть больше
-                средней стоимости нужной операции.
-              </Text>
-            </View>
+          ) : activeEnabled === false ? (
+            <Notice tone="info" message="ИИ-интеграция приостановлена. Баланс и история остаются доступными." />
+          ) : activeConfigured === false ? (
+            <Notice tone="warning" message="Текущий ИИ требует настройки. История относится к общему ИИ Ведело." />
           ) : !platformActive ? (
-            <View style={[styles.notice, styles.neutralNotice]}>
-              <Text style={styles.muted}>
-                Сейчас используется собственный провайдер. Ведело не списывает
-                баланс за такие запросы.
-              </Text>
-            </View>
-          ) : (
-            <View style={[styles.notice, styles.successNotice]}>
-              <Text style={styles.successText}>Общий ИИ доступен.</Text>
-            </View>
-          )}
+            <Notice tone="info" message="Сейчас используется собственный провайдер. Ведело не списывает баланс за такие запросы." />
+          ) : !usage.platformConfigured ? (
+            <Notice tone="warning" message="Общий ИИ временно не настроен администратором." />
+          ) : !usage.available ? (
+            <Notice tone="warning" message="Для части операций недостаточно средств. Баланс должен быть больше средней стоимости нужной операции." />
+          ) : <Notice tone="success" message="Общий ИИ доступен." />}
 
           {(usage?.quotes || []).length > 0 ? (
             <View style={styles.listBox}>
@@ -193,7 +197,7 @@ export const AiUsagePanel = ({
               {usage?.quotes.map((quote) => (
                 <View key={quote.feature} style={styles.row}>
                   <Text style={styles.rowLabel}>
-                    {featureLabels[quote.feature] || quote.feature}
+                    {featureLabels[quote.feature] || 'Операция ИИ'}
                   </Text>
                   <Text style={quote.available ? styles.rowValue : styles.warningText}>
                     больше {formatMoney(quote.requiredBalance)}
@@ -210,7 +214,7 @@ export const AiUsagePanel = ({
                 <View key={item.id} style={styles.row}>
                   <View style={styles.grow}>
                     <Text style={styles.rowLabel}>
-                      {featureLabels[item.feature] || item.feature}
+                      {featureLabels[item.feature] || 'Операция ИИ'}
                     </Text>
                     <Text style={styles.muted}>{formatDateTime(item.createdAt)}</Text>
                   </View>
@@ -227,7 +231,7 @@ export const AiUsagePanel = ({
   )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
   container: {
     gap: spacing.md,
     paddingTop: spacing.md,
@@ -255,19 +259,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.kpiBackground,
   },
-  metricLabel: { color: colors.textMuted, fontSize: 11 },
+  metricLabel: { color: colors.cardMuted, fontSize: 11 },
   metricValue: { color: colors.text, fontSize: 15, fontWeight: '800' },
-  notice: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1 },
-  dangerNotice: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
-  warningNotice: { backgroundColor: colors.warningSoft, borderColor: colors.warning },
-  successNotice: { backgroundColor: colors.successSoft, borderColor: colors.success },
-  neutralNotice: { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-  dangerText: { color: colors.danger, fontSize: 12, lineHeight: 18 },
-  warningText: { color: colors.warning, fontSize: 12, lineHeight: 18 },
-  successText: { color: colors.success, fontSize: 12, fontWeight: '700' },
-  muted: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
+  warningText: { color: colors.notice.warning.text, fontSize: 12, lineHeight: 18 },
+  muted: { color: colors.cardMuted, fontSize: 12, lineHeight: 18 },
   listBox: {
     gap: spacing.xs,
     padding: spacing.md,

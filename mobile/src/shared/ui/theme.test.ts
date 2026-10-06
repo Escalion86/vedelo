@@ -2,7 +2,7 @@ import { colors, darkPalette, lightPalette, pageTitleSize } from './theme'
 
 describe('PWA palettes', () => {
   it('разделяет роли кнопок, навигации, транзакций и карточек', () => {
-    expect([lightPalette.canvas, darkPalette.canvas]).toEqual(['#fffefa', '#100d0a'])
+    expect([lightPalette.canvas, darkPalette.canvas]).toEqual(['#f3f1eb', '#100d0a'])
     expect([lightPalette.primary, darkPalette.primary]).toEqual(['#9a6b27', '#c9a86a'])
     expect([lightPalette.onPrimary, darkPalette.onPrimary]).toEqual(['#ffffff', '#1f1b14'])
     expect(darkPalette.secondaryPressedText).toBe('#ebd3a5')
@@ -11,7 +11,7 @@ describe('PWA palettes', () => {
     expect([darkPalette.navigationBackground, darkPalette.navigationText, darkPalette.navigationActive])
       .toEqual(['#3b2f1d', 'rgba(247,239,225,0.62)', '#c9a86a'])
     expect([darkPalette.fabBackground, darkPalette.fabForeground]).toEqual(['#c9a86a', '#ffffff'])
-    expect([lightPalette.cardTitle, lightPalette.cardMeta, lightPalette.cardMuted]).toEqual(['#111827', '#374151', '#6b7280'])
+    expect([lightPalette.cardTitle, lightPalette.cardMeta, lightPalette.cardMuted]).toEqual(['#111827', '#374151', '#656b77'])
     expect([lightPalette.transactionIncome, darkPalette.transactionIncomePressed, darkPalette.transactionExpenseOutline])
       .toEqual(['#22c55e', '#166534', '#b91c1c'])
     expect(darkPalette.transactionExpensePressedFill).toBe('rgba(185,28,28,0.12)')

@@ -5,7 +5,7 @@ import {
   type PressableProps, type StyleProp, type TextInputProps, type ViewStyle, type ViewProps,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { pageTitleSize, radius, spacing, surfaceElevation, typography, type Palette, type TemporalStatus, type EventViewStatus } from './theme'
+import { pageTitleSize, radius, spacing, surfaceElevation, surfaceShadow, typography, type Palette, type TemporalStatus, type EventViewStatus } from './theme'
 import { useTheme, useThemeStyles } from './ThemeProvider'
 import { Notice } from './Notice'
 
@@ -117,6 +117,7 @@ export const Field = ({ label, error, style, ...props }: TextInputProps & { labe
       <TextInput
         accessibilityLabel={label}
         placeholderTextColor={palette.cardMuted}
+        keyboardAppearance={palette.mode}
         {...props}
         style={[styles.field, error ? styles.fieldError : null, props.multiline && styles.fieldMultiline, style]}
       />
@@ -175,7 +176,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   pageCount: { color: palette.cardMuted, fontSize: 16, fontWeight: '500' },
   pageSubtitle: { color: palette.cardMuted, fontSize: 14, lineHeight: 20, marginTop: 3 },
   surface: { borderWidth: 1, padding: spacing.lg, gap: spacing.md },
-  card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 8, elevation: surfaceElevation[palette.mode] },
+  card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 8, elevation: surfaceElevation[palette.mode], ...surfaceShadow[palette.mode] },
   toolbar: { backgroundColor: palette.toolbarBackground, borderColor: palette.toolbarBorder, borderRadius: 0 },
   kpi: { backgroundColor: palette.kpiBackground, borderColor: palette.kpiBorder, borderRadius: 8, padding: spacing.sm },
   sectionTitle: { color: palette.text, fontSize: 17, fontWeight: '700' },

@@ -96,6 +96,7 @@ export const emptyEventValues = {
   eventType: '', description: '', eventDate: '', dateEnd: '', status: 'draft' as Event['status'],
   clientId: '', town: '', street: '', house: '', entrance: '', floor: '', flat: '', addressComment: '',
   contractSum: '', waitDeposit: false, depositExpectedAmount: '', depositDueAt: '',
+  financeComment: '', isByContract: false,
   isTransferred: false, colleagueId: '', calendarImportChecked: true, fileImportChecked: false,
   requestCreatedAt: '', cancelReason: '',
 }
@@ -122,7 +123,9 @@ export const createEventDraft = (event?: Event, cloning = false): EventDraft => 
     entrance: event?.address?.entrance || '', floor: event?.address?.floor || '', flat: event?.address?.flat || '',
     addressComment: event?.address?.comment || '', contractSum: String(event?.contractSum ?? ''),
     waitDeposit: Boolean(event?.waitDeposit), depositExpectedAmount: String(event?.depositExpectedAmount ?? ''),
-    depositDueAt: formatEventDateInput(event?.depositDueAt), isTransferred: Boolean(event?.isTransferred),
+    depositDueAt: formatEventDateInput(event?.depositDueAt), isByContract: Boolean(event?.isByContract),
+    isTransferred: Boolean(event?.isTransferred),
+    financeComment: event?.financeComment || '',
     colleagueId: event?.colleagueId || '', calendarImportChecked: cloning || !event ? true : Boolean(event.calendarImportChecked),
     fileImportChecked: Boolean(event?.fileImportChecked),
     requestCreatedAt: formatEventDateInput(cloning ? new Date().toISOString() : event?.requestCreatedAt || event?.createdAt || new Date().toISOString()),
@@ -159,10 +162,12 @@ export const validateEventDraft = (draft: EventDraft) => {
 // Preserve seconds, milliseconds and the original offset for untouched values.
 const serializeDate = (value: string, source?: string | null) =>
   source && value === formatEventDateInput(source) ? source : parseEventDateInput(value) ?? null
-export const serializeEventDraft = (draft: EventDraft, allowed: { clientIds: ReadonlySet<string>; serviceIds: ReadonlySet<string> }) => {
+export const serializeEventDraft = (draft: EventDraft, allowed: { clientIds: ReadonlySet<string>; serviceIds: ReadonlySet<string>; depositPaid?: boolean }) => {
   const error = validateEventDraft(draft)
   if (error) throw new Error(error)
   const { values: v, source } = draft
+  // Факт оплаченного задатка (транзакция) сильнее незавершённого ожидания в форме.
+  const depositPaid = Boolean(allowed.depositPaid)
   const knownClient = (id: string) => allowed.clientIds.has(id) ||
     [source?.clientId, source?.colleagueId, ...(source?.otherContacts || []).map((c) => c.clientId)].includes(id)
   if ([v.clientId, ...(v.isTransferred ? [v.colleagueId] : []), ...draft.otherContacts.map((c) => c.clientId)]
@@ -189,9 +194,11 @@ export const serializeEventDraft = (draft: EventDraft, allowed: { clientIds: Rea
     calendarImportChecked: v.calendarImportChecked,
     ...(source?.importedFromFile ? { fileImportChecked: v.fileImportChecked } : {}),
     requestCreatedAt: serializeDate(v.requestCreatedAt, draft.cloning ? undefined : source?.requestCreatedAt || source?.createdAt),
-    contractSum: Number(v.contractSum), waitDeposit: v.waitDeposit,
-    depositExpectedAmount: v.waitDeposit && v.depositExpectedAmount.trim() ? Number(v.depositExpectedAmount) : null,
-    depositDueAt: v.waitDeposit ? serializeDate(v.depositDueAt, source?.depositDueAt) : null,
+    contractSum: Number(v.contractSum), waitDeposit: depositPaid ? false : v.waitDeposit,
+    depositExpectedAmount: depositPaid || !v.waitDeposit || !v.depositExpectedAmount.trim() ? null : Number(v.depositExpectedAmount),
+    depositDueAt: depositPaid || !v.waitDeposit ? null : serializeDate(v.depositDueAt, source?.depositDueAt),
+    financeComment: v.financeComment.trim(),
+    isByContract: v.isByContract,
     otherContacts: draft.otherContacts.map(({ clientId, comment }) => ({ clientId, comment: comment.trim() })),
     additionalEvents: serializeEventTasks(draft.tasks).map((task, index) => {
       const original = draft.cloning ? undefined : task._id

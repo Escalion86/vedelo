@@ -34,9 +34,9 @@ it.each([['8 (999) 123-45-67', '+79991234567'], ['9991234567', '+79991234567'], 
 it.each(['light', 'dark'] as const)('MAX: пробный красный, подтверждённый фирменный, тема %s', (mode) => {
   const palette = mode === 'light' ? lightPalette : darkPalette
   const screen = render(<ThemeProvider storage={null} forcedMode={mode}><QuickContacts client={client} maxVisible={8} /></ThemeProvider>)
-  expect(screen.getByText('MAX')).toHaveStyle({ backgroundColor: palette.contacts.trial, color: palette.contacts.onBadge })
+  expect(screen.getByText('MAX')).toHaveStyle({ backgroundColor: palette.contacts.trial, color: palette.contacts.onTrialBadge })
   screen.rerender(<ThemeProvider storage={null} forcedMode={mode}><QuickContacts client={{ ...client, max: '+79991234567' }} maxVisible={8} /></ThemeProvider>)
-  expect(screen.getByText('MAX')).toHaveStyle({ backgroundColor: palette.contacts.max })
+  expect(screen.getByText('MAX')).toHaveStyle({ backgroundColor: palette.contacts.max, color: palette.contacts.onBadge })
 })
 it('MAX копирует нормализованный номер, открывает приложение и подтверждает через существующую мутацию', async () => {
   const screen = render(<QuickContacts client={client} maxVisible={8} />)

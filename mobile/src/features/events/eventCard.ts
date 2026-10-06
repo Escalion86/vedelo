@@ -42,13 +42,19 @@ export const getEventCardTitle = (event: Event, services: Service[]) => {
 
 export const getEventCardClientName = (client?: Client) =>
   client
-    ? [client.firstName, client.secondName].filter(Boolean).join(' ') || 'Клиент'
+    ? [client.firstName, client.secondName, client.thirdName].map((part) => part?.trim()).filter(Boolean).join(' ') || client._id
     : 'Клиент не указан'
 
-export const getEventCardAddress = (event: Event) =>
-  [event.address?.town, event.address?.street, event.address?.house]
-    .filter(Boolean)
-    .join(', ')
+export const getEventCardAddress = (event: Event, defaultTown?: string) => {
+  const original = event.address
+  const address = defaultTown && original?.town?.trim().toLowerCase() === defaultTown.trim().toLowerCase()
+    ? { ...original, town: '' } : original
+  if (!address?.town && !address?.street) return address?.comment || ''
+  const main = [address.town, address.street, address.house ? `д.${address.house}` : '',
+    address.flat ? `кв.${address.flat}` : '', address.entrance ? `под.${address.entrance}` : '',
+    address.floor ? `${address.floor} этаж` : ''].filter(Boolean).join(', ')
+  return main + (address.comment ? ` (${address.comment})` : '')
+}
 
 export const getEventCardStatus = (event: Event, now = new Date()) => {
   const eventEnd = validDate(event.dateEnd ?? event.eventDate)
@@ -113,7 +119,27 @@ const formatTaskDate = (date: Date, now: Date) => {
   return `${date.toLocaleDateString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
+    year: 'numeric',
   })} ${time}`
+}
+
+export const getEventCardTaskPresentation = (task: NonNullable<Event['additionalEvents']>[number], now = new Date()) => {
+  const date = validDate(task.date)
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return {
+    title: task.title || 'Задача',
+    dateLabel: date ? formatTaskDate(date, now) : '—',
+    temporalTone: !date ? 'neutral' as const : date < now ? 'overdue' as const
+      : sameDay(date, now) ? 'today' as const : sameDay(date, tomorrow) ? 'tomorrow' as const : 'upcoming' as const,
+  }
+}
+
+// Display projection only: preserve the existing totals and obligation rules.
+export const getEventCardMoneyText = ({ paid, contractSum }: ReturnType<typeof getEventCardFinance>) => {
+  if (paid <= 0 && contractSum <= 0) return '—'
+  if (paid === contractSum) return formatEventCardMoney(paid)
+  return `${[paid > 0 ? moneyFormatter.format(paid) : '', contractSum > 0 ? moneyFormatter.format(contractSum) : ''].filter(Boolean).join(' / ')} ₽`
 }
 
 export const getEventCardAttention = (
@@ -139,6 +165,7 @@ export const getEventCardAttention = (
       .filter(Boolean)
       .join(' · ')
     return {
+      title: null, dateLabel: null, temporalTone: 'overdue' as const,
       label: `Просрочен задаток${details ? `: ${details}` : ''}`,
       tone: 'danger' as EventCardTone,
       hiddenCount: (event.additionalEvents || []).filter((item) => !item.done).length,
@@ -160,7 +187,8 @@ export const getEventCardAttention = (
   const overdue = tasks.filter((item) => item.date.getTime() < now.getTime())
   const nearest = overdue.at(-1) || tasks[0]
   return {
-    label: `${nearest.task.title || 'Следующий контакт'}: ${formatTaskDate(nearest.date, now)}`,
+    ...getEventCardTaskPresentation(nearest.task, now),
+    label: `${nearest.task.title || 'Задача'}: ${formatTaskDate(nearest.date, now)}`,
     tone: (overdue.length
       ? 'danger'
       : sameDay(nearest.date, now)
@@ -181,9 +209,9 @@ export const getEventCardDateParts = (value?: string | null) => {
   const date = validDate(value)
   if (!date) return null
   return {
-    weekday: date.toLocaleDateString('ru-RU', { weekday: 'short' }),
-    day: String(date.getDate()),
-    month: date.toLocaleDateString('ru-RU', { month: 'short' }),
+    weekday: date.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '').toUpperCase(),
+    day: String(date.getDate()).padStart(2, '0'),
+    month: date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '').toUpperCase(),
     time: date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
   }
 }

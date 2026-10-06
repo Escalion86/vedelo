@@ -1,6 +1,6 @@
 import React from 'react'
 import { Linking } from 'react-native'
-import { fireEvent, render } from '@testing-library/react-native'
+import { fireEvent, render, within } from '@testing-library/react-native'
 import { router } from 'expo-router'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
@@ -57,7 +57,7 @@ it('zero, one and many contact actions; additional contacts expand names, commen
   press(screen.getByLabelText('Дополнительные контакты: 2'))
   expect(screen.getByText('Организатор на площадке')).toBeTruthy()
   expect(screen.getByText('Контакт недоступен')).toBeTruthy()
-  expect(screen.getAllByLabelText('Telegram')).toHaveLength(1)
+  expect(screen.getAllByLabelText('Telegram')).toHaveLength(2)
   expect(screen.onPress).not.toHaveBeenCalled()
   fireEvent.press(screen.getByText('Открыть клиента'))
   expect(router.push).toHaveBeenCalledWith('/clients/local-client')
@@ -75,8 +75,10 @@ it('shows all channels in overflow, closes by outside and opens chosen channel',
 })
 it.each(['draft', 'active', 'canceled', 'closed'] as const)('renders %s money semantics and missing client', (status) => {
   const screen = setup({ status }, { client: undefined })
-  expect(screen.getByText(status === 'closed' ? 'Итог' : 'Оплачено / договор')).toBeTruthy()
-  expect(screen.getByText('Клиент не указан')).toBeTruthy()
+  expect(screen.queryByText('Оплачено / договор')).toBeNull()
+  if (status === 'closed') expect(screen.getByLabelText('Итог: 0 ₽')).toBeTruthy()
+  else expect(screen.getAllByText('—')).toHaveLength(2)
+  expect(screen.getByText('-')).toBeTruthy()
   expect(screen.queryByLabelText('Позвонить')).toBeNull()
 })
 it('renders import/API/obligation indicators and map action', () => {
@@ -144,11 +146,82 @@ describe('MobileEventCard', () => {
 
     expect(screen.getByText('Свадьба • Ведение, Аппаратура')).toBeTruthy()
     expect(screen.getByText('Анна Иванова')).toBeTruthy()
-    expect(screen.getByText('Красноярск, Мира, 10')).toBeTruthy()
+    expect(screen.getByText('Красноярск, Мира, д.10')).toBeTruthy()
     expect(screen.getByText(/Просрочен задаток:.*15.*000 ₽/)).toBeTruthy()
-    expect(screen.getByText(/10.*000 ₽ \/\s*30.*000 ₽/)).toBeTruthy()
+    expect(screen.getByText(/10.*000 \/\s*30.*000 ₽/)).toBeTruthy()
 
     fireEvent.press(screen.getByTestId('event-card'))
     expect(onPress).toHaveBeenCalledTimes(1)
   })
+})
+
+it.each([false, true])('пустые колонки сохраняют прочерки в обеих темах: dark=%s', (dark) => {
+  const screen = setup({ status: 'draft', address: undefined, isByContract: false }, { client: undefined }, dark)
+  expect(screen.getAllByText('—')).toHaveLength(2)
+  expect(screen.getAllByText('-')).toHaveLength(2)
+  expect(screen.queryByText('Без даты')).toBeNull()
+  expect(screen.queryByText('Адрес не указан')).toBeNull()
+  expect(screen.queryByText('0 ₽')).toBeNull()
+  expect(screen.queryByText('Оплачено / договор')).toBeNull()
+  expect(screen.getByLabelText('Клиент не указан')).toBeTruthy()
+  expect(screen.queryByTestId('card-reminder')).toBeNull()
+})
+it.each([
+  [0, 0, '—'], [0, 30000, '30 000 ₽'], [10000, 0, '10 000 ₽'],
+  [30000, 30000, '30 000 ₽'], [10000, 30000, '10 000 / 30 000 ₽'],
+])('финансы paid=%s contract=%s в одну строку', (paid, contractSum, expected) => {
+  const screen = setup({ contractSum: Number(contractSum) }, { transactions: [{ _id: 'tx', eventId: event._id, amount: Number(paid), type: 'income' }] })
+  expect(screen.getAllByText(String(expected)).length).toBeGreaterThan(0)
+  expect(screen.queryByText('Оплачено / договор')).toBeNull()
+})
+it.each([false, true])('полосы draft/active/passed/closed/canceled независимы от view-chip: dark=%s', (dark) => {
+  for (const [status, eventDate, marker] of [
+    ['draft', undefined, '#f59e0b'], ['draft', '2099-10-09', '#f59e0b'], ['draft', '2020-10-09', '#f59e0b'],
+    ['active', '2099-10-09', '#3b82f6'], ['active', '2020-10-09', '#9ca3af'],
+    ['closed', '2020-10-09', '#10b981'], ['canceled', '2020-10-09', '#ef4444'],
+  ] as const) {
+    const screen = setup({ status, eventDate }, {}, dark)
+    expect(screen.getByTestId('card-marker')).toHaveStyle({ backgroundColor: marker })
+    expect(screen.queryByText('Дата прошла — уточните результат') !== null).toBe(status === 'draft' && eventDate === '2020-10-09')
+    screen.unmount()
+  }
+})
+it('адрес без ссылки, полное ФИО и компактный reminder с годом, действием и счётчиком', () => {
+  const screen = setup({ address: { comment: 'У главного входа' }, additionalEvents: [
+    { title: 'Связаться с клиентом', date: '2020-10-04T16:36:00' },
+    { title: 'Отправить предложение', date: '2099-10-04T16:36:00' },
+    { title: 'Выполнено', date: '2020-10-05T16:36:00', done: true },
+    { title: 'Нет даты', date: null },
+  ] }, { client: { ...client, thirdName: 'Ивановна' } })
+  expect(screen.getByText('У главного входа')).toBeTruthy()
+  expect(screen.queryByRole('link')).toBeNull()
+  expect(screen.getByText('Анна Ивановна')).toBeTruthy()
+  expect(screen.getByText('04.10.2020 16:36')).toBeTruthy()
+  expect(screen.getByText('Связаться с клиентом')).toBeTruthy()
+  expect(screen.getByText('+1')).toBeTruthy()
+  expect(screen.getByTestId('card-reminder')).toHaveStyle({ borderWidth: 1, borderRadius: 8, alignSelf: 'flex-start', flexShrink: 1 })
+})
+it.each([false, true])('reminder использует временной статус темы: dark=%s', (dark) => {
+  const screen = setup({ additionalEvents: [{ title: 'Позвонить', date: '2020-10-04T16:36:00' }] }, {}, dark)
+  const palette = dark ? darkPalette : lightPalette
+  expect(screen.getByTestId('card-reminder')).toHaveStyle({ backgroundColor: palette.status.overdue.background, borderColor: palette.status.overdue.border })
+  expect(screen.getByText('Позвонить')).toHaveStyle({ color: palette.status.overdue.text })
+})
+it('дата — день недели и число в одной строке, месяц и время без точек', () => {
+  const screen = setup({ eventDate: '2026-10-09T21:00:00' })
+  expect(screen.getByText('ПТ')).toBeTruthy()
+  expect(screen.getByText('09')).toBeTruthy()
+  expect(screen.getByText('ОКТ')).toBeTruthy()
+  expect(screen.getByText('21:00')).toBeTruthy()
+  const heading = screen.getByTestId('card-date-heading')
+  expect(heading).toHaveStyle({ flexDirection: 'row' })
+  expect(within(heading).getByText('ПТ')).toBeTruthy()
+  expect(within(heading).getByText('09')).toBeTruthy()
+})
+it('как PWA скрывает город по умолчанию только в подписи и сохраняет адрес карты', () => {
+  const screen = setup({ address: { town: 'Красноярск', street: 'Мира', house: '10' } }, { defaultTown: ' красноярск ' })
+  expect(screen.getByText('Мира, д.10')).toBeTruthy()
+  press(screen.getByRole('link'))
+  expect(Linking.openURL).toHaveBeenCalledWith(`https://2gis.ru/search/${encodeURIComponent('Красноярск, Мира, 10')}`)
+  expect(screen.onPress).not.toHaveBeenCalled()
 })

@@ -27,6 +27,6 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   title: { flex: 1, color: palette.secondaryText, fontSize: 13, fontWeight: '600' },
   selected: { backgroundColor: palette.rowSelected },
   pressed: { backgroundColor: palette.rowPressed }, disabled: { opacity: 0.65 },
-  badge: { borderRadius: 999, paddingHorizontal: 6, minHeight: 20, justifyContent: 'center', backgroundColor: palette.transactionExpense },
-  badgeText: { color: palette.transactionExpenseText, fontSize: 11, fontWeight: '700' },
+  badge: { borderRadius: 999, paddingHorizontal: 6, minHeight: 20, justifyContent: 'center', backgroundColor: palette.counterBadge.background },
+  badgeText: { color: palette.counterBadge.text, fontSize: 11, fontWeight: '700' },
 })

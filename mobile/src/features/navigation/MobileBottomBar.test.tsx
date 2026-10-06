@@ -148,6 +148,8 @@ it.each(['light', 'dark'] as const)('нижняя панель использу�
   expect(screen.getByTestId('mobile-bottom-bar')).toHaveStyle({ backgroundColor: palette.navigationBackground, paddingBottom: 16 })
   expect(screen.getByTestId('bottom-slot-menu').props.accessibilityState.selected).toBe(true)
   expect(screen.getByText('Меню')).toHaveStyle({ color: palette.navigationActive, fontSize: 10, lineHeight: 12 })
+  expect(screen.getByText('Клиенты')).toHaveStyle({ color: palette.navigationLabel })
+  expect(within(screen.getByTestId('bottom-slot-attention')).getByText('1')).toHaveStyle({ color: palette.counterBadge.text })
   expect(screen.getByTestId('bottom-slot-menu')).toHaveStyle({ minHeight: 60 })
 })
 

@@ -153,3 +153,11 @@ it('FilterControl отдаёт selected/expanded и зону касания', ()
   expect(screen.getByRole('button').props.hitSlop).toBe(6)
   expect(screen.getByRole('button')).toHaveStyle({ minHeight: 36, borderRadius: 10 })
 })
+
+it.each([false, true])('общая поверхность отделена от canvas, рамка и тень сохраняются: dark=%s', (dark) => {
+  const palette = dark ? darkPalette : lightPalette
+  const screen = render(themed(<Surface testID="surface"><Text>Карточка</Text></Surface>, dark))
+  expect(palette.canvas).not.toBe(palette.surface)
+  expect(screen.getByTestId('surface')).toHaveStyle({ backgroundColor: palette.surface, borderColor: palette.border,
+    borderWidth: 1, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, shadowOpacity: dark ? 0.35 : 0.1 })
+})

@@ -131,7 +131,8 @@ export function QuickContacts({ client, maxVisible = 2 }: { client?: Client; max
 }
 function ContactGlyph({ action, color }: { action: ContactAction; color: string }) {
   const styles = useThemeStyles(createStyles)
-  return action.provider === 'max' ? <Text style={[styles.maxBadge, { backgroundColor: color }]}>MAX</Text>
+  const { palette } = useTheme()
+  return action.provider === 'max' ? <Text style={[styles.maxBadge, { backgroundColor: color, color: action.trial ? palette.contacts.onTrialBadge : palette.contacts.onBadge }]}>MAX</Text>
     : <MaterialCommunityIcons name={action.icon} size={20} color={color} />
 }
 const createStyles = (palette: Palette) => StyleSheet.create({

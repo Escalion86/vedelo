@@ -10,7 +10,7 @@ import { useCachedEntities } from '../../src/shared/hooks/useCachedEntities'
 import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 import { Button, EmptyState, Notice, PageHeader, Screen, SectionTitle, StatusChip, Surface } from '../../src/shared/ui/components'
 import { QuickContacts, openContactUrl } from '../../src/shared/ui/QuickContacts'
-import { useThemeStyles } from '../../src/shared/ui/ThemeProvider'
+import { useTheme, useThemeStyles } from '../../src/shared/ui/ThemeProvider'
 import type { Palette } from '../../src/shared/ui/theme'
 import { buildEventNavigationLinks, formatEventAddress } from '../../src/features/events/navigation'
 import { eventPublicApiSource, isEventImportChecked } from '../../src/features/events/filters'
@@ -22,6 +22,7 @@ import { editEventSection, EventDetailActions } from '../../src/features/events/
 export default function EventDetailScreen() {
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const events = useCachedEntities<Event>('events')
   const clients = useCachedEntities<Client>('clients')
@@ -39,7 +40,7 @@ export default function EventDetailScreen() {
     void Promise.all([refreshEvents(), refreshClients(), refreshServices(), refreshTransactions()])
   }, [refreshEvents, refreshClients, refreshServices, refreshTransactions]))
   const event = events.data?.find((item) => item._id === id)
-  if (events.isPending) return <Screen><PageHeader title={terms.labelCapitalized} /><ActivityIndicator accessibilityLabel="Загрузка работы" /></Screen>
+  if (events.isPending) return <Screen><PageHeader title={terms.labelCapitalized} /><ActivityIndicator accessibilityLabel="Загрузка работы" color={palette.primary} /></Screen>
   if (events.isError) return <Screen><PageHeader title={terms.labelCapitalized} /><Notice tone="danger" message="Не удалось прочитать работу" /><Button title="Повторить" onPress={() => void events.refetch()} /></Screen>
   if (!event) return <Screen><PageHeader title={terms.labelCapitalized} /><EmptyState title="Запись не найдена" description="Возможно, она удалена или ещё не загружена на устройство." /><Button title={`К списку ${terms.pluralGenitive}`} onPress={() => router.replace('/(tabs)/events')} /></Screen>
   const status = getEventCardStatus(event)
@@ -93,7 +94,7 @@ export default function EventDetailScreen() {
       {duration ? <Text style={styles.muted}>Длительность: {duration}</Text> : null}
     </Surface>
     {event.description ? <Surface testID="event-description"><SectionTitle>Описание</SectionTitle><Text style={styles.text}>{eventPlainText(event.description)}</Text></Surface> : null}
-    {transactions.isError ? <Notice tone="danger" message="Не удалось прочитать финансы. Итоги недоступны." /> : transactions.isPending ? <ActivityIndicator accessibilityLabel="Загрузка финансов" /> : <>
+    {transactions.isError ? <Notice tone="danger" message="Не удалось прочитать финансы. Итоги недоступны." /> : transactions.isPending ? <ActivityIndicator accessibilityLabel="Загрузка финансов" color={palette.primary} /> : <>
       {finance.hasObligations ? <Notice tone="warning" message="Есть обязательства. Они не входят в доходы и расходы до смены метода оплаты и указания фактической даты." /> : null}
       <EventFinanceSummary event={event} transactions={transactions.data || []} />
     </>}

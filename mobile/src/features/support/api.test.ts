@@ -1,3 +1,4 @@
+import { uploadOnce } from '../profile/uploadOnce'
 import { api } from '../../shared/api/client'
 import { getAuthSession } from '../../shared/auth/tokenStore'
 import * as support from './api'
@@ -6,6 +7,7 @@ import { SUPPORT_UNAVAILABLE_MESSAGE } from './userAccess'
 jest.mock('../../shared/api/client', () => ({
   api: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), upload: jest.fn() },
 }))
+jest.mock('../profile/uploadOnce', () => ({ uploadOnce: jest.fn() }))
 jest.mock('../../shared/auth/tokenStore', () => ({ getAuthSession: jest.fn() }))
 
 const sessionMock = getAuthSession as jest.Mock
@@ -26,6 +28,7 @@ it.each(operations)('блокирует %s для developer bearer до сети
   sessionMock.mockResolvedValue(session)
   await expect(run()).rejects.toThrow(SUPPORT_UNAVAILABLE_MESSAGE)
   for (const request of Object.values(api)) expect(request).not.toHaveBeenCalled()
+  expect(uploadOnce).not.toHaveBeenCalled()
   expect(session.user.role).toBe('dev')
 })
 
@@ -48,7 +51,7 @@ it.each(['user', 'admin'])('сохраняет личные endpoints, паги�
   const append = jest.spyOn(FormData.prototype, 'append')
   await support.createSupportTicket({ category: 'question', title: 'Тема', message: 'Текст', images: [image] })
   await support.replySupportTicket('own-ticket', 'Ответ', [image])
-  const uploads = (api.upload as jest.Mock).mock.calls
+  const uploads = (uploadOnce as jest.Mock).mock.calls
   expect(uploads.map(([path]) => path)).toEqual(['/support-tickets', '/support-tickets/own-ticket/messages'])
   expect(append.mock.calls).toEqual([
     ['category', 'question'], ['title', 'Тема'], ['message', 'Текст'],
@@ -68,4 +71,5 @@ it('повторно проверяет сессию перед ответом �
   await expect(support.replySupportTicket('own-ticket', 'Ответ', [])).rejects.toThrow(SUPPORT_UNAVAILABLE_MESSAGE)
   expect(api.get).toHaveBeenCalledTimes(1)
   expect(api.upload).not.toHaveBeenCalled()
+  expect(uploadOnce).not.toHaveBeenCalled()
 })

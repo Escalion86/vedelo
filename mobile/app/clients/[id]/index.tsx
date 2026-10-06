@@ -1,167 +1,133 @@
-import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
 import { useCallback, useMemo, useState } from 'react'
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import * as Clipboard from 'expo-clipboard'
 import type { Client, Event, Transaction } from '../../../src/shared/domain/types'
 import { formatPhoneForDisplay } from '../../../src/shared/format/phone'
 import { getCachedEntity, listCachedEntities } from '../../../src/shared/storage/cache'
-import { Button, EmptyState, PageHeader, Screen, SectionTitle, StatusChip, Surface } from '../../../src/shared/ui/components'
-import { colors, radius, spacing } from '../../../src/shared/ui/theme'
+import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
+import { Button, EmptyState, ErrorNotice, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../../src/shared/ui/components'
+import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
+import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
+import type { Palette } from '../../../src/shared/ui/theme'
+import { clientName, contactChannelLabel, plainComment } from '../../../src/features/clients/clientList'
 
-const open = (url: string) => Linking.openURL(url).catch(() => undefined)
 const money = (value: number) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`
-const clientTypeLabel: Record<string, string> = {
-  none: '', host: 'Ведущий', organizer: 'Организатор', colleague: 'Коллега',
-}
-const channelLabel: Record<string, string> = {
-  phone: 'Телефон', telegram: 'Telegram', whatsapp: 'WhatsApp', max: 'MAX',
-  vk: 'VK', other: 'Другой канал',
-}
-
+const dateText = (value?: string | null, significant = false) => value && Number.isFinite(new Date(value).getTime())
+  ? new Date(value).toLocaleDateString('ru-RU', significant ? { day: '2-digit', month: 'long' } : undefined) : 'Дата не назначена'
 export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
+  const terms = useWorkItemTerminology()
   const [client, setClient] = useState<Client | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
-
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+  const [showEvents, setShowEvents] = useState(false)
+  const [showFinance, setShowFinance] = useState(false)
   useFocusEffect(useCallback(() => {
     let active = true
-    if (!id) return
-    Promise.all([
-      getCachedEntity<Client>('clients', id),
-      listCachedEntities<Event>('events'),
-      listCachedEntities<Transaction>('transactions'),
-    ]).then(([clientItem, eventItems, transactionItems]) => {
-      if (!active) return
-      setClient(clientItem)
-      setEvents(eventItems)
-      setTransactions(transactionItems)
-    })
+    setLoading(true); setError('')
+    Promise.all([getCachedEntity<Client>('clients', id), listCachedEntities<Event>('events'), listCachedEntities<Transaction>('transactions')])
+      .then(([clientItem, eventItems, transactionItems]) => {
+        if (!active) return
+        setClient(clientItem); setEvents(eventItems); setTransactions(transactionItems)
+      }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'Не удалось прочитать клиента') })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [id]))
-
-  const relatedEvents = useMemo(() => events
-    .filter((event) => event.clientId === id || event.otherContacts?.some((contact) => contact.clientId === id))
-    .sort((a, b) => new Date(b.eventDate || 0).getTime() - new Date(a.eventDate || 0).getTime()), [events, id])
+  }, [id, attempt]))
+  const relatedEvents = useMemo(() => events.filter((event) => event.clientId === id || event.otherContacts?.some((contact) => contact.clientId === id))
+    .sort((a, b) => (Date.parse(b.eventDate || '') || 0) - (Date.parse(a.eventDate || '') || 0)), [events, id])
   const relatedEventIds = useMemo(() => new Set(relatedEvents.map((event) => event._id)), [relatedEvents])
-  const relatedTransactions = useMemo(() => transactions
-    .filter((transaction) => transaction.clientId === id || Boolean(transaction.eventId && relatedEventIds.has(transaction.eventId)))
-    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()), [id, relatedEventIds, transactions])
-
+  const relatedTransactions = useMemo(() => transactions.filter((item) => item.clientId === id || Boolean(item.eventId && relatedEventIds.has(item.eventId)))
+    .sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0)), [transactions, id, relatedEventIds])
+  if (loading) return <Screen><PageHeader title="Клиент" /><ActivityIndicator accessibilityLabel="Загрузка клиента" color={palette.primary} /></Screen>
+  if (error) return <Screen><PageHeader title="Клиент" /><ErrorNotice message={error} /><Button title="Повторить чтение" onPress={() => setAttempt((value) => value + 1)} /></Screen>
   if (!client) return <Screen><PageHeader title="Клиент" /><EmptyState title="Клиент не найден" description="Возможно, запись удалена на другом устройстве." /></Screen>
-
-  const name = [client.firstName, client.secondName, client.thirdName].filter(Boolean).join(' ') || 'Без имени'
-  const income = relatedTransactions.filter((item) => item.type === 'income' && item.paymentMethod !== 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
-  const expense = relatedTransactions.filter((item) => item.type === 'expense' && item.paymentMethod !== 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
-  const obligations = relatedTransactions.filter((item) => item.paymentMethod === 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
-  const openMenu = () => Alert.alert('Действия', '', [
-    { text: 'История действий', onPress: () => router.push({ pathname: '/history', params: { entityType: 'client', entityId: client._id } } as never) },
+  const name = clientName(client)
+  const phone = formatPhoneForDisplay(client.phone)
+  const primaryEvents = relatedEvents.filter((event) => event.clientId === id)
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0)
+  const canceled = primaryEvents.filter((event) => event.status === 'canceled').length
+  const passed = primaryEvents.filter((event) => event.status !== 'canceled' && event.eventDate && Date.parse(event.eventDate) < startToday.getTime()).length
+  const upcoming = primaryEvents.filter((event) => event.status !== 'canceled' && (!event.eventDate || Date.parse(event.eventDate) >= startToday.getTime())).length
+  const directTransactions = relatedTransactions.filter((item) => item.clientId === id)
+  const income = directTransactions.filter((item) => item.type === 'income' && item.paymentMethod !== 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const expense = directTransactions.filter((item) => item.type === 'expense' && item.paymentMethod !== 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const obligations = directTransactions.filter((item) => item.paymentMethod === 'obligation').reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const requisites = ([['Наименование', client.legalName], ['ИНН', client.inn], ['КПП', client.kpp], ['ОГРН/ОГРНИП', client.ogrn], ['Банк', client.bankName], ['БИК', client.bik], ['Расчетный счет', client.checkingAccount], ['Корр. счет', client.correspondentAccount], ['Юридический адрес', client.legalAddress]] as const).filter(([, value]) => value)
+  const menu = () => Alert.alert('Действия с клиентом', name, [
+    { text: 'Редактировать', onPress: () => router.push(`/clients/edit/${id}` as never) },
+    { text: 'История действий', onPress: () => router.push({ pathname: '/history', params: { entityType: 'client', entityId: id } } as never) },
+    { text: 'Объединить дубликат', onPress: () => router.push(`/clients/${id}/merge` as never) },
     { text: 'Отмена', style: 'cancel' },
   ])
-
-  return (
-    <Screen>
-      <PageHeader
-        title={name}
-        subtitle={[clientTypeLabel[client.clientType || 'none'] || client.clientType, client.town].filter(Boolean).join(' · ')}
-        action={<View style={styles.headerActions}><Pressable style={styles.edit} onPress={() => router.push(`/clients/edit/${client._id}` as never)}><MaterialCommunityIcons name="pencil-outline" size={21} color={colors.primary} /></Pressable><Pressable style={styles.edit} onPress={openMenu}><MaterialCommunityIcons name="dots-vertical" size={22} color={colors.primary} /></Pressable></View>}
-      />
-      {client.syncStatus && client.syncStatus !== 'synced' ? <View style={styles.statusRow}><StatusChip label="Ожидает синхронизации" tone="warning" /></View> : null}
-      <View style={styles.actions}>
-        <QuickContacts client={client} maxVisible={8} />
-        {client.town ? <Action icon="map-marker-outline" label="Карты" onPress={() => open(`geo:0,0?q=${encodeURIComponent(client.town || '')}`)} /> : null}
-      </View>
-
-      <Surface>
-        <SectionTitle>Контакты</SectionTitle>
-        <Info label="Телефон" value={formatPhoneForDisplay(client.phone)} />
-        <Info label="Email" value={client.email} />
-        <Info label="MAX" value={client.max} />
-        <Info label="Telegram" value={client.telegram} />
-        <Info label="Instagram" value={client.instagram} />
-        <Info label="VK" value={client.vk} />
-        <Info label="Приоритетный канал" value={client.preferredContactChannel === 'other' ? client.preferredContactChannelOther : channelLabel[client.preferredContactChannel || '']} />
-      </Surface>
-
-      {client.comment ? <Surface><SectionTitle>Комментарий</SectionTitle><Text style={styles.comment}>{client.comment}</Text></Surface> : null}
-      {client.significantDates?.length ? (
-        <Surface>
-          <SectionTitle>Значимые даты</SectionTitle>
-          {client.significantDates.map((date, index) => (
-            <View key={date._id || `${date.title}-${index}`} style={styles.significantDate}>
-              <View style={styles.dateIcon}><MaterialCommunityIcons name="calendar-heart" size={20} color={colors.primary} /></View>
-              <View style={styles.grow}>
-                <Text style={styles.dateName}>{date.title || 'Дата'}</Text>
-                <Text style={styles.dateValue}>{date.date ? new Date(date.date).toLocaleDateString('ru-RU') : 'Дата не указана'}</Text>
-                {date.comment ? <Text style={styles.muted}>{date.comment}</Text> : null}
-              </View>
-            </View>
-          ))}
-        </Surface>
-      ) : null}
-
-      <Surface>
-        <SectionTitle>Мероприятия · {relatedEvents.length}</SectionTitle>
-        {relatedEvents.length ? relatedEvents.map((event) => (
-          <Pressable key={event._id} style={styles.relatedRow} onPress={() => router.push(`/events/${event._id}` as never)}>
-            <View style={styles.grow}>
-              <Text style={styles.relatedTitle}>{event.eventType || 'Мероприятие'}</Text>
-              <Text style={styles.muted}>{event.eventDate ? new Date(event.eventDate).toLocaleString('ru-RU') : 'Дата не назначена'}</Text>
-            </View>
-            {event.contractSum ? <Text style={styles.relatedAmount}>{money(event.contractSum)}</Text> : null}
-            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />
-          </Pressable>
-        )) : <Text style={styles.emptyText}>Связанных мероприятий пока нет.</Text>}
-      </Surface>
-
-      <Surface>
-        <SectionTitle>Финансы · {relatedTransactions.length}</SectionTitle>
-        <View style={styles.financeSummary}>
-          <FinanceValue label="Доход" value={income} tone="success" />
-          <FinanceValue label="Расход" value={expense} tone="danger" />
-          <FinanceValue label="Обязательства" value={obligations} tone="warning" />
+  const syncMessage = client.syncStatus === 'pending' ? 'Ожидает отправки' : client.syncStatus === 'syncing' ? 'Синхронизация клиента' : client.syncStatus === 'conflict' ? 'Конфликт изменений' : client.syncStatus === 'failed' ? 'Не удалось синхронизировать' : ''
+  return <Screen>
+    <PageHeader title="Клиент" action={<Pressable accessibilityRole="button" accessibilityLabel="Действия с клиентом" style={styles.iconButton} onPress={menu}><MaterialCommunityIcons name="dots-vertical" size={22} color={palette.primary} /></Pressable>} />
+    <Surface testID="client-detail-header">
+      <View style={styles.header}>
+        <View style={styles.avatar}><Text style={styles.initials}>{name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</Text></View>
+        <View style={styles.grow}><Text numberOfLines={1} style={styles.name}>{name}</Text>
+          <View style={styles.phoneRow}><Text style={styles.muted}>{phone || 'Телефон не указан'}</Text>{phone ? <Pressable accessibilityRole="button" accessibilityLabel="Скопировать номер телефона" style={styles.copy} onPress={() => { void Clipboard.setStringAsync(phone).catch(() => setError('Не удалось скопировать номер')) }}><MaterialCommunityIcons name="content-copy" size={16} color={palette.cardMuted} /></Pressable> : null}</View>
         </View>
-        {relatedTransactions.map((transaction) => (
-          <Pressable key={transaction._id} style={styles.relatedRow} onPress={() => router.push(`/finance/edit/${transaction._id}` as never)}>
-            <View style={styles.grow}><Text style={styles.relatedTitle}>{transaction.category || 'Без категории'}</Text><Text style={styles.muted}>{transaction.date ? new Date(transaction.date).toLocaleDateString('ru-RU') : 'Без даты'}</Text></View>
-            <Text style={[styles.relatedAmount, transaction.type === 'income' ? styles.income : styles.expense]}>{transaction.type === 'income' ? '+' : '−'}{money(Number(transaction.amount || 0))}</Text>
-          </Pressable>
-        ))}
-        {!relatedTransactions.length ? <Text style={styles.emptyText}>Связанных транзакций пока нет.</Text> : null}
-      </Surface>
-
-      <Button title="Переписки Avito и VK" variant="secondary" onPress={() => router.push({ pathname: '/conversations', params: { clientId: client._id } } as never)} />
-      <Button title={`Файлы и документы · ${client.documents?.length || 0}`} variant="secondary" onPress={() => router.push(`/clients/${client._id}/documents` as never)} disabled={client._id.startsWith('local-')} />
-      <Button title="Добавить транзакцию" variant="secondary" onPress={() => router.push({ pathname: '/finance/edit/new', params: { clientId: client._id } } as never)} />
-      <Button title="Новое мероприятие" onPress={() => router.push({ pathname: '/events/edit/new', params: { clientId: client._id } } as never)} />
-      <Button title="Объединить дубликат" variant="secondary" disabled={client._id.startsWith('local-') || Boolean(client.syncStatus && client.syncStatus !== 'synced')} onPress={() => router.push(`/clients/${client._id}/merge` as never)} />
-    </Screen>
-  )
+      </View>
+      <QuickContacts client={client} maxVisible={7} />
+      {contactChannelLabel(client) || client.comment ? <View style={styles.summary}>
+        {contactChannelLabel(client) ? <Text style={styles.text}>Приоритетная связь: {contactChannelLabel(client)}</Text> : null}
+        {client.comment ? <Text style={styles.text}>Комментарий: {plainComment(client.comment)}</Text> : null}
+      </View> : null}
+    </Surface>
+    {syncMessage ? <Notice tone={client.syncStatus === 'failed' || client.syncStatus === 'conflict' ? 'danger' : 'info'} message={syncMessage} /> : null}
+    <Surface>
+      <View style={styles.sectionHeader}><SectionTitle>{terms.pluralCapitalized}</SectionTitle><SmallAction title={showEvents ? 'Скрыть' : 'Посмотреть'} onPress={() => setShowEvents((value) => !value)} /></View>
+      <Kpi label="Прошли" value={String(passed)} /><Kpi label="Будут" value={String(upcoming)} /><Kpi label="Отменены" value={String(canceled)} />
+      {showEvents ? relatedEvents.length ? relatedEvents.map((event) => <Pressable key={event._id} accessibilityRole="button" style={styles.related} onPress={() => router.push(`/events/${event._id}` as never)}>
+        <View style={styles.grow}><Text style={styles.text}>{event.eventType || terms.labelCapitalized}</Text><Text style={styles.muted}>{dateText(event.eventDate)}{event.clientId !== id ? ' · Дополнительный контакт' : ''}</Text></View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={palette.cardMuted} />
+      </Pressable>) : <Text style={styles.muted}>Связанных записей пока нет.</Text> : null}
+    </Surface>
+    <Surface>
+      <View style={styles.sectionHeader}><SectionTitle>Финансы по транзакциям</SectionTitle><SmallAction title={showFinance ? 'Скрыть' : 'Показать'} onPress={() => setShowFinance((value) => !value)} /></View>
+      <Kpi label="Доходы" value={money(income)} tone="success" /><Kpi label="Расходы" value={money(expense)} tone="danger" /><Kpi label="Итог" value={money(income - expense)} />
+      {obligations ? <Notice tone="warning" message={`Обязательства (не факт оплаты): ${money(obligations)}`} /> : null}
+      {showFinance ? relatedTransactions.length ? relatedTransactions.map((item) => <Pressable key={item._id} accessibilityRole="button" style={styles.related} onPress={() => router.push(`/finance/edit/${item._id}` as never)}>
+        <View style={styles.grow}><Text style={styles.text}>{item.category || 'Без категории'}</Text><Text style={styles.muted}>{dateText(item.date)}{item.paymentMethod === 'obligation' ? ' · Обязательство' : ''}{item.clientId !== id ? ' · По связанной работе' : ''}</Text></View><Text style={styles.text}>{item.type === 'income' ? '+' : '−'}{money(Number(item.amount || 0))}</Text>
+      </Pressable>) : <Text style={styles.muted}>Связанных транзакций пока нет.</Text> : null}
+    </Surface>
+    <Surface><SectionTitle>Файлы и документы</SectionTitle><Button title={`Файлы и документы · ${client.documents?.length || 0}`} variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} />
+      {client._id.startsWith('local-') ? <Notice tone="info" message="Загрузка файлов доступна после синхронизации клиента." /> : null}
+    </Surface>
+    {requisites.length ? <Surface><SectionTitle>Реквизиты</SectionTitle>{requisites.map(([label, value]) => <Text key={label} style={styles.text}>{label}: {value}</Text>)}</Surface> : null}
+    {client.significantDates?.some((date) => date.title || date.date || date.comment) ? <Surface><SectionTitle>Значимые даты</SectionTitle>{client.significantDates.filter((date) => date.title || date.date || date.comment).map((date, index) => <View key={date._id || index} style={styles.summary}><Text style={styles.text}>{date.title || 'Дата'}{date.date ? `: ${dateText(date.date, true)}` : ''}</Text>{date.comment ? <Text style={styles.muted}>{plainComment(date.comment)}</Text> : null}</View>)}</Surface> : null}
+    <Button title="Переписки Avito и VK" variant="secondary" onPress={() => router.push({ pathname: '/conversations', params: { clientId: id } } as never)} />
+    <Button title="Добавить транзакцию" variant="secondary" onPress={() => router.push({ pathname: '/finance/edit/new', params: { clientId: id } } as never)} />
+    <Button title={`Создать ${terms.accusative}`} onPress={() => router.push({ pathname: '/events/edit/new', params: { clientId: id } } as never)} />
+  </Screen>
 }
-
-const Info = ({ label, value }: { label: string; value?: string }) => value ? <View style={styles.info}><Text style={styles.label}>{label}</Text><Text style={styles.value}>{value}</Text></View> : null
-const Action = ({ icon, label, onPress }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string; onPress: () => void }) => <Pressable accessibilityRole="button" style={styles.action} onPress={onPress}><View style={styles.actionIcon}><MaterialCommunityIcons name={icon} size={23} color={colors.primary} /></View><Text style={styles.actionLabel}>{label}</Text></Pressable>
-const FinanceValue = ({ label, value, tone }: { label: string; value: number; tone: 'success' | 'danger' | 'warning' }) => <View style={[styles.financeValue, tone === 'success' ? styles.financeSuccess : tone === 'danger' ? styles.financeDanger : styles.financeWarning]}><Text style={styles.financeLabel}>{label}</Text><Text style={styles.financeAmount}>{money(value)}</Text></View>
-
-const styles = StyleSheet.create({
-  headerActions: { flexDirection: 'row', gap: spacing.sm },
-  edit: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  statusRow: { flexDirection: 'row' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: spacing.sm },
-  action: { width: 62, minHeight: 68, alignItems: 'center', gap: 6 },
-  actionIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  actionLabel: { color: colors.text, fontSize: 11, fontWeight: '700' },
-  info: { gap: 3, paddingVertical: 5 }, label: { color: colors.textMuted, fontSize: 11 }, value: { color: colors.text, fontSize: 15 },
-  comment: { color: colors.text, fontSize: 14, lineHeight: 21 }, grow: { flex: 1 }, muted: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
-  significantDate: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.xs },
-  dateIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  dateName: { color: colors.text, fontSize: 14, fontWeight: '700' }, dateValue: { color: colors.text, fontSize: 13, marginTop: 2 },
-  relatedRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  relatedTitle: { color: colors.text, fontSize: 14, fontWeight: '700' }, relatedAmount: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  income: { color: colors.success }, expense: { color: colors.danger }, emptyText: { color: colors.textMuted, fontSize: 13 },
-  financeSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  financeValue: { minWidth: 96, flex: 1, padding: spacing.sm, borderRadius: radius.md },
-  financeSuccess: { backgroundColor: colors.successSoft }, financeDanger: { backgroundColor: colors.dangerSoft }, financeWarning: { backgroundColor: colors.warningSoft },
-  financeLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700' }, financeAmount: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 3 },
+function SmallAction({ title, onPress }: { title: string; onPress: () => void }) {
+  const styles = useThemeStyles(createStyles)
+  return <Pressable accessibilityRole="button" style={styles.smallAction} onPress={onPress}><Text style={styles.text}>{title}</Text></Pressable>
+}
+function Kpi({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'success' | 'danger' }) {
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
+  const role = palette.notice[tone]
+  return <View style={[styles.kpi, { backgroundColor: tone === 'neutral' ? palette.kpiBackground : role.background, borderColor: tone === 'neutral' ? palette.kpiBorder : role.border }]}><Text style={[styles.muted, { color: role.text }]}>{label}</Text><Text style={[styles.kpiValue, { color: role.text }]}>{value}</Text></View>
+}
+const createStyles = (palette: Palette) => StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, grow: { flex: 1, minWidth: 0 },
+  avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }, initials: { fontSize: 16, fontWeight: '700', color: palette.text },
+  name: { fontSize: 18, fontWeight: '600', color: palette.cardTitle }, phoneRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, copy: { minWidth: 28, minHeight: 28, alignItems: 'center', justifyContent: 'center' },
+  text: { color: palette.cardMeta, fontSize: 14 }, muted: { color: palette.cardMuted, fontSize: 12 },
+  summary: { borderWidth: 1, borderColor: palette.kpiBorder, backgroundColor: palette.kpiBackground, borderRadius: 8, padding: 12, gap: 8 },
+  sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  smallAction: { minHeight: 36, borderWidth: 1, borderColor: palette.secondaryBorder, borderRadius: 4, paddingHorizontal: 12, justifyContent: 'center' },
+  kpi: { padding: 8, borderWidth: 1, borderRadius: 8, gap: 3 }, kpiValue: { fontSize: 16, fontWeight: '600' },
+  related: { minHeight: 52, flexDirection: 'row', gap: 8, alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: palette.border },
 })

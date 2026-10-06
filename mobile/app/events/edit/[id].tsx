@@ -1,30 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router'
 import { usePreventRemove } from '@react-navigation/native'
 import { useQueryClient } from '@tanstack/react-query'
-import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, type EventDraft, type EventFormValues, type EventTaskDraft, type OtherContactDraft } from '../../../src/shared/domain/eventForm'
-import type { Client, Event, MobileSettings, Service } from '../../../src/shared/domain/types'
-import { formatPhoneForDisplay } from '../../../src/shared/format/phone'
+import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, type EventDraft, type EventFormValues } from '../../../src/shared/domain/eventForm'
+import { consumePendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
+import type { Client, Event, MobileSettings, Service, Transaction } from '../../../src/shared/domain/types'
 import { getCachedEntity, listCachedEntities } from '../../../src/shared/storage/cache'
 import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/mutations'
-import { Button, ErrorNotice, Field, PageHeader, Screen, SectionTitle, Surface } from '../../../src/shared/ui/components'
-import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
+import { Button, ErrorNotice, PageHeader, Screen } from '../../../src/shared/ui/components'
 import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
-import { EventGeneralSection, GeneralChoice as Option } from '../../../src/features/events/EventGeneralSection'
+import { EventContactsSection } from '../../../src/features/events/EventContactsSection'
+import { EventFinanceSection } from '../../../src/features/events/EventFinanceSection'
+import { eventTransactionsFor, hasDepositPaidTransaction } from '../../../src/features/events/eventFinance'
+import { EventGeneralSection } from '../../../src/features/events/EventGeneralSection'
 import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
 import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
 import { initialWorkItemMode, initialWorkItemStatus } from '../../../src/features/events/createOptions'
 
-const localKey = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
-const clientName = (client: Client) => [client.firstName, client.secondName].filter(Boolean).join(' ') || formatPhoneForDisplay(client.phone) || 'Клиент'
+const countEventDocuments = (event?: Event | null) =>
+  event ? (event.documents?.length || 0) + (event.documentFiles?.length || 0) : 0
 
 export default function EventEditScreen() {
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
   const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[]; decision?: string }>()
   // Freeze the entry context: URL updates and tab switches must not rehydrate a dirty form.
   const [entry] = useState(params)
@@ -34,6 +36,10 @@ export default function EventEditScreen() {
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [settings, setSettings] = useState<MobileSettings>()
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactionsError, setTransactionsError] = useState(false)
+  const [clientsError, setClientsError] = useState(false)
+  const [documentsCount, setDocumentsCount] = useState(0)
   const [draft, setDraft] = useState<EventDraft>(() => {
     const initial = createEventDraft()
     initial.values.clientId = entry.clientId || ''
@@ -49,17 +55,24 @@ export default function EventEditScreen() {
   const [dirty, setDirty] = useState(false)
   const [savedPath, setSavedPath] = useState('')
   const busy = useRef(false)
-  const { values, tasks, otherContacts } = draft
+  const { values } = draft
+  // Транзакции и документы принадлежат уже сохранённой работе, а не новой/клонируемой форме.
+  const savedWorkId = isNew || isClone ? '' : entry.id
+  const loadSourceId = entry.cloneId || savedWorkId
+  const relatedTransactions = eventTransactionsFor(transactions, savedWorkId)
   const changeDraft = (next: EventDraft) => { setDirty(true); setDraft(next) }
   const setValues = (update: (current: EventFormValues) => EventFormValues) => {
     setDirty(true); setDraft((current) => ({ ...current, values: update(current.values) }))
   }
-  const setTasks = (update: (current: EventTaskDraft[]) => EventTaskDraft[]) => {
-    setDirty(true); setDraft((current) => ({ ...current, tasks: update(current.tasks) }))
-  }
-  const setOtherContacts = (update: (current: OtherContactDraft[]) => OtherContactDraft[]) => {
-    setDirty(true); setDraft((current) => ({ ...current, otherContacts: update(current.otherContacts) }))
-  }
+  const loadTransactions = useCallback(async () => {
+    try {
+      const items = await listCachedEntities<Transaction>('transactions')
+      setTransactions(items)
+      setTransactionsError(false)
+    } catch {
+      setTransactionsError(true)
+    }
+  }, [])
   usePreventRemove((dirty || loading) && !savedPath, ({ data }) => {
     if (busy.current) return
     Alert.alert('Есть несохранённые изменения', 'Остаться в редакторе или выйти без сохранения?', [
@@ -70,14 +83,20 @@ export default function EventEditScreen() {
   useEffect(() => { if (savedPath) router.replace(savedPath as never) }, [savedPath])
   useEffect(() => {
     let active = true
-    const sourceId = entry.cloneId || (!isNew ? entry.id : '')
     setError('')
     Promise.all([listCachedEntities<Client>('clients'), listCachedEntities<Service>('services'),
-      listCachedEntities<MobileSettings>('siteSettings'), sourceId ? getCachedEntity<Event>('events', sourceId) : null,
-    ]).then(([clientItems, serviceItems, settingsItems, event]) => {
+      listCachedEntities<MobileSettings>('siteSettings'), loadSourceId ? getCachedEntity<Event>('events', loadSourceId) : null,
+      listCachedEntities<Transaction>('transactions').then(
+        (items) => ({ items, failed: false }),
+        () => ({ items: [] as Transaction[], failed: true }),
+      ),
+    ]).then(([clientItems, serviceItems, settingsItems, event, transactionResult]) => {
       if (!active) return
-      if (sourceId && !event) throw new Error('Запись не найдена в локальных данных')
+      if (loadSourceId && !event) throw new Error('Запись не найдена в локальных данных')
       setClients(clientItems); setServices(serviceItems); setSettings(settingsItems[0])
+      setTransactions(transactionResult.items); setTransactionsError(transactionResult.failed)
+      setClientsError(false)
+      setDocumentsCount(isClone ? 0 : countEventDocuments(event))
       setDraft((current) => {
         const next = event ? createEventDraft(event, isClone) : current
         return { ...next, values: { ...next.values,
@@ -89,21 +108,63 @@ export default function EventEditScreen() {
       setReady(true)
     }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Не удалось загрузить данные') })
     return () => { active = false }
-  }, [entry, isClone, isNew, attempt])
+  }, [entry, isClone, isNew, loadSourceId, attempt])
+  // Возврат из клиентского редактора, транзакций и документов: обновляем кэш и перенимаем созданного клиента.
   useFocusEffect(useCallback(() => {
     let active = true
-    if (ready) void listCachedEntities<Client>('clients').then((items) => { if (active) setClients(items) }).catch(() => undefined)
+    if (ready) {
+      void (async () => {
+        const [clientResult, transactionResult, eventResult] = await Promise.allSettled([
+          listCachedEntities<Client>('clients'),
+          listCachedEntities<Transaction>('transactions'),
+          savedWorkId ? getCachedEntity<Event>('events', savedWorkId) : Promise.resolve(null),
+        ])
+        if (!active) return
+        setClientsError(clientResult.status === 'rejected')
+        if (clientResult.status === 'fulfilled') {
+          const clientItems = clientResult.value
+          setClients(clientItems)
+          const pendingClient = consumePendingEventClient()
+          if (pendingClient && clientItems.some((client) => client._id === pendingClient)) {
+            setDirty(true)
+            setDraft((current) => ({ ...current, values: { ...current.values, clientId: pendingClient } }))
+          }
+        }
+        setTransactionsError(transactionResult.status === 'rejected')
+        if (transactionResult.status === 'fulfilled') setTransactions(transactionResult.value)
+        if (eventResult.status === 'fulfilled' && eventResult.value) {
+          setDocumentsCount(countEventDocuments(eventResult.value))
+        }
+      })()
+    }
     return () => { active = false }
-  }, [ready]))
-  const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) => setValues((current) => ({ ...current, [key]: value }))
-  const updateTask = (key: string, patch: Partial<EventTaskDraft>) => setTasks((current) => current.map((task) => task.localKey === key ? { ...task, ...patch } : task))
-  const updateOtherContact = (key: string, patch: Partial<OtherContactDraft>) => setOtherContacts((current) => current.map((contact) => contact.localKey === key ? { ...contact, ...patch } : contact))
+  }, [ready, savedWorkId, section]))
   const applyVoiceDraft = (fields: VoiceDraftFields) => setValues((current) => applyVoiceDraftFields(current, fields, new Set(clients.map((client) => client._id))))
+  const openNewTransaction = () => router.push({
+    pathname: '/finance/edit/new', params: { eventId: savedWorkId, returnTo: 'event' },
+  } as never)
+  const openTransaction = (transactionId: string) => router.push({
+    pathname: '/finance/edit/[id]', params: { id: transactionId, eventId: savedWorkId, returnTo: 'event' },
+  } as never)
+  const removeTransaction = async (transactionId: string) => {
+    if (busy.current || !relatedTransactions.some((transaction) => transaction._id === transactionId)) return
+    busy.current = true; setLoading(true)
+    try {
+      await deleteLocalEntity('transactions', transactionId)
+      void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'transactions'] }).catch(() => undefined)
+      setTransactions((current) => current.filter((transaction) => transaction._id !== transactionId))
+    } catch { setError('Не удалось удалить транзакцию. Попробуйте ещё раз') }
+    finally { busy.current = false; setLoading(false) }
+  }
   const save = async () => {
     if (!ready || busy.current) return
     setError('')
     try {
-      const payload = serializeEventDraft(draft, { clientIds: new Set(clients.map((c) => c._id)), serviceIds: new Set(services.map((s) => s._id)) })
+      const payload = serializeEventDraft(draft, {
+        clientIds: new Set(clients.map((c) => c._id)), serviceIds: new Set(services.map((s) => s._id)),
+        // При ошибке чтения транзакций сохраняем черновик как есть, без нулевой подмены.
+        depositPaid: !transactionsError && hasDepositPaidTransaction(relatedTransactions),
+      })
       busy.current = true; setLoading(true)
       const entity = await saveLocalEntity({ entityType: 'events', entityId: isNew || isClone ? undefined : entry.id, values: payload })
       void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'events'] }).catch(() => undefined)
@@ -123,7 +184,7 @@ export default function EventEditScreen() {
       finally { busy.current = false; setLoading(false) }
     } },
   ])
-  if (!ready) return <Screen><PageHeader title="Редактирование" />{error ? <><ErrorNotice message={error} /><Button title="Повторить" onPress={() => setAttempt((value) => value + 1)} /></> : <ActivityIndicator accessibilityLabel="Загрузка формы" />}</Screen>
+  if (!ready) return <Screen><PageHeader title="Редактирование" />{error ? <><ErrorNotice message={error} /><Button title="Повторить" onPress={() => setAttempt((value) => value + 1)} /></> : <ActivityIndicator accessibilityLabel="Загрузка формы" color={palette.primary} />}</Screen>
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><Screen keyboardShouldPersistTaps="handled">
     <PageHeader title={isNew || isClone ? (values.status === 'draft' ? 'Новая заявка' : `Создать ${terms.accusative}`) : 'Редактирование'} />
     <View style={styles.options}>{EVENT_SECTIONS.map(([key, label]) => <Pressable key={key} testID={`event-section-${key}`}
@@ -140,170 +201,24 @@ export default function EventEditScreen() {
         eventTypes={(settings?.custom?.eventTypes || []).filter((value) => typeof value === 'string')}
         towns={(settings?.towns || []).filter((value) => typeof value === 'string')}
         showTransfer={settings?.custom?.showColleagueTransferFields === true || Boolean(draft.source?.isTransferred)} genitive={terms.genitive} /> : null}
-      {section === 'contacts' ? <View style={styles.section}>
-        <Surface>
-        <SectionTitle>Основной клиент</SectionTitle>
-        <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalOptions}>
-          <Option label="Не выбран" selected={!values.clientId} onPress={() => set('clientId', '')} />
-          {clients.map((client) => (
-            <Option
-              key={client._id}
-              label={clientName(client)}
-              selected={values.clientId === client._id}
-              onPress={() => set('clientId', client._id)}
-            />
-          ))}
-        </ScrollView>
-        {values.clientId ? <>
-          <QuickContacts client={clients.find((client) => client._id === values.clientId)} maxVisible={8} />
-          <Button title="Редактировать клиента" variant="secondary" onPress={() => router.push(`/clients/edit/${values.clientId}` as never)} />
-        </> : null}
-        </Surface>
-      <Surface>
-        <SectionTitle>Дополнительные контакты</SectionTitle>
-        {otherContacts.map((contact, index) => {
-          const selectedElsewhere = new Set(otherContacts
-            .filter((item) => item.localKey !== contact.localKey)
-            .map((item) => item.clientId))
-          return (
-            <View key={contact.localKey} style={styles.nestedCard}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Контакт {index + 1}</Text>
-                <RemoveButton onPress={() => setOtherContacts((current) =>
-                  current.filter((item) => item.localKey !== contact.localKey))} />
-              </View>
-              <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalOptions}>
-                {clients
-                  .filter((client) => client._id !== values.clientId && !selectedElsewhere.has(client._id))
-                  .map((client) => (
-                    <Option
-                      key={client._id}
-                      label={clientName(client)}
-                      selected={contact.clientId === client._id}
-                      onPress={() => updateOtherContact(contact.localKey, { clientId: client._id })}
-                    />
-                  ))}
-              </ScrollView>
-              <Field
-                label="Роль или комментарий"
-                value={contact.comment}
-                onChangeText={(comment) => updateOtherContact(contact.localKey, { comment })}
-                placeholder="Организатор, бухгалтер…"
-              />
-            </View>
-          )
-        })}
-        <AddButton
-          title="Добавить контакт"
-          onPress={() => setOtherContacts((current) => [...current, {
-            localKey: localKey('contact'),
-            clientId: '',
-            comment: '',
-          }])}
-        />
-      </Surface>
-
-      <Surface>
-        <SectionTitle>Следующие контакты</SectionTitle>
-        {tasks.map((task, index) => (
-          <View key={task.localKey} style={styles.nestedCard}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Контакт {index + 1}</Text>
-              <RemoveButton onPress={() => setTasks((current) =>
-                current.filter((item) => item.localKey !== task.localKey))} />
-            </View>
-            <Field
-              label="Что сделать"
-              value={task.title || ''}
-              onChangeText={(title) => updateTask(task.localKey, { title })}
-              placeholder="Перезвонить клиенту"
-            />
-            <Field
-              label="Когда"
-              value={task.dateInput}
-              onChangeText={(dateInput) => updateTask(task.localKey, { dateInput })}
-              placeholder="2026-07-20 10:00"
-            />
-            <Field
-              label="Комментарий"
-              value={task.description || ''}
-              onChangeText={(description) => updateTask(task.localKey, { description })}
-              multiline
-            />
-          </View>
-        ))}
-        <AddButton
-          title="Добавить следующий контакт"
-          onPress={() => setTasks((current) => [...current, {
-            localKey: localKey('task'),
-            title: '',
-            description: '',
-            dateInput: '',
-            done: false,
-            doneAt: null,
-          }])}
-        />
-      </Surface>
-
-      </View> : null}
-      {section === 'finance' ? <View style={styles.section}>
-      <Surface>
-        <SectionTitle>Финансы</SectionTitle>
-        <Field
-          label="Сумма договора"
-          value={values.contractSum}
-          onChangeText={(value) => set('contractSum', value)}
-          keyboardType="numeric"
-        />
-        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: values.waitDeposit }} style={styles.toggle} onPress={() => set('waitDeposit', !values.waitDeposit)}>
-          <View style={[styles.checkbox, values.waitDeposit && styles.checkboxActive]}>
-            <Text style={styles.check}>{values.waitDeposit ? '✓' : ''}</Text>
-          </View>
-          <Text style={styles.toggleText}>Ожидается задаток</Text>
-        </Pressable>
-        {values.waitDeposit ? (
-          <>
-            <Field
-              label="Ожидаемая сумма"
-              value={values.depositExpectedAmount}
-              onChangeText={(value) => set('depositExpectedAmount', value)}
-              keyboardType="numeric"
-            />
-            <Field
-              label="Срок задатка"
-              value={values.depositDueAt}
-              onChangeText={(value) => set('depositDueAt', value)}
-              placeholder="2026-08-01 12:00"
-            />
-          </>
-        ) : null}
-      </Surface>
-
-      </View> : null}
+      {section === 'contacts' ? <EventContactsSection clients={clients} draft={draft} onChange={changeDraft}
+        onCreateClient={() => router.push({ pathname: '/clients/edit/[id]', params: { id: 'new', returnTo: 'event' } } as never)}
+        onOpenClient={(clientId) => router.push(`/clients/edit/${clientId}` as never)} /> : null}
+      {section === 'finance' ? <EventFinanceSection documentsCount={documentsCount} draft={draft} eventId={savedWorkId}
+        onChange={changeDraft} onAddTransaction={openNewTransaction} onDeleteTransaction={removeTransaction}
+        onOpenDocuments={() => router.push(`/events/${savedWorkId}/documents` as never)} onOpenTransaction={openTransaction}
+        onRetryTransactions={() => { void loadTransactions() }} transactions={relatedTransactions}
+        transactionsError={transactionsError} /> : null}
     </View>
+    {clientsError ? <ErrorNotice message="Не удалось обновить клиентов. Вернитесь к вкладке, чтобы повторить загрузку." /> : null}
     {error ? <ErrorNotice message={error} /> : null}
     <Button testID="save-event" title="Сохранить" loadingTitle="Сохраняем…" onPress={save} loading={loading} />
     {!isNew && !isClone ? <Button title={`Удалить ${terms.accusative}`} variant="danger" onPress={remove} disabled={loading} /> : null}
   </Screen></KeyboardAvoidingView>
 }
-const AddButton = ({ title, onPress }: { title: string; onPress: () => void }) => {
-  const styles = useThemeStyles(createStyles)
-  const { palette } = useTheme()
-  return <Pressable accessibilityRole="button" style={styles.addButton} onPress={onPress}>
-    <MaterialCommunityIcons name="plus" size={20} color={palette.primary} /><Text style={styles.addButtonText}>{title}</Text>
-  </Pressable>
-}
-const RemoveButton = ({ onPress }: { onPress: () => void }) => {
-  const styles = useThemeStyles(createStyles)
-  const { palette } = useTheme()
-  return <Pressable accessibilityRole="button" accessibilityLabel="Удалить" style={styles.removeButton} onPress={onPress}>
-    <MaterialCommunityIcons name="trash-can-outline" size={20} color={palette.notice.danger.text} />
-  </Pressable>
-}
 const createStyles = (colors: Palette) => StyleSheet.create({
   section: { gap: spacing.md },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  horizontalOptions: { gap: 6, paddingRight: spacing.md },
   option: {
     minHeight: 42,
     justifyContent: 'center',
@@ -315,45 +230,4 @@ const createStyles = (colors: Palette) => StyleSheet.create({
   optionActive: { backgroundColor: colors.primary },
   optionText: { color: colors.cardMuted, fontSize: 12, fontWeight: '700' },
   optionTextActive: { color: colors.onPrimary },
-  toggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  check: { color: colors.onPrimary, fontWeight: '800' },
-  toggleText: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  nestedCard: {
-    gap: spacing.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.kpiBackground,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  removeButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-  },
-  addButton: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-  },
-  addButtonText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
 })

@@ -1,9 +1,11 @@
 import { resetClientMessengerAvailability } from '../../../src/shared/domain/clientMessengerAvailability'
 import { normalizeMaxContactInput } from '../../../src/shared/domain/maxContact'
-import { useEffect, useState } from 'react'
+import { setPendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
+import { useEffect, useRef, useState } from 'react'
+import { usePreventRemove } from '@react-navigation/native'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   formatSignificantDateInput,
@@ -17,13 +19,15 @@ import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/
 import {
   Button,
   ErrorNotice,
-  Field,
+  CompactField as Field,
+  EmptyState,
   PageHeader,
   Screen,
   SectionTitle,
   Surface,
 } from '../../../src/shared/ui/components'
-import { colors, radius, spacing } from '../../../src/shared/ui/theme'
+import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
+import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
 
 const CLIENT_TYPES = [
   ['none', 'Без типа'],
@@ -57,18 +61,47 @@ const phoneNumber = (value: string) => {
 }
 
 export default function ClientEditScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const styles = useThemeStyles(createStyles)
+  const { palette } = useTheme()
+  const navigation = useNavigation()
+  const params = useLocalSearchParams<{ id: string; returnTo?: string }>()
+  const { id } = params
   const isNew = id === 'new'
+  // Создание клиента из редактора работы: после сохранения возвращаемся назад и передаём id формы.
+  const returnToEvent = params.returnTo === 'event'
   const queryClient = useQueryClient()
   const [values, setValues] = useState(emptyValues)
   const [significantDates, setSignificantDates] = useState<SignificantDateDraft[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [ready, setReady] = useState(isNew)
+  const [attempt, setAttempt] = useState(0)
+  const [loadError, setLoadError] = useState('')
+  const [requisitesOpen, setRequisitesOpen] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [savedId, setSavedId] = useState('')
+  const busy = useRef(false)
+  usePreventRemove((dirty || loading) && !savedId, ({ data }) => {
+    if (busy.current) return
+    Alert.alert('Есть несохранённые изменения', 'Остаться в редакторе или выйти без сохранения?', [
+      { text: 'Продолжить редактирование', style: 'cancel' },
+      { text: 'Выйти без сохранения', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ])
+  })
+  useEffect(() => {
+    if (!savedId) return
+    if (savedId === '__deleted__') router.replace('/(tabs)/clients')
+    else if (returnToEvent) { setPendingEventClient(savedId); router.back() }
+    else router.replace(`/clients/${savedId}` as never)
+  }, [savedId, returnToEvent])
 
   useEffect(() => {
-    if (isNew || !id) return
+    let active = true
+    if (isNew) { setReady(true); return }
+    setReady(false); setLoadError('')
     getCachedEntity<Client>('clients', id).then((client) => {
-      if (!client) return
+      if (!active) return
+      if (!client) throw new Error('Клиент не найден в локальных данных')
       setValues({
         firstName: client.firstName || '', secondName: client.secondName || '',
         thirdName: client.thirdName || '', phone: String(client.phone || ''),
@@ -91,19 +124,24 @@ export default function ClientEditScreen() {
         localKey: localKey(),
         dateInput: formatSignificantDateInput(item.date),
       })))
-    }).catch(() => setError('Не удалось загрузить клиента'))
-  }, [id, isNew])
+      setReady(true); setDirty(false)
+    }).catch((cause) => { if (active) setLoadError(cause instanceof Error ? cause.message : 'Не удалось загрузить клиента') })
+    return () => { active = false }
+  }, [id, isNew, attempt])
 
-  const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) =>
-    setValues((current) => ({ ...current, [key]: value }))
+  const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => {
+    setDirty(true); setValues((current) => ({ ...current, [key]: value }))
+  }
 
+  const changeDates = (update: (current: SignificantDateDraft[]) => SignificantDateDraft[]) => { setDirty(true); setSignificantDates(update) }
   const updateDate = (key: string, patch: Partial<SignificantDateDraft>) =>
-    setSignificantDates((current) => current.map((item) =>
+    changeDates((current) => current.map((item) =>
       item.localKey === key ? { ...item, ...patch } : item))
 
   const save = async () => {
-    if (!values.firstName.trim() && !values.phone.trim()) {
-      setError('Укажите имя или телефон')
+    if (!ready || busy.current) return
+    if (![values.firstName, values.secondName, values.thirdName].some((part) => part.trim())) {
+      setError('Укажите ФИО клиента')
       return
     }
     if (values.max.trim() && !normalizeMaxContactInput(values.max)) {
@@ -115,10 +153,11 @@ export default function ClientEditScreen() {
       setError(dateError)
       return
     }
-    setLoading(true)
+    busy.current = true; setLoading(true)
     setError('')
     try {
       const existing = isNew ? null : await getCachedEntity<Client>('clients', id)
+      if (!isNew && !existing) throw new Error('Клиент удалён. Изменения не сохранены.')
       const entity = await saveLocalEntity({
         entityType: 'clients',
         entityId: isNew ? undefined : id,
@@ -137,11 +176,11 @@ export default function ClientEditScreen() {
         }),
       })
       await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] })
-      router.replace(`/clients/${entity._id}` as never)
+      setDirty(false); setSavedId(entity._id)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить клиента')
     } finally {
-      setLoading(false)
+      busy.current = false; setLoading(false)
     }
   }
 
@@ -154,53 +193,48 @@ export default function ClientEditScreen() {
         text: 'Удалить',
         style: 'destructive',
         onPress: async () => {
-          await deleteLocalEntity('clients', id)
-          await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] })
-          router.replace('/(tabs)/clients')
+          if (busy.current) return
+          busy.current = true; setLoading(true); setError('')
+          try {
+            await deleteLocalEntity('clients', id)
+            await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] })
+            setDirty(false); setSavedId('__deleted__')
+          } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось удалить клиента') }
+          finally { busy.current = false; setLoading(false) }
         },
       },
     ],
   )
 
+  if (!ready) return <Screen><PageHeader title="Редактирование клиента" />{loadError ? <><ErrorNotice message={loadError} /><Button title="Повторить чтение" onPress={() => setAttempt((value) => value + 1)} /></> : <EmptyState title="Загрузка клиента…" />}</Screen>
   return (
-    <Screen>
-      <PageHeader title={isNew ? 'Новый клиент' : 'Редактирование'} subtitle="Контактные данные доступны офлайн" />
+    <Screen keyboardShouldPersistTaps="handled">
+      <PageHeader title={isNew ? 'Создание клиента' : 'Редактирование клиента'} />
       <Surface>
-        <SectionTitle>Основные данные</SectionTitle>
-        <Field testID="client-first-name" label="Имя" value={values.firstName} onChangeText={(value) => set('firstName', value)} maxLength={100} />
-        <View style={styles.row}>
-          <View style={styles.flex}><Field label="Фамилия" value={values.secondName} onChangeText={(value) => set('secondName', value)} maxLength={100} /></View>
-          <View style={styles.flex}><Field label="Отчество" value={values.thirdName} onChangeText={(value) => set('thirdName', value)} maxLength={100} /></View>
-        </View>
-        <Field label="Город" value={values.town} onChangeText={(value) => set('town', value)} />
-        <SectionTitle>Тип клиента</SectionTitle>
-        <View style={styles.options}>{CLIENT_TYPES.map(([value, label]) => <Choice key={value} active={values.clientType === value} label={label} onPress={() => set('clientType', value)} />)}</View>
-      </Surface>
-
-      <Surface>
-        <SectionTitle>Контакты</SectionTitle>
+        <Field testID="client-first-name" label="ФИО" value={[values.secondName, values.firstName, values.thirdName].filter(Boolean).join(' ')} onChangeText={(value) => { setDirty(true); setValues((current) => ({ ...current, firstName: value, secondName: '', thirdName: '' })) }} maxLength={300} />
         <Field testID="client-phone" label="Телефон" value={values.phone} onChangeText={(value) => set('phone', value)} keyboardType="phone-pad" />
         <Field label="WhatsApp" value={values.whatsapp} onChangeText={(value) => set('whatsapp', value)} keyboardType="phone-pad" />
-        <Field label="MAX" value={values.max} onChangeText={(value) => set('max', value)} placeholder="https://max.ru/… или +7…" />
         <Field label="Telegram" value={values.telegram} onChangeText={(value) => set('telegram', value)} autoCapitalize="none" />
-        <Field label="Viber" value={values.viber} onChangeText={(value) => set('viber', value)} keyboardType="phone-pad" />
-        <Field label="Email" value={values.email} onChangeText={(value) => set('email', value)} keyboardType="email-address" autoCapitalize="none" />
         <Field label="Instagram" value={values.instagram} onChangeText={(value) => set('instagram', value)} autoCapitalize="none" />
         <Field label="VK" value={values.vk} onChangeText={(value) => set('vk', value)} autoCapitalize="none" />
-        <SectionTitle>Приоритетный канал</SectionTitle>
+        <Field label="MAX" value={values.max} onChangeText={(value) => set('max', value)} placeholder="Ссылка max.ru или +7 999 123-45-67" maxLength={500} />
+        <SectionTitle>Тип клиента</SectionTitle>
+        <View style={styles.options}>{CLIENT_TYPES.map(([value, label]) => <Choice key={value} active={values.clientType === value} label={label} onPress={() => set('clientType', value)} />)}</View>
+        <SectionTitle>Приоритетный канал связи</SectionTitle>
         <View style={styles.options}>{CONTACT_CHANNELS.map(([value, label]) => <Choice key={value} active={values.preferredContactChannel === value} label={label} onPress={() => set('preferredContactChannel', value)} />)}</View>
         {values.preferredContactChannel === 'other' ? <Field label="Другой канал" value={values.preferredContactChannelOther} onChangeText={(value) => set('preferredContactChannelOther', value)} maxLength={100} /> : null}
         <Field label="Комментарий" value={values.comment} onChangeText={(value) => set('comment', value)} multiline maxLength={2000} />
       </Surface>
 
+      {!isNew ? <Button title="Файлы и документы" variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} disabled={id.startsWith('local-')} /> : null}
       <Surface>
         <SectionTitle>Значимые даты</SectionTitle>
         {significantDates.map((item, index) => (
           <View key={item.localKey} style={styles.dateCard}>
             <View style={styles.dateHeader}>
               <Text style={styles.dateTitle}>Дата {index + 1}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Удалить дату" style={styles.iconButton} onPress={() => setSignificantDates((current) => current.filter((date) => date.localKey !== item.localKey))}>
-                <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Удалить дату" style={styles.iconButton} onPress={() => changeDates((current) => current.filter((date) => date.localKey !== item.localKey))}>
+                <MaterialCommunityIcons name="trash-can-outline" size={20} color={palette.notice.danger.text} />
               </Pressable>
             </View>
             <Field label="Название" value={item.title || ''} onChangeText={(title) => updateDate(item.localKey, { title })} placeholder="День рождения" maxLength={100} />
@@ -208,14 +242,18 @@ export default function ClientEditScreen() {
             <Field label="Комментарий" value={item.comment || ''} onChangeText={(comment) => updateDate(item.localKey, { comment })} multiline maxLength={500} />
           </View>
         ))}
-        <Pressable accessibilityRole="button" style={styles.addButton} onPress={() => setSignificantDates((current) => [...current, { localKey: localKey(), title: '', dateInput: '', comment: '' }])}>
-          <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+        <Pressable accessibilityRole="button" style={styles.addButton} onPress={() => changeDates((current) => [...current, { localKey: localKey(), title: '', dateInput: '', comment: '' }])}>
+          <MaterialCommunityIcons name="plus" size={20} color={palette.primary} />
           <Text style={styles.addButtonText}>Добавить дату</Text>
         </Pressable>
       </Surface>
 
       <Surface>
-        <SectionTitle>Реквизиты для документов</SectionTitle>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: requisitesOpen }} style={styles.dateHeader} onPress={() => setRequisitesOpen((value) => !value)}>
+          <View style={styles.flex}><Text style={styles.dateTitle}>Реквизиты для договора</Text>{!requisitesOpen ? <Text numberOfLines={1} style={styles.hint}>{[values.legalName, values.inn && `ИНН ${values.inn}`].filter(Boolean).join(' · ') || 'Не заполнены'}</Text> : null}</View>
+          <MaterialCommunityIcons name={requisitesOpen ? 'chevron-up' : 'chevron-down'} size={20} color={palette.cardMuted} />
+        </Pressable>
+        {requisitesOpen ? <View>
         <Field label="Наименование / ФИО" value={values.legalName} onChangeText={(value) => set('legalName', value)} />
         <View style={styles.row}><View style={styles.flex}><Field label="ИНН" value={values.inn} onChangeText={(value) => set('inn', value)} keyboardType="numeric" /></View><View style={styles.flex}><Field label="КПП" value={values.kpp} onChangeText={(value) => set('kpp', value)} keyboardType="numeric" /></View></View>
         <Field label="ОГРН / ОГРНИП" value={values.ogrn} onChangeText={(value) => set('ogrn', value)} keyboardType="numeric" />
@@ -224,35 +262,43 @@ export default function ClientEditScreen() {
         <Field label="Расчётный счёт" value={values.checkingAccount} onChangeText={(value) => set('checkingAccount', value)} keyboardType="numeric" />
         <Field label="Корреспондентский счёт" value={values.correspondentAccount} onChangeText={(value) => set('correspondentAccount', value)} keyboardType="numeric" />
         <Field label="Юридический адрес" value={values.legalAddress} onChangeText={(value) => set('legalAddress', value)} multiline />
+        </View> : null}
+      </Surface>
+      <Surface>
+        <SectionTitle>Дополнительные данные</SectionTitle>
+        <Field label="Email" value={values.email} onChangeText={(value) => set('email', value)} keyboardType="email-address" autoCapitalize="none" />
+        <Field label="Viber" value={values.viber} onChangeText={(value) => set('viber', value)} keyboardType="phone-pad" />
+        <Field label="Город" value={values.town} onChangeText={(value) => set('town', value)} />
       </Surface>
 
       {error ? <ErrorNotice message={error} /> : null}
       <Button testID="save-client" title="Сохранить" onPress={save} loading={loading} />
-      {!isNew ? <Button title="Удалить клиента" variant="danger" onPress={remove} /> : null}
+      {!isNew ? <Button title="Удалить клиента" variant="danger" onPress={remove} disabled={loading} /> : null}
       <Text style={styles.hint}>Если сети нет, запись получит статус «Ожидает отправки».</Text>
     </Screen>
   )
 }
 
-const Choice = ({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) => (
-  <Pressable accessibilityRole="button" style={[styles.option, active && styles.optionActive]} onPress={onPress}>
+const Choice = ({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) => {
+  const styles = useThemeStyles(createStyles)
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.option, active && styles.optionActive]} onPress={onPress}>
     <Text style={[styles.optionText, active && styles.optionTextActive]}>{label}</Text>
   </Pressable>
-)
+}
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.sm },
+const createStyles = (palette: Palette) => StyleSheet.create({
+  row: { gap: spacing.sm },
   flex: { flex: 1 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  option: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted },
-  optionActive: { backgroundColor: colors.primary },
-  optionText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  optionTextActive: { color: '#fff' },
-  dateCard: { gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
+  option: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 4, backgroundColor: palette.surface },
+  optionActive: { backgroundColor: palette.notice.success.background, borderColor: palette.notice.success.border },
+  optionText: { color: palette.cardMuted, fontSize: 12, fontWeight: '700' },
+  optionTextActive: { color: palette.notice.success.text },
+  dateCard: { gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, backgroundColor: palette.kpiBackground },
   dateHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dateTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  dateTitle: { color: palette.text, fontSize: 14, fontWeight: '700' },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
-  addButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  addButtonText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
-  hint: { color: colors.textMuted, fontSize: 12, textAlign: 'center' },
+  addButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md },
+  addButtonText: { color: palette.primary, fontSize: 14, fontWeight: '700' },
+  hint: { color: palette.cardMuted, fontSize: 12, textAlign: 'center' },
 })

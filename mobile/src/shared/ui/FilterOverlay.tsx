@@ -147,7 +147,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   options: { flexShrink: 1 },
   row: { minHeight: 48, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowLabel: { flex: 1, color: palette.text, fontSize: 15.2 },
-  check: { color: palette.primary, fontSize: 15.2 },
+  check: { color: palette.selectionText, fontSize: 15.2 },
   selectedRow: { backgroundColor: palette.rowSelected },
   pressedRow: { backgroundColor: palette.rowPressed },
 })

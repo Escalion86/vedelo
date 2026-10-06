@@ -1,8 +1,8 @@
 # Dependencies and build outputs
 node_modules
 **/node_modules
-.next
-**/.next
+.next*
+**/.next*
 out
 build
 coverage

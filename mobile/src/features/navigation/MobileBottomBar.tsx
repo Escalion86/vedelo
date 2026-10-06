@@ -73,10 +73,10 @@ export function MobileBottomBar({ state, navigation }: BottomTabBarProps) {
       onPress={() => pressSlot(slot)} style={({ pressed }) => [styles.slot, pressed && styles.pressed]}>
       <View style={slot === 'create' ? styles.fab : undefined}>
         <MaterialCommunityIcons name={icons[slot]} size={30}
-          color={slot === 'create' ? palette.fabForeground : isSelected(slot) ? palette.navigationActive : palette.navigationText} />
+          color={slot === 'create' ? palette.mode === 'dark' ? palette.onPrimary : palette.fabForeground : isSelected(slot) ? palette.navigationActive : palette.navigationText} />
         {slot === 'attention' && overdue > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{badgeLabel(overdue)}</Text></View> : null}
       </View>
-      {slot !== 'create' ? <Text style={[styles.label, { color: isSelected(slot) ? palette.navigationActive : palette.navigationText }]}>{labels[slot]}</Text> : null}
+      {slot !== 'create' ? <Text style={[styles.label, { color: isSelected(slot) ? palette.navigationActive : palette.navigationLabel }]}>{labels[slot]}</Text> : null}
     </Pressable>)}
   </View>
 
@@ -108,8 +108,8 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   label: { fontSize: 10, lineHeight: 12, textAlign: 'center', fontWeight: '600' },
   fab: { width: 50, height: 50, marginTop: -16, borderRadius: 999, backgroundColor: palette.fabBackground, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.75 },
-  badge: { position: 'absolute', right: -10, top: -3, minWidth: 18, minHeight: 18, borderRadius: 999, paddingHorizontal: 4, alignItems: 'center', backgroundColor: palette.transactionExpense },
-  badgeText: { color: palette.transactionExpenseText, fontSize: 10, fontWeight: '700' },
+  badge: { position: 'absolute', right: -10, top: -3, minWidth: 18, minHeight: 18, borderRadius: 999, paddingHorizontal: 4, alignItems: 'center', backgroundColor: palette.counterBadge.background },
+  badgeText: { color: palette.counterBadge.text, fontSize: 10, fontWeight: '700' },
   modal: { flex: 1 }, backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
   panel: { position: 'absolute', borderRadius: 16, overflow: 'hidden', backgroundColor: palette.canvas },
   panelContent: { padding: 6 }, overlayBar: { position: 'absolute', bottom: 0, left: 0, right: 0 },

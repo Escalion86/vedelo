@@ -80,6 +80,7 @@ export type Event = {
   cancelReason?: string
   contractSum?: number
   isByContract?: boolean
+  financeComment?: string
   isTransferred?: boolean
   colleagueId?: string | null
   images?: string[]

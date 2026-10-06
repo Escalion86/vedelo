@@ -1,0 +1,53 @@
+import React from 'react'
+import { fireEvent, render, waitFor } from '@testing-library/react-native'
+import ClientDocumentsScreen from '../../../app/clients/[id]/documents'
+import { ThemeProvider } from '../../shared/ui/ThemeProvider'
+const mockGet = jest.fn()
+const mockFiles = jest.fn(async () => [])
+const mockPick = jest.fn()
+const mockApiPost = jest.fn()
+let mockId = 'local-a'
+jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ labelCapitalized: 'Заказ' }) }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: mockId }), useFocusEffect: (fn: () => unknown) => require('react').useEffect(fn, [fn]) }))
+jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn(async () => undefined) }) }))
+jest.mock('expo-document-picker', () => ({ getDocumentAsync: () => mockPick() }))
+jest.mock('expo-sharing', () => ({ shareAsync: jest.fn() }))
+jest.mock('../../shared/api/client', () => ({ api: { post: (...args: unknown[]) => mockApiPost(...args), delete: jest.fn() } }))
+jest.mock('../../shared/storage/cache', () => ({ getCachedEntity: () => mockGet(), upsertEntities: jest.fn() }))
+jest.mock('../../shared/storage/mutations', () => ({ saveLocalEntity: jest.fn() }))
+jest.mock('../../shared/storage/encryptedFiles', () => ({ listEncryptedFiles: () => mockFiles(), encryptAndQueueFile: jest.fn(), decryptToTemporaryFile: jest.fn(), deleteEncryptedFile: jest.fn(), deleteTemporaryDecryptedFile: jest.fn(), retryFileQueueNow: jest.fn() }))
+jest.mock('../../shared/sync/syncEngine', () => ({ runSync: jest.fn() }))
+const setup = () => render(<ThemeProvider storage={null} forcedMode="dark"><ClientDocumentsScreen /></ThemeProvider>)
+beforeEach(() => { jest.clearAllMocks(); mockId = 'local-a'; mockGet.mockResolvedValue({ _id: 'local-a', firstName: 'Анна' }); mockFiles.mockResolvedValue([]) })
+it('S: loading не объявляет пустые документы; local client объясняет запрет picker', async () => {
+  const screen = setup()
+  expect(screen.getByText('Загрузка документов…')).toBeTruthy()
+  expect(screen.queryByText('Документов пока нет')).toBeNull()
+  await waitFor(() => expect(screen.getByText('Сначала синхронизируйте клиента. После этого можно загружать файлы.')).toBeTruthy())
+  fireEvent.press(screen.getByTestId('add-client-attachment'))
+  expect(mockPick).not.toHaveBeenCalled()
+})
+it('S: отсутствующая запись не предлагает загрузить файл', async () => {
+  mockGet.mockResolvedValue(null)
+  const screen = setup()
+  await waitFor(() => expect(screen.getByText('Клиент не найден')).toBeTruthy())
+  expect(screen.queryByTestId('add-client-attachment')).toBeNull()
+})
+it('S: ошибка локального чтения имеет повтор и не выглядит пустым успешным экраном', async () => {
+  mockGet.mockRejectedValueOnce(new Error('Ошибка SQLCipher'))
+  const screen = setup()
+  await waitFor(() => expect(screen.getByText('Не удалось прочитать документы. Повторите чтение.')).toBeTruthy())
+  expect(screen.queryByText('Документов пока нет')).toBeNull()
+  fireEvent.press(screen.getByText('Повторить чтение'))
+  await waitFor(() => expect(screen.getByText('Документов пока нет')).toBeTruthy())
+})
+it('S: запрет signed URL 403 показан, а не превращается в unhandled rejection', async () => {
+  mockId = 'a'.repeat(24)
+  mockGet.mockResolvedValue({ _id: mockId, firstName: 'Анна', documents: [{ id: 'doc', title: 'Договор', file: { storageKey: 'private-key' } }] })
+  mockApiPost.mockRejectedValueOnce(Object.assign(new Error('Файл недоступен: 403'), { status: 403 }))
+  const screen = setup()
+  await waitFor(() => expect(screen.getByText('Договор')).toBeTruthy())
+  fireEvent.press(screen.getByText('Договор'))
+  await waitFor(() => expect(screen.getByText('Нет доступа к документу или функция недоступна на текущем тарифе.')).toBeTruthy())
+})

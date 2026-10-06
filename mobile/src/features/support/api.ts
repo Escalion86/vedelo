@@ -1,3 +1,5 @@
+import { uploadOnce } from '../profile/uploadOnce'
+import { validateSelectedSupportImages } from './files'
 import { api } from '../../shared/api/client'
 import { getAuthSession } from '../../shared/auth/tokenStore'
 import { canUseUserSupport, SUPPORT_UNAVAILABLE_MESSAGE } from './userAccess'
@@ -16,6 +18,8 @@ const requireUserSupport = async () => {
 }
 
 const appendImages = (form: FormData, images: SelectedSupportImage[]) => {
+  const validation = validateSelectedSupportImages([], images)
+  if (!validation.ok) throw new Error(validation.error)
   images.forEach((image) => form.append('files', {
     uri: image.uri,
     name: image.name,
@@ -45,7 +49,7 @@ export const createSupportTicket = async (input: { category: SupportCategory; ti
   form.append('title', input.title)
   form.append('message', input.message)
   appendImages(form, input.images)
-  return api.upload<{ success: true; data: { ticket: SupportTicket; message: SupportMessage } }>('/support-tickets', form)
+  return uploadOnce<{ success: true; data: { ticket: SupportTicket; message: SupportMessage } }>('/support-tickets', form)
 }
 
 export const replySupportTicket = async (ticketId: string, message: string, images: SelectedSupportImage[]) => {
@@ -53,7 +57,7 @@ export const replySupportTicket = async (ticketId: string, message: string, imag
   const form = new FormData()
   form.append('message', message)
   appendImages(form, images)
-  return api.upload<{ success: true; data: { ticket: SupportTicket; message: SupportMessage } }>(`/support-tickets/${ticketId}/messages`, form)
+  return uploadOnce<{ success: true; data: { ticket: SupportTicket; message: SupportMessage } }>(`/support-tickets/${ticketId}/messages`, form)
 }
 
 export const markSupportTicketRead = async (ticketId: string) => {
