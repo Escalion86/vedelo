@@ -3,6 +3,8 @@ import test from 'node:test'
 import {
   DEFAULT_PROPOSAL_MESSAGE,
   buildProposalDefaultLines,
+  buildProposalDefaultPackages,
+  materializeProposalTemplateDefaults,
   normalizeProposalMessage,
   getProposalUnknownVariables,
   normalizeProposalBlocks,
@@ -140,4 +142,130 @@ test('proposal default lines prefer template services and fall back to event ser
     }).map((line) => line.title),
     ['Из заявки']
   )
+})
+
+test('шаблон хранит варианты и выводит из них услуги', () => {
+  const first = 'a'.repeat(24)
+  const second = 'b'.repeat(24)
+  const result = normalizeProposalTemplateDefaults({
+    packages: [
+      {
+        id: 'main',
+        title: 'Основной',
+        description: 'Полная программа',
+        recommended: true,
+        manualTotal: true,
+        total: 12000,
+        lines: [
+          { serviceId: first, title: 'Шоу', description: 'Описание', price: 5000 },
+          { serviceId: second, title: 'Доп', price: 5000 },
+        ],
+      },
+    ],
+    servicesIds: [second],
+  })
+  assert.equal(result.packages.length, 1)
+  assert.equal(result.packages[0].title, 'Основной')
+  assert.equal(result.packages[0].description, 'Полная программа')
+  assert.equal(result.packages[0].lines.length, 2)
+  assert.equal(result.packages[0].total, 12000)
+  assert.equal(result.packages[0].manualTotal, true)
+  assert.equal(result.packages[0].recommended, true)
+  assert.deepEqual(result.servicesIds, [first, second])
+
+  // Шаблон старого формата сохраняется как список услуг без вариантов.
+  const legacy = normalizeProposalTemplateDefaults({ servicesIds: [first] })
+  assert.deepEqual(legacy.packages, [])
+  assert.deepEqual(legacy.servicesIds, [first])
+})
+
+test('шаблон старого формата материализуется в вариант с услугами каталога', () => {
+  const showService = { _id: 'a'.repeat(24), title: 'Шоу', price: 5000 }
+  const result = materializeProposalTemplateDefaults(
+    { servicesIds: [showService._id] },
+    [showService]
+  )
+  assert.equal(result.packages.length, 1)
+  assert.equal(result.packages[0].title, 'Основной вариант')
+  assert.deepEqual(
+    result.packages[0].lines.map((line) => line.title),
+    ['Шоу']
+  )
+  assert.equal(result.packages[0].total, 5000)
+  assert.equal(result.packages[0].manualTotal, false)
+  assert.deepEqual(result.servicesIds, [showService._id])
+
+  // Готовые варианты шаблона не переписываются.
+  const ready = materializeProposalTemplateDefaults(
+    { packages: [{ title: 'Свой вариант', lines: [] }] },
+    [showService]
+  )
+  assert.equal(ready.packages.length, 1)
+  assert.equal(ready.packages[0].title, 'Свой вариант')
+})
+
+test('варианты шаблона становятся вариантами предложения', () => {
+  const showService = { _id: 'a'.repeat(24), title: 'Шоу', price: 5000 }
+  const extraService = { _id: 'b'.repeat(24), title: 'Доп', price: 1000 }
+  const eventService = { _id: 'c'.repeat(24), title: 'Из заявки', price: 7000 }
+
+  // Старый формат: один вариант из услуг шаблона, итог — сумма заявки.
+  const fromServices = buildProposalDefaultPackages({
+    templateDefaults: { servicesIds: [extraService._id, showService._id] },
+    templateServices: [showService, extraService],
+    eventServices: [eventService],
+    eventTotal: 12000,
+  })
+  assert.equal(fromServices.length, 1)
+  assert.deepEqual(
+    fromServices[0].lines.map((line) => line.title),
+    ['Доп', 'Шоу']
+  )
+  assert.equal(fromServices[0].total, 12000)
+  assert.equal(fromServices[0].manualTotal, true)
+
+  // Новый формат: варианты шаблона переносятся как есть, включая ручной итог.
+  const variants = buildProposalDefaultPackages({
+    templateDefaults: {
+      packages: [
+        {
+          id: 'main',
+          title: 'Вариант А',
+          manualTotal: false,
+          lines: [{ serviceId: '', title: 'Позиция', price: 3000 }],
+        },
+        {
+          id: 'vip',
+          title: 'Вариант Б',
+          recommended: true,
+          manualTotal: true,
+          total: 9000,
+          lines: [],
+        },
+      ],
+    },
+    eventServices: [eventService],
+    eventTotal: 50000,
+  })
+  assert.deepEqual(
+    variants.map((item) => item.title),
+    ['Вариант А', 'Вариант Б']
+  )
+  assert.equal(variants[0].total, 3000)
+  assert.equal(variants[1].total, 9000)
+  assert.equal(variants[1].recommended, true)
+
+  // Без услуг шаблона вариант собирается из услуг заявки.
+  const fromEvent = buildProposalDefaultPackages({
+    templateDefaults: {},
+    templateServices: [],
+    eventServices: [eventService],
+    eventTotal: 0,
+  })
+  assert.deepEqual(
+    fromEvent[0].lines.map((line) => line.title),
+    ['Из заявки']
+  )
+  assert.equal(fromEvent[0].total, 7000)
+  assert.equal(fromEvent[0].manualTotal, false)
 })

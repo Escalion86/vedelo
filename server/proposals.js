@@ -3,7 +3,7 @@ import { formatMoney } from '@helpers/formatMoney'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
   DEFAULT_PROPOSAL_MESSAGE,
-  buildProposalDefaultLines,
+  buildProposalDefaultPackages,
   normalizeProposalMessage,
   normalizeProposalBlocks,
   normalizeProposalMedia,
@@ -79,17 +79,16 @@ export const buildProposalSnapshot = ({ template, event, client, services, artis
     title: renderProposalVariables(block.title, variables).text,
     text: renderProposalVariables(block.text, variables).text,
   }))
-  // Услуги шаблона заполняют вариант сразу; без выбранных услуг поведение
-  // прежнее — вариант собирается из услуг заявки.
-  const defaultLines = buildProposalDefaultLines({
+  // Варианты шаблона заполняют КП сразу; без них поведение прежнее —
+  // вариант собирается из услуг заявки.
+  const defaultPackages = buildProposalDefaultPackages({
     templateDefaults: template?.defaults,
     templateServices,
     eventServices: services,
+    eventTotal: event.contractSum,
   })
   const packages = normalizeProposalPackages(
-    input.packages?.length
-      ? input.packages
-      : [{ id: 'main', title: 'Основной вариант', lines: defaultLines, total: Number(event.contractSum) || defaultLines.reduce((sum, line) => sum + line.price, 0), recommended: true }]
+    input.packages?.length ? input.packages : defaultPackages
   )
   const rawMessage = normalizeProposalMessage(input.messageText || template?.messageTemplate || DEFAULT_PROPOSAL_MESSAGE)
   return {

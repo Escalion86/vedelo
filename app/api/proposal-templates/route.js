@@ -1,6 +1,7 @@
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { NextResponse } from 'next/server'
 import ProposalTemplates from '@models/ProposalTemplates'
+import Services from '@models/Services'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import {
@@ -8,6 +9,7 @@ import {
   PROPOSAL_BUILDER_ACCESS_ERROR,
 } from '@helpers/proposalAccess'
 import {
+  materializeProposalTemplateDefaults,
   normalizeProposalBlocks,
   normalizeProposalMedia,
   normalizeProposalTemplateDefaults,
@@ -22,8 +24,16 @@ export const GET = async () => {
   if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
     return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'proposal_tariff_required')
   await dbConnect()
-  const items = await ProposalTemplates.find({ tenantId }).sort({ updatedAt: -1 }).lean()
-  return NextResponse.json({ success: true, data: items })
+  const items = await ProposalTemplates.find({ tenantId })
+    .sort({ updatedAt: -1 })
+    .lean()
+  // Шаблоны старого формата отдаём уже с вариантами.
+  const services = await Services.find({ tenantId }).sort({ index: 1 }).lean()
+  const data = items.map((item) => ({
+    ...item,
+    defaults: materializeProposalTemplateDefaults(item.defaults, services),
+  }))
+  return NextResponse.json({ success: true, data })
 }
 
 export const POST = async (req) => {

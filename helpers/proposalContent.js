@@ -192,17 +192,34 @@ export const PROPOSAL_TEMPLATE_SERVICES_LIMIT = 30
 
 const isProposalServiceId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''))
 
-// Шаблон хранит только выбранные услуги каталога: они сразу становятся
-// позициями основного варианта при создании предложения по этому шаблону.
+// Шаблон хранит те же варианты, что и КП: позиции, описание, цену, отметку
+// «Рекомендуем» и ручной итог. Поле servicesIds сохранено для совместимости
+// со старым форматом (один список услуг) и выводится из вариантов.
 export const normalizeProposalTemplateDefaults = (defaults) => {
   const source = defaults && typeof defaults === 'object' ? defaults : {}
+  const packages = normalizeProposalPackages(source.packages)
   const raw = Array.isArray(source.servicesIds) ? source.servicesIds : []
   const servicesIds = [
     ...new Set(
       raw.map((id) => String(id || '').trim()).filter(isProposalServiceId)
     ),
   ].slice(0, PROPOSAL_TEMPLATE_SERVICES_LIMIT)
-  return { servicesIds }
+  if (packages.length) {
+    const fromPackages = [
+      ...new Set(
+        packages
+          .flatMap((item) =>
+            item.lines.map((line) => String(line.serviceId || '').trim())
+          )
+          .filter(isProposalServiceId)
+      ),
+    ].slice(0, PROPOSAL_TEMPLATE_SERVICES_LIMIT)
+    return {
+      packages,
+      servicesIds: fromPackages.length ? fromPackages : servicesIds,
+    }
+  }
+  return { packages: [], servicesIds }
 }
 
 const proposalServiceLine = (service) => ({
@@ -212,23 +229,59 @@ const proposalServiceLine = (service) => ({
   price: Math.max(0, Number(service.price) || 0),
 })
 
-// Услуги шаблона заполняют вариант сразу; без выбранных услуг поведение
-// прежнее — вариант собирается из услуг заявки.
-export const buildProposalDefaultLines = ({
+// Варианты шаблона становятся вариантами нового КП. Шаблон старого формата
+// (один список услуг) превращается в вариант «Основной вариант»; без услуг
+// шаблона поведение прежнее — вариант собирается из услуг заявки.
+export const buildProposalDefaultPackages = ({
   templateDefaults,
   templateServices = [],
   eventServices = [],
+  eventTotal = 0,
 }) => {
-  const selected = normalizeProposalTemplateDefaults(templateDefaults)
-    .servicesIds.map((serviceId) =>
+  const defaults = normalizeProposalTemplateDefaults(templateDefaults)
+  if (defaults.packages.length) return defaults.packages
+  const selected = defaults.servicesIds
+    .map((serviceId) =>
       (templateServices || []).find(
         (service) => String(service._id) === serviceId
       )
     )
     .filter(Boolean)
-  return (selected.length ? selected : eventServices || []).map(
+  const lines = (selected.length ? selected : eventServices || []).map(
     proposalServiceLine
   )
+  const linesTotal = lines.reduce((sum, line) => sum + (Number(line.price) || 0), 0)
+  const contractTotal = Number(eventTotal)
+  const hasContractTotal = Number.isFinite(contractTotal) && contractTotal > 0
+  return [
+    {
+      id: 'main',
+      title: 'Основной вариант',
+      description: '',
+      lines,
+      total: hasContractTotal ? contractTotal : linesTotal,
+      manualTotal: hasContractTotal,
+      recommended: true,
+    },
+  ]
+}
+
+export const buildProposalDefaultLines = (input) =>
+  buildProposalDefaultPackages(input)[0]?.lines || []
+
+// Шаблон старого формата (один список услуг) отдаётся клиенту уже с вариантами:
+// и редактор шаблона, и редактор КП работают с моделью вариантов.
+export const materializeProposalTemplateDefaults = (defaults, services = []) => {
+  const normalized = normalizeProposalTemplateDefaults(defaults)
+  if (normalized.packages.length) return normalized
+  return {
+    ...normalized,
+    packages: buildProposalDefaultPackages({
+      templateDefaults: normalized,
+      templateServices: services,
+      eventServices: [],
+    }),
+  }
 }
 
 const getByPath = (source, path) =>

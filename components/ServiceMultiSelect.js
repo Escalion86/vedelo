@@ -43,7 +43,10 @@ const ServiceMultiSelect = ({
   // Determine data source: prefer prop services, otherwise use atom
   const atomToUse = atom || servicesAtom
   const atomServices = useAtomValue(atomToUse)
-  const allServices = propServices || atomServices || []
+  const allServices =
+    (Array.isArray(propServices) && propServices.length
+      ? propServices
+      : atomServices) || []
   const serviceGroups = useAtomValue(serviceGroupsAtom)
   const selectedIds = Array.isArray(value) ? value : []
   const [expandedGroups, setExpandedGroups] = useState({})

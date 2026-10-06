@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
 import ProposalTemplates from '@models/ProposalTemplates'
 import Proposals from '@models/Proposals'
+import Services from '@models/Services'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import {
@@ -10,6 +11,7 @@ import {
   PROPOSAL_BUILDER_ACCESS_ERROR,
 } from '@helpers/proposalAccess'
 import {
+  materializeProposalTemplateDefaults,
   normalizeProposalBlocks,
   normalizeProposalMedia,
   normalizeProposalTemplateDefaults,
@@ -40,7 +42,17 @@ export const GET = async (_req, { params }) => {
   await dbConnect()
   const item = await ProposalTemplates.findOne({ _id: id, tenantId: auth.context.tenantId }).lean()
   if (!item) return error('Шаблон не найден', 404, 'not_found')
-  return NextResponse.json({ success: true, data: item })
+  // Шаблоны старого формата отдаём уже с вариантами.
+  const services = await Services.find({ tenantId: auth.context.tenantId })
+    .sort({ index: 1 })
+    .lean()
+  return NextResponse.json({
+    success: true,
+    data: {
+      ...item,
+      defaults: materializeProposalTemplateDefaults(item.defaults, services),
+    },
+  })
 }
 
 export const PATCH = async (req, { params }) => {

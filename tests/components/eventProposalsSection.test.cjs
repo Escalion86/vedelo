@@ -148,6 +148,11 @@ const mount = async (t, Component, props) => {
   return element
 }
 
+// Редактор КП использует общий редактор вариантов — грузим его настоящим.
+mocks['@components/ProposalPackagesEditor'] = load(
+  'components/ProposalPackagesEditor.js'
+)
+
 test.before(async () => {
   await loadBindings()
   global.fetch = async (url, options = {}) => {

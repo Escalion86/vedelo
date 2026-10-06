@@ -93,7 +93,12 @@ const useCabinetStateHydration = (props) => {
     })
     queryClient.setQueryData(queryKeys.clients(), clients)
     queryClient.setQueryData(queryKeys.transactionsAll, transactions)
-    queryClient.setQueryData(queryKeys.services(), services)
+    // Пустой список услуг на страницах, которые их не загружают, не должен
+    // попадать в кэш: свежие (staleTime) пустые данные блокируют запрос
+    // /api/services и каталог услуг остаётся пустым до перезагрузки.
+    if (Array.isArray(services) && services.length) {
+      queryClient.setQueryData(queryKeys.services(), services)
+    }
     queryClient.setQueryData(queryKeys.tariffs(), tariffs)
     queryClient.setQueryData(queryKeys.users(), users)
     queryClient.setQueryData(queryKeys.siteSettings, initialSiteSettings ?? {})

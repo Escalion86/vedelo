@@ -5,17 +5,15 @@ import dynamic from 'next/dynamic'
 import { useAtomValue } from 'jotai'
 import { faArrowDown } from '@fortawesome/free-solid-svg-icons/faArrowDown'
 import { faArrowUp } from '@fortawesome/free-solid-svg-icons/faArrowUp'
-import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import AppButton from '@components/AppButton'
 import FormWrapper from '@components/FormWrapper'
 import IconActionButton from '@components/IconActionButton'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
+import ProposalPackagesEditor from '@components/ProposalPackagesEditor'
 import ProposalPageView from '@components/ProposalPageView'
 import Textarea from '@components/Textarea'
-import selectEventServicesFunc from '@layouts/modals/modalsFunc/selectEventServicesFunc'
-import serviceFunc from '@layouts/modals/modalsFunc/serviceFunc'
 import { postData, putData } from '@helpers/CRUD'
 import { sendFile } from '@helpers/cloudinary'
 import { resolveUploadedFileUrl } from '@helpers/escalionCloudUpload.mjs'
@@ -25,17 +23,19 @@ import { useServicesQuery } from '@helpers/useEntityQueries'
 import {
   DEFAULT_PROPOSAL_BLOCKS,
   DEFAULT_PROPOSAL_MESSAGE,
-  PROPOSAL_TEMPLATE_SERVICES_LIMIT,
   normalizeProposalTemplateDefaults,
   renderProposalVariables,
 } from '@helpers/proposalContent'
+import {
+  calculatePackageTotal,
+  proposalLineFromService,
+} from '@helpers/proposalWorkflow'
 import {
   PROPOSAL_RICH_TEXT_BLOCK_TYPES,
   getProposalBlockContentHtml,
   renderProposalRichTextVariables,
 } from '@helpers/proposalRichText'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
-import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
 
 const ProposalRichTextEditor = dynamic(
   () => import('@components/ProposalRichTextEditor'),
@@ -69,6 +69,19 @@ const PREVIEW_VALID_UNTIL = new Date(Date.now() + 7 * 86400000).toISOString()
 
 const cloneBlocks = () => DEFAULT_PROPOSAL_BLOCKS.map((item) => ({ ...item }))
 
+const emptyPackage = () => ({
+  id: 'main',
+  title: 'Основной вариант',
+  description: '',
+  lines: [],
+  total: 0,
+  manualTotal: false,
+  recommended: true,
+})
+
+// Шаблон хранит те же варианты, что и КП: перечень услуг, описание, цену,
+// отметку «Рекомендуем» и ручной итог. Шаблоны старого формата (один список
+// услуг) сервер отдаёт уже переведёнными в вариант.
 const buildDraft = (template) => {
   const defaults = normalizeProposalTemplateDefaults(template?.defaults)
   return {
@@ -78,7 +91,7 @@ const buildDraft = (template) => {
     blocks: template?.blocks?.length ? template.blocks : cloneBlocks(),
     messageTemplate: template?.messageTemplate || DEFAULT_PROPOSAL_MESSAGE,
     media: Array.isArray(template?.media) ? template.media : [],
-    servicesIds: defaults.servicesIds,
+    packages: defaults.packages.length ? defaults.packages : [emptyPackage()],
   }
 }
 
@@ -90,7 +103,6 @@ const ProposalTemplateEditor = ({
   setDisableConfirm,
   setOnShowOnCloseConfirmDialog,
 }) => {
-  const modalsFunc = useAtomValue(modalsFuncAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const {
     data: servicesData,
@@ -101,49 +113,43 @@ const ProposalTemplateEditor = ({
     () => (Array.isArray(servicesData) ? servicesData : []),
     [servicesData]
   )
-  const [draft, setDraft] = useState(() => buildDraft(template))
+  const initial = useMemo(() => buildDraft(template), [template])
+  const [draft, setDraft] = useState(() => initial)
+  const [baseline, setBaseline] = useState(() => JSON.stringify(initial))
   const [uploadKey] = useState(() => template?.uploadKey || crypto.randomUUID())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const fileInputRef = useRef(null)
 
-  const initialSnapshot = useMemo(
-    () => JSON.stringify(buildDraft(template)),
-    [template]
-  )
-  const isChanged = JSON.stringify(draft) !== initialSnapshot
+  const isChanged = JSON.stringify(draft) !== baseline
   const mediaDirectory = `proposal-templates/${
     draft._id || uploadKey || 'draft'
   }`
-  const canSave = draft.name.trim().length > 0
+  const validPackages = draft.packages.filter(
+    (item) => String(item.title || '').trim().length > 0
+  )
+  const canSave =
+    draft.name.trim().length > 0 &&
+    validPackages.length === draft.packages.length
 
-  const selectedServices = useMemo(() => {
-    const byId = new Map(
-      services.map((service) => [String(service._id), service])
-    )
-    return draft.servicesIds
-      .map((serviceId) => byId.get(String(serviceId)))
+  const previewVariables = useMemo(() => {
+    const titles = draft.packages
+      .flatMap((item) => item.lines.map((line) => line.title))
       .filter(Boolean)
-  }, [draft.servicesIds, services])
-
-  const missingServicesCount =
-    draft.servicesIds.length - selectedServices.length
-
-  const previewVariables = useMemo(
-    () => ({
+    const total = draft.packages.reduce(
+      (sum, item) =>
+        sum + (Number(item.total) || calculatePackageTotal(item.lines)),
+      0
+    )
+    return {
       proposal: { url: 'https://vedelo.ru/proposal/…' },
       client: { firstName: 'Анна', fullName: 'Анна Петрова' },
       event: {
         type: 'Свадьба',
         date: PREVIEW_EVENT_DATE,
-        services: selectedServices.map((service) => service.title).join(', '),
-        sum: formatMoney(
-          selectedServices.reduce(
-            (sum, service) => sum + (Number(service.price) || 0),
-            0
-          )
-        ),
+        services: titles.join(', '),
+        sum: formatMoney(total),
       },
       artist: {
         firstName: loggedUser?.firstName || '',
@@ -151,17 +157,12 @@ const ProposalTemplateEditor = ({
         phone: loggedUser?.phone || '',
         telegram: loggedUser?.telegram || '',
       },
-    }),
-    [loggedUser, selectedServices]
-  )
+    }
+  }, [draft.packages, loggedUser])
 
   const previewProposal = useMemo(() => {
-    const lines = selectedServices.map((service) => ({
-      serviceId: String(service._id),
-      title: service.title,
-      description: service.description || '',
-      price: Number(service.price) || 0,
-    }))
+    const recommended =
+      draft.packages.find((item) => item.recommended) || draft.packages[0]
     return {
       title: draft.name || 'Персональное предложение',
       blocks: draft.blocks.map((block) => ({
@@ -173,62 +174,27 @@ const ProposalTemplateEditor = ({
           previewVariables
         ).html,
       })),
-      packages: [
-        {
-          id: 'main',
-          title: 'Основной вариант',
-          lines,
-          total: lines.reduce((sum, line) => sum + line.price, 0),
-          recommended: true,
-        },
-      ],
+      packages: draft.packages.map((item) => ({
+        ...item,
+        total: Number(item.total) || calculatePackageTotal(item.lines),
+      })),
       media: draft.media,
       client: previewVariables.client,
       artist: previewVariables.artist,
       validUntil: PREVIEW_VALID_UNTIL,
       selectedPackageId: '',
       expired: false,
+      recommendedPackageId: recommended?.id || '',
     }
-  }, [
-    draft.blocks,
-    draft.media,
-    draft.name,
-    previewVariables,
-    selectedServices,
-  ])
+  }, [draft.blocks, draft.media, draft.name, draft.packages, previewVariables])
+
+  const hasLines = draft.packages.some((item) => item.lines.length > 0)
 
   const updateBlock = (index, patch) =>
     setDraft((current) => ({
       ...current,
       blocks: current.blocks.map((block, blockIndex) =>
         blockIndex === index ? { ...block, ...patch } : block
-      ),
-    }))
-
-  const chooseServices = () =>
-    modalsFunc.add(
-      selectEventServicesFunc(
-        draft.servicesIds,
-        (servicesIds) => {
-          const nextIds = [...new Set(servicesIds.map(String))]
-          if (nextIds.length > PROPOSAL_TEMPLATE_SERVICES_LIMIT) {
-            setError(
-              `В шаблоне может быть не больше ${PROPOSAL_TEMPLATE_SERVICES_LIMIT} услуг. Выберите меньше.`
-            )
-            return
-          }
-          setError('')
-          setDraft((current) => ({ ...current, servicesIds: nextIds }))
-        },
-        { services }
-      )
-    )
-
-  const removeService = (serviceId) =>
-    setDraft((current) => ({
-      ...current,
-      servicesIds: current.servicesIds.filter(
-        (id) => String(id) !== String(serviceId)
       ),
     }))
 
@@ -294,7 +260,18 @@ const ProposalTemplateEditor = ({
       blocks: draft.blocks,
       messageTemplate: draft.messageTemplate,
       media: draft.media || [],
-      defaults: { servicesIds: draft.servicesIds },
+      defaults: {
+        packages: draft.packages,
+        // Совместимость со старым форматом: услуги основного варианта.
+        servicesIds: [
+          ...new Set(
+            draft.packages
+              .flatMap((item) => item.lines.map((line) => line.serviceId))
+              .filter(Boolean)
+              .map(String)
+          ),
+        ],
+      },
     }
     const request = draft._id ? putData : postData
     const url = draft._id
@@ -347,86 +324,20 @@ const ProposalTemplateEditor = ({
         }
         help="Переменные: {{client.firstName}}, {{event.type}}, {{event.date}}, {{proposal.url}}"
       />
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="font-semibold">Услуги в шаблоне</div>
-          <span className="text-xs text-gray-500">
-            {draft.servicesIds.length} из {PROPOSAL_TEMPLATE_SERVICES_LIMIT}
-          </span>
-        </div>
-        {servicesError ? (
-          <Notice tone="error">
-            Не удалось загрузить услуги. Обновите страницу и попробуйте снова.
-          </Notice>
-        ) : null}
-        {selectedServices.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Услуги не выбраны — при создании предложения вариант заполнится
-            услугами заявки.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {selectedServices.map((service) => (
-              <div
-                key={service._id}
-                className="flex items-start justify-between gap-2 rounded-lg border border-gray-200 p-2"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold break-words">
-                    {service.title}
-                  </div>
-                  {service.description ? (
-                    <p className="mt-1 line-clamp-2 text-sm break-words text-gray-600">
-                      {service.description}
-                    </p>
-                  ) : null}
-                  <div className="mt-1 text-sm font-semibold">
-                    {formatMoney(Number(service.price) || 0)}
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <IconActionButton
-                    icon={faPencilAlt}
-                    variant="warning"
-                    size="sm"
-                    title={`Редактировать услугу «${service.title}»`}
-                    onClick={() => modalsFunc.add(serviceFunc(service._id))}
-                  />
-                  <IconActionButton
-                    icon={faTrashAlt}
-                    variant="danger"
-                    size="sm"
-                    title={`Убрать услугу «${service.title}» из шаблона`}
-                    onClick={() => removeService(service._id)}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {missingServicesCount > 0 ? (
-          <p className="text-xs text-gray-500">
-            {missingServicesCount} услуг(и) больше нет в каталоге — в
-            предложение они не попадут.
-          </p>
-        ) : null}
-        <AppButton
-          variant="primary"
-          size="sm"
-          disabled={
-            servicesLoading ||
-            servicesError ||
-            draft.servicesIds.length >= PROPOSAL_TEMPLATE_SERVICES_LIMIT
-          }
-          onClick={chooseServices}
-        >
-          Выбрать услуги
-        </AppButton>
-        <p className="text-xs text-gray-500">
-          Выбранные услуги сразу станут позициями основного варианта при
-          создании предложения по этому шаблону.
-        </p>
+      <div>
+        <h3 className="font-semibold">Что предлагаем клиенту</h3>
       </div>
+      <ProposalPackagesEditor
+        packages={draft.packages}
+        onChange={(packages) =>
+          setDraft((current) => ({ ...current, packages }))
+        }
+        services={services}
+        servicesLoading={servicesLoading}
+        servicesError={servicesError}
+        busy={saving}
+        hint="Варианты, позиции и цены шаблона попадают в каждое новое предложение по этому шаблону."
+      />
       <div className="space-y-3">
         <div className="font-semibold">Структура страницы</div>
         {draft.blocks.map((block, index) => (
@@ -569,9 +480,9 @@ const ProposalTemplateEditor = ({
       </div>
       {showPreview ? (
         <div className="rounded-2xl border border-gray-200 bg-stone-100 p-2">
-          {selectedServices.length ? null : (
+          {hasLines ? null : (
             <Notice tone="info" className="mb-2">
-              Услуги не выбраны: при создании предложения вариант заполнится
+              Позиции не добавлены: при создании предложения вариант заполнится
               услугами заявки. Ниже — пример оформления.
             </Notice>
           )}
