@@ -14,6 +14,7 @@ import {
   normalizeVkInput,
 } from '@helpers/socialInput'
 import useErrors from '@helpers/useErrors'
+import { isValidMaxContact, normalizeMaxContactInput } from '@helpers/maxContact'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import usersAtom from '@state/atoms/usersAtom'
@@ -36,6 +37,7 @@ const ProfileContent = () => {
   const [phone, setPhone] = useState(DEFAULT_USER.phone)
   const [whatsapp, setWhatsapp] = useState(DEFAULT_USER.whatsapp)
   const [telegram, setTelegram] = useState(DEFAULT_USER.telegram)
+  const [max, setMax] = useState(DEFAULT_USER.max)
   const [instagram, setInstagram] = useState(DEFAULT_USER.instagram)
   const [vk, setVk] = useState(DEFAULT_USER.vk)
   const [images, setImages] = useState(DEFAULT_USER.images)
@@ -51,6 +53,7 @@ const ProfileContent = () => {
     setPhone(loggedUser.phone ?? DEFAULT_USER.phone)
     setWhatsapp(loggedUser.whatsapp ?? DEFAULT_USER.whatsapp)
     setTelegram(loggedUser.telegram ?? DEFAULT_USER.telegram)
+    setMax(loggedUser.max ?? DEFAULT_USER.max)
     setInstagram(loggedUser.instagram ?? DEFAULT_USER.instagram)
     setVk(loggedUser.vk ?? DEFAULT_USER.vk)
     setImages(loggedUser.images ?? DEFAULT_USER.images)
@@ -65,6 +68,7 @@ const ProfileContent = () => {
       loggedUser.phone !== phone ||
       loggedUser.whatsapp !== whatsapp ||
       loggedUser.telegram !== telegram ||
+      (loggedUser.max ?? '') !== max ||
       loggedUser.instagram !== instagram ||
       loggedUser.vk !== vk ||
       !compareArrays(loggedUser.images, images)
@@ -76,6 +80,7 @@ const ProfileContent = () => {
     phone,
     whatsapp,
     telegram,
+    max,
     instagram,
     vk,
     images,
@@ -111,6 +116,10 @@ const ProfileContent = () => {
     )
       return
 
+    if (!isValidMaxContact(max) || max.length > 512) {
+      addError({ max: 'Введите ссылку MAX или номер телефона' })
+      return
+    }
     setIsSaving(true)
     const result = await setUser({
       _id: loggedUser._id,
@@ -119,6 +128,7 @@ const ProfileContent = () => {
       phone,
       whatsapp,
       telegram,
+      max: normalizeMaxContactInput(max),
       instagram,
       vk,
       images,
@@ -197,6 +207,15 @@ const ProfileContent = () => {
             normalizePastedValue={normalizeTelegramInput}
           />
           <Input
+            label="MAX"
+            placeholder="Ссылка или номер телефона"
+            value={max}
+            onChange={(value) => { removeError('max'); setMax(value) }}
+            error={errors.max}
+            showErrorText
+            copyPasteButtons
+          />
+          <Input
             prefix="instagram.com/"
             label="Instagram"
             value={instagram}
@@ -228,7 +247,7 @@ const ProfileContent = () => {
             className="h-9 cursor-pointer rounded border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             onClick={() => modalsFunc.user?.changePassword?.()}
           >
-            Сменить пароль
+            Установить / сменить пароль
           </button>
         </div>
       </FormWrapper>

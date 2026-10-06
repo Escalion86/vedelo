@@ -4,6 +4,7 @@ import Histories from '@models/Histories'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import bcrypt from 'bcryptjs'
+import { isValidMaxContact, normalizeMaxContactInput } from '@helpers/maxContact'
 import Tariffs from '@models/Tariffs'
 import Payments from '@models/Payments'
 import Events from '@models/Events'
@@ -221,6 +222,7 @@ export const PUT = async (req, { params }) => {
     'email',
     'phone',
     'whatsapp',
+    'max',
     'viber',
     'telegram',
     'vk',
@@ -313,6 +315,13 @@ export const PUT = async (req, { params }) => {
     } else {
       delete update.password
     }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'max')) {
+    if (typeof body.max !== 'string' || body.max.length > 512 || !isValidMaxContact(body.max)) {
+      return NextResponse.json({ success: false, error: 'Введите ссылку MAX или номер телефона' }, { status: 400 })
+    }
+    update.max = normalizeMaxContactInput(body.max)
   }
 
   console.log('[users][PUT] update', { query, updateKeys: Object.keys(update) })

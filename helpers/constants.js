@@ -196,6 +196,7 @@ export const DEFAULT_USER = Object.freeze({
   phone: null,
   registrationSource: '',
   registrationSourceCapturedAt: null,
+  max: '',
   whatsapp: null,
   viber: null,
   telegram: '',

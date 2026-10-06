@@ -3,6 +3,7 @@ import {
   DEFAULT_USERS_NOTIFICATIONS,
 } from '@helpers/constants'
 import { Schema } from 'mongoose'
+import { isValidMaxContact } from '@helpers/maxContact'
 
 const DEFAULT_GOOGLE_CALENDAR_STATUS_COLORS = Object.freeze({
   draft: '8',
@@ -142,6 +143,12 @@ const usersSchema = {
   whatsapp: {
     type: Number,
     default: null,
+  },
+  max: {
+    type: String,
+    default: '',
+    maxlength: 512,
+    validate: { validator: isValidMaxContact, message: 'Введите ссылку MAX или номер телефона' },
   },
   viber: {
     type: Number,
