@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { useAtomValue } from 'jotai'
 import { faArrowDown } from '@fortawesome/free-solid-svg-icons/faArrowDown'
 import { faArrowUp } from '@fortawesome/free-solid-svg-icons/faArrowUp'
+import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import AppButton from '@components/AppButton'
 import FormWrapper from '@components/FormWrapper'
@@ -12,14 +13,15 @@ import IconActionButton from '@components/IconActionButton'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
 import ProposalPageView from '@components/ProposalPageView'
-import ServiceMultiSelect from '@components/ServiceMultiSelect'
 import Textarea from '@components/Textarea'
+import selectEventServicesFunc from '@layouts/modals/modalsFunc/selectEventServicesFunc'
 import serviceFunc from '@layouts/modals/modalsFunc/serviceFunc'
 import { postData, putData } from '@helpers/CRUD'
 import { sendFile } from '@helpers/cloudinary'
 import { resolveUploadedFileUrl } from '@helpers/escalionCloudUpload.mjs'
 import { formatMoney } from '@helpers/formatMoney'
 import getPersonFullName from '@helpers/getPersonFullName'
+import { useServicesQuery } from '@helpers/useEntityQueries'
 import {
   DEFAULT_PROPOSAL_BLOCKS,
   DEFAULT_PROPOSAL_MESSAGE,
@@ -34,7 +36,6 @@ import {
 } from '@helpers/proposalRichText'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
-import servicesAtom from '@state/atoms/servicesAtom'
 
 const ProposalRichTextEditor = dynamic(
   () => import('@components/ProposalRichTextEditor'),
@@ -90,8 +91,16 @@ const ProposalTemplateEditor = ({
   setOnShowOnCloseConfirmDialog,
 }) => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
-  const services = useAtomValue(servicesAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
+  const {
+    data: servicesData,
+    isPending: servicesLoading,
+    isError: servicesError,
+  } = useServicesQuery()
+  const services = useMemo(
+    () => (Array.isArray(servicesData) ? servicesData : []),
+    [servicesData]
+  )
   const [draft, setDraft] = useState(() => buildDraft(template))
   const [uploadKey] = useState(() => template?.uploadKey || crypto.randomUUID())
   const [saving, setSaving] = useState(false)
@@ -109,17 +118,17 @@ const ProposalTemplateEditor = ({
   }`
   const canSave = draft.name.trim().length > 0
 
-  const selectedServices = useMemo(
-    () =>
-      draft.servicesIds
-        .map((serviceId) =>
-          (services || []).find(
-            (service) => String(service._id) === String(serviceId)
-          )
-        )
-        .filter(Boolean),
-    [draft.servicesIds, services]
-  )
+  const selectedServices = useMemo(() => {
+    const byId = new Map(
+      services.map((service) => [String(service._id), service])
+    )
+    return draft.servicesIds
+      .map((serviceId) => byId.get(String(serviceId)))
+      .filter(Boolean)
+  }, [draft.servicesIds, services])
+
+  const missingServicesCount =
+    draft.servicesIds.length - selectedServices.length
 
   const previewVariables = useMemo(
     () => ({
@@ -193,6 +202,33 @@ const ProposalTemplateEditor = ({
       ...current,
       blocks: current.blocks.map((block, blockIndex) =>
         blockIndex === index ? { ...block, ...patch } : block
+      ),
+    }))
+
+  const chooseServices = () =>
+    modalsFunc.add(
+      selectEventServicesFunc(
+        draft.servicesIds,
+        (servicesIds) => {
+          const nextIds = [...new Set(servicesIds.map(String))]
+          if (nextIds.length > PROPOSAL_TEMPLATE_SERVICES_LIMIT) {
+            setError(
+              `В шаблоне может быть не больше ${PROPOSAL_TEMPLATE_SERVICES_LIMIT} услуг. Выберите меньше.`
+            )
+            return
+          }
+          setError('')
+          setDraft((current) => ({ ...current, servicesIds: nextIds }))
+        },
+        { services }
+      )
+    )
+
+  const removeService = (serviceId) =>
+    setDraft((current) => ({
+      ...current,
+      servicesIds: current.servicesIds.filter(
+        (id) => String(id) !== String(serviceId)
       ),
     }))
 
@@ -311,33 +347,86 @@ const ProposalTemplateEditor = ({
         }
         help="Переменные: {{client.firstName}}, {{event.type}}, {{event.date}}, {{proposal.url}}"
       />
-      <ServiceMultiSelect
-        value={draft.servicesIds}
-        onChange={(servicesIds) =>
-          setDraft((current) => ({
-            ...current,
-            servicesIds: servicesIds.slice(0, PROPOSAL_TEMPLATE_SERVICES_LIMIT),
-          }))
-        }
-        onCreate={() =>
-          modalsFunc.add(
-            serviceFunc(null, true, (service) => {
-              if (service?._id)
-                setDraft((current) => ({
-                  ...current,
-                  servicesIds: current.servicesIds.includes(service._id)
-                    ? current.servicesIds
-                    : [...current.servicesIds, service._id],
-                }))
-            })
-          )
-        }
-        onEdit={(serviceId) => modalsFunc.add(serviceFunc(serviceId))}
-      />
-      <span className="-mt-2 text-xs text-gray-500">
-        Выбранные услуги сразу станут позициями основного варианта при создании
-        предложения по этому шаблону.
-      </span>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="font-semibold">Услуги в шаблоне</div>
+          <span className="text-xs text-gray-500">
+            {draft.servicesIds.length} из {PROPOSAL_TEMPLATE_SERVICES_LIMIT}
+          </span>
+        </div>
+        {servicesError ? (
+          <Notice tone="error">
+            Не удалось загрузить услуги. Обновите страницу и попробуйте снова.
+          </Notice>
+        ) : null}
+        {selectedServices.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Услуги не выбраны — при создании предложения вариант заполнится
+            услугами заявки.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {selectedServices.map((service) => (
+              <div
+                key={service._id}
+                className="flex items-start justify-between gap-2 rounded-lg border border-gray-200 p-2"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold break-words">
+                    {service.title}
+                  </div>
+                  {service.description ? (
+                    <p className="mt-1 line-clamp-2 text-sm break-words text-gray-600">
+                      {service.description}
+                    </p>
+                  ) : null}
+                  <div className="mt-1 text-sm font-semibold">
+                    {formatMoney(Number(service.price) || 0)}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <IconActionButton
+                    icon={faPencilAlt}
+                    variant="warning"
+                    size="sm"
+                    title={`Редактировать услугу «${service.title}»`}
+                    onClick={() => modalsFunc.add(serviceFunc(service._id))}
+                  />
+                  <IconActionButton
+                    icon={faTrashAlt}
+                    variant="danger"
+                    size="sm"
+                    title={`Убрать услугу «${service.title}» из шаблона`}
+                    onClick={() => removeService(service._id)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {missingServicesCount > 0 ? (
+          <p className="text-xs text-gray-500">
+            {missingServicesCount} услуг(и) больше нет в каталоге — в
+            предложение они не попадут.
+          </p>
+        ) : null}
+        <AppButton
+          variant="primary"
+          size="sm"
+          disabled={
+            servicesLoading ||
+            servicesError ||
+            draft.servicesIds.length >= PROPOSAL_TEMPLATE_SERVICES_LIMIT
+          }
+          onClick={chooseServices}
+        >
+          Выбрать услуги
+        </AppButton>
+        <p className="text-xs text-gray-500">
+          Выбранные услуги сразу станут позициями основного варианта при
+          создании предложения по этому шаблону.
+        </p>
+      </div>
       <div className="space-y-3">
         <div className="font-semibold">Структура страницы</div>
         {draft.blocks.map((block, index) => (

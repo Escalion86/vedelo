@@ -4,7 +4,11 @@ import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
 import ServiceMultiSelect from '@components/ServiceMultiSelect'
 import serviceFunc from './serviceFunc'
 
-const selectEventServicesFunc = (initialIds, onApply) => {
+const selectEventServicesFunc = (
+  initialIds,
+  onApply,
+  { services = null } = {}
+) => {
   const SelectEventServices = ({ closeModal, setOnConfirmFunc }) => {
     const [selectedIds, setSelectedIds] = useState(initialIds)
     const modalsFunc = useAtomValue(modalsFuncAtom)
@@ -20,9 +24,17 @@ const selectEventServicesFunc = (initialIds, onApply) => {
       <ServiceMultiSelect
         value={selectedIds}
         onChange={setSelectedIds}
-        onCreate={() => modalsFunc.add(serviceFunc(null, true, (service) => {
-          if (service?._id) setSelectedIds((ids) => ids.includes(service._id) ? ids : [...ids, service._id])
-        }))}
+        services={services}
+        onCreate={() =>
+          modalsFunc.add(
+            serviceFunc(null, true, (service) => {
+              if (service?._id)
+                setSelectedIds((ids) =>
+                  ids.includes(service._id) ? ids : [...ids, service._id]
+                )
+            })
+          )
+        }
         onEdit={(id) => modalsFunc.add(serviceFunc(id))}
       />
     )

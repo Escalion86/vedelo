@@ -394,7 +394,9 @@ const EventProposalsSection = ({
             (current = []) =>
               current.filter((item) => item._id !== proposal._id)
           )
-          void queryClient.invalidateQueries({ queryKey: queryKeys.proposalStatuses })
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.proposalStatuses,
+          })
           reportMessage({
             tone: 'success',
             text:
@@ -445,10 +447,17 @@ const EventProposalsSection = ({
         title: 'Отправить предложение',
         closeButtonName: 'Закрыть',
         Children: ProposalShareDialog,
-        childrenProps: { clientId: data.clientId, message: data.renderedMessage, initiallyCopied },
+        childrenProps: {
+          clientId: data.clientId,
+          message: data.renderedMessage,
+          initiallyCopied,
+        },
       })
     } catch {
-      reportMessage({ tone: 'error', text: 'Не удалось подготовить предложение для отправки' })
+      reportMessage({
+        tone: 'error',
+        text: 'Не удалось подготовить предложение для отправки',
+      })
     } finally {
       setBusy(false)
     }
@@ -471,7 +480,8 @@ const EventProposalsSection = ({
             return
           }
           updatePackage(packageIndex, { lines })
-        }
+        },
+        { services }
       )
     )
   }
