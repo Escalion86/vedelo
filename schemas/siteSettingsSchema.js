@@ -128,6 +128,19 @@ const siteSettingsSchema = {
     },
     default: undefined,
   },
+  // Публичное оформление страницы отзыва (/review/[id]). Только эти поля
+  // могут попасть в публичный слой по ID приглашения.
+  reviewPage: {
+    type: {
+      publicName: { type: String, maxlength: 80, default: '' },
+      specialization: { type: String, maxlength: 120, default: '' },
+      greeting: { type: String, maxlength: 300, default: '' },
+      accent: { type: String, default: 'sand' },
+      cover: { type: String, default: 'plain' },
+      logoUrl: { type: String, default: '' },
+    },
+    default: undefined,
+  },
   custom: {
     type: Map,
     of: Schema.Types.Mixed,

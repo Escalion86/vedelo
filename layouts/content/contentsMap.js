@@ -25,6 +25,7 @@ import SiteNewsContent from './SiteNewsContent'
 import TariffSelectContent from './TariffSelectContent'
 import HistoryContent from './HistoryContent'
 import ClientReviewsContent from './ClientReviewsContent'
+import ReviewPageSettingsContent from './ReviewPageSettingsContent'
 import FeedbackContent from './FeedbackContent'
 import BillingHistoryContent from './BillingHistoryContent'
 import BillingOperationsContent from './BillingOperationsContent'
@@ -74,6 +75,10 @@ export const CONTENTS = Object.freeze({
     name: 'История действий',
   },
   'client-reviews': { Component: ClientReviewsContent, name: 'Отзывы клиентов' },
+  'review-page': {
+    Component: ReviewPageSettingsContent,
+    name: 'Страница отзывов',
+  },
   feedback: {
     Component: FeedbackContent,
     name: 'Обратная связь',

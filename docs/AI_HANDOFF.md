@@ -538,3 +538,27 @@ Legacy-категории исключены из web-выбора. `helpers/tra
 дополнены флагом. Подробности: `docs/CLIENT_REVIEWS.md`.
 Проверки: 12 unit, 9 HTTP/browser с изолированной MongoDB, 1365/390 px обе темы,
 реальный переключатель тарифа; ESLint и build прошли. Production не менялся.
+
+### Персональная страница отзыва (1.33.0)
+
+Аддитивное развитие: `Настройки → Страница отзывов` (`/cabinet/review-page`)
+задаёт публичное оформление — имя, специализацию, фото/логотип, короткое
+обращение, акцент из палитры и обложку из готовых шаблонов — с живым
+предпросмотром формы и карточки ссылки. Хранение — `SiteSettings.reviewPage`
+(умолчания в схеме, миграция не нужна). API: `GET/POST /api/site/review-page`
+(tenant-aware, валидация длин/палитр/ссылки, сохранение требует
+`allowClientReviews`), загрузка фото `POST /api/site/review-page/logo` (sharp →
+WebP ≤640, облако `vedelo/<tenant>/review-page/logo/<uuid>`, без server-fetch).
+`/review/[id]` строит персональные og/twitter-метаданные с абсолютными URL из
+**только явно сохранённого публичного оформления** по ID приглашения — без
+имени клиента, даты, оценки, текста, состояния, сумм; без персонализации,
+для invalid/revoked/истёкших ссылок и в краулере, которому недоступен
+`#fragment`, — нейтральный fallback (общая OG-картинка). Секретный GET
+дополнительно отдаёт нормализованное `appearance` (6 полей) для формы,
+предпросмотра и благодарности; hash capability, одноразовый ответ, срок,
+перевыпуск, tenant-изоляция и `noindex`/`no-referrer` не изменены.
+Проверки: unit `helpers/reviewAppearance.test.mjs`, интеграционные
+HTTP/browser-сценарии в `tests/web/clientReviews.integration.test.mjs`
+(+tenant-negative, save/re-read, defaults, metadata без секрета, valid/branded/
+revoked/expired, загрузка фото через mock облака, submit workflow), гейты
+ux-ui по снятым HTML. Production не менялся.

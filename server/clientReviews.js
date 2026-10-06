@@ -44,13 +44,15 @@ export const reviewCredentials = (id) => {
     expiresAt: new Date(Date.now() + REVIEW_DAYS * 86400000),
   }
 }
-export const reviewLink = (review) => {
+export const reviewOrigin = () => {
   const configured = process.env.DOMAIN || 'https://vedelo.ru'
-  const origin = new URL(
+  return new URL(
     /^https?:\/\//.test(configured) ? configured : `https://${configured}`
   ).origin
+}
+export const reviewLink = (review) => {
   // Fragment не отправляется серверу и не попадает в access logs / Referer.
-  return `${origin}/review/${review._id}#${recoverToken(review)}`
+  return `${reviewOrigin()}/review/${review._id}#${recoverToken(review)}`
 }
 export const reviewDto = (review) => ({
   _id: String(review._id),

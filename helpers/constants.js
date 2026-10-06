@@ -41,6 +41,7 @@ import {
   faFileImport,
   faList,
   faPlug,
+  faStar,
 } from '@fortawesome/free-solid-svg-icons'
 
 export const TAILWIND_COLORS = [
@@ -654,6 +655,13 @@ export const pages = [
     name: 'Личный профиль',
     href: 'profile',
     icon: faUser,
+  },
+  {
+    id: 43,
+    group: 6,
+    name: 'Страница отзывов',
+    href: 'review-page',
+    icon: faStar,
   },
   {
     id: 6,
