@@ -187,6 +187,15 @@ const AiUsageAdminContent = () => {
         <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-4">
           <Metric label="Себестоимость" value={formatMoney(summary.providerCost || 0)} />
           <Metric label="Списано с пользователей" value={formatMoney(summary.charged || 0)} />
+          <Metric
+            label="Оплачено платформой"
+            value={formatMoney(summary.tariffCoveredCost || 0)}
+            hint={
+              summary.tariffCoveredOperations
+                ? `Операций по тарифу: ${summary.tariffCoveredOperations}`
+                : ''
+            }
+          />
           <Metric label="Маржа" value={formatMoney(summary.margin || 0)} />
           <Metric
             label="Операции"

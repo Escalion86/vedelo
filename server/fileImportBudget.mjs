@@ -18,26 +18,47 @@ export const createFileImportBudgetStore = ({ users, ownerId }) => {
   }
   const reserve = async (
     id,
-    { amountKopecks, markup, platform, feature, model }
+    {
+      amountKopecks,
+      markup,
+      platform,
+      feature,
+      model,
+      coveredProviderKopecks = 0,
+    }
   ) => {
     const path = pathFor(id)
     const existing = await read(id)
     if (existing) return existing
     if (!Number.isSafeInteger(amountKopecks) || amountKopecks < 0)
       throw new Error('Invalid import budget')
-    const amount = platform ? amountKopecks : 0
+    const markupValue =
+      Number.isFinite(Number(markup)) && Number(markup) > 0 ? Number(markup) : 1
+    // Часть себестоимости может быть включена в тариф: её платит платформа,
+    // поэтому баланс резервируется только на оставшуюся сумму.
+    const coveredProvider =
+      Number.isSafeInteger(coveredProviderKopecks) && coveredProviderKopecks > 0
+        ? Math.min(amountKopecks, coveredProviderKopecks)
+        : 0
+    const coveredApplied = coveredProvider
+      ? Math.min(amountKopecks, Math.ceil(coveredProvider * markupValue))
+      : 0
+    const holdKopecks = platform ? Math.max(0, amountKopecks - coveredApplied) : 0
     const result = await users.updateOne(
       {
         _id: ownerId,
-        balance: { $gte: amount / 100 },
+        balance: { $gte: holdKopecks / 100 },
         [path]: { $exists: false },
       },
       {
-        $inc: { balance: -amount / 100 },
+        $inc: { balance: -(holdKopecks / 100) },
         $set: {
           [path]: {
-            amountKopecks: amount,
+            amountKopecks,
+            holdKopecks,
+            coveredProviderKopecks: coveredProvider,
             spentKopecks: 0,
+            spentCoveredProviderKopecks: 0,
             markup,
             platform,
             feature,
@@ -79,7 +100,12 @@ export const createFileImportBudgetStore = ({ users, ownerId }) => {
         'Резерв закрыт. Рассчитайте стоимость повторно.',
         'AI_BUDGET_CLOSED'
       )
-    if (budget.platform && budget.spentKopecks >= budget.amountKopecks)
+    if (
+      budget.platform &&
+      budget.spentKopecks >= Number(budget.holdKopecks ?? budget.amountKopecks) &&
+      (budget.spentCoveredProviderKopecks || 0) >=
+        (budget.coveredProviderKopecks || 0)
+    )
       throw new FileImportError(
         'Достигнут согласованный предел расходов. Рассчитайте стоимость оставшихся записей.',
         'AI_BUDGET_EXHAUSTED'
@@ -131,6 +157,8 @@ export const createFileImportBudgetStore = ({ users, ownerId }) => {
             },
             $inc: {
               [`${path}.spentKopecks`]: charge.charged,
+              [`${path}.spentCoveredProviderKopecks`]:
+                charge.coveredProviderKopecks || 0,
               [`${path}.version`]: 1,
             },
           }
@@ -164,7 +192,8 @@ export const createFileImportBudgetStore = ({ users, ownerId }) => {
       const budget = await read(id)
       if (!budget || budget.closed) return budget
       // Only the job lease owner closes a budget, after its requests have stopped.
-      const refund = (budget.amountKopecks - budget.spentKopecks) / 100
+      const holdKopecks = Number(budget.holdKopecks ?? budget.amountKopecks ?? 0)
+      const refund = (holdKopecks - budget.spentKopecks) / 100
       const result = await users.updateOne(
         {
           _id: ownerId,

@@ -157,13 +157,42 @@ export const getFileImportCharge = (budget, usage) => {
       'AI_COST_UNKNOWN'
     )
   }
+  const markupPercent = Math.round(budget.markup * 100)
   const requested = Math.ceil(
     (Math.round(cost * 1_000_000) * Math.round(budget.markup * 100)) / 1_000_000
   )
-  const remaining = Math.max(0, budget.amountKopecks - budget.spentKopecks)
+  // Часть себестоимости может быть включена в тариф: её вместо пользователя платит платформа.
+  const coveredLimitKopecks = Math.max(
+    0,
+    Number(budget.coveredProviderKopecks || 0)
+  )
+  const coveredSpentKopecks = Math.max(
+    0,
+    Number(budget.spentCoveredProviderKopecks || 0)
+  )
+  const providerCostKopecks = Math.max(0, Math.round(cost * 100))
+  const coveredProviderKopecks = Math.max(
+    0,
+    Math.min(providerCostKopecks, coveredLimitKopecks - coveredSpentKopecks)
+  )
+  const covered = coveredProviderKopecks
+    ? Math.max(
+        1,
+        Math.ceil((coveredProviderKopecks * 10_000 * markupPercent) / 1_000_000)
+      )
+    : 0
+  const chargeableKopecks = Math.max(0, requested - covered)
+  const holdKopecks = Math.max(
+    0,
+    Number(budget.holdKopecks ?? budget.amountKopecks ?? 0)
+  )
+  const spentKopecks = Math.max(0, Number(budget.spentKopecks || 0))
+  const remaining = Math.max(0, holdKopecks - spentKopecks)
   return {
-    charged: Math.min(requested, remaining),
-    uncovered: Math.max(0, requested - remaining),
+    charged: Math.min(chargeableKopecks, remaining),
+    uncovered: Math.max(0, chargeableKopecks - remaining),
+    covered,
+    coveredProviderKopecks,
   }
 }
 

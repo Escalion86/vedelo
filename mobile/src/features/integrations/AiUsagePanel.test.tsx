@@ -176,3 +176,67 @@ it('свой провайдер без ключа не выдаётся за а�
   await screen.findByText('Текущий ИИ требует настройки. История относится к общему ИИ Ведело.')
   expect(screen.queryByText(/Сейчас используется собственный провайдер/)).toBeNull()
 })
+
+it('тариф с включённым ИИ показывает израсходованную и оставшуюся сумму', async () => {
+  getMock.mockImplementation(async (path: string) => {
+    if (path === '/ai/usage')
+      return {
+        success: true,
+        data: {
+          ...usage,
+          balance: 0,
+          available: true,
+          tariffIncluded: {
+            enabled: true,
+            includedRub: 500,
+            usedRub: 125,
+            remainingRub: 375,
+            coveredByTariff: true,
+            tariffTitle: 'Профи',
+          },
+        },
+      }
+    throw new Error(`Unexpected GET: ${path}`)
+  })
+  const screen = render(<AiUsagePanel activeProvider="artistcrm" activeEnabled activeConfigured />)
+  await screen.findByText('ИИ включён в тариф')
+  expect(screen.getByText(/125,00 ₽ из 500,00 ₽/)).toBeTruthy()
+  expect(screen.getByText(/осталось 375,00 ₽/)).toBeTruthy()
+  expect(screen.getByText(/Запросы ИИ пока идут за счёт тарифа/)).toBeTruthy()
+})
+
+it('исчерпанный лимит тарифа объясняет списания с баланса', async () => {
+  getMock.mockImplementation(async (path: string) => {
+    if (path === '/ai/usage')
+      return {
+        success: true,
+        data: {
+          ...usage,
+          tariffIncluded: {
+            enabled: true,
+            includedRub: 500,
+            usedRub: 500,
+            remainingRub: 0,
+            coveredByTariff: false,
+          },
+        },
+      }
+    throw new Error(`Unexpected GET: ${path}`)
+  })
+  const screen = render(<AiUsagePanel activeProvider="artistcrm" activeEnabled activeConfigured />)
+  await screen.findByText('ИИ включён в тариф')
+  expect(screen.getByText(/Включённая в тариф сумма на этот месяц исчерпана/)).toBeTruthy()
+})
+
+it('битый тарифный лимит в DTO не показывается как доступный ИИ', async () => {
+  getMock.mockResolvedValueOnce({
+    success: true,
+    data: {
+      ...usage,
+      tariffIncluded: { enabled: 'yes', includedRub: 500 },
+    },
+  })
+  const screen = render(<AiUsagePanel activeProvider="artistcrm" />)
+  await screen.findByText('Не удалось загрузить баланс и расходы ИИ.')
+  expect(screen.queryByText('ИИ включён в тариф')).toBeNull()
+})

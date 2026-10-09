@@ -18,6 +18,7 @@ import { getTenantAiSettings } from '@server/aiSettings'
 import {
   getAiBillingSettings,
   getAverageAiChargeKopecks,
+  getTenantAiIncludedState,
 } from '@server/aiBilling'
 import {
   getAiAnalysisProviderConfig,
@@ -153,6 +154,17 @@ export const serializeFileImport = async (job) => {
       warnings: result?.warnings || [],
     }
   })
+  const coveredRub =
+    budgets.reduce((sum, budget) => {
+      const coveredProviderKopecks = Number(
+        budget?.spentCoveredProviderKopecks || 0
+      )
+      if (!coveredProviderKopecks) return sum
+      const markup = Math.max(1, Number(budget?.markup) || 1)
+      return sum + Math.ceil(coveredProviderKopecks * markup) / 100
+    }, 0) || 0
+  const spentRub =
+    budgets.reduce((sum, budget) => sum + (budget?.spentKopecks || 0), 0) / 100
   return {
     id: String(job._id),
     fileName: job.fileName,
@@ -169,9 +181,8 @@ export const serializeFileImport = async (job) => {
     quote: job.quote,
     error: job.error,
     balanceRub: Number(owner?.balance || 0),
-    actualCostRub:
-      budgets.reduce((sum, budget) => sum + (budget?.spentKopecks || 0), 0) /
-      100,
+    actualCostRub: spentRub + coveredRub,
+    coveredRub,
     analysisCostRub:
       budgets
         .filter((budget) => budget?.feature === 'file_analysis')
@@ -180,7 +191,10 @@ export const serializeFileImport = async (job) => {
       budgets
         .filter((budget) => budget && !budget.closed)
         .reduce(
-          (sum, budget) => sum + budget.amountKopecks - budget.spentKopecks,
+          (sum, budget) =>
+            sum +
+            Number(budget.holdKopecks ?? budget.amountKopecks) -
+            budget.spentKopecks,
           0
         ) / 100,
     refundPending:
@@ -218,6 +232,9 @@ const journalBudget = async (job, id, budget) => {
           provider: operation.result.provider,
           model: budget.model,
           source: budget.platform ? 'platform' : 'user_key',
+          coveredByTariff: Boolean(
+            budget.platform && (budget.coveredProviderKopecks || 0) > 0
+          ),
           status: 'succeeded',
           providerCostMicrorubles: Math.round(
             Math.max(0, Number(usage.cost_rub) || 0) * 1_000_000
@@ -420,12 +437,28 @@ export const changeFileImport = async (id, context, body) => {
           $addToSet: { budgetIds: budgetId },
         }
       )
+      const includedState = await getTenantAiIncludedState({
+        tenantId: context.tenantId,
+      })
+      // Сколько себестоимости эта стадия импорта может взять на себя по тарифу.
+      const coveredProviderKopecks = includedState.coveredByTariff
+        ? Math.max(
+            0,
+            Math.min(
+              Math.round(includedState.remainingRub * 100),
+              Math.ceil(
+                job.quote.amountKopecks / Math.max(1, Number(job.quote.markup) || 1)
+              )
+            )
+          )
+        : 0
       await budgetStore(context.tenantId).reserve(budgetId, {
         amountKopecks: job.quote.amountKopecks,
         markup: job.quote.markup,
         platform: provider.name === 'artistcrm',
         feature: analyzing ? 'file_analysis' : 'file_import',
         model: provider.model,
+        coveredProviderKopecks,
       })
       await FileImports.updateOne(
         { _id: job._id, tenantId: context.tenantId, leaseToken: token },

@@ -51,6 +51,11 @@ const aiUsageSchema = {
     enum: ['platform', 'user_key'],
     default: 'platform',
   },
+  // Запрос оплачивает тариф с включённым ИИ: с баланса пользователя не списывается.
+  coveredByTariff: {
+    type: Boolean,
+    default: false,
+  },
   status: {
     type: String,
     enum: ['reserving', 'reserved', 'settling', 'succeeded', 'failed'],

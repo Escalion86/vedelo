@@ -4,7 +4,7 @@ import AiUsage from '@models/AiUsage'
 import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
-import { getPlatformAiAccessQuote } from '@server/aiBilling'
+import { getPlatformAiAccessQuote, getTenantAiIncludedState } from '@server/aiBilling'
 
 const FEATURES = [
   'call_transcription',
@@ -44,6 +44,7 @@ const serializeUsage = (item, { admin = false } = {}) => ({
         providerCost: costToRubles(item.providerCostMicrorubles),
         uncovered: toRubles(item.uncoveredKopecks),
         markupCoefficient: Number(item.markupCoefficient || 1),
+        coveredByTariff: item.coveredByTariff === true,
         errorCode: item.errorCode || '',
       }
     : {}),
@@ -51,6 +52,7 @@ const serializeUsage = (item, { admin = false } = {}) => ({
 
 const loadUserUsage = async (tenantId) => {
   const tenantObjectId = toObjectId(tenantId)
+  const tariffIncluded = await getTenantAiIncludedState({ tenantId })
   const [summaryRows, recent, quotes] = await Promise.all([
     AiUsage.aggregate([
       {
@@ -75,7 +77,7 @@ const loadUserUsage = async (tenantId) => {
     Promise.all(
       FEATURES.map(async (feature) => ({
         feature,
-        ...(await getPlatformAiAccessQuote({ tenantId, feature })),
+        ...(await getPlatformAiAccessQuote({ tenantId, feature, tariffIncluded })),
       }))
     ),
   ])
@@ -90,6 +92,7 @@ const loadUserUsage = async (tenantId) => {
     requiredBalance: requiredBalanceRub,
     available: quotes.every((quote) => quote.available),
     platformConfigured: Boolean(quotes[0]?.platformConfigured),
+    tariffIncluded,
     quotes: quotes.map((quote) => ({
       feature: quote.feature,
       requiredBalance: quote.requiredBalanceRub,
@@ -114,6 +117,12 @@ const loadAdminUsage = async () => {
           chargedKopecks: { $sum: '$chargedKopecks' },
           providerCostMicrorubles: { $sum: '$providerCostMicrorubles' },
           uncoveredKopecks: { $sum: '$uncoveredKopecks' },
+          coveredProviderCostMicrorubles: {
+            $sum: {
+              $cond: ['$coveredByTariff', '$providerCostMicrorubles', 0],
+            },
+          },
+          coveredOperations: { $sum: { $cond: ['$coveredByTariff', 1, 0] } },
         },
       },
     ]),
@@ -137,6 +146,11 @@ const loadAdminUsage = async () => {
           operations: { $sum: 1 },
           chargedKopecks: { $sum: '$chargedKopecks' },
           providerCostMicrorubles: { $sum: '$providerCostMicrorubles' },
+          coveredProviderCostMicrorubles: {
+            $sum: {
+              $cond: ['$coveredByTariff', '$providerCostMicrorubles', 0],
+            },
+          },
         },
       },
       { $sort: { chargedKopecks: -1 } },
@@ -164,6 +178,8 @@ const loadAdminUsage = async () => {
       charged,
       margin: charged - providerCost,
       uncovered: toRubles(summary.uncoveredKopecks),
+      tariffCoveredOperations: Number(summary.coveredOperations || 0),
+      tariffCoveredCost: costToRubles(summary.coveredProviderCostMicrorubles),
     },
     breakdown: breakdownRows.map((item) => ({
       feature: item._id,
@@ -184,6 +200,7 @@ const loadAdminUsage = async () => {
         providerCost: userProviderCost,
         charged: userCharged,
         margin: userCharged - userProviderCost,
+        tariffCoveredCost: costToRubles(item.coveredProviderCostMicrorubles),
       }
     }),
     recent: recent.map((item) => serializeUsage(item, { admin: true })),

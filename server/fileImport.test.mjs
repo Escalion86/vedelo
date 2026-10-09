@@ -148,14 +148,14 @@ test('расход ограничен резервом, неизвестная �
       { amountKopecks: 100, spentKopecks: 0, markup: 1.5 },
       { cost_rub: 0.1 }
     ),
-    { charged: 15, uncovered: 0 }
+    { charged: 15, uncovered: 0, covered: 0, coveredProviderKopecks: 0 }
   )
   assert.deepEqual(
     getFileImportCharge(
       { amountKopecks: 100, spentKopecks: 80, markup: 1.5 },
       { cost_rub: 1 }
     ),
-    { charged: 20, uncovered: 130 }
+    { charged: 20, uncovered: 130, covered: 0, coveredProviderKopecks: 0 }
   )
   assert.throws(
     () =>
@@ -164,6 +164,54 @@ test('расход ограничен резервом, неизвестная �
         {}
       ),
     /не сообщил стоимость/
+  )
+})
+
+test('включённая в тариф себестоимость платится платформой, а не балансом', () => {
+  // Запрос 1 ₽ себестоимости при наценке 1.5 → 150 копеек; тариф берёт 0,4 ₽ себестоимости.
+  assert.deepEqual(
+    getFileImportCharge(
+      {
+        amountKopecks: 150,
+        holdKopecks: 90,
+        coveredProviderKopecks: 40,
+        spentCoveredProviderKopecks: 0,
+        spentKopecks: 0,
+        markup: 1.5,
+      },
+      { cost_rub: 1 }
+    ),
+    { charged: 90, uncovered: 0, covered: 60, coveredProviderKopecks: 40 }
+  )
+  // Лимит тарифа исчерпан: списание целиком уходит на баланс пользователя.
+  assert.deepEqual(
+    getFileImportCharge(
+      {
+        amountKopecks: 150,
+        holdKopecks: 90,
+        coveredProviderKopecks: 40,
+        spentCoveredProviderKopecks: 40,
+        spentKopecks: 0,
+        markup: 1.5,
+      },
+      { cost_rub: 1 }
+    ),
+    { charged: 90, uncovered: 60, covered: 0, coveredProviderKopecks: 0 }
+  )
+  // Тариф покрывает запрос полностью: баланс не резервируется и не списывается.
+  assert.deepEqual(
+    getFileImportCharge(
+      {
+        amountKopecks: 150,
+        holdKopecks: 0,
+        coveredProviderKopecks: 200,
+        spentCoveredProviderKopecks: 0,
+        spentKopecks: 0,
+        markup: 1.5,
+      },
+      { cost_rub: 1 }
+    ),
+    { charged: 0, uncovered: 0, covered: 150, coveredProviderKopecks: 100 }
   )
 })
 

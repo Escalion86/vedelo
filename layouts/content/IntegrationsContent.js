@@ -2081,6 +2081,25 @@ const IntegrationsContent = () => {
                           </div>
                         </div>
                       </div>
+                      {aiUsage?.tariffIncluded?.enabled ? (
+                        <div className="ai-billing-tariff rounded-md border border-blue-100 bg-white/60 px-3 py-2">
+                          <div className="ai-billing-card__label text-xs text-blue-700">
+                            ИИ включён в тариф
+                          </div>
+                          <div className="ai-billing-card__value font-semibold text-blue-950">
+                            Израсходовано{' '}
+                            {formatMoney(aiUsage.tariffIncluded.usedRub || 0)} из{' '}
+                            {formatMoney(aiUsage.tariffIncluded.includedRub || 0)}
+                            {' · '}осталось{' '}
+                            {formatMoney(aiUsage.tariffIncluded.remainingRub || 0)}
+                          </div>
+                          <div className="ai-billing-card__description text-xs text-blue-800">
+                            {aiUsage.tariffIncluded.coveredByTariff
+                              ? 'Запросы ИИ пока идут за счёт тарифа, баланс не расходуется. Сверх включённой суммы списания идут с баланса.'
+                              : 'Включённая в тариф сумма на этот месяц исчерпана: запросы ИИ списываются с баланса.'}
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="tablet:grid-cols-2 grid grid-cols-1 gap-2">
                         <div className="ai-billing-estimate rounded-md border border-blue-100 bg-white/60 px-3 py-2">
                           <div className="ai-billing-card__label text-xs text-blue-700">

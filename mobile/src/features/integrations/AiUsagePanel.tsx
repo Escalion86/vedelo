@@ -17,11 +17,21 @@ type AiUsageItem = {
   createdAt: string
 }
 
+type AiIncludedState = {
+  enabled: boolean
+  includedRub: number
+  usedRub: number
+  remainingRub: number
+  coveredByTariff: boolean
+  tariffTitle?: string
+}
+
 type UserAiUsage = {
   balance: number
   requiredBalance: number
   available: boolean
   platformConfigured: boolean
+  tariffIncluded?: AiIncludedState
   quotes: Array<{
     feature: string
     requiredBalance: number
@@ -34,10 +44,33 @@ type UserAiUsage = {
   recent: AiUsageItem[]
 }
 
+const readTariffIncluded = (value: unknown): AiIncludedState | undefined => {
+  if (value === undefined || value === null) return undefined
+  if (!isObject(value)) throw new Error('INVALID_TARIFF_INCLUDED')
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+  if (
+    typeof value.enabled !== 'boolean' ||
+    !finite(value.includedRub) ||
+    !finite(value.usedRub) ||
+    !finite(value.remainingRub) ||
+    typeof value.coveredByTariff !== 'boolean'
+  )
+    throw new Error('INVALID_TARIFF_INCLUDED')
+  return {
+    enabled: value.enabled,
+    includedRub: value.includedRub,
+    usedRub: value.usedRub,
+    remainingRub: value.remainingRub,
+    coveredByTariff: value.coveredByTariff,
+    tariffTitle: typeof value.tariffTitle === 'string' ? value.tariffTitle : undefined,
+  }
+}
+
 export const readUsage = (response: unknown): UserAiUsage => {
   const data = responseData(response)
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
   if (!finite(data.balance) || !finite(data.requiredBalance) || typeof data.available !== 'boolean' || typeof data.platformConfigured !== 'boolean' || !isObject(data.summary) || !finite(data.summary.operations) || !finite(data.summary.charged) || !Array.isArray(data.quotes) || !Array.isArray(data.recent)) throw new Error('INVALID_USAGE')
+  const tariffIncluded = readTariffIncluded(data.tariffIncluded)
   const quotes = data.quotes.map((item) => {
     if (!isObject(item) || typeof item.feature !== 'string' || !finite(item.requiredBalance) || typeof item.available !== 'boolean') throw new Error('INVALID_QUOTE')
     return { feature: item.feature, requiredBalance: item.requiredBalance, available: item.available }
@@ -46,7 +79,7 @@ export const readUsage = (response: unknown): UserAiUsage => {
     if (!isObject(item) || typeof item.id !== 'string' || typeof item.feature !== 'string' || typeof item.status !== 'string' || !finite(item.charged) || typeof item.createdAt !== 'string') throw new Error('INVALID_USAGE_ITEM')
     return { id: item.id, feature: item.feature, status: item.status, charged: item.charged, createdAt: item.createdAt }
   })
-  return { balance: data.balance, requiredBalance: data.requiredBalance, available: data.available, platformConfigured: data.platformConfigured, summary: { operations: data.summary.operations, charged: data.summary.charged }, quotes, recent }
+  return { balance: data.balance, requiredBalance: data.requiredBalance, available: data.available, platformConfigured: data.platformConfigured, ...(tariffIncluded ? { tariffIncluded } : {}), summary: { operations: data.summary.operations, charged: data.summary.charged }, quotes, recent }
 }
 
 const featureLabels: Record<string, string> = {
@@ -176,6 +209,22 @@ export const AiUsagePanel = ({
               value={String(usage?.summary?.operations || 0)}
             />
           </View>
+
+          {usage.tariffIncluded?.enabled ? (
+            <View style={styles.listBox}>
+              <Text style={styles.listTitle}>ИИ включён в тариф</Text>
+              <Text style={styles.muted}>
+                Израсходовано {formatMoney(usage.tariffIncluded.usedRub)} из{' '}
+                {formatMoney(usage.tariffIncluded.includedRub)} · осталось{' '}
+                {formatMoney(usage.tariffIncluded.remainingRub)}
+              </Text>
+              <Text style={styles.muted}>
+                {usage.tariffIncluded.coveredByTariff
+                  ? 'Запросы ИИ пока идут за счёт тарифа, баланс не расходуется. Сверх включённой суммы списания идут с баланса.'
+                  : 'Включённая в тариф сумма на этот месяц исчерпана: запросы ИИ списываются с баланса.'}
+              </Text>
+            </View>
+          ) : null}
 
           {activeProvider === null ? (
             <Text style={styles.muted}>Текущий провайдер не поддерживается приложением.</Text>

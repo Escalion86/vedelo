@@ -123,3 +123,80 @@ test(
     }
   }
 )
+
+test(
+  'Mongo: включённая в тариф себестоимость не списывается с баланса',
+  { skip: !process.env.FILE_IMPORT_TEST_MONGO_URI, timeout: 20000 },
+  async () => {
+    const dbName = `codex_file_import_test_${randomUUID().replaceAll('-', '')}`
+    const connection = await mongoose
+      .createConnection(process.env.FILE_IMPORT_TEST_MONGO_URI, {
+        dbName,
+        retryWrites: false,
+      })
+      .asPromise()
+    try {
+      const users = connection.db.collection('users')
+      const ownerId = new mongoose.Types.ObjectId()
+      await users.insertOne({ _id: ownerId, balance: 0 })
+      const store = createFileImportBudgetStore({ users, ownerId })
+
+      // Тариф покрывает всю смету: баланс не резервируется вовсе.
+      const coveredId = `${new mongoose.Types.ObjectId()}_a1`
+      const coveredOptions = {
+        amountKopecks: 300,
+        markup: 1.5,
+        platform: true,
+        feature: 'file_analysis',
+        model: 'test',
+        coveredProviderKopecks: 200,
+      }
+      const coveredBudget = await store.reserve(coveredId, coveredOptions)
+      assert.equal(coveredBudget.holdKopecks, 0)
+      assert.equal(coveredBudget.coveredProviderKopecks, 200)
+      assert.equal((await users.findOne({ _id: ownerId })).balance, 0)
+      await store.execute(coveredId, 'one', async () => ({
+        content: '{}',
+        usage: { cost_rub: 1 },
+      }))
+      const coveredAfter = await store.read(coveredId)
+      assert.equal(coveredAfter.spentKopecks, 0, 'баланс не списан')
+      assert.equal(coveredAfter.spentCoveredProviderKopecks, 100)
+      await store.close(coveredId)
+      assert.equal((await users.findOne({ _id: ownerId })).balance, 0)
+
+      // Частичное покрытие: первый запрос за счёт тарифа, второй — из резерва.
+      await users.updateOne({ _id: ownerId }, { $set: { balance: 1 } })
+      const mixedId = `${new mongoose.Types.ObjectId()}_a2`
+      const mixedOptions = { ...coveredOptions, coveredProviderKopecks: 100 }
+      await assert.rejects(store.reserve(mixedId, mixedOptions), {
+        code: 'AI_BALANCE_INSUFFICIENT',
+      })
+      await users.updateOne({ _id: ownerId }, { $set: { balance: 2 } })
+      const mixedBudget = await store.reserve(mixedId, mixedOptions)
+      assert.equal(mixedBudget.holdKopecks, 150)
+      assert.equal((await users.findOne({ _id: ownerId })).balance, 0.5)
+      await store.execute(mixedId, 'one', async () => ({
+        content: '{}',
+        usage: { cost_rub: 1 },
+      }))
+      const afterCovered = await store.read(mixedId)
+      assert.equal(afterCovered.spentKopecks, 0)
+      assert.equal(afterCovered.spentCoveredProviderKopecks, 100)
+      await store.execute(mixedId, 'two', async () => ({
+        content: '{}',
+        usage: { cost_rub: 1 },
+      }))
+      const afterBoth = await store.read(mixedId)
+      assert.equal(afterBoth.spentKopecks, 150, 'остаток списан из резерва')
+      assert.equal(afterBoth.spentCoveredProviderKopecks, 100)
+      await store.close(mixedId)
+      assert.equal((await users.findOne({ _id: ownerId })).balance, 0.5)
+    } finally {
+      if (!connection.name.startsWith('codex_file_import_test_'))
+        throw new Error('Unsafe test database')
+      await connection.dropDatabase()
+      await connection.close()
+    }
+  }
+)
