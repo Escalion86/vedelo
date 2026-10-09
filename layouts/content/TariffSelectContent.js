@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation'
 import useSnackbar from '@helpers/useSnackbar'
 import { reachGoal } from '@helpers/metrikaGoals'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
+import { getAiFeatureLabel } from '@helpers/tariffFeatures'
 
 const formatPrice = (price) => {
   if (!price || Number(price) === 0) return 'Бесплатно'
@@ -307,7 +308,7 @@ const TariffSelectContent = () => {
                   />
                   <IconCheckBox
                     checked={tariff.allowAi}
-                    label="ИИ-возможности"
+                    label={getAiFeatureLabel(tariff, 'ИИ-возможности')}
                     readOnly
                     noMargin
                   />

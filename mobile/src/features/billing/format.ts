@@ -20,6 +20,17 @@ export const formatBalanceRunway = (billing?: MobileBilling | null) => {
     : `Баланс: ${balance}`
 }
 
+export const getAiTariffLabel = (tariff: {
+  allowAi?: boolean
+  aiIncludedRubPerMonth?: number
+}) => {
+  if (!tariff?.allowAi) return ''
+  const included = Math.max(Number(tariff.aiIncludedRubPerMonth || 0), 0)
+  return included > 0
+    ? `ИИ (включено до ${formatRubles(included)}/мес)`
+    : 'ИИ'
+}
+
 export const getTariffFeatures = (tariff: MobileBilling['tariffs'][number]) =>
   [
     tariff.allowCalendarSync && 'Календарь',
@@ -27,7 +38,7 @@ export const getTariffFeatures = (tariff: MobileBilling['tariffs'][number]) =>
     tariff.allowDocuments && 'Документы',
     (tariff.allowProposals ?? tariff.allowDocuments) && 'Коммерческие предложения',
     tariff.allowTelephony && 'Телефония',
-    tariff.allowAi && 'ИИ',
+    getAiTariffLabel(tariff),
     tariff.allowAvitoIntegration && 'Avito',
     tariff.allowVkIntegration && 'VK',
     tariff.allowPublicLeadApi && 'API заявок',

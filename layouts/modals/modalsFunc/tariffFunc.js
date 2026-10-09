@@ -43,6 +43,12 @@ const tariffFunc = (tariffId, clone = false) => {
     const [allowAi, setAllowAi] = useState(
       tariff?.allowAi ?? DEFAULT_TARIFF.allowAi
     )
+    const [aiIncludedRubPerMonth, setAiIncludedRubPerMonth] = useState(
+      tariff?.aiIncludedRubPerMonth ?? DEFAULT_TARIFF.aiIncludedRubPerMonth
+    )
+    const aiIncludedRubPerMonthValue = allowAi
+      ? Math.max(0, Math.round(Number(aiIncludedRubPerMonth) || 0))
+      : 0
     const [allowAvitoIntegration, setAllowAvitoIntegration] = useState(
       tariff?.allowAvitoIntegration ?? DEFAULT_TARIFF.allowAvitoIntegration
     )
@@ -80,6 +86,7 @@ const tariffFunc = (tariffId, clone = false) => {
               allowClientReviews,
               allowTelephony,
               allowAi,
+              aiIncludedRubPerMonth: aiIncludedRubPerMonthValue,
               allowAvitoIntegration,
               allowVkIntegration,
               allowTelegramIntegration,
@@ -99,6 +106,7 @@ const tariffFunc = (tariffId, clone = false) => {
       allowStatistics,
       allowTelephony,
       allowAi,
+      aiIncludedRubPerMonthValue,
       allowVkIntegration,
       allowTelegramIntegration,
       allowPublicLeadApi,
@@ -124,6 +132,8 @@ const tariffFunc = (tariffId, clone = false) => {
         (tariff?.allowProposals ?? tariff?.allowDocuments) !== allowProposals ||
         tariff?.allowTelephony !== allowTelephony ||
         tariff?.allowAi !== allowAi ||
+        (Number(tariff?.aiIncludedRubPerMonth ?? 0) || 0) !==
+          aiIncludedRubPerMonthValue ||
         tariff?.allowAvitoIntegration !== allowAvitoIntegration ||
         tariff?.allowVkIntegration !== allowVkIntegration ||
         tariff?.allowTelegramIntegration !== allowTelegramIntegration ||
@@ -144,6 +154,7 @@ const tariffFunc = (tariffId, clone = false) => {
       allowStatistics,
       allowTelephony,
       allowAi,
+      aiIncludedRubPerMonthValue,
       allowVkIntegration,
       allowTelegramIntegration,
       allowPublicLeadApi,
@@ -160,6 +171,7 @@ const tariffFunc = (tariffId, clone = false) => {
       tariff?.allowClientReviews,
       tariff?.allowTelephony,
       tariff?.allowAi,
+      tariff?.aiIncludedRubPerMonth,
       tariff?.allowStatistics,
       tariff?.allowVkIntegration,
       tariff?.allowTelegramIntegration,
@@ -249,6 +261,19 @@ const tariffFunc = (tariffId, clone = false) => {
               label="ИИ-возможности"
               noMargin
             />
+            {allowAi && (
+              <div className="pl-6">
+                <Input
+                  label="ИИ включён на сумму (₽/мес)"
+                  help="Сколько рублей себестоимости ИИ в месяц берёт на себя сервис. 0 — ИИ не включён, запросы оплачиваются с баланса пользователя. Свыше указанной суммы запросы тоже уходят на баланс."
+                  type="number"
+                  value={aiIncludedRubPerMonth}
+                  onChange={(value) => setAiIncludedRubPerMonth(value)}
+                  min={0}
+                  step={100}
+                />
+              </div>
+            )}
             <IconCheckBox
               checked={allowProposals}
               onClick={() => setAllowProposals((prev) => !prev)}

@@ -41,6 +41,11 @@ const tariffsSchema = {
     type: Boolean,
     default: false,
   },
+  aiIncludedRubPerMonth: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
   allowAvitoIntegration: {
     type: Boolean,
     default: false,

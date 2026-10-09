@@ -18,6 +18,7 @@ export type MobileTariff = {
   allowProposals?: boolean
   allowTelephony: boolean
   allowAi: boolean
+  aiIncludedRubPerMonth?: number
   allowAvitoIntegration: boolean
   allowVkIntegration: boolean
   allowPublicLeadApi: boolean

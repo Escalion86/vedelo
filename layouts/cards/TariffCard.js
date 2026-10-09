@@ -10,6 +10,7 @@ import IconCheckBox from '@components/IconCheckBox'
 import { useAtomValue } from 'jotai'
 import CardWrapper from '@components/CardWrapper'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
+import { getAiFeatureLabel } from '@helpers/tariffFeatures'
 
 const formatPrice = (price) => {
   if (!price || Number(price) === 0) return 'Бесплатно'
@@ -97,7 +98,7 @@ const TariffCard = ({ tariff, style, onEdit, onDelete }) => {
           />
           <IconCheckBox
             checked={tariff.allowAi}
-            label="ИИ-возможности"
+            label={getAiFeatureLabel(tariff, 'ИИ-возможности')}
             readOnly
             noMargin
           />
@@ -156,6 +157,7 @@ TariffCard.propTypes = {
     allowClientReviews: PropTypes.bool,
     allowTelephony: PropTypes.bool,
     allowAi: PropTypes.bool,
+    aiIncludedRubPerMonth: PropTypes.number,
     allowAvitoIntegration: PropTypes.bool,
     allowVkIntegration: PropTypes.bool,
     allowTelegramIntegration: PropTypes.bool,

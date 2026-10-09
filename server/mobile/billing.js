@@ -16,6 +16,7 @@ const serializeTariff = (tariff, quote = null) => ({
   allowClientReviews: tariff.allowClientReviews === true,
   allowTelephony: Boolean(tariff.allowTelephony),
   allowAi: Boolean(tariff.allowAi),
+  aiIncludedRubPerMonth: Math.max(Number(tariff.aiIncludedRubPerMonth ?? 0), 0),
   allowAvitoIntegration: Boolean(tariff.allowAvitoIntegration),
   allowVkIntegration: Boolean(tariff.allowVkIntegration),
   allowTelegramIntegration: Boolean(tariff.allowTelegramIntegration),
