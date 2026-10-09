@@ -39,6 +39,9 @@ const setCalls = []
 const mocks = {
   jotai: { useAtomValue: (value) => value },
   '@helpers/constants': { DEFAULT_TARIFF },
+  // Модалка тарифа в снимке продакшена подключает справку полей — в базовой ветке этих модулей нет.
+  '@helpers/fieldHelp.json': { __esModule: true, default: {} },
+  '@components/FieldHelp': { __esModule: true, default: () => null },
   '@helpers/useErrors': {
     __esModule: true,
     default: () => [{}, () => false, null, () => {}],
