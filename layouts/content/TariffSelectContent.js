@@ -5,6 +5,8 @@ import ContentHeader from '@components/ContentHeader'
 import Button from '@components/Button'
 import EmptyState from '@components/EmptyState'
 import IconCheckBox from '@components/IconCheckBox'
+import TariffFeatureLabel from '@components/TariffFeatureLabel'
+import { formatAiIncludedRowLabel } from '@helpers/tariffFeatureHelp'
 import SectionCard from '@components/SectionCard'
 import TariffConditions from '@components/TariffConditions'
 import tariffsAtom from '@state/atoms/tariffsAtom'
@@ -19,7 +21,6 @@ import { useRouter } from 'next/navigation'
 import useSnackbar from '@helpers/useSnackbar'
 import { reachGoal } from '@helpers/metrikaGoals'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
-import { getAiFeatureLabel } from '@helpers/tariffFeatures'
 import { formatAiIncludedSentence } from '@helpers/aiIncludedEstimate.mjs'
 
 const formatPrice = (price) => {
@@ -285,31 +286,37 @@ const TariffSelectContent = () => {
                 <div className="mt-4 grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
                   <IconCheckBox
                     checked={tariff.allowCalendarSync}
-                    label="Синхронизация с календарем"
+                    label={<TariffFeatureLabel label="Синхронизация с календарем" helpKey="allowCalendarSync" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowStatistics}
-                    label="Просмотр статистики"
+                    label={<TariffFeatureLabel label="Просмотр статистики" helpKey="allowStatistics" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowDocuments}
-                    label="Работа с документами"
+                    label={<TariffFeatureLabel label="Работа с документами" helpKey="allowDocuments" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowTelephony}
-                    label="IP-телефония"
+                    label={<TariffFeatureLabel label="IP-телефония" helpKey="allowTelephony" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowAi}
-                    label={getAiFeatureLabel(tariff, 'ИИ-возможности')}
+                    label={
+                      <TariffFeatureLabel
+                        label={formatAiIncludedRowLabel(tariff, 'ИИ-возможности')}
+                        helpKey="allowAi"
+                        tariff={tariff}
+                      />
+                    }
                     readOnly
                     noMargin
                   />
@@ -321,37 +328,37 @@ const TariffSelectContent = () => {
                   ) : null}
                   <IconCheckBox
                     checked={tariff.allowProposals ?? tariff.allowDocuments}
-                    label="Коммерческие предложения"
+                    label={<TariffFeatureLabel label="Коммерческие предложения" helpKey="allowProposals" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowClientReviews === true}
-                    label="Отзывы клиентов"
+                    label={<TariffFeatureLabel label="Отзывы клиентов" helpKey="allowClientReviews" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowAvitoIntegration}
-                    label="Интеграция Avito"
+                    label={<TariffFeatureLabel label="Интеграция Avito" helpKey="allowAvitoIntegration" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowVkIntegration}
-                    label="Интеграция VK"
+                    label={<TariffFeatureLabel label="Интеграция VK" helpKey="allowVkIntegration" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowTelegramIntegration}
-                    label="Интеграция Telegram"
+                    label={<TariffFeatureLabel label="Интеграция Telegram" helpKey="allowTelegramIntegration" tariff={tariff} />}
                     readOnly
                     noMargin
                   />
                   <IconCheckBox
                     checked={tariff.allowPublicLeadApi}
-                    label="Подключение сайта по API"
+                    label={<TariffFeatureLabel label="Подключение сайта по API" helpKey="allowPublicLeadApi" tariff={tariff} />}
                     readOnly
                     noMargin
                   />

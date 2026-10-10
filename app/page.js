@@ -20,6 +20,12 @@ import dbConnect from '@server/dbConnect'
 import Tariffs from '@models/Tariffs'
 import { withAiIncludedEstimates } from '@server/aiIncludedEstimate'
 import { formatAiIncludedSentence } from '@helpers/aiIncludedEstimate.mjs'
+import {
+  formatAiIncludedRowLabel,
+  formatAiIncludedShort,
+  getTariffFeatureHelp,
+} from '@helpers/tariffFeatureHelp'
+import FieldHelp from '@components/FieldHelp'
 import { getServerSession } from 'next-auth'
 import authOptions from './api/auth/[...nextauth]/_options'
 import { redirect } from 'next/navigation'
@@ -441,6 +447,14 @@ function TariffComparison({ tariffs }) {
       ? `* ${formatAiIncludedSentence(tariff.aiIncludedEstimate)}. ${tariff.aiIncludedEstimate.note}`
       : ''
   const aiIncludedNotes = tariffs.map(aiNoteFor).filter(Boolean)
+  // Ключ подсказки «i» для строки возможностей (у ИИ и лимита заказов ключа в строке нет).
+  const rowHelpKey = (feature) =>
+    feature.key || (feature.type === 'eventsLimit' ? 'eventsLimit' : '')
+  const rowHelpText = (feature) =>
+    getTariffFeatureHelp(
+      rowHelpKey(feature),
+      feature.key === 'allowAi' ? null : undefined
+    )
 
   if (tariffs.length === 0) {
     return (
@@ -487,7 +501,15 @@ function TariffComparison({ tariffs }) {
           <tbody>
             {visibleFeatureRows.map((feature) => (
               <tr key={feature.label}>
-                <th scope="row">{feature.label}</th>
+                <th scope="row">
+                  {feature.label}
+                  {rowHelpKey(feature) ? (
+                    <FieldHelp
+                      text={rowHelpText(feature)}
+                      label={feature.label}
+                    />
+                  ) : null}
+                </th>
                 {tariffs.map((tariff) => {
                   if (feature.type === 'eventsLimit') {
                     return (
@@ -503,10 +525,11 @@ function TariffComparison({ tariffs }) {
                   return (
                     <td key={String(tariff._id)}>
                       <TariffAvailability available={available} />
-                      {feature.key === 'allowAi' && aiNoteFor(tariff) ? (
-                        <span className="ml-1 font-bold" aria-hidden="true">
-                          *
-                        </span>
+                      {feature.key === 'allowAi' && formatAiIncludedShort(tariff) ? (
+                        <div className="text-xs leading-5 opacity-70">
+                          {formatAiIncludedShort(tariff)}
+                          <span className="font-bold"> *</span>
+                        </div>
                       ) : null}
                     </td>
                   )
@@ -575,7 +598,17 @@ function TariffComparison({ tariffs }) {
                     const available = isPublicTariffFeatureAvailable(tariff, feature)
                     return (
                       <div key={feature.label}>
-                        <dt>{feature.label}</dt>
+                        <dt>
+                          {feature.key === 'allowAi'
+                            ? formatAiIncludedRowLabel(tariff, feature.label)
+                            : feature.label}
+                          {rowHelpKey(feature) ? (
+                            <FieldHelp
+                              text={rowHelpText(feature)}
+                              label={feature.label}
+                            />
+                          ) : null}
+                        </dt>
                         <dd
                           className={
                             feature.type === 'eventsLimit'
