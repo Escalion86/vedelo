@@ -435,13 +435,12 @@ function TariffAvailability({ available }) {
 }
 
 function TariffComparison({ tariffs }) {
-  // Сноска под тарифной сеткой: «300 ₽ — это примерно 4 ч 10 мин расшифровки звонков…».
-  const aiIncludedNotes = tariffs
-    .filter((tariff) => tariff?.aiIncludedEstimate?.enabled)
-    .map(
-      (tariff) =>
-        `* ${formatAiIncludedSentence(tariff.aiIncludedEstimate)}. ${tariff.aiIncludedEstimate.note}`
-    )
+  // Сноска к сумме ИИ: «* ИИ в тарифе на 300 ₽ — это примерно 4 ч 10 мин расшифровки звонков…».
+  const aiNoteFor = (tariff) =>
+    tariff?.aiIncludedEstimate?.enabled
+      ? `* ${formatAiIncludedSentence(tariff.aiIncludedEstimate)}. ${tariff.aiIncludedEstimate.note}`
+      : ''
+  const aiIncludedNotes = tariffs.map(aiNoteFor).filter(Boolean)
 
   if (tariffs.length === 0) {
     return (
@@ -504,6 +503,11 @@ function TariffComparison({ tariffs }) {
                   return (
                     <td key={String(tariff._id)}>
                       <TariffAvailability available={available} />
+                      {feature.key === 'allowAi' && aiNoteFor(tariff) ? (
+                        <span className="ml-1 font-bold" aria-hidden="true">
+                          *
+                        </span>
+                      ) : null}
                     </td>
                   )
                 })}
@@ -540,6 +544,15 @@ function TariffComparison({ tariffs }) {
             </tr>
           </tfoot>
         </table>
+        {aiIncludedNotes.length ? (
+          <div className="mt-3 text-xs leading-5 opacity-70">
+            {aiIncludedNotes.map((note) => (
+              <p key={note} className="mt-1">
+                {note}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="landing-tariff-mobile" aria-label="Тарифы">
@@ -580,6 +593,11 @@ function TariffComparison({ tariffs }) {
                     )
                   })}
                 </dl>
+                {aiNoteFor(tariff) ? (
+                  <p className="mt-3 text-xs leading-5 opacity-70">
+                    {aiNoteFor(tariff)}
+                  </p>
+                ) : null}
                 <MetrikaLink
                   href={tariffRegisterUrl}
                   className={`landing-button ${
@@ -602,13 +620,6 @@ function TariffComparison({ tariffs }) {
         })}
       </div>
       <TariffConditions tariffs={tariffs} className="mt-4" />
-      {aiIncludedNotes.length ? (
-        <div className="mt-3 text-xs leading-5 opacity-70">
-          {aiIncludedNotes.map((note) => (
-            <p key={note}>{note}</p>
-          ))}
-        </div>
-      ) : null}
     </>
   )
 }
