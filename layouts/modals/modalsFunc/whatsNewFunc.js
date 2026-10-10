@@ -84,54 +84,58 @@ const whatsNewFunc = () => {
     }
 
     return (
-      <FormWrapper className="flex h-full flex-col gap-2">
-        {items.map((item) => {
-          const id = String(item?._id ?? '')
-          const isFresh = freshIds.has(id)
-          const isCollapsed = collapsedIds.has(id)
+      <FormWrapper className="flex h-full min-h-0 flex-col">
+        {/* Список новостей прокручивается сам, а карточки не сжимаются:
+            иначе в модальном окне новости сплющивались вместо прокрутки. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-1">
+          {items.map((item) => {
+            const id = String(item?._id ?? '')
+            const isFresh = freshIds.has(id)
+            const isCollapsed = collapsedIds.has(id)
 
-          return (
-            <div
-              key={id}
-              className="overflow-hidden rounded-lg border border-gray-200"
-            >
-              <button
-                type="button"
-                onClick={() => toggleItem(id)}
-                aria-expanded={!isCollapsed}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition hover:bg-gray-50"
+            return (
+              <div
+                key={id}
+                className="shrink-0 overflow-hidden rounded-lg border border-gray-200"
               >
-                <FontAwesomeIcon
-                  icon={isCollapsed ? faChevronRight : faChevronDown}
-                  className="h-3 w-3 shrink-0 text-gray-400"
-                />
-                {item?.version ? (
-                  <span className="shrink-0 rounded bg-[var(--ui-primary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--ui-primary-text)]">
-                    {item.version}
+                <button
+                  type="button"
+                  onClick={() => toggleItem(id)}
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition hover:bg-gray-50"
+                >
+                  <FontAwesomeIcon
+                    icon={isCollapsed ? faChevronRight : faChevronDown}
+                    className="h-3 w-3 shrink-0 text-gray-400"
+                  />
+                  {item?.version ? (
+                    <span className="shrink-0 rounded bg-[var(--ui-primary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--ui-primary-text)]">
+                      {item.version}
+                    </span>
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
+                    {item?.title}
                   </span>
-                ) : null}
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
-                  {item?.title}
-                </span>
-                {isFresh ? (
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full bg-[var(--ui-primary)]"
-                    title="Новое"
+                  {isFresh ? (
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full bg-[var(--ui-primary)]"
+                      title="Новое"
+                    />
+                  ) : null}
+                  <span className="shrink-0 text-xs text-gray-400">
+                    {formatNewsDate(item?.publishedAt)}
+                  </span>
+                </button>
+                {!isCollapsed ? (
+                  <NewsRichTextView
+                    newsItem={item}
+                    className="px-4 pb-4 text-sm text-gray-700"
                   />
                 ) : null}
-                <span className="shrink-0 text-xs text-gray-400">
-                  {formatNewsDate(item?.publishedAt)}
-                </span>
-              </button>
-              {!isCollapsed ? (
-                <NewsRichTextView
-                  newsItem={item}
-                  className="px-4 pb-4 text-sm text-gray-700"
-                />
-              ) : null}
-            </div>
-          )
-        })}
+              </div>
+            )
+          })}
+        </div>
       </FormWrapper>
     )
   }
