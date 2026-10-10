@@ -604,7 +604,10 @@ function TariffComparison({ tariffs }) {
                             : feature.label}
                           {rowHelpKey(feature) ? (
                             <FieldHelp
-                              text={rowHelpText(feature)}
+                              text={getTariffFeatureHelp(
+                                rowHelpKey(feature),
+                                tariff
+                              )}
                               label={feature.label}
                             />
                           ) : null}
