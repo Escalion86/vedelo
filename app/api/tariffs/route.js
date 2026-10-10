@@ -14,7 +14,9 @@ export const GET = async () => {
     )
   }
   await dbConnect()
-  const tariffs = await Tariffs.find({}).sort({ price: 1, title: 1 }).lean()
+  const tariffs = await withAiIncludedEstimates(
+    await Tariffs.find({}).sort({ price: 1, title: 1 }).lean()
+  )
   return NextResponse.json({ success: true, data: tariffs }, { status: 200 })
 }
 

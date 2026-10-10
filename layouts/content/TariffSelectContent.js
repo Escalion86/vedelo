@@ -20,6 +20,7 @@ import useSnackbar from '@helpers/useSnackbar'
 import { reachGoal } from '@helpers/metrikaGoals'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 import { getAiFeatureLabel } from '@helpers/tariffFeatures'
+import { formatAiIncludedSentence } from '@helpers/aiIncludedEstimate.mjs'
 
 const formatPrice = (price) => {
   if (!price || Number(price) === 0) return 'Бесплатно'
@@ -312,6 +313,12 @@ const TariffSelectContent = () => {
                     readOnly
                     noMargin
                   />
+                  {tariff.aiIncludedEstimate?.enabled ? (
+                    <div className="ai-billing-tariff-estimate text-xs leading-5 opacity-70">
+                      * {formatAiIncludedSentence(tariff.aiIncludedEstimate)}.{' '}
+                      {tariff.aiIncludedEstimate.note}
+                    </div>
+                  ) : null}
                   <IconCheckBox
                     checked={tariff.allowProposals ?? tariff.allowDocuments}
                     label="Коммерческие предложения"

@@ -11,6 +11,7 @@ import { useAtomValue } from 'jotai'
 import CardWrapper from '@components/CardWrapper'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 import { getAiFeatureLabel } from '@helpers/tariffFeatures'
+import { formatAiIncludedSentence } from '@helpers/aiIncludedEstimate.mjs'
 
 const formatPrice = (price) => {
   if (!price || Number(price) === 0) return 'Бесплатно'
@@ -102,6 +103,12 @@ const TariffCard = ({ tariff, style, onEdit, onDelete }) => {
             readOnly
             noMargin
           />
+          {tariff.aiIncludedEstimate?.enabled ? (
+            <div className="text-xs leading-5 text-gray-500">
+              * {formatAiIncludedSentence(tariff.aiIncludedEstimate)}.{' '}
+              {tariff.aiIncludedEstimate.note}
+            </div>
+          ) : null}
           <IconCheckBox
             checked={tariff.allowAvitoIntegration}
             label="Интеграция Avito"
@@ -158,6 +165,11 @@ TariffCard.propTypes = {
     allowTelephony: PropTypes.bool,
     allowAi: PropTypes.bool,
     aiIncludedRubPerMonth: PropTypes.number,
+    aiIncludedEstimate: PropTypes.shape({
+      enabled: PropTypes.bool,
+      includedRub: PropTypes.number,
+      note: PropTypes.string,
+    }),
     allowAvitoIntegration: PropTypes.bool,
     allowVkIntegration: PropTypes.bool,
     allowTelegramIntegration: PropTypes.bool,

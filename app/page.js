@@ -18,6 +18,8 @@ import WalletOutlinedIcon from '@mui/icons-material/WalletOutlined'
 import MetrikaLink from '@components/MetrikaLink'
 import dbConnect from '@server/dbConnect'
 import Tariffs from '@models/Tariffs'
+import { withAiIncludedEstimates } from '@server/aiIncludedEstimate'
+import { formatAiIncludedSentence } from '@helpers/aiIncludedEstimate.mjs'
 import { getServerSession } from 'next-auth'
 import authOptions from './api/auth/[...nextauth]/_options'
 import { redirect } from 'next/navigation'
@@ -433,6 +435,14 @@ function TariffAvailability({ available }) {
 }
 
 function TariffComparison({ tariffs }) {
+  // Сноска под тарифной сеткой: «300 ₽ — это примерно 4 ч 10 мин расшифровки звонков…».
+  const aiIncludedNotes = tariffs
+    .filter((tariff) => tariff?.aiIncludedEstimate?.enabled)
+    .map(
+      (tariff) =>
+        `* ${formatAiIncludedSentence(tariff.aiIncludedEstimate)}. ${tariff.aiIncludedEstimate.note}`
+    )
+
   if (tariffs.length === 0) {
     return (
       <div className="landing-pricing-empty">
@@ -592,6 +602,13 @@ function TariffComparison({ tariffs }) {
         })}
       </div>
       <TariffConditions tariffs={tariffs} className="mt-4" />
+      {aiIncludedNotes.length ? (
+        <div className="mt-3 text-xs leading-5 opacity-70">
+          {aiIncludedNotes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      ) : null}
     </>
   )
 }
@@ -603,9 +620,11 @@ export default async function HomePage() {
   let tariffs = []
   try {
     await dbConnect()
-    tariffs = await Tariffs.find({ hidden: { $ne: true } })
-      .sort({ price: 1, title: 1 })
-      .lean()
+    tariffs = await withAiIncludedEstimates(
+      await Tariffs.find({ hidden: { $ne: true } })
+        .sort({ price: 1, title: 1 })
+        .lean()
+    )
   } catch (error) {
     tariffs = []
   }

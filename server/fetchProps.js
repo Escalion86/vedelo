@@ -7,6 +7,7 @@ import Users from '@models/Users'
 import { withUserMutationActivity } from '@server/userMutationActivity'
 import News from '@models/News'
 import Tariffs from '@models/Tariffs'
+import { withAiIncludedEstimates } from '@server/aiIncludedEstimate'
 import dbConnect from './dbConnect'
 import mongoose from 'mongoose'
 import { applyUserEventStats } from '@helpers/userEventStats'
@@ -384,7 +385,9 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
       transactions: JSON.parse(JSON.stringify(transactions)),
       news: JSON.parse(JSON.stringify(newsList)),
       services: JSON.parse(JSON.stringify(services)),
-      tariffs: JSON.parse(JSON.stringify(tariffs)),
+      tariffs: JSON.parse(
+        JSON.stringify(await withAiIncludedEstimates(tariffs))
+      ),
       users: JSON.parse(JSON.stringify(usersWithEventStats)),
       serverSettings: JSON.parse(
         JSON.stringify({
