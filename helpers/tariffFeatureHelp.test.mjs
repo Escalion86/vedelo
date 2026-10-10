@@ -40,9 +40,15 @@ test('подсказка ИИ объясняет оплату в предела�
 })
 
 test('подсказка ИИ без включённой суммы говорит про баланс', () => {
-  const text = getTariffFeatureHelp('allowAi', { aiIncludedRubPerMonth: 0 })
+  const text = getTariffFeatureHelp('allowAi', { allowAi: true, aiIncludedRubPerMonth: 0 })
   assert.ok(text.includes('не включён'), text)
   assert.ok(!text.includes('300 ₽'), text)
+})
+
+test('подсказка ИИ в тарифе без ИИ не обещает оплату с баланса', () => {
+  const text = getTariffFeatureHelp('allowAi', { allowAi: false, aiIncludedRubPerMonth: 0 })
+  assert.ok(text.includes('не подключены'), text)
+  assert.ok(!text.includes('с баланса'), text)
 })
 
 test('подсказки не-ИИ строк не зависят от тарифа', () => {

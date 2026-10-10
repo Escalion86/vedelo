@@ -42,6 +42,10 @@ export const getTariffFeatureHelp = (key, tariff) => {
 
   const includedRub = getAiIncludedRubPerMonth(tariff)
   if (!includedRub) {
+    // ИИ недоступен в тарифе — не обещаем оплату с баланса.
+    if (tariff.allowAi === false) {
+      return `${base} В этом тарифе ИИ-возможности не подключены.`
+    }
     return `${base} В этом тарифе ИИ не включён: запросы оплачиваются с баланса.`
   }
   return `${base} В этом тарифе на ИИ включено ${formatAiIncludedRubles(includedRub)} в месяц: эта сумма тратится в первую очередь, дальше расходы идут с баланса.`
