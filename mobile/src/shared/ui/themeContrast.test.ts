@@ -36,7 +36,7 @@ const testPairs = (p: Palette) => {
     ['secondary', p.secondaryText, p.secondaryBackground, canvas], ['secondary pressed', p.secondaryPressedText, p.secondaryPressedBackground, canvas],
     ['нижняя панель', p.navigationLabel, p.navigationBackground, canvas], ['активная нижняя панель', p.navigationActive, p.navigationBackground, canvas],
     ['числовой бейдж', p.counterBadge.text, p.counterBadge.background, canvas],
-    ['MAX', p.contacts.onBadge, p.contacts.max, canvas], ['пробный MAX', p.contacts.onTrialBadge, p.contacts.trial, canvas])
+    ['MAX', p.contacts.onBadge, p.contacts.max, canvas])
   return pairs
 }
 
@@ -57,4 +57,8 @@ it('фиксирует реальные прежние неудачные пар
   expect(contrast(p.navigationText, p.navigationBackground, base)).toBeLessThan(4.5)
   expect(contrast(p.transactionExpenseText, p.transactionExpense, base)).toBeLessThan(4.5)
   expect(contrast(p.contacts.onBadge, p.contacts.trial, base)).toBeLessThan(4.5)
+})
+
+it.each([lightPalette, darkPalette])('$mode: пробный MAX повторяет белый текст на red-500 PWA с контрастом >=3', palette => {
+  expect(contrast(palette.contacts.onTrialBadge, palette.contacts.trialBadge, rgba(palette.canvas))).toBeGreaterThanOrEqual(3)
 })

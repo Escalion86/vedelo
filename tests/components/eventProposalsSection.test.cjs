@@ -36,6 +36,8 @@ const response = (data, status = 200) => ({
 })
 
 const mocks = {
+  '@helpers/fieldHelp.json': require('../../helpers/fieldHelp.json'),
+  '@components/FieldHelp': () => null,
   jotai: {
     useAtomValue: () => ({ add: (config) => openedModals.push(config) }),
   },

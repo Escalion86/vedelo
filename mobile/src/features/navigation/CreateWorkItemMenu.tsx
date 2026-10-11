@@ -15,6 +15,7 @@ export function CreateWorkItemMenu({ onSelect }: { onSelect: (choice: CreateWork
     <MenuRow title="Заявка" icon="file-document-edit-outline" onPress={() => onSelect('draft')} />
     <MenuRow title="Подтверждено" icon="calendar-check-outline" onPress={() => onSelect('active')} />
     {access.allowAi ? <>
+      {access.isDeveloper ? <MenuRow title="Из фотографии" icon="camera-outline" disabled={!access.online} onPress={() => onSelect('photo')} /> : null}
       <MenuRow title="Голосом" icon="microphone-outline" disabled={!access.online} onPress={() => onSelect('voice')} />
       <MenuRow title="Свободным текстом" icon="text-box-edit-outline" disabled={!access.online} onPress={() => onSelect('text')} />
       {!access.online ? <Text style={styles.hint}>Для ИИ нужен интернет. Ручное создание доступно.</Text> : null}

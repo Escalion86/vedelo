@@ -1,3 +1,4 @@
+import fieldHelp from '@helpers/fieldHelp.json'
 import { useRef, useState } from 'react'
 import AppButton from '@components/AppButton'
 import InputWrapper from '@components/InputWrapper'
@@ -87,6 +88,7 @@ const ManualBalanceChargeForm = ({ userId, balance, onSuccess, onCancel }) => {
         />
         <Input
           label="Дата списания"
+          help={fieldHelp['admin.chargeDate']}
           type="datetime-local"
           value={paidAt}
           onChange={setPaidAt}
@@ -95,7 +97,7 @@ const ManualBalanceChargeForm = ({ userId, balance, onSuccess, onCancel }) => {
           disabled={saving}
         />
       </div>
-      <InputWrapper label="Вид списания">
+      <InputWrapper label="Вид списания" help={fieldHelp['admin.chargeType']}>
         <NativeSelect
           aria-label="Вид списания"
           className="min-h-8 w-full cursor-pointer bg-transparent text-sm"

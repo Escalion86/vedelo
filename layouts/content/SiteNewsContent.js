@@ -139,7 +139,7 @@ const SiteNewsContent = () => {
                       {item.version}
                     </span>
                   ) : null}
-                  <span className="min-w-0 flex-1 text-sm font-semibold text-gray-800">
+                  <span className="min-w-0 flex-1 text-sm font-semibold text-gray-800 [overflow-wrap:anywhere]">
                     {item.title}
                   </span>
                   <Notice

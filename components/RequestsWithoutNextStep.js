@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useEventsQuery } from '@helpers/useEventsQuery'
@@ -77,7 +80,7 @@ const RequestsWithoutNextStep = ({ onOpenEvent, now }) => {
   return (
     <ModalSection
       id="attention-no-next-step"
-      title="Заявки без следующего шага"
+      title={<span className="inline-flex items-center gap-1">Заявки без следующего шага <FieldHelp text={fieldHelp['attention.withoutNextStep']} label="Заявки без следующего шага" /></span>}
       titleClassName="card-title"
       titleRight={
         !isPending && !isError ? (

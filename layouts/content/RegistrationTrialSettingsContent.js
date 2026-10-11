@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import Button from '@components/Button'
 import Input from '@components/Input'
 import LoadingSpinner from '@components/LoadingSpinner'
@@ -147,6 +149,7 @@ const RegistrationTrialSettingsContent = ({ tariffs = [] }) => {
             </label>
             <Input
               label="Срок, дней"
+              help={fieldHelp['admin.trial']}
               type="number"
               min={1}
               max={365}

@@ -1,0 +1,1636 @@
+{
+  "event.otherContacts": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 83,
+        "anchor": "<SectionTitle help={getFieldHelp('event.otherContacts')}>Дополнительные контакты</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventContactsSection.tsx",
+      "line": 80,
+      "anchor": "Дополнительные контакты"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.description": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 49,
+        "anchor": "<Field label=\"Описание\" help={getFieldHelp('event.description')} value={v.description} multiline onChangeText={(text) => set('description', text)} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 46,
+      "anchor": "label=\"Описание\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.client": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 67,
+        "anchor": "help={getFieldHelp('event.client')}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventContactsSection.tsx",
+      "line": 64,
+      "anchor": "label=\"Клиент\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.contactRole": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 102,
+        "anchor": "help={getFieldHelp('event.contactRole')}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventContactsSection.tsx",
+      "line": 98,
+      "anchor": "label=\"Кем является\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.services": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 26,
+        "anchor": "<SectionTitle help={getFieldHelp('event.services')}>Услуги</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 23,
+      "anchor": "<SectionTitle>Услуги"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.type": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 24,
+        "anchor": "<Field testID=\"event-type\" help={getFieldHelp('event.type')} label={`Тип ${genitive}`} value={v.eventType} onChangeText={(text) => set('eventType', text)} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 21,
+      "anchor": "testID=\"event-type\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.dates": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 34,
+        "anchor": "<SectionTitle help={getFieldHelp('event.dates')}>Даты</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 31,
+      "anchor": "<SectionTitle>Даты"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.contractSum": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 94,
+        "anchor": "<Field keyboardType=\"numeric\" label=\"Договорная сумма\" help={getFieldHelp('event.contractSum')}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventFinanceSection.tsx",
+      "line": 92,
+      "anchor": "label=\"Договорная сумма\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.waitDeposit": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 107,
+        "anchor": "<FieldHelp label=\"Ждем задаток\" text={getFieldHelp('event.waitDeposit')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventFinanceSection.tsx",
+      "line": 102,
+      "anchor": "Ждем задаток"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.depositAmount": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 111,
+        "anchor": "<Field keyboardType=\"numeric\" label=\"Сумма задатка\" help={getFieldHelp('event.depositAmount')}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventFinanceSection.tsx",
+      "line": 106,
+      "anchor": "label=\"Сумма задатка\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.depositDueAt": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 114,
+        "anchor": "<Field label=\"Дата ожидания задатка\" help={getFieldHelp('event.depositDueAt')}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventFinanceSection.tsx",
+      "line": 109,
+      "anchor": "label=\"Дата ожидания задатка\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.financeComment": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 121,
+        "anchor": "<Field label=\"Комментарий по финансам\" help={getFieldHelp('event.financeComment')} multiline"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventFinanceSection.tsx",
+      "line": 116,
+      "anchor": "label=\"Комментарий по финансам\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.byContract": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 130,
+        "anchor": "<FieldHelp label=\"По договору\" text={getFieldHelp('event.byContract')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventFinanceSection.tsx",
+      "line": 122,
+      "anchor": "По договору"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.tasks": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 135,
+        "anchor": "<SectionTitle help={getFieldHelp('event.tasks')}>Задачи/События</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventContactsSection.tsx",
+      "line": 131,
+      "anchor": "<SectionTitle>Задачи/События"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.taskDone": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 168,
+        "anchor": "<FieldHelp label=\"Сделано\" text={getFieldHelp('event.taskDone')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventContactsSection.tsx",
+      "line": 156,
+      "anchor": "testID={`event-task-${index}-done`}"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.requestDate": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 20,
+        "anchor": "<Field label={label} help={key === 'requestCreatedAt' ? getFieldHelp('event.requestDate') : undefined}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 59,
+      "anchor": "field('requestCreatedAt'"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.transfer": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 51,
+        "anchor": "<GeneralChoice label=\"Передано коллеге\" help={getFieldHelp('event.transfer')} selected={v.isTransferred} onPress={() => set('isTransferred', !v.isTransferred)} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 48,
+      "anchor": "label=\"Передано коллеге\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.importChecked": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 60,
+        "anchor": "{draft.source?.importedFromFile ? <GeneralChoice label=\"Импорт из файла проверен\" help={getFieldHelp('event.importChecked')} selected={v.fileImportChecked} onPress={() => set('fileImportChecked', !v.fileImportChecked)} />"
+      },
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 61,
+        "anchor": ": draft.source && !draft.source.calendarImportChecked ? <GeneralChoice label=\"Проверка импорта завершена\" help={getFieldHelp('event.importChecked')} selected={v.calendarImportChecked} onPress={() => set('calendarImportChecked', !v.calendarImportChecked)} /> : null}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 57,
+      "anchor": "Импорт из файла проверен"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "event.status": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 64,
+        "anchor": "<SectionTitle help={getFieldHelp('event.status')}>Статус</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 61,
+      "anchor": "<SectionTitle>Статус"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.type": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 223,
+        "anchor": "<SectionTitle help={getFieldHelp('client.type')}>Тип клиента</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 221,
+      "anchor": "<SectionTitle>Тип клиента"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.preferredChannel": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 225,
+        "anchor": "<SectionTitle help={getFieldHelp('client.preferredChannel')}>Приоритетный канал связи</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 223,
+      "anchor": "<SectionTitle>Приоритетный канал связи"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.comment": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 228,
+        "anchor": "<Field label=\"Комментарий\" help={getFieldHelp('client.comment')} value={values.comment} onChangeText={(value) => set('comment', value)} multiline maxLength={2000} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 226,
+      "anchor": "label=\"Комментарий\" value={values.comment}"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.significantDates": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 233,
+        "anchor": "<SectionTitle help={getFieldHelp('client.significantDates')}>Значимые даты</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 231,
+      "anchor": "<SectionTitle>Значимые даты"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.requisites": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 259,
+        "anchor": "<FieldHelp label=\"Реквизиты для договора\" text={getFieldHelp('client.requisites')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 253,
+      "anchor": "values.legalName"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.legalName": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 262,
+        "anchor": "<Field label=\"Наименование / ФИО\" help={getFieldHelp('client.legalName')} value={values.legalName} onChangeText={(value) => set('legalName', value)} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 257,
+      "anchor": "label=\"Наименование / ФИО\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.merge": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/[id]/merge.tsx",
+        "line": 156,
+        "anchor": "<PageHeader title=\"Объединение клиентов\" help={getFieldHelp('client.merge')} subtitle={`Основной: ${name(target)}`} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/clients/[id]/merge.tsx",
+      "line": 195,
+      "anchor": "title=\"Объединить и удалить дубликат\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "client.conversationLink": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: есть просмотр связанных записей, нет управления привязкой переписки",
+    "evidence": {
+      "path": "mobile/src/features/conversations/ConversationDetail.tsx",
+      "line": 167,
+      "anchor": "<View style={styles.links}>"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.event": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 119,
+        "anchor": "<FinanceRelationPicker help={getFieldHelp('transaction.event')} label={terms.labelCapitalized} value={values.eventId} testID=\"transaction-event\" disabled={locked} options={events.filter((event) => event.status === 'active' || event._id === values.eventId).map((event) => ({ id: event._id, title: event.eventType || terms.labelCapitalized, meta: event.eventDate && Number.isFinite(Date.parse(event.eventDate)) ? new Date(event.eventDate).toLocaleString('ru-RU') : 'Без даты', search: event.description }))} onChange={selectEvent} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 117,
+      "anchor": "testID=\"transaction-event\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.client": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 120,
+        "anchor": "<FinanceRelationPicker label=\"Клиент\" help={getFieldHelp('transaction.client')} value={selectedClientId} testID=\"transaction-client\" disabled={locked} options={clients.map((client) => ({ id: client._id, title: clientName(client), meta: String(client.phone || ''), search: [client.phone, client.telegram, client.max, client.email].filter(Boolean).join(' ') }))} onChange={selectClient} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 118,
+      "anchor": "testID=\"transaction-client\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.category": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 123,
+        "anchor": "<SectionTitle help={getFieldHelp('transaction.category')}>Тип</SectionTitle><View style={styles.options}><Choice active={values.type === 'income'} label=\"Доход\" tone=\"income\" disabled={locked} onPress={() => setType('income')} /><Choice active={values.type === 'expense'} label=\"Расход\" tone=\"expense\" disabled={locked} onPress={() => setType('expense')} /></View>"
+      },
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 124,
+        "anchor": "<SectionTitle help={getFieldHelp('transaction.category')}>Категория</SectionTitle><View style={styles.options}>{categories.map((category) => <Choice key={category.value} active={values.category === category.value} label={category.label} disabled={locked} onPress={() => change({ category: category.value })} />)}</View>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 122,
+      "anchor": "<SectionTitle>Категория"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.referral": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 125,
+        "anchor": "<FieldHelp label=\"Категории рекомендаций\" text={getFieldHelp('transaction.referral')} />"
+      }
+    ],
+    "reason": "есть: категории выбираются в общей группе",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 122,
+      "anchor": "categories.map"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.paymentMethod": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 126,
+        "anchor": "<SectionTitle help={getFieldHelp('transaction.paymentMethod')}>Метод оплаты</SectionTitle><View style={styles.options}>{PAYMENT_METHODS.map(([paymentMethod, label]) => <Choice key={paymentMethod} active={values.paymentMethod === paymentMethod} label={label} disabled={locked} onPress={() => change({ paymentMethod })} />)}</View>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 123,
+      "anchor": "<SectionTitle>Метод оплаты"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.date": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 127,
+        "anchor": "<CompactField help={getFieldHelp('transaction.date')} label={values.paymentMethod === 'obligation' ? 'Плановая дата' : 'Дата'} value={values.date} onChangeText={(date) => change({ date })} editable={!locked} placeholder=\"ГГГГ-ММ-ДД\" />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 124,
+      "anchor": "Плановая дата"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "transaction.taxShortcut": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 122,
+        "anchor": "{values.category === 'taxes' && selectedEvent ? <View style={styles.options}><Button title=\"6% от договорённости\" variant=\"secondary\" disabled={locked || loading} onPress={() => change({ amount: String(Math.round(Number(selectedEvent.contractSum || 0) * 6) / 100) })} /><FieldHelp label=\"6% от договорённости\" text={getFieldHelp('transaction.taxShortcut')} /></View> : null}"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/finance/edit/[id].tsx",
+      "line": 120,
+      "anchor": "6% от договорённости"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "service.group": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 125,
+        "anchor": "<SectionTitle help={getFieldHelp('service.group')}>Группа</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/services/ServiceEditor.tsx",
+      "line": 124,
+      "anchor": "<SectionTitle>Группа"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "service.description": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 130,
+        "anchor": "<CompactField label=\"Описание\" help={getFieldHelp('service.description')} value={values.description} onChangeText={(description) => change({ description })} multiline editable={!loading} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/services/ServiceEditor.tsx",
+      "line": 129,
+      "anchor": "label=\"Описание\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "service.price": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 132,
+        "anchor": "<CompactField label=\"Цена, ₽\" help={getFieldHelp('service.price')} value={values.price} onChangeText={(price) => change({ price })} keyboardType=\"decimal-pad\" editable={!loading} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/services/ServiceEditor.tsx",
+      "line": 131,
+      "anchor": "label=\"Цена, ₽\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "service.duration": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 131,
+        "anchor": "<CompactField label=\"Продолжительность, минут\" help={getFieldHelp('service.duration')} value={values.duration} onChangeText={(duration) => change({ duration })} keyboardType=\"decimal-pad\" editable={!loading} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/services/ServiceEditor.tsx",
+      "line": 130,
+      "anchor": "label=\"Продолжительность, минут\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "address.saveToPool": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: только адрес текущей работы, сохранения адреса в пул нет",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 38,
+      "anchor": "<SectionTitle>Локация"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "address.comment": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 46,
+        "anchor": "<Field label=\"Комментарий к адресу\" help={getFieldHelp('address.comment')} value={v.addressComment} multiline onChangeText={(text) => set('addressComment', text)} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 43,
+      "anchor": "label=\"Комментарий к адресу\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "address.navigation": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: нет полей координат/ссылок в редакторе; не добавлять ради подсказки",
+    "evidence": {
+      "path": "mobile/src/features/events/EventGeneralSection.tsx",
+      "line": 38,
+      "anchor": "<SectionTitle>Локация"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "documents.event": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
+        "line": 233,
+        "anchor": "? `В Android можно добавить файл, а для подтверждённой синхронизированной работы — сформировать DOCX по шаблону. Вложения доступны и в заявке; создание ссылок на документы в этом экране отсутствует.\\n\\nОбщая справка: ${getFieldHelp('documents.event')}`"
+      }
+    ],
+    "reason": "есть: вложения доступны в заявке, генерация DOCX запрещена для draft; сохранить предупреждение",
+    "evidence": {
+      "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
+      "line": 231,
+      "anchor": "<SectionTitle>"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": "Перед исходным текстом указаны вложения в заявках, запрет генерации DOCX для draft и несинхронизированных работ, отсутствие создания ссылок в нативном экране.",
+    "nativeDeviceVerified": false
+  },
+  "documents.client": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 231,
+        "anchor": "{!isNew ? <View style={styles.dateHeader}><View style={styles.flex}><Button title=\"Файлы и документы\" variant=\"secondary\" onPress={() => router.push(`/clients/${id}/documents` as never)} disabled={id.startsWith('local-')} /></View><FieldHelp label=\"Файлы и документы\" text={getFieldHelp('documents.client')} /></View> : null}"
+      }
+    ],
+    "reason": "есть: переход в /clients/[id]/documents",
+    "evidence": {
+      "path": "mobile/app/clients/edit/[id].tsx",
+      "line": 229,
+      "anchor": "title=\"Файлы и документы\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "documents.templates": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/documents/DocumentsSection.tsx",
+        "line": 104,
+        "anchor": "<Surface><SectionTitle help={getFieldHelp('documents.templates')}>{`Шаблоны документов${templateState === 'ready' ? ` · ${templates.length}` : ''}`}</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/documents/DocumentsSection.tsx",
+      "line": 103,
+      "anchor": "<SectionTitle>Шаблоны документов"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "documents.templateType": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/documents/DocumentTemplateEditor.tsx",
+        "line": 129,
+        "anchor": "<SectionTitle help={getFieldHelp('documents.templateType')}>Тип документа</SectionTitle><View style={styles.options}>{documentTypes.map(([type, label]) => <Pressable key={type} accessibilityRole=\"radio\" accessibilityLabel={label} accessibilityState={{ selected: values.type === type, disabled: blocked }} disabled={blocked} onPress={() => change({ type })} style={[styles.option, values.type === type && styles.selected]}><Text style={styles.text}>{label}</Text></Pressable>)}</View>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/documents/DocumentTemplateEditor.tsx",
+      "line": 128,
+      "anchor": "<SectionTitle>Тип документа"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "documents.artistRequisites": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/profile/ArtistRequisitesSection.tsx",
+        "line": 90,
+        "anchor": "<SectionTitle help={getFieldHelp('documents.artistRequisites')}>Реквизиты артиста</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/profile/ArtistRequisitesSection.tsx",
+      "line": 89,
+      "anchor": "<SectionTitle>"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "documents.date": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
+        "line": 250,
+        "anchor": "<CompactField testID=\"document-date\" help={getFieldHelp('documents.date')} label=\"Дата документа\" value={documentDate} onChangeText={setDocumentDate} placeholder=\"ГГГГ-ММ-ДД\" editable={!blocked && !generation} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
+      "line": 247,
+      "anchor": "testID=\"document-date\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.title": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.expiresAt": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.recommended": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.blocks": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.apply": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: применения КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.newVersion": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "attention.withoutNextStep": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/attention/AttentionScreen.tsx",
+        "line": 151,
+        "anchor": "help: getFieldHelp('attention.withoutNextStep')"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/attention/AttentionScreen.tsx",
+      "line": 151,
+      "anchor": "Заявки без следующего шага"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "attention.pastRequests": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/attention/AttentionScreen.tsx",
+        "line": 138,
+        "anchor": "help: getFieldHelp('attention.pastRequests')"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/attention/AttentionScreen.tsx",
+      "line": 138,
+      "anchor": "Заявки с прошедшей датой"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "statistics.profitMargin": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+        "line": 58,
+        "anchor": "<Surface variant=\"kpi\"><Text style={styles.meta}>{terms.pluralCapitalized}: {data.events.length} · Транзакции: {data.transactions.length}</Text><SectionTitle help={getFieldHelp('statistics.profitMargin')}>Финансовый результат</SectionTitle><Text testID=\"statistics-net\" style={styles.total}>{money(analytics.net)}</Text><Text style={styles.income}>Доходы: {money(analytics.income)}</Text><Text style={styles.expense}>Расходы: {money(analytics.expense)}</Text><Text style={styles.text}>Маржа: {analytics.margin.toFixed(1)}%</Text><Text style={styles.meta}>Остатки к оплате: {money(analytics.paymentLeft)}</Text><Text style={styles.meta}>Налоги: {money(analytics.taxes)} · Комиссии: {money(analytics.commissions)}</Text></Surface>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+      "line": 56,
+      "anchor": "Финансовый результат"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "statistics.expectedProfit": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: прогноза/диаграммы нет; есть остаток к оплате, это не тот же показатель",
+    "evidence": {
+      "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+      "line": 56,
+      "anchor": "Финансовый результат"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "statistics.includeRequests": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+        "line": 48,
+        "anchor": "<HelpLabel style={styles.meta} label=\"Статус\" help={`${getFieldHelp('statistics.includeRequests')}\\n\\nВ Android вместо флажка используется выбор статуса: «Все» включает заявки вместе с другими работами; «Заявки» оставляет только заявки. Это не добавление заявок к выбранному статусу. Суммы по обращениям могут быть ещё не согласованы.`} /><View style={styles.wrap}>{statuses.map(([value, label]) => <FilterControl key={value} title={label} selected={status === value} onPress={() => setStatus(value)} />)}</View>"
+      }
+    ],
+    "reason": "частично: фильтр «Все»/«Заявки» вместо веб-флажка; не прикреплять исходный текст к фильтру «Заявки» как будто он добавляет их к остальным",
+    "evidence": {
+      "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+      "line": 13,
+      "anchor": "const statuses:"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": "Сохраняется исходный текст; явно объяснён отдельный Android-фильтр: Все включает заявки, Заявки оставляет только заявки и не добавляет их к выбранному статусу.",
+    "nativeDeviceVerified": false
+  },
+  "statistics.monthGrouping": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: месячной группировки в UI нет",
+    "evidence": {
+      "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+      "line": 56,
+      "anchor": "Финансовый результат"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "review.request": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: только заглушка отзывов",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 13,
+      "anchor": "Отзывы клиентов"
+    },
+    "webTransition": "Меню /more/client-reviews ведёт к заглушке в mobile/app/more/[section].tsx:34, кнопки открытия веба нет.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "review.privateNote": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: только заглушка отзывов",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 13,
+      "anchor": "Отзывы клиентов"
+    },
+    "webTransition": "Меню /more/client-reviews ведёт к заглушке в mobile/app/more/[section].tsx:34, кнопки открытия веба нет.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "settings.terminology": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/settings/SettingsSection.tsx",
+        "line": 31,
+        "anchor": "<SectionTitle help={getFieldHelp('settings.terminology')}>Как называть основную работу</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/settings/SettingsSection.tsx",
+      "line": 30,
+      "anchor": "<SectionTitle>Как называть"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "settings.eventForm": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактор Android единый, переключателя веб-форм нет",
+    "evidence": {
+      "path": "mobile/src/features/settings/SettingsSection.tsx",
+      "line": 25,
+      "anchor": "<ThemePreferenceSection"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "settings.timeZone": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+        "line": 104,
+        "anchor": "help={`Часовой пояс вашей работы используется сервисом для ежедневных напоминаний. В Android здесь показано текущее значение без возможности изменения; выбор региона доступен в общих настройках веб-версии.\\n\\nСправка для веб-версии: ${getFieldHelp('settings.timeZone')}`} />"
+      }
+    ],
+    "reason": "частично: отображение timezone есть, редактирования нет",
+    "evidence": {
+      "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+      "line": 101,
+      "anchor": "Часовой пояс:"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": "Перед исходным текстом объясняется, что в Android часовой пояс только отображается; изменение доступно в настройках веб-версии.",
+    "nativeDeviceVerified": false
+  },
+  "settings.defaultDuration": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: настройки стандартной длительности в Android нет",
+    "evidence": {
+      "path": "mobile/src/features/settings/SettingsSection.tsx",
+      "line": 25,
+      "anchor": "<ThemePreferenceSection"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "billing.history": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/app/billing/index.tsx",
+        "line": 261,
+        "anchor": "<FieldHelp label=\"История операций по балансу\" text={getFieldHelp('billing.history')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/app/billing/index.tsx",
+      "line": 50,
+      "anchor": "<PageHeader"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.leadSource": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 159,
+        "anchor": "<Field help={getFieldHelp('integrations.leadSource')} label=\"Название нового источника\" value={sourceName} onChangeText={setSourceName} maxLength={120} editable={editable} placeholder=\"Например, сайт или Tilda\" />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+      "line": 156,
+      "anchor": "label=\"Название нового источника\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.leadKeyEnabled": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 163,
+        "anchor": "<FieldHelp label={`Доступность ключа ${key.name}`} text={getFieldHelp('integrations.leadKeyEnabled')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+      "line": 161,
+      "anchor": "ключ ${key.name}"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.googleSync": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+        "line": 87,
+        "anchor": "<SectionTitle help={getFieldHelp('integrations.googleSync')}>Google Calendar</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+      "line": 86,
+      "anchor": "<SectionTitle>Google Calendar"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.googleFields": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: только сообщение о доступности в Web/PWA; кнопки перехода нет",
+    "evidence": {
+      "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+      "line": 114,
+      "anchor": "состав данных и цвета"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.googleNotifications": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+        "line": 102,
+        "anchor": "<SectionTitle help={getFieldHelp('integrations.googleNotifications')}>Напоминания Google Calendar</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+      "line": 77,
+      "anchor": "Напоминания Google Calendar"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.webhook": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 177,
+        "anchor": "{secret.webhookUrl ? <><FieldHelp label=\"Адрес webhook\" text={getFieldHelp('integrations.webhook')} /><Text selectable style={styles.value}>{secret.webhookUrl}</Text><Button title=\"Скопировать webhook URL\" variant=\"secondary\" onPress={() => void copy(secret.webhookUrl!, 'Webhook URL скопирован')} /></> : null}"
+      }
+    ],
+    "reason": "частично: Novofon — выдача/копирование адреса после подключения; в CredentialIntegrationForm нет отображения webhook Avito/VK",
+    "evidence": {
+      "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+      "line": 173,
+      "anchor": "Скопировать webhook URL"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": "Подсказка размещена возле выдаваемого адреса Novofon. Для Avito/VK отсутствует отображение webhook; новых адресов/секретов не запрашивается.",
+    "nativeDeviceVerified": false
+  },
+  "integrations.vkToken": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+        "line": 56,
+        "anchor": "<Field help={getFieldHelp('integrations.vkToken')} label=\"Токен сообщества\" value={secret} onChangeText={setSecret} secureTextEntry autoCapitalize=\"none\" autoCorrect={false} editable={editable} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+      "line": 55,
+      "anchor": "label=\"Токен сообщества\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.vkCallback": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+        "line": 57,
+        "anchor": "<Field help={getFieldHelp('integrations.vkCallback')} label=\"Строка подтверждения Callback API\" value={confirmation} onChangeText={setConfirmation} secureTextEntry autoCapitalize=\"none\" autoCorrect={false} editable={editable} />"
+      }
+    ],
+    "reason": "частично: поле подтверждения есть; редактирования Callback-секрета нет",
+    "evidence": {
+      "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+      "line": 56,
+      "anchor": "label=\"Строка подтверждения Callback API\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": "Доступно только поле подтверждения Callback API, не секрет. Справка относится к нему; новый контроль секрета не добавлен.",
+    "nativeDeviceVerified": false
+  },
+  "integrations.avitoCredentials": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+        "line": 51,
+        "anchor": "<Field help={getFieldHelp('integrations.avitoCredentials')} label=\"Client ID\" value={clientId} onChangeText={setClientId} autoCapitalize=\"none\" autoCorrect={false} editable={editable} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+      "line": 50,
+      "anchor": "label=\"Client ID\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.telegramAutoClients": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: Telegram только просмотр, управления автосозданием нет",
+    "evidence": {
+      "path": "mobile/src/features/integrations/TelegramSection.tsx",
+      "line": 15,
+      "anchor": "только просмотр"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.aiProvider": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 141,
+        "anchor": "<FieldHelp label=\"ИИ-провайдер\" text={getFieldHelp('integrations.aiProvider')} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+      "line": 26,
+      "anchor": "ИИ Ведело"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "integrations.aiModels": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 147,
+        "anchor": "<Field help={getFieldHelp('integrations.aiModels')} label=\"Модель распознавания\" value={transcriptionModel} onChangeText={setTranscriptionModel} autoCapitalize=\"none\" autoCorrect={false} editable={editable} />"
+      }
+    ],
+    "reason": "есть: поля при собственном AITunnel",
+    "evidence": {
+      "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+      "line": 144,
+      "anchor": "label=\"Модель распознавания\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "import.google": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/import/CalendarImportSection.tsx",
+        "line": 30,
+        "anchor": "<SectionTitle help={getFieldHelp('import.google')}>Импорт из Google Calendar</SectionTitle>"
+      }
+    ],
+    "reason": "переход в веб: https://vedelo.ru/cabinet/import уже существует",
+    "evidence": {
+      "path": "mobile/src/features/import/CalendarImportSection.tsx",
+      "line": 33,
+      "anchor": "title=\"Открыть Google-импорт в web\""
+    },
+    "webTransition": "Существующая кнопка в CalendarImportSection.tsx:33; URL задан calendarImportApi.ts:6.",
+    "adaptation": "Справка возле существующего перехода в веб-импорт, не нативный мастер Google. Пояснение отдельного входа и существующая кнопка сохранены.",
+    "nativeDeviceVerified": false
+  },
+  "import.fileNote": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/import/UploadStep.tsx",
+        "line": 14,
+        "anchor": "<CompactField help={getFieldHelp('import.fileNote')} label=\"Пояснение к файлу (необязательно)\" multiline maxLength={2000} value={state.note} onChangeText={(text) => controller.setNote(text)} editable={!state.busy && !state.denied} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/import/UploadStep.tsx",
+      "line": 13,
+      "anchor": "label=\"Пояснение к файлу"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "import.rules": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/import/ReviewStep.tsx",
+        "line": 41,
+        "anchor": "<CompactField help={getFieldHelp('import.rules')} label=\"Общий комментарий и исправления\" value={state.draft.answers.comment || ''} onChangeText={(text) => controller.setAnswer('comment', text)} multiline maxLength={2000} editable={!blocked} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/import/ReviewStep.tsx",
+      "line": 40,
+      "anchor": "label=\"Общий комментарий и исправления\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "import.verify": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/import/ApplyStep.tsx",
+        "line": 21,
+        "anchor": "<SectionTitle help={getFieldHelp('import.verify')}>{labels[j.status]}</SectionTitle>"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/import/ApplyStep.tsx",
+      "line": 27,
+      "anchor": "Проверьте созданные черновики"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "notifications.device": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+        "line": 94,
+        "anchor": "{device ? <Surface><SectionTitle help={`В Android «Это устройство» означает установленное приложение на этом телефоне. Чтобы получать уведомления здесь, включите push и разрешите уведомления в системе. Подключение и отключение относятся только к текущему устройству.\\n\\nСправка для веб-версии: ${getFieldHelp('notifications.device')}`}>Push на этом устройстве</SectionTitle>"
+      }
+    ],
+    "reason": "частично: Expo push вместо браузерной подписки; исходный текст описывает веб, нужна явная платформенная оговорка",
+    "evidence": {
+      "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+      "line": 92,
+      "anchor": "Push на этом устройстве"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": "Перед исходным веб-текстом объясняется регистрация приложения Android на текущем телефоне, разрешение системы и локальное отключение.",
+    "nativeDeviceVerified": false
+  },
+  "notifications.reminderTime": {
+    "status": "implemented",
+    "host": [
+      {
+        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+        "line": 106,
+        "anchor": "<CompactField label=\"Время, шаг 15 минут\" help={getFieldHelp('notifications.reminderTime')} value={time} onChangeText={setTime} maxLength={5} editable={!loading} />"
+      }
+    ],
+    "reason": "есть",
+    "evidence": {
+      "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+      "line": 103,
+      "anchor": "label=\"Время, шаг 15 минут\""
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.section": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП/перехода в веб-КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.message": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: редактора КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "proposal.templateMessage": {
+    "status": "unavailable",
+    "host": null,
+    "reason": "нет: шаблонов КП нет",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 6,
+      "anchor": "pendingDescription"
+    },
+    "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.tariffMonthlyLimit": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.tariffReviews": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.aiMarkup": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.trial": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.chargeType": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.chargeDate": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  },
+  "admin.receiptNotRequired": {
+    "status": "web-only",
+    "host": null,
+    "reason": "только веб: администрирование исключено",
+    "evidence": {
+      "path": "mobile/src/features/navigation/menu.ts",
+      "line": 11,
+      "anchor": "Platform administration"
+    },
+    "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+    "adaptation": null,
+    "nativeDeviceVerified": false
+  }
+}

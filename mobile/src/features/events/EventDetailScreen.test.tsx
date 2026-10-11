@@ -13,7 +13,7 @@ let mockPending = false
 const mockSave = jest.fn()
 const mockRefetch = jest.fn(async () => undefined)
 const mockInvalidate = jest.fn(async () => undefined)
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => ({ id: mockEvent._id }), useFocusEffect: jest.fn() }))
 jest.mock('@react-native-community/netinfo', () => ({ useNetInfo: () => ({ isConnected: mockOnline, isInternetReachable: mockOnline }) }))

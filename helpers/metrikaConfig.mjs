@@ -19,6 +19,7 @@ export const isPublicAnalyticsPath = (pathname = '') => {
   return (
     normalizedPath === '/' ||
     normalizedPath === '/login' ||
+    normalizedPath === '/register' ||
     PUBLIC_ANALYTICS_PREFIXES.some((prefix) =>
       normalizedPath.startsWith(prefix)
     )

@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import fieldHelp from '@helpers/fieldHelp.json'
 import EventStatusPicker from '@components/ValuePicker/EventStatusPicker'
 import Button from '@components/Button'
 import Input from '@components/Input'
@@ -301,6 +302,7 @@ const eventStatusEditFunc = (eventId, options = {}) => {
       <div className="flex flex-col gap-y-2">
         {saveError ? <Notice tone="error">{saveError}</Notice> : null}
         <EventStatusPicker
+          help={fieldHelp['event.status']}
           required
           status={status}
           onChange={setStatus}

@@ -5,8 +5,9 @@ import { CompactField } from '../../shared/ui/components'
 import { QuickActionsSheet } from '../../shared/ui/QuickContacts'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { HelpLabel } from '../../shared/ui/FieldHelp'
 export type PickerOption = { id: string; title: string; meta?: string; search?: string }
-export function FinanceRelationPicker({ label, value, options, onChange, disabled = false, testID }: { label: string; value: string; options: PickerOption[]; onChange: (id: string) => void; disabled?: boolean; testID: string }) {
+export function FinanceRelationPicker({ label, help, value, options, onChange, disabled = false, testID }: { label: string; help?: string; value: string; options: PickerOption[]; onChange: (id: string) => void; disabled?: boolean; testID: string }) {
   const { palette } = useTheme()
   const styles = useThemeStyles(createStyles)
   const [visible, setVisible] = useState(false)
@@ -18,7 +19,7 @@ export function FinanceRelationPicker({ label, value, options, onChange, disable
   }, [options, search])
   const choose = (id: string) => { onChange(id); setVisible(false) }
   return <View>
-    <Text style={styles.label}>{label}</Text>
+    <HelpLabel label={label} help={help} style={styles.label} />
     <View style={styles.row}>
       <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`Выбрать: ${label}`} accessibilityState={{ disabled, expanded: visible }} disabled={disabled} style={[styles.field, disabled && styles.disabled]} onPress={() => { setSearch(''); setVisible(true) }}>
         <View style={styles.grow}><Text numberOfLines={1} style={styles.text}>{selected?.title || (value ? 'Связанная запись недоступна' : 'Не выбран')}</Text>{selected?.meta ? <Text numberOfLines={1} style={styles.meta}>{selected.meta}</Text> : null}</View>

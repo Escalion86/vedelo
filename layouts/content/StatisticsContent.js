@@ -1,6 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 
 
@@ -679,7 +682,7 @@ const StatisticsContent = () => {
             </>
           ) : null}
           <SurfaceCard className="rounded" paddingClassName="p-3">
-            <div className="text-xs text-gray-500">{profitCardTitle}</div>
+            <div className="text-xs text-gray-500">{profitCardTitle} {profitCardTitle === 'Ожидаемая прибыль' ? <FieldHelp text={fieldHelp['statistics.expectedProfit']} label={profitCardTitle} /> : null}</div>
             <div className="text-base font-semibold text-violet-700">
               {formatCurrency(
                 details.summary.profit + details.summary.paymentLeft
@@ -834,6 +837,7 @@ const StatisticsContent = () => {
                     checked={includeRequests}
                     onClick={() => setIncludeRequests((value) => !value)}
                     label="Учитывать заявки"
+                    help={fieldHelp['statistics.includeRequests']}
                     noMargin
                     wrapperClassName="min-h-[40px] pb-1"
                   />
@@ -843,6 +847,7 @@ const StatisticsContent = () => {
           </ContentHeader>
 
           <SectionCard className="flex-1 min-h-0 p-4 overflow-y-auto">
+            <p className="mb-3 text-sm text-gray-500">Текущий учёт доходов и расходов включает обязательства — обещанные расчёты, а не только фактически полученные и выплаченные деньги.</p>
             <div className="grid grid-cols-2 gap-2 mb-4 tablet:grid-cols-3">
               <SurfaceCard className="rounded" paddingClassName="p-3">
                 <div className="text-xs text-gray-500">Выручка</div>
@@ -857,13 +862,13 @@ const StatisticsContent = () => {
                 </div>
               </SurfaceCard>
               <SurfaceCard className="rounded" paddingClassName="p-3">
-                <div className="text-xs text-gray-500">Чистая прибыль</div>
+                <div className="text-xs text-gray-500">Чистая прибыль <FieldHelp text={fieldHelp['statistics.profitMargin']} label="Чистая прибыль" /></div>
                 <div className="text-lg font-semibold text-blue-700">
                   {formatCurrency(financeSummary.netProfit)}
                 </div>
               </SurfaceCard>
               <SurfaceCard className="rounded" paddingClassName="p-3">
-                <div className="text-xs text-gray-500">Маржа</div>
+                <div className="text-xs text-gray-500">Маржа <FieldHelp text={fieldHelp['statistics.profitMargin']} label="Маржа" /></div>
                 <div className="text-lg font-semibold text-gray-800">
                   {financeSummary.margin.toFixed(1)}%
                 </div>
@@ -900,7 +905,7 @@ const StatisticsContent = () => {
               ) : null}
               {financeSummary.depositPaid > 0 ? (
                 <SurfaceCard className="rounded" paddingClassName="p-3">
-                  {renderMetricTitle('Задаток', depositPaidEvents.length, () =>
+                  {renderMetricTitle('Получено по предстоящим работам', depositPaidEvents.length, () =>
                     openEventsDetailsModal(
                       `Предстоящие ${terms.plural} с оплатами`,
                       depositPaidEvents
@@ -913,6 +918,13 @@ const StatisticsContent = () => {
               ) : null}
             </div>
 
+            <div className="mb-3 flex flex-wrap items-center gap-1 text-sm font-semibold">
+              <h3>Прибыль по месяцам</h3>
+              <FieldHelp
+                text={fieldHelp['statistics.monthGrouping']}
+                label="Прибыль по месяцам"
+              />
+            </div>
             <div className="flex flex-wrap items-center gap-4 mb-3 text-sm text-gray-700">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 bg-blue-600 rounded" />
@@ -941,6 +953,15 @@ const StatisticsContent = () => {
                   }}
                 />
                 <span>Будущие месяцы</span>
+              </div>
+              <div className="flex basis-full items-center gap-1 text-xs">
+                <span>
+                  Ожидаемая прибыль — текущая прибыль + недооплачено.
+                </span>
+                <FieldHelp
+                  text={fieldHelp['statistics.expectedProfit']}
+                  label="Ожидаемая прибыль"
+                />
               </div>
             </div>
             {stats.length === 0 ? (

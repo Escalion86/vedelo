@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
@@ -93,6 +95,7 @@ export default function ClientReviewCard({ review, showLinks = true }) {
         <summary className="cursor-pointer text-sm">Внутренняя заметка</summary>
         <Textarea
           label="Заметка для себя"
+          help={fieldHelp['review.privateNote']}
           ariaLabel="Внутренняя заметка"
           value={note}
           onChange={setNote}

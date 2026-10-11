@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@helpers/apiClient'
 import AppButton from '@components/AppButton'
 import Input from '@components/Input'
+import PeriodPicker from '@components/PeriodPicker'
 import Notice from '@components/Notice'
 import SectionCard from '@components/SectionCard'
 import styles from './ServiceAnalyticsContent.module.css'
@@ -150,14 +151,6 @@ export default function ServiceAnalyticsContent({ loggedUser }) {
     ? search.get('tab')
     : 'overview'
   const exclude = search.get('exclude') || ''
-  const [draft, setDraft] = useState(null)
-  const rangeKey = `${from}/${to}`
-  const draftFrom = draft?.key === rangeKey ? draft.from : from
-  const draftTo = draft?.key === rangeKey ? draft.to : to
-  const setDraftFrom = (value) =>
-    setDraft({ key: rangeKey, from: value, to: draftTo })
-  const setDraftTo = (value) =>
-    setDraft({ key: rangeKey, from: draftFrom, to: value })
   const [detail, setDetail] = useState(null),
     [detailPage, setDetailPage] = useState(0),
     [historyUser, setHistoryUser] = useState(null)
@@ -228,56 +221,27 @@ export default function ServiceAnalyticsContent({ loggedUser }) {
         ))}
       </div>
       <SectionCard className="p-4">
-        <div className="flex flex-wrap gap-2">
-          {[7, 30, 90].map((days) => (
-            <AppButton
-              key={days}
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                const start = new Date(Date.now() - (days - 1) * 86400000)
+        <div className={styles.filters}>
+          <PeriodPicker
+            label="Период (UTC)"
+            value={{ from, to }}
+            onChange={update}
+            timeZone="UTC"
+            requiredRange
+            maxDate={today}
+            maxDays={366}
+            resetValue={{ from: defaultFrom, to: today }}
+            extraPresets={[30, 90].map((days) => ({
+              id: `days-${days}`,
+              label: `${days} дней`,
+              range: {
+                from: new Date(openedAt - (days - 1) * 86400000)
                   .toISOString()
-                  .slice(0, 10)
-                setDraftFrom(start)
-                setDraftTo(today)
-                update({ from: start, to: today })
-              }}
-            >
-              {days} дней
-            </AppButton>
-          ))}
-        </div>
-        <form
-          className={styles.filters}
-          onSubmit={(e) => {
-            e.preventDefault()
-            update({ from: draftFrom, to: draftTo })
-          }}
-        >
-          <div className={styles.dateRange}>
-            <Input
-              label="С даты (UTC)"
-              type="date"
-              value={draftFrom}
-              onChange={setDraftFrom}
-              max={draftTo || today}
-              className="min-w-0"
-              inputClassName="min-w-0 w-full"
-              required
-            />
-            <Input
-              label="По дату (UTC)"
-              type="date"
-              value={draftTo}
-              onChange={setDraftTo}
-              min={draftFrom}
-              max={today}
-              className="min-w-0"
-              inputClassName="min-w-0 w-full"
-              required
-            />
-          </div>
-          <AppButton type="submit">Применить</AppButton>
+                  .slice(0, 10),
+                to: today,
+              },
+            }))}
+          />
           <AppButton
             variant="secondary"
             onClick={() => query.refetch()}
@@ -285,7 +249,7 @@ export default function ServiceAnalyticsContent({ loggedUser }) {
           >
             Обновить
           </AppButton>
-        </form>
+        </div>
         <p className="mt-2 text-sm">
           Период: {date(from)} — {date(to)}. Разработчики и администраторы
           исключены.

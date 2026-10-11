@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
@@ -608,6 +610,7 @@ const EventProposalsSection = ({
         <Input
           inputClassName="min-w-0"
           label="Название предложения"
+          help={fieldHelp['proposal.title']}
           noMargin
           fullWidth
           value={editing.title || ''}
@@ -616,6 +619,7 @@ const EventProposalsSection = ({
         <Input
           inputClassName="min-w-0"
           label="Действует до"
+          help={fieldHelp['proposal.expiresAt']}
           type="date"
           noMargin
           fullWidth
@@ -651,10 +655,7 @@ const EventProposalsSection = ({
             (candidate) => candidate.id
           )}
         />
-        <details className="rounded-lg border border-gray-200 p-3">
-          <summary className="cursor-pointer font-semibold">
-            Тексты страницы
-          </summary>
+        <Section title="Тексты страницы" help={fieldHelp['proposal.blocks']}>
           <div className="mt-3 space-y-3">
             {editing.blocksSnapshot.map((block, blockIndex) => (
               <div key={block.id || block.type} className="rounded border p-2">
@@ -698,14 +699,14 @@ const EventProposalsSection = ({
               </div>
             ))}
           </div>
-        </details>
+        </Section>
         <details className="rounded-lg border border-gray-200 p-3">
           <summary className="cursor-pointer font-semibold">
             Сообщение для чата
           </summary>
           <Textarea
             label="Текст сообщения"
-            help="Текст для отправки предложения в Telegram. Проверьте его перед отправкой клиенту."
+            help={fieldHelp['proposal.message']}
             rows={3}
             value={editing.messageText || ''}
             onChange={(messageText) => setEditing({ ...editing, messageText })}
@@ -886,6 +887,7 @@ const EventProposalsSection = ({
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {proposal.status !== 'draft' ? <FieldHelp text={fieldHelp['proposal.newVersion']} label="Редактировать в новой версии" /> : null}
                     <IconActionButton
                       icon={faPencilAlt}
                       variant="warning"
@@ -970,6 +972,7 @@ const EventProposalsSection = ({
                     </AppButton>
                     {proposal.selectedPackageId &&
                     !isProposalSelectionApplied(proposal) ? (
+                      <div className="flex items-center gap-1">
                       <AppButton
                         variant="primary"
                         size="sm"
@@ -978,6 +981,8 @@ const EventProposalsSection = ({
                       >
                         Применить
                       </AppButton>
+                      <FieldHelp text={fieldHelp['proposal.apply']} label="Применить" />
+                      </div>
                     ) : null}
                     {proposal.status === 'published' ? (
                       <AppButton

@@ -42,6 +42,7 @@ import {
   isEventCreatedViaPublicApi,
 } from '@helpers/eventSource'
 import { getEventExtraContactDisplays } from '@helpers/eventTransferDisplay'
+import styles from './EventCard.module.css'
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventQuery } from '@helpers/useEventsQuery'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
@@ -575,7 +576,10 @@ const EventCard = ({
                 }
                 placement="right"
                 menuPadding="sm"
-                menuClassName="w-[min(340px,calc(100vw-24px))] items-stretch justify-start"
+                menuClassName={cn(
+                  styles.extraContactsMenu,
+                  'w-[min(340px,calc(100vw-24px))] items-stretch justify-start'
+                )}
                 renderInPortal
                 turnOffAutoClose="inside"
               >

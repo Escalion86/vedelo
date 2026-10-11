@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
@@ -253,6 +255,7 @@ const SettingsContent = () => {
         )}
         <ComboBox
           label="Как называть основную работу"
+          help={fieldHelp['settings.terminology']}
           items={PRIMARY_ENTITY_TERMINOLOGY_OPTIONS}
           value={customSettings?.primaryEntityTerminology ?? 'auto'}
           onChange={(value) =>
@@ -272,6 +275,7 @@ const SettingsContent = () => {
         </MutedText>
         <ComboBox
           label={`Форма создания и редактирования ${workItemTerms.genitive}`}
+          help={fieldHelp['settings.eventForm']}
           items={EVENT_FORM_VARIANT_OPTIONS}
           value={customSettings?.eventFormVariant === 'classic' ? 'classic' : 'compact'}
           onChange={(value) =>
@@ -282,6 +286,7 @@ const SettingsContent = () => {
         />
         <ComboBox
           label="Часовой пояс"
+          help={fieldHelp['settings.timeZone']}
           items={TIME_ZONE_OPTIONS}
           value={siteSettingsState?.timeZone ?? 'Asia/Krasnoyarsk'}
           onChange={(value) => saveSiteSettingsPatch({ timeZone: value })}
@@ -290,6 +295,7 @@ const SettingsContent = () => {
         />
         <InputDuration
           label={`Стандартная длительность ${workItemTerms.genitive}`}
+          help={fieldHelp['settings.defaultDuration']}
           min={15}
           max={1440}
           value={defaultEventDuration}

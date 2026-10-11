@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { Button, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useTheme } from '../../shared/ui/ThemeProvider'
 import { activeJob, labels, rub, shortageKopecks, type Job } from './contract'
@@ -17,7 +18,7 @@ export function ApplyStep({ controller, state, ask }: { controller: ImportContro
   const counts = j.records.reduce((out, r) => ({ ...out, [r.status]: (out[r.status] || 0) + 1 }), {} as Record<string, number>)
   const finished = j.records.filter((r) => !['pending', 'processing'].includes(r.status)).length
   return <Surface>
-    <SectionTitle>{labels[j.status]}</SectionTitle>
+    <SectionTitle help={getFieldHelp('import.verify')}>{labels[j.status]}</SectionTitle>
     {active ? <>
       <Notice message="Прогресс хранится на сервере. Чтение активного задания может продолжить уже согласованную обработку; новая платная операция не запускается. После возвращения откройте сохранённый импорт." />
       <View accessibilityRole="progressbar" accessibilityLabel="Обработано записей" accessibilityValue={{ min: 0, max: j.records.length || 1, now: finished, text: `${finished} из ${j.records.length}` }}><Text style={{ color: palette.text }}>Обработано: {finished} из {j.records.length}</Text></View>

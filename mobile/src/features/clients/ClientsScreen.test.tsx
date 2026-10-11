@@ -9,7 +9,7 @@ import type { Client, Event } from '../../shared/domain/types'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы' }) }))

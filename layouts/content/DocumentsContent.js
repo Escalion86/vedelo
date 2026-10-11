@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import LabeledContainer from '@components/LabeledContainer'
@@ -270,6 +273,7 @@ const DocumentsContent = () => {
           />
           <ComboBox
             label="Тип документа"
+            help={fieldHelp['documents.templateType']}
             items={DOCUMENT_TYPE_OPTIONS}
             value={type}
             onChange={(value) => setType(value || DOCUMENT_TYPES.OTHER)}
@@ -382,6 +386,7 @@ const DocumentsContent = () => {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm font-semibold text-gray-800">
                     Шаблоны документов
+                    <FieldHelp text={fieldHelp['documents.templates']} label="Шаблоны документов" />
                   </div>
                   <button
                     type="button"

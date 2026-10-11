@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -19,8 +20,8 @@ import { bottomSlots, countOverdueTasks, type BottomSlot } from './bottomBar'
 
 type Panel = 'events' | 'create' | 'menu' | null
 const icons: Record<BottomSlot, MenuItem['icon']> = {
-  attention: 'alert-circle-outline', events: 'calendar-blank-outline', create: 'plus',
-  clients: 'account-group-outline', menu: 'menu',
+  attention: 'alert-circle', events: 'calendar-check', create: 'plus',
+  clients: 'account', menu: 'menu',
 }
 
 export function MobileBottomBar({ state, navigation }: BottomTabBarProps) {
@@ -71,7 +72,7 @@ export function MobileBottomBar({ state, navigation }: BottomTabBarProps) {
       accessibilityLabel={labels[slot]}
       accessibilityState={{ selected: isSelected(slot), ...(slot === 'events' || slot === 'create' || slot === 'menu' ? { expanded: panel === slot } : {}) }}
       onPress={() => pressSlot(slot)} style={({ pressed }) => [styles.slot, pressed && styles.pressed]}>
-      <View style={slot === 'create' ? styles.fab : undefined}>
+      <View testID={`bottom-icon-${slot}`} style={slot === 'create' ? styles.fab : [styles.iconFrame, { backgroundColor: isSelected(slot) ? palette.navigationSelectedBackground : 'transparent' }]}>
         <MaterialCommunityIcons name={icons[slot]} size={30}
           color={slot === 'create' ? palette.mode === 'dark' ? palette.onPrimary : palette.fabForeground : isSelected(slot) ? palette.navigationActive : palette.navigationText} />
         {slot === 'attention' && overdue > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{badgeLabel(overdue)}</Text></View> : null}
@@ -105,11 +106,12 @@ export function MobileBottomBar({ state, navigation }: BottomTabBarProps) {
 const createStyles = (palette: Palette) => StyleSheet.create({
   bar: { flexDirection: 'row', backgroundColor: palette.navigationBackground },
   slot: { flex: 1, minHeight: 60, paddingVertical: 6, paddingHorizontal: 2, gap: 3, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 10, lineHeight: 12, textAlign: 'center', fontWeight: '600' },
+  iconFrame: { width: 44, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  label: { fontFamily: typography.fontFamily, fontSize: 10, lineHeight: 12, textAlign: 'center', fontWeight: '600' },
   fab: { width: 50, height: 50, marginTop: -16, borderRadius: 999, backgroundColor: palette.fabBackground, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.75 },
   badge: { position: 'absolute', right: -10, top: -3, minWidth: 18, minHeight: 18, borderRadius: 999, paddingHorizontal: 4, alignItems: 'center', backgroundColor: palette.counterBadge.background },
-  badgeText: { color: palette.counterBadge.text, fontSize: 10, fontWeight: '700' },
+  badgeText: { fontFamily: typography.fontFamily, color: palette.counterBadge.text, fontSize: 10, fontWeight: '700' },
   modal: { flex: 1 }, backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
   panel: { position: 'absolute', borderRadius: 16, overflow: 'hidden', backgroundColor: palette.canvas },
   panelContent: { padding: 6 }, overlayBar: { position: 'absolute', bottom: 0, left: 0, right: 0 },

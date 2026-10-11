@@ -3,6 +3,7 @@ import InputWrapper from './InputWrapper'
 
 const Select = ({
   label,
+  help,
   labelClassName,
   value,
   onChange,
@@ -27,6 +28,7 @@ const Select = ({
   return (
     <InputWrapper
       label={label}
+      help={help}
       labelClassName={cn(labelColorClass, labelClassName)}
       value={value || ''}
       required={required}

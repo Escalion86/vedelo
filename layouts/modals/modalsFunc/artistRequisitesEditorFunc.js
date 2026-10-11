@@ -1,3 +1,4 @@
+import fieldHelp from '@helpers/fieldHelp.json'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import FormWrapper from '@components/FormWrapper'
@@ -189,6 +190,7 @@ const artistRequisitesEditorFunc = () => {
         <div className="mt-2 grid grid-cols-1 gap-3 tablet:grid-cols-2">
           <Input
             label="ФИО артиста (для документов)"
+            help={fieldHelp['documents.artistRequisites']}
             value={artistFullName}
             onChange={setArtistFullName}
             noMargin

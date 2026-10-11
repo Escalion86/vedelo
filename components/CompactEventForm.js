@@ -1,3 +1,5 @@
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from './FieldHelp'
 import { useEffect, useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCalendarDays } from '@fortawesome/free-solid-svg-icons/faCalendarDays'
@@ -64,6 +66,8 @@ export default function CompactEventForm({
   otherContacts,
   documents,
   proposalsEnabled = false,
+  isTransferred = false,
+  colleague = null,
   aiHighlightedFields = EMPTY_AI_HIGHLIGHTED_FIELDS,
   statusLabel,
   status,
@@ -90,6 +94,12 @@ export default function CompactEventForm({
     (id) =>
       services.find((item) => item._id === id) || { _id: id, title: 'Услуга' }
   )
+  const transferredToName = getPersonFullName(colleague)
+  const detailsSummary = isTransferred
+    ? transferredToName
+      ? `Передано: ${transferredToName}`
+      : 'Передано коллеге'
+    : ''
   const hasAiHighlight = (...fieldNames) =>
     fieldNames.some((fieldName) => aiHighlightedFields.has(fieldName))
   return (
@@ -119,6 +129,7 @@ export default function CompactEventForm({
             <AiFieldHighlight active={clientHighlighted}>
               <InputWrapper
                 label="Клиент"
+                help={fieldHelp['event.client']}
                 required
                 error={errors.clientId}
                 value={selectedClient?._id}
@@ -189,6 +200,7 @@ export default function CompactEventForm({
           >
             <div className="input-label flex items-center gap-1 px-1 text-xs font-semibold select-none">
               Услуги
+              <FieldHelp text={fieldHelp['event.services']} label="Услуги" />
             </div>
             <div className="flex flex-wrap items-center gap-2 py-2">
               {selectedServices.map((service) => (
@@ -214,6 +226,7 @@ export default function CompactEventForm({
         <div data-invalid={Boolean(errors.eventDate || errors.dateEnd)}>
           <Section
             title="Дата и время"
+            help={fieldHelp['event.dates']}
             initiallyOpen={openDatesInitially}
             icon={faCalendarDays}
             summary={formatEventDateRange(eventDate, dateEnd)}
@@ -276,6 +289,7 @@ export default function CompactEventForm({
         </Section>
         <Section
           title="Задачи/События"
+          help={fieldHelp['event.tasks']}
           icon={faBell}
           summary={
             next
@@ -289,19 +303,20 @@ export default function CompactEventForm({
         </Section>
         <Section
           title="Файлы и документы"
+          help={fieldHelp['documents.event']}
           icon={faPaperclip}
           summary={`Документов: ${documents.length}`}
         >
           {fields.documents}
         </Section>
-        {proposalsEnabled ? <Section title="Коммерческие предложения" icon={faPaperclip} summary="По необходимости — без договора и счёта">
+        {proposalsEnabled ? <Section title="Коммерческие предложения" help={fieldHelp['proposal.section']} icon={faPaperclip} summary="По необходимости — без договора и счёта">
           {fields.proposals}
         </Section> : null}
         <div data-invalid={Boolean(errors.colleagueId)}>
           <Section
             title="Другие детали"
             icon={faSliders}
-            summary="Дата заявки, передача коллеге"
+            summary={detailsSummary || 'Дата заявки, передача коллеге'}
             invalid={Boolean(errors.colleagueId)}
           >
             {fields.other}
@@ -310,6 +325,7 @@ export default function CompactEventForm({
       </fieldset>
       <Section
         title={`Статус: ${statusLabel}`}
+        help={fieldHelp['event.status']}
         noDivider
         icon={statusDefinition.icon}
         iconClassName={`event-status-picker__option--${statusDefinition.value}`}

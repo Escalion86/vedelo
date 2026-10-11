@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from './FieldHelp'
+
 import { useCallback, useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -280,8 +283,9 @@ const FileImportSettings = () => {
               }}
             />
           </label>
+          <div className="flex items-center gap-1 text-sm">Пояснение к файлу <FieldHelp text={fieldHelp['import.fileNote']} label="Пояснение к файлу" /></div>
           <label className="block text-sm">
-            Пояснение к файлу — необязательно
+            <span className="sr-only">Пояснение к файлу — необязательно</span>
             <textarea
               className={`${input} mt-1`}
               rows={3}
@@ -455,8 +459,9 @@ const FileImportSettings = () => {
                   />
                 </div>
               ))}
+              <div className="flex items-center gap-1 text-sm">Дополнительные правила и исправления <FieldHelp text={fieldHelp['import.rules']} label="Дополнительные правила и исправления" /></div>
               <label className="block text-sm">
-                Дополнительные правила и исправления
+                <span className="sr-only">Дополнительные правила и исправления</span>
                 <textarea
                   className={`${input} mt-1`}
                   rows={3}
@@ -480,7 +485,7 @@ const FileImportSettings = () => {
           {job.records?.length > 0 ? (
             <div className="space-y-2">
               <p className="font-medium">
-                Записи: {job.records.length}
+                Записи: {job.records.length} <FieldHelp text={fieldHelp['import.verify']} label="Проверка импортированных записей" />
                 {showRules ? ` · выбрано ${selectedIds.length}` : ''}
               </p>
               {job.records.map((record) => (

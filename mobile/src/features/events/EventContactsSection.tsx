@@ -7,6 +7,8 @@ import { Field, SectionTitle, Surface } from '../../shared/ui/components'
 import { QuickContacts } from '../../shared/ui/QuickContacts'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { FieldHelp } from '../../shared/ui/FieldHelp'
 import { ClientPickerField } from './ClientPickerField'
 
 const localKey = (prefix: string) =>
@@ -62,6 +64,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
           clients={clients}
           excludeIds={contactIds}
           label="Клиент"
+          help={getFieldHelp('event.client')}
           onChange={(clientId) => onChange({ ...draft, values: { ...v, clientId } })}
           onEdit={onOpenClient}
           testID="event-main-client"
@@ -77,7 +80,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
       </Surface>
 
       <Surface>
-        <SectionTitle>Дополнительные контакты</SectionTitle>
+        <SectionTitle help={getFieldHelp('event.otherContacts')}>Дополнительные контакты</SectionTitle>
         {draft.otherContacts.map((contact, index) => {
           const excludeIds = [v.clientId, ...draft.otherContacts
             .filter((item) => item.localKey !== contact.localKey)
@@ -96,6 +99,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
               />
               <Field
                 label="Кем является"
+                help={getFieldHelp('event.contactRole')}
                 onChangeText={(comment) => replaceContact(contact, { comment })}
                 placeholder="Организатор, бухгалтер…"
                 testID={`event-other-contact-${index}-comment`}
@@ -128,7 +132,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
       </Surface>
 
       <Surface>
-        <SectionTitle>Задачи/События</SectionTitle>
+        <SectionTitle help={getFieldHelp('event.tasks')}>Задачи/События</SectionTitle>
         {hasDone ? (
           <Pressable
             accessibilityRole="checkbox"
@@ -161,6 +165,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
                 />
               </Pressable>
               <Text style={styles.cardTitle}>Задача {index + 1}</Text>
+              <FieldHelp label="Сделано" text={getFieldHelp('event.taskDone')} />
               <Pressable
                 accessibilityLabel="Удалить задачу"
                 accessibilityRole="button"

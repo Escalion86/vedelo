@@ -5,6 +5,8 @@ import { api } from '../../shared/api/client'
 import { Button, Field, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { spacing, type Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { FieldHelp } from '../../shared/ui/FieldHelp'
 import { AiUsagePanel, type AiProvider } from './AiUsagePanel'
 import { IntegrationRow } from './IntegrationRow'
 import { IntegrationFormState } from './IntegrationFormState'
@@ -136,12 +138,13 @@ function ManagedForm({ provider, gate, onStatus, onClose }: { provider: ManagedP
         <Button title={confirmAction === 'rotate:telephony' ? 'Подтвердить выпуск нового webhook' : details.configured ? 'Выпустить новый webhook' : 'Подключить Novofon'} loading={session.working} disabled={!editable} onPress={connectNovofon} />
       </> : null}
       {provider === 'ai' ? <>
+        <FieldHelp label="ИИ-провайдер" text={getFieldHelp('integrations.aiProvider')} />
         {!parseAiProvider(details.analysisProvider) ? <Notice tone="warning" message="Сохранённый ИИ-провайдер не поддерживается в пользовательском приложении. Настройки на сервере не изменены. Для смены выберите и подключите ИИ Ведело или свой AITunnel." /> : null}
         <Text style={styles.muted}>ИИ Ведело оплачивается из баланса. Собственный AITunnel оплачивается у провайдера.</Text>
         {(['artistcrm', 'aitunnel'] as const).map((selected) => <Button key={selected} title={`${aiProvider === selected ? '✓ ' : ''}${selected === 'artistcrm' ? 'ИИ Ведело' : 'Свой AITunnel'}`} variant={aiProvider === selected ? 'primary' : 'secondary'} disabled={!editable} onPress={() => { setAiProvider(selected); setCredential(''); setConfirmAction(''); setAnalysisModel('gpt-4o-mini'); setTranscriptionModel('whisper-1') }} />)}
         {aiProvider === 'aitunnel' ? <>
           <Field label="API-ключ AITunnel" value={credential} onChangeText={setCredential} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} />
-          <Field label="Модель распознавания" value={transcriptionModel} onChangeText={setTranscriptionModel} autoCapitalize="none" autoCorrect={false} editable={editable} />
+          <Field help={getFieldHelp('integrations.aiModels')} label="Модель распознавания" value={transcriptionModel} onChangeText={setTranscriptionModel} autoCapitalize="none" autoCorrect={false} editable={editable} />
           <Field label="Модель AI-анализа" value={analysisModel} onChangeText={setAnalysisModel} autoCapitalize="none" autoCorrect={false} editable={editable} />
         </> : aiProvider === 'artistcrm' ? <Text style={styles.muted}>Ключ не нужен. Для операции нужен достаточный баланс.</Text> : null}
         {aiProvider ? <Button title={details.analysisProvider === aiProvider && details.configured ? aiProvider === 'artistcrm' ? 'Включить ИИ Ведело' : 'Заменить ключ и включить' : `Подключить ${aiProvider === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'}`} onPress={connectAi} loading={session.working} disabled={!editable} /> : null}
@@ -153,10 +156,11 @@ function ManagedForm({ provider, gate, onStatus, onClose }: { provider: ManagedP
       </> : null}
       {provider === 'public-leads' ? <>
         {details.endpoint ? <><Text selectable style={styles.value}>{details.endpoint}</Text><Button title="Скопировать endpoint" variant="secondary" onPress={() => void copy(details.endpoint!, 'Endpoint скопирован')} /></> : <Notice tone="warning" message="Адрес API не получен. Повторите чтение состояния." />}
-        <Field label="Название нового источника" value={sourceName} onChangeText={setSourceName} maxLength={120} editable={editable} placeholder="Например, сайт или Tilda" />
+        <Field help={getFieldHelp('integrations.leadSource')} label="Название нового источника" value={sourceName} onChangeText={setSourceName} maxLength={120} editable={editable} placeholder="Например, сайт или Tilda" />
         <Button title="Создать новый API key" onPress={createLeadKey} loading={session.working} disabled={!editable || (details.keys?.length || 0) >= 20} />
         {!details.keys?.length ? <Text style={styles.muted}>API-ключей пока нет</Text> : null}
         {details.keys?.map((key) => <View key={key.id} style={styles.key}>
+          <FieldHelp label={`Доступность ключа ${key.name}`} text={getFieldHelp('integrations.leadKeyEnabled')} />
           <Text style={styles.title}>{key.name}</Text><Text style={styles.muted}>•••• {key.lastFour} · {key.enabled ? 'Включён' : 'Выключен'}</Text>
           <Button title={key.enabled ? 'Отключить' : 'Включить'} accessibilityLabel={`${key.enabled ? 'Отключить' : 'Включить'} ключ ${key.name}`} variant="secondary" disabled={!editable} onPress={() => void updateLead({ keyId: key.id, enabled: !key.enabled }, (next) => !!next.keys?.some((item) => item.id === key.id && item.enabled === !key.enabled), 'Настройки ключа сохранены')} />
           <Button title={confirmAction === `delete-key:${key.id}` ? `Подтвердить удаление «${key.name}»` : 'Удалить'} accessibilityLabel={`Удалить ключ ${key.name}`} variant="danger" disabled={blocked} onPress={() => void deleteLeadKey(key)} />
@@ -170,7 +174,7 @@ function ManagedForm({ provider, gate, onStatus, onClose }: { provider: ManagedP
       <Notice tone="warning" message="Секрет выдан один раз. Скопируйте его до закрытия формы или ухода с экрана. Приложение не сохраняет копию." />
       <Text style={styles.title}>{secret.title}</Text><Text selectable style={styles.value}>{secret.value}</Text>
       <Button title="Скопировать секрет" onPress={() => void copy(secret.value, 'Секрет скопирован')} />
-      {secret.webhookUrl ? <><Text selectable style={styles.value}>{secret.webhookUrl}</Text><Button title="Скопировать webhook URL" variant="secondary" onPress={() => void copy(secret.webhookUrl!, 'Webhook URL скопирован')} /></> : null}
+      {secret.webhookUrl ? <><FieldHelp label="Адрес webhook" text={getFieldHelp('integrations.webhook')} /><Text selectable style={styles.value}>{secret.webhookUrl}</Text><Button title="Скопировать webhook URL" variant="secondary" onPress={() => void copy(secret.webhookUrl!, 'Webhook URL скопирован')} /></> : null}
       <Button title="Закрыть секрет" variant="secondary" onPress={() => setSecret(null)} />
     </View> : null}
     <Button title="Закрыть без сохранения" variant="secondary" onPress={close} />

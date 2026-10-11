@@ -23,6 +23,7 @@ const toIsoOrNull = (date) => {
 
 const DateTimePicker = ({
   label = '',
+  help,
   value,
   onChange,
   required = false,
@@ -90,6 +91,7 @@ const DateTimePicker = ({
   return (
     <InputWrapper
       label={label}
+      help={help}
       labelClassName={labelClassName}
       value={value}
       className={cn(

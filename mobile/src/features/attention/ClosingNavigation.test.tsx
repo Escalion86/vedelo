@@ -5,11 +5,12 @@ import { EventsScopeProvider, useEventsScope } from '../navigation/EventsScope'
 import EventsScreen from '../../../app/(tabs)/events'
 import { useCachedEntities } from '../../shared/hooks/useCachedEntities'
 
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null, FontAwesome5: () => null }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: (fn: () => void) => require('react').useEffect(fn, [fn]) }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
+jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: null }) }))
 jest.mock('../../shared/hooks/useCachedEntities', () => ({ useCachedEntities: jest.fn() }))
-jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы', accusative: 'заказ' }) }))
+jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы', plural: 'заказы', accusative: 'заказ' }) }))
 jest.mock('../events/EventCalendar', () => ({ EventCalendar: () => null }))
 jest.mock('../events/MobileEventCard', () => ({ MobileEventCard: ({ event }: { event: { _id: string } }) => {
   const { Text } = require('react-native')

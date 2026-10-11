@@ -16,7 +16,7 @@ const CabinetWrapper = ({ children }) => {
         isPhone
           ? {
               gridTemplateRows: 'auto 1fr auto',
-              gridTemplateColumns: '1fr',
+              gridTemplateColumns: 'minmax(0, 1fr)',
               gridTemplateAreas: `
                 'header'
                 'content'
@@ -25,7 +25,7 @@ const CabinetWrapper = ({ children }) => {
             }
           : {
               gridTemplateRows: 'auto 1fr auto',
-              gridTemplateColumns: '64px 1fr',
+              gridTemplateColumns: '64px minmax(0, 1fr)',
               gridTemplateAreas: `
                 'burger header'
                 'content content'

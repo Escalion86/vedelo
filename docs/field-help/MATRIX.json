@@ -1,0 +1,2725 @@
+{
+  "event.otherContacts": {
+    "field": "Прочие контакты",
+    "source": "components/OtherContactsPicker.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Клиент и Контакты",
+      "sharedControl": "components/OtherContactsPicker.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2530,
+        "anchor": "tabName=\"Клиент и Контакты\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Клиент и прочие контакты",
+      "sharedControl": "components/OtherContactsPicker.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 109,
+        "anchor": "Клиент и прочие контакты"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 80,
+        "anchor": "Дополнительные контакты"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "components/OtherContactsPicker.js",
+      "line": 21,
+      "anchor": "<InputWrapper label={label}"
+    }
+  },
+  "event.description": {
+    "field": "Запрос клиента / Описание",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Клиент и прочие контакты",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 109,
+        "anchor": "Клиент и прочие контакты"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 46,
+        "anchor": "label=\"Описание\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1800,
+      "anchor": "label={useCompactForm ? 'Запрос клиента' : 'Описание'}"
+    }
+  },
+  "event.client": {
+    "field": "Клиент",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Клиент и Контакты",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2530,
+        "anchor": "tabName=\"Клиент и Контакты\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Клиент и прочие контакты",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 109,
+        "anchor": "Клиент и прочие контакты"
+      },
+      "note": "Отдельный InputWrapper label=\"Клиент\", не fields.client: подключить help также здесь."
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 64,
+        "anchor": "label=\"Клиент\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1897,
+      "anchor": "label=\"Клиент\""
+    }
+  },
+  "event.contactRole": {
+    "field": "Кем является",
+    "source": "components/OtherContactsPicker.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Клиент и Контакты",
+      "sharedControl": "components/OtherContactsPicker.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2530,
+        "anchor": "tabName=\"Клиент и Контакты\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Клиент и прочие контакты",
+      "sharedControl": "components/OtherContactsPicker.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 109,
+        "anchor": "Клиент и прочие контакты"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 98,
+        "anchor": "label=\"Кем является\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "components/OtherContactsPicker.js",
+      "line": 58,
+      "anchor": "label=\"Кем является\""
+    }
+  },
+  "event.services": {
+    "field": "Услуги",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Услуги и тип события",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 178,
+        "anchor": "Услуги и тип события"
+      },
+      "note": "Отдельная подпись услуг; общая кнопка fields.services без подписи не покрывает её."
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 23,
+        "anchor": "<SectionTitle>Услуги"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1697,
+      "anchor": "<ServiceMultiSelect"
+    }
+  },
+  "event.type": {
+    "field": "Тип события",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Услуги и тип события",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 178,
+        "anchor": "Услуги и тип события"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 21,
+        "anchor": "testID=\"event-type\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1717,
+      "anchor": "label=\"Тип события\""
+    }
+  },
+  "event.dates": {
+    "field": "Дата и время",
+    "source": "components/CompactEventForm.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      },
+      "note": "Подсказка у начала/окончания через общий fields.dates; дата draft необязательна только в компактной веб-форме — не менять валидацию классической."
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Дата и время",
+      "sharedControl": "components/CompactEventForm.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 216,
+        "anchor": "Дата и время"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 31,
+        "anchor": "<SectionTitle>Даты"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "components/CompactEventForm.js",
+      "line": 216,
+      "anchor": "title=\"Дата и время\""
+    }
+  },
+  "event.contractSum": {
+    "field": "Договорная сумма",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Финансы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 251,
+        "anchor": "Финансы"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 92,
+        "anchor": "label=\"Договорная сумма\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2053,
+      "anchor": "label=\"Договорная сумма\""
+    }
+  },
+  "event.waitDeposit": {
+    "field": "Ждём задаток",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Финансы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 251,
+        "anchor": "Финансы"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 102,
+        "anchor": "Ждем задаток"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2087,
+      "anchor": "label=\"Ждем задаток\""
+    }
+  },
+  "event.depositAmount": {
+    "field": "Сумма задатка",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Финансы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 251,
+        "anchor": "Финансы"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 106,
+        "anchor": "label=\"Сумма задатка\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2099,
+      "anchor": "label=\"Сумма задатка\""
+    }
+  },
+  "event.depositDueAt": {
+    "field": "Дата ожидания задатка",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Финансы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 251,
+        "anchor": "Финансы"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 109,
+        "anchor": "label=\"Дата ожидания задатка\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2122,
+      "anchor": "label=\"Дата ожидания задатка\""
+    }
+  },
+  "event.financeComment": {
+    "field": "Комментарий по финансам",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Финансы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 251,
+        "anchor": "Финансы"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 116,
+        "anchor": "label=\"Комментарий по финансам\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2132,
+      "anchor": "label=\"Комментарий по финансам\""
+    }
+  },
+  "event.byContract": {
+    "field": "По договору",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Финансы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 251,
+        "anchor": "Финансы"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventFinanceSection.tsx",
+        "line": 122,
+        "anchor": "По договору"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2153,
+      "anchor": "label=\"По договору\""
+    }
+  },
+  "event.tasks": {
+    "field": "Задачи/События",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Клиент и Контакты",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2530,
+        "anchor": "tabName=\"Клиент и Контакты\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Задачи/События",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 278,
+        "anchor": "Задачи/События"
+      },
+      "note": "label общего контейнера скрыт; help у внешнего Section."
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 131,
+        "anchor": "<SectionTitle>Задачи/События"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1931,
+      "anchor": "Задачи/События"
+    }
+  },
+  "event.taskDone": {
+    "field": "Сделано — в задаче",
+    "source": "layouts/modals/modalsFunc/eventAdditionalEventEditorModal.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Клиент и Контакты",
+      "sharedControl": "layouts/modals/modalsFunc/eventAdditionalEventEditorModal.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2530,
+        "anchor": "tabName=\"Клиент и Контакты\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Задачи/События",
+      "sharedControl": "layouts/modals/modalsFunc/eventAdditionalEventEditorModal.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 278,
+        "anchor": "Задачи/События"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventContactsSection.tsx",
+        "line": 156,
+        "anchor": "testID={`event-task-${index}-done`}"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventAdditionalEventEditorModal.js",
+      "line": 202,
+      "anchor": "label=\"Сделано\""
+    }
+  },
+  "event.requestDate": {
+    "field": "Дата заявки",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Другие детали",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 302,
+        "anchor": "Другие детали"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 59,
+        "anchor": "field('requestCreatedAt'"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1876,
+      "anchor": "label=\"Дата заявки\""
+    }
+  },
+  "event.transfer": {
+    "field": "Передано коллеге / Коллега",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Другие детали",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 302,
+        "anchor": "Другие детали"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 48,
+        "anchor": "label=\"Передано коллеге\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1821,
+      "anchor": "label=\"Передано коллеге\""
+    }
+  },
+  "event.importChecked": {
+    "field": "Импорт проверен",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Другие детали",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 302,
+        "anchor": "Другие детали"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 57,
+        "anchor": "Импорт из файла проверен"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 1845,
+      "anchor": "label=\"Импорт из файла проверен\""
+    }
+  },
+  "event.status": {
+    "field": "Статус",
+    "source": "layouts/modals/modalsFunc/eventStatusEditFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Общие",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2513,
+        "anchor": "tabName=\"Общие\""
+      },
+      "note": "Общий EventStatusPicker; также подключить подсказку в отдельном eventStatusEditFunc.js."
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Статус",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 312,
+        "anchor": "Статус"
+      }
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 61,
+        "anchor": "<SectionTitle>Статус"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventStatusEditFunc.js",
+      "line": 303,
+      "anchor": "<EventStatusPicker"
+    }
+  },
+  "client.type": {
+    "field": "Тип клиента",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Тип клиента — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Тип клиента — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 221,
+        "anchor": "<SectionTitle>Тип клиента"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 618,
+      "anchor": "label=\"Тип клиента\""
+    }
+  },
+  "client.preferredChannel": {
+    "field": "Приоритетный канал связи",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Приоритетный канал связи — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Приоритетный канал связи — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 223,
+        "anchor": "<SectionTitle>Приоритетный канал связи"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 636,
+      "anchor": "label=\"Приоритетный канал связи\""
+    }
+  },
+  "client.comment": {
+    "field": "Комментарий — в карточке клиента",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Комментарий — в карточке клиента — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Комментарий — в карточке клиента — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 226,
+        "anchor": "label=\"Комментарий\" value={values.comment}"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 684,
+      "anchor": "label=\"Комментарий\""
+    }
+  },
+  "client.significantDates": {
+    "field": "Значимые даты",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Значимые даты — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Значимые даты — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 231,
+        "anchor": "<SectionTitle>Значимые даты"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 709,
+      "anchor": "label=\"Значимые даты\""
+    }
+  },
+  "client.requisites": {
+    "field": "Реквизиты для договора",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Реквизиты для договора — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Реквизиты для договора — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 253,
+        "anchor": "values.legalName"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 777,
+      "anchor": "Реквизиты для договора"
+    }
+  },
+  "client.legalName": {
+    "field": "Наименование / ФИО — в реквизитах",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Наименование / ФИО — в реквизитах — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Наименование / ФИО — в реквизитах — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 257,
+        "anchor": "label=\"Наименование / ФИО\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 796,
+      "anchor": "label=\"Наименование / ФИО\""
+    }
+  },
+  "client.merge": {
+    "field": "Объединить с другим контактом",
+    "source": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+      "placement": "Объединить с другим контактом — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+      "placement": "Объединить с другим контактом — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/clients/[id]/merge.tsx",
+        "line": 195,
+        "anchor": "title=\"Объединить и удалить дубликат\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+      "line": 414,
+      "anchor": "Объединить с другим контактом"
+    }
+  },
+  "client.conversationLink": {
+    "field": "Привязка переписки",
+    "source": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+      "placement": "Привязка переписки — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+      "placement": "Привязка переписки — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: есть просмотр связанных записей, нет управления привязкой переписки",
+      "evidence": {
+        "path": "mobile/src/features/conversations/ConversationDetail.tsx",
+        "line": 167,
+        "anchor": "<View style={styles.links}>"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+      "line": 407,
+      "anchor": "Привяжите внешние диалоги"
+    }
+  },
+  "transaction.event": {
+    "field": "Мероприятие / Заказ — в транзакции",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Мероприятие / Заказ — в транзакции — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Мероприятие / Заказ — в транзакции — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 117,
+        "anchor": "testID=\"transaction-event\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 365,
+      "anchor": "label=\"Мероприятие\""
+    }
+  },
+  "transaction.client": {
+    "field": "Клиент — в транзакции",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Клиент — в транзакции — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Клиент — в транзакции — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 118,
+        "anchor": "testID=\"transaction-client\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 386,
+      "anchor": "label=\"Клиент\""
+    }
+  },
+  "transaction.category": {
+    "field": "Тип и категория",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Тип и категория — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Тип и категория — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 122,
+        "anchor": "<SectionTitle>Категория"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 438,
+      "anchor": "label=\"Категория\""
+    }
+  },
+  "transaction.referral": {
+    "field": "Рекомендация — входящий / исходящий процент",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Рекомендация — входящий / исходящий процент — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Рекомендация — входящий / исходящий процент — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть: категории выбираются в общей группе",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 122,
+        "anchor": "categories.map"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 438,
+      "anchor": "label=\"Категория\""
+    }
+  },
+  "transaction.paymentMethod": {
+    "field": "Метод оплаты / Обязательство",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Метод оплаты / Обязательство — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Метод оплаты / Обязательство — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 123,
+        "anchor": "<SectionTitle>Метод оплаты"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 457,
+      "anchor": "label=\"Метод оплаты\""
+    }
+  },
+  "transaction.date": {
+    "field": "Дата / Плановая дата",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Дата / Плановая дата — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Дата / Плановая дата — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 124,
+        "anchor": "Плановая дата"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 479,
+      "anchor": "label={dateLabel}"
+    }
+  },
+  "transaction.taxShortcut": {
+    "field": "Кнопка 6% — категория «Налоги»",
+    "source": "layouts/modals/modalsFunc/transactionFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Кнопка 6% — категория «Налоги» — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "placement": "Кнопка 6% — категория «Налоги» — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/finance/edit/[id].tsx",
+        "line": 120,
+        "anchor": "6% от договорённости"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/transactionFunc.js",
+      "line": 413,
+      "anchor": "title=\"Рассчитать 6%"
+    }
+  },
+  "service.group": {
+    "field": "Группа услуги",
+    "source": "layouts/modals/modalsFunc/serviceFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Группа услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Группа услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 124,
+        "anchor": "<SectionTitle>Группа"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "line": 131,
+      "anchor": "label=\"Группа\""
+    }
+  },
+  "service.description": {
+    "field": "Описание услуги",
+    "source": "layouts/modals/modalsFunc/serviceFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Описание услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Описание услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 129,
+        "anchor": "label=\"Описание\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "line": 150,
+      "anchor": "label=\"Описание\""
+    }
+  },
+  "service.price": {
+    "field": "Цена услуги",
+    "source": "layouts/modals/modalsFunc/serviceFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Цена услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Цена услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 131,
+        "anchor": "label=\"Цена, ₽\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "line": 169,
+      "anchor": "label=\"Цена\""
+    }
+  },
+  "service.duration": {
+    "field": "Продолжительность услуги",
+    "source": "layouts/modals/modalsFunc/serviceFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Продолжительность услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "placement": "Продолжительность услуги — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/services/ServiceEditor.tsx",
+        "line": 130,
+        "anchor": "label=\"Продолжительность, минут\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/serviceFunc.js",
+      "line": 160,
+      "anchor": "label=\"Продолжительность\""
+    }
+  },
+  "address.saveToPool": {
+    "field": "Сохранить в пул — адрес",
+    "source": "layouts/modals/modalsFunc/addressEditorFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/addressEditorFunc.js",
+      "placement": "Сохранить в пул — адрес — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/addressEditorFunc.js",
+      "placement": "Сохранить в пул — адрес — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: только адрес текущей работы, сохранения адреса в пул нет",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 38,
+        "anchor": "<SectionTitle>Локация"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/addressEditorFunc.js",
+      "line": 67,
+      "anchor": "<Button name={saveButtonLabel}"
+    }
+  },
+  "address.comment": {
+    "field": "Уточнения по адресу",
+    "source": "components/AddressPicker.js",
+    "webClassic": {
+      "path": "components/AddressPicker.js",
+      "placement": "Уточнения по адресу — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/AddressPicker.js",
+      "placement": "Уточнения по адресу — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 43,
+        "anchor": "label=\"Комментарий к адресу\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/AddressPicker.js",
+      "line": 142,
+      "anchor": "Уточнения по адресу"
+    }
+  },
+  "address.navigation": {
+    "field": "Координаты и ссылки навигации",
+    "source": "components/AddressPicker.js",
+    "webClassic": {
+      "path": "components/AddressPicker.js",
+      "placement": "Координаты и ссылки навигации — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/AddressPicker.js",
+      "placement": "Координаты и ссылки навигации — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: нет полей координат/ссылок в редакторе; не добавлять ради подсказки",
+      "evidence": {
+        "path": "mobile/src/features/events/EventGeneralSection.tsx",
+        "line": 38,
+        "anchor": "<SectionTitle>Локация"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/AddressPicker.js",
+      "line": 155,
+      "anchor": "label=\"Широта\""
+    }
+  },
+  "documents.event": {
+    "field": "Файлы и документы — в заказе",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Файлы и документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 291,
+        "anchor": "Файлы и документы"
+      },
+      "note": "label общего контейнера скрыт; help разместить у внешнего Section, не в пустой подписи."
+    },
+    "android": {
+      "state": "есть: вложения доступны в заявке, генерация DOCX запрещена для draft; сохранить предупреждение",
+      "evidence": {
+        "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
+        "line": 231,
+        "anchor": "<SectionTitle>"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2166,
+      "anchor": "Файлы и документы"
+    }
+  },
+  "documents.client": {
+    "field": "Файлы и документы — в клиенте",
+    "source": "layouts/modals/modalsFunc/clientFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Файлы и документы — в клиенте — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "placement": "Файлы и документы — в клиенте — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть: переход в /clients/[id]/documents",
+      "evidence": {
+        "path": "mobile/app/clients/edit/[id].tsx",
+        "line": 229,
+        "anchor": "title=\"Файлы и документы\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/clientFunc.js",
+      "line": 693,
+      "anchor": "<DocumentsEditor"
+    }
+  },
+  "documents.templates": {
+    "field": "Шаблоны документов — страница «Документы»",
+    "source": "layouts/content/DocumentsContent.js",
+    "webClassic": {
+      "path": "layouts/content/DocumentsContent.js",
+      "placement": "Шаблоны документов — страница «Документы» — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/DocumentsContent.js",
+      "placement": "Шаблоны документов — страница «Документы» — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/documents/DocumentsSection.tsx",
+        "line": 103,
+        "anchor": "<SectionTitle>Шаблоны документов"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/DocumentsContent.js",
+      "line": 384,
+      "anchor": "Шаблоны документов"
+    }
+  },
+  "documents.templateType": {
+    "field": "Тип документа — в редакторе шаблона",
+    "source": "layouts/content/DocumentsContent.js",
+    "webClassic": {
+      "path": "layouts/content/DocumentsContent.js",
+      "placement": "Тип документа — в редакторе шаблона — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/DocumentsContent.js",
+      "placement": "Тип документа — в редакторе шаблона — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/documents/DocumentTemplateEditor.tsx",
+        "line": 128,
+        "anchor": "<SectionTitle>Тип документа"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/DocumentsContent.js",
+      "line": 272,
+      "anchor": "label=\"Тип документа\""
+    }
+  },
+  "documents.artistRequisites": {
+    "field": "Реквизиты исполнителя",
+    "source": "layouts/modals/modalsFunc/artistRequisitesEditorFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/artistRequisitesEditorFunc.js",
+      "placement": "Реквизиты исполнителя — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/artistRequisitesEditorFunc.js",
+      "placement": "Реквизиты исполнителя — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/profile/ArtistRequisitesSection.tsx",
+        "line": 89,
+        "anchor": "<SectionTitle>"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/artistRequisitesEditorFunc.js",
+      "line": 191,
+      "anchor": "ФИО артиста (для документов)"
+    }
+  },
+  "documents.date": {
+    "field": "Дата документа",
+    "source": "components/DocumentCreateDialog.js",
+    "webClassic": {
+      "path": "components/DocumentCreateDialog.js",
+      "placement": "Дата документа — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/DocumentCreateDialog.js",
+      "placement": "Дата документа — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
+        "line": 247,
+        "anchor": "testID=\"document-date\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/DocumentCreateDialog.js",
+      "line": 354,
+      "anchor": "label=\"Дата документа\""
+    }
+  },
+  "proposal.title": {
+    "field": "Название предложения",
+    "source": "components/EventProposalsSection.js",
+    "webClassic": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Название предложения — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Название предложения — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактора КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventProposalsSection.js",
+      "line": 610,
+      "anchor": "label=\"Название предложения\""
+    }
+  },
+  "proposal.expiresAt": {
+    "field": "Действует до",
+    "source": "components/EventProposalsSection.js",
+    "webClassic": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Действует до — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Действует до — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактора КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventProposalsSection.js",
+      "line": 618,
+      "anchor": "label=\"Действует до\""
+    }
+  },
+  "proposal.recommended": {
+    "field": "Рекомендуем — вариант КП",
+    "source": "components/ProposalPackagesEditor.js",
+    "webClassic": {
+      "path": "components/ProposalPackagesEditor.js",
+      "placement": "Рекомендуем — вариант КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/ProposalPackagesEditor.js",
+      "placement": "Рекомендуем — вариант КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактора КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/ProposalPackagesEditor.js",
+      "line": 224,
+      "anchor": "label=\"Рекомендуем\""
+    }
+  },
+  "proposal.blocks": {
+    "field": "Дополнительные тексты / Блоки КП",
+    "source": "components/EventProposalsSection.js",
+    "webClassic": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Дополнительные тексты / Блоки КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Дополнительные тексты / Блоки КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактора КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventProposalsSection.js",
+      "line": 656,
+      "anchor": "Тексты страницы"
+    }
+  },
+  "proposal.apply": {
+    "field": "Применить — выбранный вариант КП",
+    "source": "components/EventProposalsSection.js",
+    "webClassic": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Применить — выбранный вариант КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Применить — выбранный вариант КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: применения КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventProposalsSection.js",
+      "line": 977,
+      "anchor": "onClick={() => action(proposal, 'apply')}"
+    }
+  },
+  "proposal.newVersion": {
+    "field": "Редактировать в новой версии",
+    "source": "components/EventProposalsSection.js",
+    "webClassic": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Редактировать в новой версии — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Редактировать в новой версии — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактора КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventProposalsSection.js",
+      "line": 896,
+      "anchor": "Редактировать в новой версии"
+    }
+  },
+  "attention.withoutNextStep": {
+    "field": "Заявки без следующего шага — «Важное»",
+    "source": "components/RequestsWithoutNextStep.js",
+    "webClassic": {
+      "path": "components/RequestsWithoutNextStep.js",
+      "placement": "Заявки без следующего шага — «Важное» — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/RequestsWithoutNextStep.js",
+      "placement": "Заявки без следующего шага — «Важное» — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/attention/AttentionScreen.tsx",
+        "line": 135,
+        "anchor": "Заявки без следующего шага"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/RequestsWithoutNextStep.js",
+      "line": 80,
+      "anchor": "title=\"Заявки без следующего шага\""
+    }
+  },
+  "attention.pastRequests": {
+    "field": "Заявки с прошедшей датой — «Важное»",
+    "source": "components/PastRequests.js",
+    "webClassic": {
+      "path": "components/PastRequests.js",
+      "placement": "Заявки с прошедшей датой — «Важное» — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/PastRequests.js",
+      "placement": "Заявки с прошедшей датой — «Важное» — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/attention/AttentionScreen.tsx",
+        "line": 93,
+        "anchor": "Заявки с прошедшей датой"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/PastRequests.js",
+      "line": 34,
+      "anchor": "title=\"Заявки с прошедшей датой\""
+    }
+  },
+  "statistics.profitMargin": {
+    "field": "Чистая прибыль / Маржа — статистика",
+    "source": "layouts/content/StatisticsContent.js",
+    "webClassic": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Чистая прибыль / Маржа — статистика — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Чистая прибыль / Маржа — статистика — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+        "line": 56,
+        "anchor": "Финансовый результат"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/StatisticsContent.js",
+      "line": 860,
+      "anchor": "Чистая прибыль"
+    }
+  },
+  "statistics.expectedProfit": {
+    "field": "Ожидаемая прибыль — диаграмма",
+    "source": "layouts/content/StatisticsContent.js",
+    "webClassic": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Ожидаемая прибыль — диаграмма — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Ожидаемая прибыль — диаграмма — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: прогноза/диаграммы нет; есть остаток к оплате, это не тот же показатель",
+      "evidence": {
+        "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+        "line": 56,
+        "anchor": "Финансовый результат"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/StatisticsContent.js",
+      "line": 641,
+      "anchor": "Ожидаемая прибыль"
+    }
+  },
+  "statistics.includeRequests": {
+    "field": "Учитывать заявки — статистика",
+    "source": "layouts/content/StatisticsContent.js",
+    "webClassic": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Учитывать заявки — статистика — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Учитывать заявки — статистика — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "частично: фильтр «Все»/«Заявки» вместо веб-флажка; не прикреплять исходный текст к фильтру «Заявки» как будто он добавляет их к остальным",
+      "evidence": {
+        "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+        "line": 13,
+        "anchor": "const statuses:"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/StatisticsContent.js",
+      "line": 836,
+      "anchor": "label=\"Учитывать заявки\""
+    }
+  },
+  "statistics.monthGrouping": {
+    "field": "Группировка по месяцам — статистика",
+    "source": "helpers/getStatisticsMonthDetails.js",
+    "webClassic": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Группировка по месяцам — статистика — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/StatisticsContent.js",
+      "placement": "Группировка по месяцам — статистика — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: месячной группировки в UI нет",
+      "evidence": {
+        "path": "mobile/src/features/statistics/StatisticsSection.tsx",
+        "line": 56,
+        "anchor": "Финансовый результат"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/StatisticsContent.js",
+      "line": 28,
+      "anchor": "getStatisticsMonthDetails"
+    }
+  },
+  "review.request": {
+    "field": "Отзыв клиента / Работа выполнена",
+    "source": "components/EventClientReview.js",
+    "webClassic": {
+      "path": "components/EventClientReview.js",
+      "placement": "Отзыв клиента / Работа выполнена — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventClientReview.js",
+      "placement": "Отзыв клиента / Работа выполнена — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: только заглушка отзывов",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 13,
+        "anchor": "Отзывы клиентов"
+      },
+      "webTransition": "Меню /more/client-reviews ведёт к заглушке в mobile/app/more/[section].tsx:34, кнопки открытия веба нет."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventClientReview.js",
+      "line": 143,
+      "anchor": "Работа выполнена"
+    }
+  },
+  "review.privateNote": {
+    "field": "Заметка для себя — в отзыве",
+    "source": "components/ClientReviewCard.js",
+    "webClassic": {
+      "path": "components/ClientReviewCard.js",
+      "placement": "Заметка для себя — в отзыве — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/ClientReviewCard.js",
+      "placement": "Заметка для себя — в отзыве — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: только заглушка отзывов",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 13,
+        "anchor": "Отзывы клиентов"
+      },
+      "webTransition": "Меню /more/client-reviews ведёт к заглушке в mobile/app/more/[section].tsx:34, кнопки открытия веба нет."
+    },
+    "webFieldEvidence": {
+      "path": "components/ClientReviewCard.js",
+      "line": 95,
+      "anchor": "label=\"Заметка для себя\""
+    }
+  },
+  "settings.terminology": {
+    "field": "Как называть основную работу",
+    "source": "layouts/content/SettingsContent.js",
+    "webClassic": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Как называть основную работу — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Как называть основную работу — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/settings/SettingsSection.tsx",
+        "line": 30,
+        "anchor": "<SectionTitle>Как называть"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/SettingsContent.js",
+      "line": 255,
+      "anchor": "label=\"Как называть основную работу\""
+    }
+  },
+  "settings.eventForm": {
+    "field": "Классическая / Компактная форма",
+    "source": "layouts/content/SettingsContent.js",
+    "webClassic": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Классическая / Компактная форма — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Классическая / Компактная форма — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактор Android единый, переключателя веб-форм нет",
+      "evidence": {
+        "path": "mobile/src/features/settings/SettingsSection.tsx",
+        "line": 25,
+        "anchor": "<ThemePreferenceSection"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/SettingsContent.js",
+      "line": 274,
+      "anchor": "Форма создания и редактирования"
+    }
+  },
+  "settings.timeZone": {
+    "field": "Часовой пояс",
+    "source": "layouts/content/SettingsContent.js",
+    "webClassic": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Часовой пояс — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Часовой пояс — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "частично: отображение timezone есть, редактирования нет",
+      "evidence": {
+        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+        "line": 101,
+        "anchor": "Часовой пояс:"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/SettingsContent.js",
+      "line": 284,
+      "anchor": "label=\"Часовой пояс\""
+    }
+  },
+  "settings.defaultDuration": {
+    "field": "Стандартная длительность",
+    "source": "layouts/content/SettingsContent.js",
+    "webClassic": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Стандартная длительность — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/SettingsContent.js",
+      "placement": "Стандартная длительность — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: настройки стандартной длительности в Android нет",
+      "evidence": {
+        "path": "mobile/src/features/settings/SettingsSection.tsx",
+        "line": 25,
+        "anchor": "<ThemePreferenceSection"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/SettingsContent.js",
+      "line": 292,
+      "anchor": "Стандартная длительность"
+    }
+  },
+  "billing.history": {
+    "field": "Баланс и платежи",
+    "source": "layouts/content/BillingHistoryContent.js",
+    "webClassic": {
+      "path": "layouts/content/BillingHistoryContent.js",
+      "placement": "Баланс и платежи — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/BillingHistoryContent.js",
+      "placement": "Баланс и платежи — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/app/billing/index.tsx",
+        "line": 50,
+        "anchor": "<PageHeader"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/BillingHistoryContent.js",
+      "line": 179,
+      "anchor": "BillingHistoryContent"
+    }
+  },
+  "integrations.leadSource": {
+    "field": "Название источника — ключ входящих заявок",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Название источника — ключ входящих заявок — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Название источника — ключ входящих заявок — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 156,
+        "anchor": "label=\"Название нового источника\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 261,
+      "anchor": "label=\"Название источника\""
+    }
+  },
+  "integrations.leadKeyEnabled": {
+    "field": "Ключ активен — входящие заявки",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Ключ активен — входящие заявки — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Ключ активен — входящие заявки — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 161,
+        "anchor": "ключ ${key.name}"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 297,
+      "anchor": "label=\"Ключ активен\""
+    }
+  },
+  "integrations.googleSync": {
+    "field": "Синхронизация Google Calendar",
+    "source": "components/GoogleCalendarSettings.js",
+    "webClassic": {
+      "path": "components/GoogleCalendarSettings.js",
+      "placement": "Синхронизация Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/GoogleCalendarSettings.js",
+      "placement": "Синхронизация Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+        "line": 86,
+        "anchor": "<SectionTitle>Google Calendar"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/GoogleCalendarSettings.js",
+      "line": 968,
+      "anchor": "Синхронизация Google Calendar"
+    }
+  },
+  "integrations.googleFields": {
+    "field": "Что отправлять в Google Calendar",
+    "source": "components/GoogleCalendarSettings.js",
+    "webClassic": {
+      "path": "components/GoogleCalendarSettings.js",
+      "placement": "Что отправлять в Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/GoogleCalendarSettings.js",
+      "placement": "Что отправлять в Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: только сообщение о доступности в Web/PWA; кнопки перехода нет",
+      "evidence": {
+        "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+        "line": 114,
+        "anchor": "состав данных и цвета"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/GoogleCalendarSettings.js",
+      "line": 680,
+      "anchor": "Что отправлять в Google Calendar"
+    }
+  },
+  "integrations.googleNotifications": {
+    "field": "Уведомления Google Calendar",
+    "source": "components/GoogleCalendarSettings.js",
+    "webClassic": {
+      "path": "components/GoogleCalendarSettings.js",
+      "placement": "Уведомления Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/GoogleCalendarSettings.js",
+      "placement": "Уведомления Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/GoogleCalendarForm.tsx",
+        "line": 77,
+        "anchor": "Напоминания Google Calendar"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/GoogleCalendarSettings.js",
+      "line": 753,
+      "anchor": "Уведомления Google Calendar"
+    }
+  },
+  "integrations.webhook": {
+    "field": "Адрес приёма событий — Avito / VK / Novofon",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Адрес приёма событий — Avito / VK / Novofon — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Адрес приёма событий — Avito / VK / Novofon — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "частично: Novofon — выдача/копирование адреса после подключения; в CredentialIntegrationForm нет отображения webhook Avito/VK",
+      "evidence": {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 173,
+        "anchor": "Скопировать webhook URL"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 1503,
+      "anchor": "label=\"Адрес webhook Avito\""
+    }
+  },
+  "integrations.vkToken": {
+    "field": "Токен сообщества VK",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Токен сообщества VK — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Токен сообщества VK — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+        "line": 55,
+        "anchor": "label=\"Токен сообщества\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 1627,
+      "anchor": "label=\"Токен сообщества VK\""
+    }
+  },
+  "integrations.vkCallback": {
+    "field": "Строка подтверждения и секрет Callback API VK",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Строка подтверждения и секрет Callback API VK — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Строка подтверждения и секрет Callback API VK — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "частично: поле подтверждения есть; редактирования Callback-секрета нет",
+      "evidence": {
+        "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+        "line": 56,
+        "anchor": "label=\"Строка подтверждения Callback API\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 1616,
+      "anchor": "label=\"Строка подтверждения Callback API\""
+    }
+  },
+  "integrations.avitoCredentials": {
+    "field": "Данные приложения Avito",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Данные приложения Avito — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Данные приложения Avito — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/CredentialIntegrationForm.tsx",
+        "line": 50,
+        "anchor": "label=\"Client ID\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 1477,
+      "anchor": "label=\"Avito Client ID\""
+    }
+  },
+  "integrations.telegramAutoClients": {
+    "field": "Автосоздание клиентов Telegram",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Автосоздание клиентов Telegram — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Автосоздание клиентов Telegram — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: Telegram только просмотр, управления автосозданием нет",
+      "evidence": {
+        "path": "mobile/src/features/integrations/TelegramSection.tsx",
+        "line": 15,
+        "anchor": "только просмотр"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 1816,
+      "anchor": "Создавать карточку клиента, если контакта Telegram"
+    }
+  },
+  "integrations.aiProvider": {
+    "field": "Провайдер ИИ",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Провайдер ИИ — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Провайдер ИИ — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 26,
+        "anchor": "ИИ Ведело"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 2036,
+      "anchor": "label=\"Провайдер AI-анализа\""
+    }
+  },
+  "integrations.aiModels": {
+    "field": "Модель анализа / Модель распознавания",
+    "source": "layouts/content/IntegrationsContent.js",
+    "webClassic": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Модель анализа / Модель распознавания — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "placement": "Модель анализа / Модель распознавания — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть: поля при собственном AITunnel",
+      "evidence": {
+        "path": "mobile/src/features/integrations/ManagedIntegrationsSection.tsx",
+        "line": 144,
+        "anchor": "label=\"Модель распознавания\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/IntegrationsContent.js",
+      "line": 2161,
+      "anchor": "label=\"Модель AI-анализа\""
+    }
+  },
+  "import.google": {
+    "field": "Импорт из Google Calendar",
+    "source": "components/GoogleCalendarImportSettings.js",
+    "webClassic": {
+      "path": "components/GoogleCalendarImportSettings.js",
+      "placement": "Импорт из Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/GoogleCalendarImportSettings.js",
+      "placement": "Импорт из Google Calendar — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "переход в веб: https://vedelo.ru/cabinet/import уже существует",
+      "evidence": {
+        "path": "mobile/src/features/import/CalendarImportSection.tsx",
+        "line": 33,
+        "anchor": "title=\"Открыть Google-импорт в web\""
+      },
+      "webTransition": "Существующая кнопка в CalendarImportSection.tsx:33; URL задан calendarImportApi.ts:6."
+    },
+    "webFieldEvidence": {
+      "path": "components/GoogleCalendarImportSettings.js",
+      "line": 390,
+      "anchor": "Период импорта"
+    }
+  },
+  "import.fileNote": {
+    "field": "Пояснение к файлу — импорт",
+    "source": "components/FileImportSettings.js",
+    "webClassic": {
+      "path": "components/FileImportSettings.js",
+      "placement": "Пояснение к файлу — импорт — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/FileImportSettings.js",
+      "placement": "Пояснение к файлу — импорт — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/import/UploadStep.tsx",
+        "line": 13,
+        "anchor": "label=\"Пояснение к файлу"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/FileImportSettings.js",
+      "line": 284,
+      "anchor": "Пояснение к файлу — необязательно"
+    }
+  },
+  "import.rules": {
+    "field": "Дополнительные правила и исправления — импорт",
+    "source": "components/FileImportSettings.js",
+    "webClassic": {
+      "path": "components/FileImportSettings.js",
+      "placement": "Дополнительные правила и исправления — импорт — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/FileImportSettings.js",
+      "placement": "Дополнительные правила и исправления — импорт — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/import/ReviewStep.tsx",
+        "line": 40,
+        "anchor": "label=\"Общий комментарий и исправления\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/FileImportSettings.js",
+      "line": 459,
+      "anchor": "Дополнительные правила и исправления"
+    }
+  },
+  "import.verify": {
+    "field": "Проверка данных после импорта из файла",
+    "source": "components/FileImportSettings.js",
+    "webClassic": {
+      "path": "components/FileImportSettings.js",
+      "placement": "Проверка данных после импорта из файла — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/FileImportSettings.js",
+      "placement": "Проверка данных после импорта из файла — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/import/ApplyStep.tsx",
+        "line": 27,
+        "anchor": "Проверьте созданные черновики"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/FileImportSettings.js",
+      "line": 476,
+      "anchor": "оплат сохранятся для проверки"
+    }
+  },
+  "notifications.device": {
+    "field": "Уведомления аккаунта / Это устройство",
+    "source": "components/PushNotificationsSettings.js",
+    "webClassic": {
+      "path": "components/PushNotificationsSettings.js",
+      "placement": "Уведомления аккаунта / Это устройство — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/PushNotificationsSettings.js",
+      "placement": "Уведомления аккаунта / Это устройство — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "частично: Expo push вместо браузерной подписки; исходный текст описывает веб, нужна явная платформенная оговорка",
+      "evidence": {
+        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+        "line": 92,
+        "anchor": "Push на этом устройстве"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/PushNotificationsSettings.js",
+      "line": 473,
+      "anchor": "Это устройство"
+    }
+  },
+  "notifications.reminderTime": {
+    "field": "Время ежедневных напоминаний",
+    "source": "components/PushNotificationsSettings.js",
+    "webClassic": {
+      "path": "components/PushNotificationsSettings.js",
+      "placement": "Время ежедневных напоминаний — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/PushNotificationsSettings.js",
+      "placement": "Время ежедневных напоминаний — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "есть",
+      "evidence": {
+        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
+        "line": 103,
+        "anchor": "label=\"Время, шаг 15 минут\""
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/PushNotificationsSettings.js",
+      "line": 551,
+      "anchor": "Время ежедневных напоминаний"
+    }
+  },
+  "proposal.section": {
+    "field": "Коммерческие предложения — в заказе",
+    "source": "layouts/modals/modalsFunc/eventFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "placement": "Финансы и Документы",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2542,
+        "anchor": "tabName=\"Финансы и Документы\""
+      }
+    },
+    "webCompact": {
+      "path": "components/CompactEventForm.js",
+      "placement": "Коммерческие предложения",
+      "sharedControl": "layouts/modals/modalsFunc/eventFunc.js",
+      "evidence": {
+        "path": "components/CompactEventForm.js",
+        "line": 297,
+        "anchor": "Коммерческие предложения"
+      }
+    },
+    "android": {
+      "state": "нет: редактора КП/перехода в веб-КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП.",
+      "route": "mobile/app/events/edit/[id].tsx"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/eventFunc.js",
+      "line": 2192,
+      "anchor": "label=\"Коммерческие предложения\""
+    }
+  },
+  "proposal.message": {
+    "field": "Текст сообщения — КП",
+    "source": "components/EventProposalsSection.js",
+    "webClassic": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Текст сообщения — КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/EventProposalsSection.js",
+      "placement": "Текст сообщения — КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: редактора КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/EventProposalsSection.js",
+      "line": 707,
+      "anchor": "label=\"Текст сообщения\""
+    }
+  },
+  "proposal.templateMessage": {
+    "field": "Сообщение для чата — шаблон КП",
+    "source": "components/ProposalTemplateEditor.js",
+    "webClassic": {
+      "path": "components/ProposalTemplateEditor.js",
+      "placement": "Сообщение для чата — шаблон КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/ProposalTemplateEditor.js",
+      "placement": "Сообщение для чата — шаблон КП — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "нет: шаблонов КП нет",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 6,
+        "anchor": "pendingDescription"
+      },
+      "webTransition": "Нет редактора, пункта КП и кнопки веб-перехода. /more/documents содержит DOCX, не КП."
+    },
+    "webFieldEvidence": {
+      "path": "components/ProposalTemplateEditor.js",
+      "line": 320,
+      "anchor": "label=\"Сообщение для чата\""
+    }
+  },
+  "admin.tariffMonthlyLimit": {
+    "field": "Мероприятий в месяц — тариф",
+    "source": "layouts/modals/modalsFunc/tariffFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/tariffFunc.js",
+      "placement": "Мероприятий в месяц — тариф — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/tariffFunc.js",
+      "placement": "Мероприятий в месяц — тариф — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/tariffFunc.js",
+      "line": 190,
+      "anchor": "label=\"Мероприятий в месяц\""
+    }
+  },
+  "admin.tariffReviews": {
+    "field": "Отзывы клиентов — тариф",
+    "source": "layouts/modals/modalsFunc/tariffFunc.js",
+    "webClassic": {
+      "path": "layouts/modals/modalsFunc/tariffFunc.js",
+      "placement": "Отзывы клиентов — тариф — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/modals/modalsFunc/tariffFunc.js",
+      "placement": "Отзывы клиентов — тариф — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/modals/modalsFunc/tariffFunc.js",
+      "line": 220,
+      "anchor": "label=\"Отзывы клиентов\""
+    }
+  },
+  "admin.aiMarkup": {
+    "field": "Коэффициент наценки ИИ",
+    "source": "layouts/content/AiUsageAdminContent.js",
+    "webClassic": {
+      "path": "layouts/content/AiUsageAdminContent.js",
+      "placement": "Коэффициент наценки ИИ — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/AiUsageAdminContent.js",
+      "placement": "Коэффициент наценки ИИ — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/AiUsageAdminContent.js",
+      "line": 161,
+      "anchor": "label=\"Коэффициент наценки\""
+    }
+  },
+  "admin.trial": {
+    "field": "Пробный тариф / Срок, дней",
+    "source": "layouts/content/RegistrationTrialSettingsContent.js",
+    "webClassic": {
+      "path": "layouts/content/RegistrationTrialSettingsContent.js",
+      "placement": "Пробный тариф / Срок, дней — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "layouts/content/RegistrationTrialSettingsContent.js",
+      "placement": "Пробный тариф / Срок, дней — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "layouts/content/RegistrationTrialSettingsContent.js",
+      "line": 124,
+      "anchor": "Автоматически подключать пробный тариф"
+    }
+  },
+  "admin.chargeType": {
+    "field": "Вид ручного списания",
+    "source": "components/ManualBalanceChargeForm.js",
+    "webClassic": {
+      "path": "components/ManualBalanceChargeForm.js",
+      "placement": "Вид ручного списания — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/ManualBalanceChargeForm.js",
+      "placement": "Вид ручного списания — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/ManualBalanceChargeForm.js",
+      "line": 98,
+      "anchor": "label=\"Вид списания\""
+    }
+  },
+  "admin.chargeDate": {
+    "field": "Дата ручного списания",
+    "source": "components/ManualBalanceChargeForm.js",
+    "webClassic": {
+      "path": "components/ManualBalanceChargeForm.js",
+      "placement": "Дата ручного списания — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/ManualBalanceChargeForm.js",
+      "placement": "Дата ручного списания — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/ManualBalanceChargeForm.js",
+      "line": 89,
+      "anchor": "label=\"Дата списания\""
+    }
+  },
+  "admin.receiptNotRequired": {
+    "field": "Чек не нужен",
+    "source": "components/PaymentReceiptControl.js",
+    "webClassic": {
+      "path": "components/PaymentReceiptControl.js",
+      "placement": "Чек не нужен — у подписи поля/раздела или действия, общий экран"
+    },
+    "webCompact": {
+      "path": "components/PaymentReceiptControl.js",
+      "placement": "Чек не нужен — у подписи поля/раздела или действия, общий экран"
+    },
+    "android": {
+      "state": "только веб: администрирование исключено",
+      "evidence": {
+        "path": "mobile/src/features/navigation/menu.ts",
+        "line": 11,
+        "anchor": "Platform administration"
+      },
+      "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
+    },
+    "webFieldEvidence": {
+      "path": "components/PaymentReceiptControl.js",
+      "line": 103,
+      "anchor": ": 'Чек не нужен'"
+    }
+  }
+}

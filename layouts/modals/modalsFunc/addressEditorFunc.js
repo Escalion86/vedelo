@@ -1,3 +1,5 @@
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
 import { useCallback, useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import AddressPicker from '@components/AddressPicker'
@@ -64,7 +66,10 @@ const addressEditorFunc = ({
         />
         <div className="flex items-center gap-x-2">
           {formatAddressPoolShort(draft) && !isAddressInPool && (
-            <Button name={saveButtonLabel} onClick={handleSaveToPool} thin />
+            <>
+              <Button name={saveButtonLabel} onClick={handleSaveToPool} thin />
+              <FieldHelp text={fieldHelp['address.saveToPool']} label={saveButtonLabel || 'Сохранить в пул'} />
+            </>
           )}
           {isAddressInPool && <span className="text-sm">{savedLabel}</span>}
         </div>

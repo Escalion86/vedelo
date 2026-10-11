@@ -66,6 +66,7 @@ function load(file) {
     if (id === '@components/Input' || id === '@components/PhoneInput')
       return Input
     if (id.startsWith('@components/')) return Box
+    if (id.startsWith('@helpers/') && id.endsWith('.json')) return require(path.resolve(`helpers/${id.slice(9)}`))
     if (id.startsWith('@helpers/')) return load(`helpers/${id.slice(9)}.js`)
     return require(id)
   }

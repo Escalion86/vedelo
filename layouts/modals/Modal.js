@@ -285,7 +285,7 @@ const Modal = ({
     <motion.div
       className={
         cn(
-          'bg-opacity-80 tablet:items-center fixed inset-0 z-50 flex w-full justify-center overflow-y-auto bg-gray-800 duration-200',
+          'bg-opacity-80 tablet:items-center fixed inset-0 z-50 flex w-full justify-center overflow-y-auto overscroll-y-contain bg-gray-800 duration-200',
           subModalText ? 'tablet:pb-5 tablet:pt-10 py-0' : 'tablet:py-5 py-0'
         )
         //  + (rendered ? ' opacity-100' : ' opacity-0')
@@ -378,7 +378,7 @@ const Modal = ({
         <div
           ref={contentRef}
           className={cn(
-            'tablet:px-3 flex-1 overflow-x-hidden overflow-y-auto px-2',
+            'tablet:px-3 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-2',
             contentClassName
           )}
           onFocusCapture={handleContentFocusCapture}

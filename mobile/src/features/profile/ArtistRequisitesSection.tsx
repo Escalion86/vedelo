@@ -13,6 +13,7 @@ import {
   Surface,
 } from '../../shared/ui/components'
 import { radius, spacing, type Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 
 type ArtistStatus = 'individual_entrepreneur' | 'self_employed'
 type ArtistRequisites = {
@@ -86,7 +87,7 @@ export function ArtistRequisitesSection() {
   }
 
   return <Surface>
-    <SectionTitle>Реквизиты артиста</SectionTitle>
+    <SectionTitle help={getFieldHelp('documents.artistRequisites')}>Реквизиты артиста</SectionTitle>
     <Text style={styles.hint}>Используются при генерации договоров и актов.</Text>
     {loading && !ready ? <Notice message="Загружаем реквизиты…" /> : null}
     {error && !ready ? <Button title="Повторить загрузку реквизитов" variant="secondary" onPress={load} loading={loading} /> : null}

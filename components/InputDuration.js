@@ -29,6 +29,7 @@ const ArrowButton = ({ icon, onClick, disabled }) => {
 
 const InputDuration = ({
   label = 'Продолжительность',
+  help,
   value = 0,
   onChange,
   min = 0,
@@ -87,6 +88,7 @@ const InputDuration = ({
   return (
     <InputWrapper
       label={label}
+      help={help}
       value={total}
       className={cn('w-fit max-w-full', className)}
       required={required}

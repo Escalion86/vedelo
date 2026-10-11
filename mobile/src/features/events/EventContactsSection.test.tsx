@@ -6,7 +6,7 @@ import type { Client } from '../../shared/domain/types'
 import { createEventDraft, type EventDraft } from '../../shared/domain/eventForm'
 import { EventContactsSection } from './EventContactsSection'
 
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
 
 const clients: Client[] = [

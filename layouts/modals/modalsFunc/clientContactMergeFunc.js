@@ -1,3 +1,5 @@
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
@@ -403,6 +405,10 @@ const clientContactMergeFunc = (clientId) => {
       <div className="flex flex-col gap-3 text-sm text-gray-800">
         <SurfaceCard paddingClassName="px-3 py-2">
           <div className="font-semibold text-gray-900">{clientName}</div>
+          <div className="flex items-center gap-1 text-xs font-semibold text-gray-500">
+            Привязка переписки
+            <FieldHelp text={fieldHelp['client.conversationLink']} label="Привязка переписки" />
+          </div>
           <div className="mt-1 text-xs text-gray-600">
             Привяжите внешние диалоги к этому клиенту. После привязки они
             попадут в общий чат клиента.
@@ -412,7 +418,7 @@ const clientContactMergeFunc = (clientId) => {
         <SurfaceCard paddingClassName="p-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Объединить с другим контактом
-          </div>
+            <FieldHelp text={fieldHelp['client.merge']} label="Объединить с другим контактом" />          </div>
           <div className="mt-1 text-xs text-gray-600">
             Выберите второй контакт, проверьте связи и укажите направление
             объединения. Карточка-получатель останется, вторая будет удалена.

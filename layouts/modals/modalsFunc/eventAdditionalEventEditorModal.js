@@ -1,3 +1,4 @@
+import fieldHelp from '@helpers/fieldHelp.json'
 import { useEffect, useState } from 'react'
 import DateTimePicker from '@components/DateTimePicker'
 import QuickActionButtons from '@components/QuickActionButtons'
@@ -200,6 +201,7 @@ const openEventAdditionalEventEditorModal = ({
           checked={done}
           onClick={() => setDone((prev) => !prev)}
           label="Сделано"
+          help={fieldHelp['event.taskDone']}
           checkedIcon={faCircleCheck}
           checkedIconColor="#16A34A"
           noMargin

@@ -6,6 +6,8 @@ import { categoryLabel } from '../../shared/domain/finance'
 import { Button, Field, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { FieldHelp } from '../../shared/ui/FieldHelp'
 import { formatEventCardMoney } from './eventCard'
 import {
   eventTransactionsFor, hasDepositPaidTransaction, isObligationTransaction, splitEventTransactions, transactionDateLabel,
@@ -89,38 +91,44 @@ export const EventFinanceSection = ({
     <View style={styles.section}>
       <Surface>
         <SectionTitle>Финансы</SectionTitle>
-        <Field keyboardType="numeric" label="Договорная сумма"
+        <Field keyboardType="numeric" label="Договорная сумма" help={getFieldHelp('event.contractSum')}
           onChangeText={(contractSum) => setValues({ contractSum })} testID="event-contract-sum" value={v.contractSum} />
         {depositPaid ? (
           <Notice message="Задаток отмечен фактической транзакцией. Ожидание задатка скрыто." tone="info" />
         ) : (
           <>
+            <View style={styles.toggle}>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: v.waitDeposit }}
               onPress={() => setValues({ waitDeposit: !v.waitDeposit })} style={styles.toggle}>
               <MaterialCommunityIcons name={v.waitDeposit ? 'checkbox-marked' : 'checkbox-blank-outline'}
                 size={20} color={v.waitDeposit ? palette.primary : palette.cardMuted} />
               <Text style={styles.toggleText}>Ждем задаток</Text>
             </Pressable>
+            <FieldHelp label="Ждем задаток" text={getFieldHelp('event.waitDeposit')} />
+            </View>
             {v.waitDeposit ? (
               <>
-                <Field keyboardType="numeric" label="Сумма задатка"
+                <Field keyboardType="numeric" label="Сумма задатка" help={getFieldHelp('event.depositAmount')}
                   onChangeText={(depositExpectedAmount) => setValues({ depositExpectedAmount })}
                   testID="event-deposit-amount" value={v.depositExpectedAmount} />
-                <Field label="Дата ожидания задатка"
+                <Field label="Дата ожидания задатка" help={getFieldHelp('event.depositDueAt')}
                   onChangeText={(depositDueAt) => setValues({ depositDueAt })}
                   placeholder="2026-07-20 10:00" testID="event-deposit-due" value={v.depositDueAt} />
               </>
             ) : null}
           </>
         )}
-        <Field label="Комментарий по финансам" multiline
+        <Field label="Комментарий по финансам" help={getFieldHelp('event.financeComment')} multiline
           onChangeText={(financeComment) => setValues({ financeComment })} testID="event-finance-comment" value={v.financeComment} />
+        <View style={styles.toggle}>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: v.isByContract }}
           onPress={() => setValues({ isByContract: !v.isByContract })} style={styles.toggle}>
           <MaterialCommunityIcons name={v.isByContract ? 'checkbox-marked' : 'checkbox-blank-outline'}
             size={20} color={v.isByContract ? palette.primary : palette.cardMuted} />
           <Text style={styles.toggleText}>По договору</Text>
         </Pressable>
+        <FieldHelp label="По договору" text={getFieldHelp('event.byContract')} />
+        </View>
       </Surface>
 
       <Surface>

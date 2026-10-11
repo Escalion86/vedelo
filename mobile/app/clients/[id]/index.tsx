@@ -1,5 +1,6 @@
+import { typography } from '../../../src/shared/ui/theme'
 import { useCallback, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as Clipboard from 'expo-clipboard'
@@ -7,11 +8,12 @@ import type { Client, Event, Transaction } from '../../../src/shared/domain/type
 import { formatPhoneForDisplay } from '../../../src/shared/format/phone'
 import { getCachedEntity, listCachedEntities } from '../../../src/shared/storage/cache'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
-import { Button, EmptyState, ErrorNotice, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../../src/shared/ui/components'
+import { Button, EmptyState, ErrorNotice, Notice, PageHeader, Screen, Surface } from '../../../src/shared/ui/components'
 import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
 import type { Palette } from '../../../src/shared/ui/theme'
 import { clientName, contactChannelLabel, plainComment } from '../../../src/features/clients/clientList'
+import { getClientViewPalette } from '../../../src/features/clients/clientViewTheme'
 
 const money = (value: number) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`
 const dateText = (value?: string | null, significant = false) => value && Number.isFinite(new Date(value).getTime())
@@ -69,14 +71,14 @@ export default function ClientDetailScreen() {
   const syncMessage = client.syncStatus === 'pending' ? 'Ожидает отправки' : client.syncStatus === 'syncing' ? 'Синхронизация клиента' : client.syncStatus === 'conflict' ? 'Конфликт изменений' : client.syncStatus === 'failed' ? 'Не удалось синхронизировать' : ''
   return <Screen>
     <PageHeader title="Клиент" action={<Pressable accessibilityRole="button" accessibilityLabel="Действия с клиентом" style={styles.iconButton} onPress={menu}><MaterialCommunityIcons name="dots-vertical" size={22} color={palette.primary} /></Pressable>} />
-    <Surface testID="client-detail-header">
+    <Surface testID="client-detail-header" style={styles.brandHeader}>
       <View style={styles.header}>
-        <View style={styles.avatar}><Text style={styles.initials}>{name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</Text></View>
+        <View testID="client-detail-avatar" style={styles.avatar}><Text style={styles.initials}>{name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</Text></View>
         <View style={styles.grow}><Text numberOfLines={1} style={styles.name}>{name}</Text>
           <View style={styles.phoneRow}><Text style={styles.muted}>{phone || 'Телефон не указан'}</Text>{phone ? <Pressable accessibilityRole="button" accessibilityLabel="Скопировать номер телефона" style={styles.copy} onPress={() => { void Clipboard.setStringAsync(phone).catch(() => setError('Не удалось скопировать номер')) }}><MaterialCommunityIcons name="content-copy" size={16} color={palette.cardMuted} /></Pressable> : null}</View>
         </View>
       </View>
-      <QuickContacts client={client} maxVisible={7} />
+      <QuickContacts client={client} maxVisible={8} />
       {contactChannelLabel(client) || client.comment ? <View style={styles.summary}>
         {contactChannelLabel(client) ? <Text style={styles.text}>Приоритетная связь: {contactChannelLabel(client)}</Text> : null}
         {client.comment ? <Text style={styles.text}>Комментарий: {plainComment(client.comment)}</Text> : null}
@@ -84,7 +86,7 @@ export default function ClientDetailScreen() {
     </Surface>
     {syncMessage ? <Notice tone={client.syncStatus === 'failed' || client.syncStatus === 'conflict' ? 'danger' : 'info'} message={syncMessage} /> : null}
     <Surface>
-      <View style={styles.sectionHeader}><SectionTitle>{terms.pluralCapitalized}</SectionTitle><SmallAction title={showEvents ? 'Скрыть' : 'Посмотреть'} onPress={() => setShowEvents((value) => !value)} /></View>
+      <View style={styles.sectionHeader}><DetailSectionTitle>{terms.pluralCapitalized}</DetailSectionTitle><SmallAction title={showEvents ? 'Скрыть' : 'Посмотреть'} onPress={() => setShowEvents((value) => !value)} /></View>
       <Kpi label="Прошли" value={String(passed)} /><Kpi label="Будут" value={String(upcoming)} /><Kpi label="Отменены" value={String(canceled)} />
       {showEvents ? relatedEvents.length ? relatedEvents.map((event) => <Pressable key={event._id} accessibilityRole="button" style={styles.related} onPress={() => router.push(`/events/${event._id}` as never)}>
         <View style={styles.grow}><Text style={styles.text}>{event.eventType || terms.labelCapitalized}</Text><Text style={styles.muted}>{dateText(event.eventDate)}{event.clientId !== id ? ' · Дополнительный контакт' : ''}</Text></View>
@@ -92,18 +94,18 @@ export default function ClientDetailScreen() {
       </Pressable>) : <Text style={styles.muted}>Связанных записей пока нет.</Text> : null}
     </Surface>
     <Surface>
-      <View style={styles.sectionHeader}><SectionTitle>Финансы по транзакциям</SectionTitle><SmallAction title={showFinance ? 'Скрыть' : 'Показать'} onPress={() => setShowFinance((value) => !value)} /></View>
+      <View style={styles.sectionHeader}><DetailSectionTitle>Финансы по транзакциям</DetailSectionTitle><SmallAction title={showFinance ? 'Скрыть' : 'Показать'} onPress={() => setShowFinance((value) => !value)} /></View>
       <Kpi label="Доходы" value={money(income)} tone="success" /><Kpi label="Расходы" value={money(expense)} tone="danger" /><Kpi label="Итог" value={money(income - expense)} />
       {obligations ? <Notice tone="warning" message={`Обязательства (не факт оплаты): ${money(obligations)}`} /> : null}
       {showFinance ? relatedTransactions.length ? relatedTransactions.map((item) => <Pressable key={item._id} accessibilityRole="button" style={styles.related} onPress={() => router.push(`/finance/edit/${item._id}` as never)}>
         <View style={styles.grow}><Text style={styles.text}>{item.category || 'Без категории'}</Text><Text style={styles.muted}>{dateText(item.date)}{item.paymentMethod === 'obligation' ? ' · Обязательство' : ''}{item.clientId !== id ? ' · По связанной работе' : ''}</Text></View><Text style={styles.text}>{item.type === 'income' ? '+' : '−'}{money(Number(item.amount || 0))}</Text>
       </Pressable>) : <Text style={styles.muted}>Связанных транзакций пока нет.</Text> : null}
     </Surface>
-    <Surface><SectionTitle>Файлы и документы</SectionTitle><Button title={`Файлы и документы · ${client.documents?.length || 0}`} variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} />
+    <Surface><DetailSectionTitle>Файлы и документы</DetailSectionTitle><Button title={`Файлы и документы · ${client.documents?.length || 0}`} variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} />
       {client._id.startsWith('local-') ? <Notice tone="info" message="Загрузка файлов доступна после синхронизации клиента." /> : null}
     </Surface>
-    {requisites.length ? <Surface><SectionTitle>Реквизиты</SectionTitle>{requisites.map(([label, value]) => <Text key={label} style={styles.text}>{label}: {value}</Text>)}</Surface> : null}
-    {client.significantDates?.some((date) => date.title || date.date || date.comment) ? <Surface><SectionTitle>Значимые даты</SectionTitle>{client.significantDates.filter((date) => date.title || date.date || date.comment).map((date, index) => <View key={date._id || index} style={styles.summary}><Text style={styles.text}>{date.title || 'Дата'}{date.date ? `: ${dateText(date.date, true)}` : ''}</Text>{date.comment ? <Text style={styles.muted}>{plainComment(date.comment)}</Text> : null}</View>)}</Surface> : null}
+    {requisites.length ? <Surface><DetailSectionTitle>Реквизиты</DetailSectionTitle>{requisites.map(([label, value]) => <Text key={label} style={styles.text}>{label}: {value}</Text>)}</Surface> : null}
+    {client.significantDates?.some((date) => date.title || date.date || date.comment) ? <Surface><DetailSectionTitle>Значимые даты</DetailSectionTitle>{client.significantDates.filter((date) => date.title || date.date || date.comment).map((date, index) => <View key={date._id || index} style={styles.summary}><Text style={styles.text}>{date.title || 'Дата'}{date.date ? `: ${dateText(date.date, true)}` : ''}</Text>{date.comment ? <Text style={styles.muted}>{plainComment(date.comment)}</Text> : null}</View>)}</Surface> : null}
     <Button title="Переписки Avito и VK" variant="secondary" onPress={() => router.push({ pathname: '/conversations', params: { clientId: id } } as never)} />
     <Button title="Добавить транзакцию" variant="secondary" onPress={() => router.push({ pathname: '/finance/edit/new', params: { clientId: id } } as never)} />
     <Button title={`Создать ${terms.accusative}`} onPress={() => router.push({ pathname: '/events/edit/new', params: { clientId: id } } as never)} />
@@ -111,23 +113,35 @@ export default function ClientDetailScreen() {
 }
 function SmallAction({ title, onPress }: { title: string; onPress: () => void }) {
   const styles = useThemeStyles(createStyles)
-  return <Pressable accessibilityRole="button" style={styles.smallAction} onPress={onPress}><Text style={styles.text}>{title}</Text></Pressable>
+  return <Pressable accessibilityRole="button" style={styles.smallAction} onPress={onPress}><Text style={styles.smallActionText}>{title}</Text></Pressable>
 }
 function Kpi({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'success' | 'danger' }) {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
-  const role = palette.notice[tone]
-  return <View style={[styles.kpi, { backgroundColor: tone === 'neutral' ? palette.kpiBackground : role.background, borderColor: tone === 'neutral' ? palette.kpiBorder : role.border }]}><Text style={[styles.muted, { color: role.text }]}>{label}</Text><Text style={[styles.kpiValue, { color: role.text }]}>{value}</Text></View>
+  const role = getClientViewPalette(palette.mode)[tone]
+  return <View testID={`client-detail-kpi-${label}`} style={[styles.kpi, { backgroundColor: role.background, borderColor: role.border }]}><Text style={[styles.kpiLabel, { color: role.text }]}>{label}</Text><Text style={[styles.kpiValue, { color: role.text }]}>{value}</Text></View>
 }
-const createStyles = (palette: Palette) => StyleSheet.create({
+function DetailSectionTitle({ children }: { children: React.ReactNode }) {
+  const styles = useThemeStyles(createStyles)
+  return <Text accessibilityRole="header" style={styles.sectionTitle}>{children}</Text>
+}
+const createStyles = (palette: Palette) => {
+  const view = getClientViewPalette(palette.mode)
+  return StyleSheet.create({
+  brandHeader: { borderColor: view.headerBorder, backgroundColor: view.headerBackground, borderRadius: 12, padding: 16,
+    ...(Platform.OS === 'web' ? { backgroundImage: view.headerGradient } as ViewStyle : { experimental_backgroundImage: view.headerGradient }) },
+  sectionTitle: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, grow: { flex: 1, minWidth: 0 },
-  avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }, initials: { fontSize: 16, fontWeight: '700', color: palette.text },
-  name: { fontSize: 18, fontWeight: '600', color: palette.cardTitle }, phoneRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: view.avatarBorder, backgroundColor: view.avatarBackground, alignItems: 'center', justifyContent: 'center' }, initials: { fontFamily: typography.fontFamily, fontSize: 16, fontWeight: '700', color: view.avatarText },
+  name: { fontFamily: typography.fontFamily, fontSize: 18, fontWeight: '600', color: palette.cardTitle }, phoneRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }, copy: { minWidth: 28, minHeight: 28, alignItems: 'center', justifyContent: 'center' },
-  text: { color: palette.cardMeta, fontSize: 14 }, muted: { color: palette.cardMuted, fontSize: 12 },
+  text: { fontFamily: typography.fontFamily, color: palette.cardMeta, fontSize: 14 }, muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12 },
   summary: { borderWidth: 1, borderColor: palette.kpiBorder, backgroundColor: palette.kpiBackground, borderRadius: 8, padding: 12, gap: 8 },
   sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  smallAction: { minHeight: 36, borderWidth: 1, borderColor: palette.secondaryBorder, borderRadius: 4, paddingHorizontal: 12, justifyContent: 'center' },
-  kpi: { padding: 8, borderWidth: 1, borderRadius: 8, gap: 3 }, kpiValue: { fontSize: 16, fontWeight: '600' },
+  smallAction: { minHeight: 40, borderWidth: 1, borderColor: view.actionBorder, backgroundColor: view.actionBackground, borderRadius: 4, paddingHorizontal: 12, justifyContent: 'center' },
+  smallActionText: { fontFamily: typography.fontFamily, color: view.actionText, fontSize: 12, fontWeight: '600' },
+  kpiLabel: { fontFamily: typography.fontFamily, fontSize: 11 },
+  kpi: { padding: 8, borderWidth: 1, borderRadius: 8, gap: 3 }, kpiValue: { fontFamily: typography.fontFamily, fontSize: 16, fontWeight: '600' },
   related: { minHeight: 52, flexDirection: 'row', gap: 8, alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: palette.border },
-})
+  })
+}

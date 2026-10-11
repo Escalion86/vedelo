@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import Button from '@components/Button'
-import ContentHeader from '@components/ContentHeader'
-import HeaderActions from '@components/HeaderActions'
 import IconCheckBox from '@components/IconCheckBox'
 import SectionCard from '@components/SectionCard'
 import Input from '@components/Input'
@@ -172,12 +170,6 @@ const DevContent = () => {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 p-4">
-      <ContentHeader>
-        <HeaderActions
-          left={<h2 className="text-xl font-semibold">Разработчик</h2>}
-          right={<div />}
-        />
-      </ContentHeader>
       <SectionCard className="flex flex-1 min-h-0 flex-col gap-4 overflow-auto p-4">
         <IconCheckBox
           label="Сохранять ответ Google Calendar в поле мероприятия"

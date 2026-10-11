@@ -602,7 +602,7 @@ export const pages = [
   },
   {
     id: 42,
-    group: 4,
+    group: 13,
     name: 'Отзывы клиентов',
     href: 'client-reviews',
     icon: faComments,
@@ -637,7 +637,7 @@ export const pages = [
   },
   {
     id: 13,
-    group: 8,
+    group: 10,
     name: 'Пользователи',
     href: 'users',
     icon: faUsers,
@@ -659,8 +659,8 @@ export const pages = [
   },
   {
     id: 43,
-    group: 6,
-    name: 'Страница отзывов',
+    group: 13,
+    name: 'Настройка страницы отзывов',
     href: 'review-page',
     icon: faStar,
   },
@@ -843,6 +843,11 @@ export const pagesGroups = [
     icon: faUser,
   },
   {
+    id: 13,
+    name: 'Отзывы',
+    icon: faStar,
+  },
+  {
     id: 5,
     name: 'Транзакции',
     icon: faMoneyBill,
@@ -863,18 +868,13 @@ export const pagesGroups = [
     icon: faCog,
   },
   {
-    id: 8,
-    name: 'Пользователи',
-    icon: faUsers,
-  },
-  {
     id: 9,
     name: 'Звонки',
     icon: faPhone,
   },
   {
     id: 10,
-    name: 'Настройки сайта',
+    name: 'Администрирование',
     icon: faCog,
   },
   {

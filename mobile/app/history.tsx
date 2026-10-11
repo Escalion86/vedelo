@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { Button, CompactField, EmptyState, FilterControl, FilterOverlay, Notice, PageHeader, Screen, Surface } from '../src/shared/ui/components'
+import { PeriodPicker } from '../src/shared/ui/PeriodPicker'
 import { useTheme, useThemeStyles } from '../src/shared/ui/ThemeProvider'
 import type { Palette } from '../src/shared/ui/theme'
 import { useWorkItemTerminology } from '../src/shared/hooks/useWorkItemTerminology'
@@ -18,18 +19,18 @@ export default function HistoryScreen() {
   const terms = useWorkItemTerminology(); const { palette } = useTheme(); const styles = useThemeStyles(createStyles)
   const params = useLocalSearchParams<{ entityType?: string; entityId?: string }>()
   const route = fixedHistoryRoute(params); const fixed = Boolean(route?.entityId)
-  const [entityType, setEntityType] = useState(''); const [operation, setOperation] = useState(''); const [source, setSource] = useState(''); const [actorId, setActorId] = useState(''); const [search, setSearch] = useState(''); const [dateFrom, setDateFrom] = useState(''); const [dateTo, setDateTo] = useState(''); const [filtersOpen, setFiltersOpen] = useState(false)
+  const [entityType, setEntityType] = useState(''); const [operation, setOperation] = useState(''); const [source, setSource] = useState(''); const [actorId, setActorId] = useState(''); const [search, setSearch] = useState(''); const [period, setPeriod] = useState({ from: '', to: '' }); const { from: dateFrom, to: dateTo } = period; const [filtersOpen, setFiltersOpen] = useState(false)
   const dateError = dateRangeError(dateFrom, dateTo)
   const filters = useMemo(() => ({ entityType: fixed ? route!.entityType : entityType, entityId: route?.entityId || '', operation, source, actorId, search: search.trim(), dateFrom, dateTo }), [fixed, route?.entityType, route?.entityId, entityType, operation, source, actorId, search, dateFrom, dateTo])
   const history = useHistory(filters, route !== null && !dateError)
   const actors = [['', 'Все авторы'], ...Array.from(new Map(history.items.filter((item) => item.actorId).map((item) => [item.actorId!, item.actorLabel || 'Пользователь'])).entries())]
   if (actorId && !actors.some(([value]) => value === actorId)) actors.push([actorId, 'Выбранный автор'])
   const active = Boolean(entityType || operation || source || actorId || search || dateFrom || dateTo)
-  const reset = () => { setEntityType(''); setOperation(''); setSource(''); setActorId(''); setSearch(''); setDateFrom(''); setDateTo('') }
+  const reset = () => { setEntityType(''); setOperation(''); setSource(''); setActorId(''); setSearch(''); setPeriod({ from: '', to: '' }) }
   return <Screen keyboardShouldPersistTaps="handled"><PageHeader title={fixed ? 'История карточки' : 'История действий'} />
     {route === null ? <Notice tone="danger" message="Некорректный адрес истории карточки. Откройте историю из доступной карточки." /> : <>
       <Surface variant="toolbar"><CompactField label="Поиск" search value={search} onChangeText={setSearch} placeholder="Карточка или пользователь" /><FilterControl title="Фильтры" selected={active} expanded={filtersOpen} onPress={() => setFiltersOpen(!filtersOpen)} />
-        {filtersOpen ? <><View style={styles.wrap}>{!fixed ? <HistoryChoice label="Карточки" value={entityType} options={[[ '', 'Все карточки'], ['event', terms.pluralCapitalized], ['client', 'Клиенты'], ['transaction', 'Финансы']]} onSelect={setEntityType} /> : null}<HistoryChoice label="Действия" value={operation} options={operations} onSelect={setOperation} /><HistoryChoice label="Источник" value={source} options={[[ '', 'Все источники'], ...Object.entries(sourceLabels)]} onSelect={setSource} /><HistoryChoice label="Автор" value={actorId} options={actors} onSelect={setActorId} /></View><View style={styles.wrap}><View style={styles.date}><CompactField label="С даты" value={dateFrom} onChangeText={setDateFrom} placeholder="ГГГГ-ММ-ДД" error={dateError} /></View><View style={styles.date}><CompactField label="По дату" value={dateTo} onChangeText={setDateTo} placeholder="ГГГГ-ММ-ДД" /></View></View><Text style={styles.meta}>Начало — дата UTC; окончание — конец дня по времени устройства, как в PWA.</Text>{active ? <Button title="Сбросить фильтры" variant="secondary" onPress={reset} /> : null}</> : null}
+        {filtersOpen ? <><View style={styles.wrap}>{!fixed ? <HistoryChoice label="Карточки" value={entityType} options={[[ '', 'Все карточки'], ['event', terms.pluralCapitalized], ['client', 'Клиенты'], ['transaction', 'Финансы']]} onSelect={setEntityType} /> : null}<HistoryChoice label="Действия" value={operation} options={operations} onSelect={setOperation} /><HistoryChoice label="Источник" value={source} options={[[ '', 'Все источники'], ...Object.entries(sourceLabels)]} onSelect={setSource} /><HistoryChoice label="Автор" value={actorId} options={actors} onSelect={setActorId} /></View><PeriodPicker value={period} onChange={setPeriod} error={dateError} testID="history-period" /><Text style={styles.meta}>Начало — дата UTC; окончание — конец дня по времени устройства, как в PWA.</Text>{active ? <Button title="Сбросить фильтры" variant="secondary" onPress={reset} /> : null}</> : null}
       </Surface>
       {dateError && !filtersOpen ? <Notice tone="danger" message={dateError} /> : null}
       {history.offline ? <Notice tone="info" message="Показана последняя сохранённая история. Это неполная офлайн-копия, а не актуальный ответ сервера. Новые офлайн-действия появятся после синхронизации." /> : null}
@@ -45,4 +46,4 @@ export default function HistoryScreen() {
     </>}
   </Screen>
 }
-const createStyles = (p: Palette) => StyleSheet.create({ wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, date: { flex: 1, minWidth: 140 }, list: { gap: 8 }, meta: { color: p.cardMuted, fontSize: 12, lineHeight: 18 } })
+const createStyles = (p: Palette) => StyleSheet.create({ wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, list: { gap: 8 }, meta: { color: p.cardMuted, fontSize: 12, lineHeight: 18 } })

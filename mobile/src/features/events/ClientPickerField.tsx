@@ -5,12 +5,14 @@ import type { Client } from '../../shared/domain/types'
 import { formatPhoneForDisplay } from '../../shared/format/phone'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { HelpLabel } from '../../shared/ui/FieldHelp'
 import { clientDisplayName, searchClients } from './clientSearch'
 
 const MAX_VISIBLE_OPTIONS = 20
 
 export type ClientPickerFieldProps = {
   label: string
+  help?: string
   value: string
   clients: Client[]
   /** Основной и дополнительные контакты не должны повторяться: исключаем занятые id. */
@@ -22,7 +24,7 @@ export type ClientPickerFieldProps = {
 }
 
 export const ClientPickerField = ({
-  label, value, clients, excludeIds = [], allowEmpty = false, onChange, onEdit, testID,
+  label, help, value, clients, excludeIds = [], allowEmpty = false, onChange, onEdit, testID,
 }: ClientPickerFieldProps) => {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
@@ -41,7 +43,7 @@ export const ClientPickerField = ({
   }
   return (
     <View style={styles.wrap} testID={testID}>
-      <Text style={styles.label}>{label}</Text>
+      <HelpLabel label={label} help={help} style={styles.label} />
       {!searching ? (
         <View style={styles.selectedRow}>
           <Text numberOfLines={1} style={styles.selectedName} testID={testID ? `${testID}-value` : undefined}>

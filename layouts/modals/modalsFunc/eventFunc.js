@@ -1,3 +1,4 @@
+import fieldHelp from '@helpers/fieldHelp.json'
 import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import CompactEventForm from '@components/CompactEventForm'
 import { EVENT_STATUSES } from '@helpers/constants'
@@ -1655,6 +1656,7 @@ const eventFunc = (
               status={status}
               onChange={setStatus}
               label={useCompactForm ? '' : 'Статус мероприятия'}
+              help={fieldHelp['event.status']}
               disabledValues={canSetClosedStatus || isClosed ? [] : ['closed']}
               disabledReasons={{ closed: closeStatusDisabledReason }}
             />
@@ -1695,6 +1697,7 @@ const eventFunc = (
               )
             ) : (
               <ServiceMultiSelect
+                help={fieldHelp['event.services']}
                 value={servicesIds}
                 onChange={(value) => {
                   clearAiFields('servicesIds')
@@ -1715,6 +1718,7 @@ const eventFunc = (
             <div className="mt-4">
               <ComboBox
                 label="Тип события"
+                help={fieldHelp['event.type']}
                 items={eventTypeOptions}
                 value={eventType}
                 onChange={(value) => {
@@ -1757,6 +1761,7 @@ const eventFunc = (
                   setEventDate(nextStart)
                 }}
                 label="Дата начала"
+                help={useCompactForm ? undefined : fieldHelp['event.dates']}
                 error={errors.eventDate}
               />
             </AiFieldHighlight>
@@ -1770,6 +1775,7 @@ const eventFunc = (
                   setDateEnd(value ?? null)
                 }}
                 label="Дата окончания"
+                help={useCompactForm ? undefined : fieldHelp['event.dates']}
               />
             </AiFieldHighlight>
           </div>
@@ -1798,6 +1804,7 @@ const eventFunc = (
           <AiFieldHighlight active={isAiFieldHighlighted('description')}>
             <Textarea
               label={useCompactForm ? 'Запрос клиента' : 'Описание'}
+              help={fieldHelp['event.description']}
               onChange={(value) => {
                 clearAiFields('description')
                 setDescription(value)
@@ -1819,6 +1826,7 @@ const eventFunc = (
                   removeError('colleagueId')
                 }}
                 label="Передано коллеге"
+                help={fieldHelp['event.transfer']}
                 checkedIcon={faCircleCheck}
                 checkedIconColor="#F97316"
               />
@@ -1843,6 +1851,7 @@ const eventFunc = (
                 checked={fileImportChecked}
                 onClick={() => setFileImportChecked((value) => !value)}
                 label="Импорт из файла проверен"
+                help={fieldHelp['event.importChecked']}
                 checkedIcon={faCircleCheck}
                 checkedIconColor="#10B981"
               />
@@ -1859,6 +1868,7 @@ const eventFunc = (
             !calendarImportChecked && (
               <IconCheckBox
                 checked={calendarImportChecked}
+                help={fieldHelp['event.importChecked']}
                 onClick={() => setCalendarImportChecked(true)}
                 label={
                   importedFromCalendar
@@ -1874,6 +1884,7 @@ const eventFunc = (
             value={requestCreatedAt}
             onChange={(value) => setRequestCreatedAt(value ?? null)}
             label="Дата заявки"
+            help={fieldHelp['event.requestDate']}
           />
         </>
       ),
@@ -1895,6 +1906,7 @@ const eventFunc = (
                 })
               }
               label="Клиент"
+              help={fieldHelp['event.client']}
               required
               error={errors.clientId}
               paddingY
@@ -1929,6 +1941,7 @@ const eventFunc = (
         <>
           <LabeledContainer
             label={useCompactForm ? undefined : 'Задачи/События'}
+            help={fieldHelp['event.tasks']}
           >
             <div className="flex w-full flex-col gap-2">
               <div className="flex w-full justify-end">
@@ -2051,6 +2064,7 @@ const eventFunc = (
           <AiFieldHighlight active={isAiFieldHighlighted('contractSum')}>
             <Input
               label="Договорная сумма"
+              help={fieldHelp['event.contractSum']}
               type="number"
               value={contractSum}
               onChange={(value) => {
@@ -2085,6 +2099,7 @@ const eventFunc = (
                     })
                   }}
                   label="Ждем задаток"
+                  help={fieldHelp['event.waitDeposit']}
                   checkedIcon={faCircleCheck}
                   checkedIconColor="#F97316"
                   noMargin
@@ -2097,6 +2112,7 @@ const eventFunc = (
                   >
                     <Input
                       label="Сумма задатка"
+                      help={fieldHelp['event.depositAmount']}
                       type="number"
                       value={depositExpectedAmount}
                       onChange={(value) => {
@@ -2120,6 +2136,7 @@ const eventFunc = (
                         setDepositDueAt(value ?? null)
                       }}
                       label="Дата ожидания задатка"
+                      help={fieldHelp['event.depositDueAt']}
                       noMargin
                     />
                   </AiFieldHighlight>
@@ -2130,6 +2147,7 @@ const eventFunc = (
           <AiFieldHighlight active={isAiFieldHighlighted('financeComment')}>
             <Textarea
               label="Комментарий по финансам"
+              help={fieldHelp['event.financeComment']}
               value={financeComment}
               onChange={(value) => {
                 clearAiFields('financeComment')
@@ -2151,6 +2169,7 @@ const eventFunc = (
                 setIsByContract((prev) => !prev)
               }}
               label="По договору"
+              help={fieldHelp['event.byContract']}
               checkedIcon={faCircleCheck}
               checkedIconColor="#2563EB"
               noMargin
@@ -2164,6 +2183,7 @@ const eventFunc = (
             <div className="mt-3">
               <LabeledContainer
                 label={useCompactForm ? undefined : 'Файлы и документы'}
+                help={fieldHelp['documents.event']}
                 noMargin
               >
                 <DocumentsEditor
@@ -2189,8 +2209,8 @@ const eventFunc = (
           {canUseProposals ? (
             <div className="mt-3">
               <LabeledContainer
-                label="Коммерческие предложения"
-                help="КП необязательно и не требует договора или счёта. Создайте предложение, проверьте варианты и цены, затем опубликуйте. После публикации можно скопировать ссылку или отправить её в Telegram. Шаблоны повторяемых текстов и медиа настраиваются в разделе «Документы → Предложения»."
+                label={useCompactForm ? undefined : 'Коммерческие предложения'}
+                help={fieldHelp['proposal.section']}
                 noMargin
               >
                 {persistedEventId ? (
@@ -2484,6 +2504,8 @@ const eventFunc = (
             depositExpectedAmount={depositExpectedAmount}
             additionalEvents={additionalEvents}
             otherContacts={otherContacts}
+            isTransferred={isTransferred}
+            colleague={selectedColleague}
             proposalsEnabled={canUseProposals}
             documents={documents}
             aiHighlightedFields={aiHighlightedFields}

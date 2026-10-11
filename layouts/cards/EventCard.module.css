@@ -1,0 +1,5 @@
+/* Тема приложения важнее системной темы в меню дополнительных контактов. */
+:global(body:not(.theme-dark)) .extraContactsMenu {
+  background-color: var(--surface-card-bg);
+  border-color: var(--surface-card-border);
+}

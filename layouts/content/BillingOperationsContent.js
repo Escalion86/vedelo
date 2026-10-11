@@ -13,6 +13,7 @@ import cn from 'classnames'
 import AppButton from '@components/AppButton'
 import EmptyState from '@components/EmptyState'
 import Input from '@components/Input'
+import PeriodPicker from '@components/PeriodPicker'
 import LoadingSpinner from '@components/LoadingSpinner'
 import NativeSelect from '@components/NativeSelect'
 import Notice from '@components/Notice'
@@ -272,26 +273,17 @@ const BillingOperationsContent = () => {
               onChange={(value) => setFilter('sort', value)}
               options={SORT_OPTIONS}
             />
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                label="Дата от"
-                type="date"
-                value={filters.dateFrom}
-                onChange={(value) => setFilter('dateFrom', value)}
-                className="min-w-0"
-                inputClassName="min-w-0 w-full [&::-webkit-calendar-picker-indicator]:-mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                noMargin
-              />
-              <Input
-                label="Дата до"
-                type="date"
-                value={filters.dateTo}
-                onChange={(value) => setFilter('dateTo', value)}
-                className="min-w-0"
-                inputClassName="min-w-0 w-full [&::-webkit-calendar-picker-indicator]:-mr-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                noMargin
-              />
-            </div>
+            <PeriodPicker
+              value={{ from: filters.dateFrom, to: filters.dateTo }}
+              onChange={({ from, to }) =>
+                setFilters((current) => ({
+                  ...current,
+                  dateFrom: from,
+                  dateTo: to,
+                  page: 1,
+                }))
+              }
+            />
           </div>
         </SectionCard>
         {query.isLoading ? (

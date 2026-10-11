@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
+import NewsRichTextEditor from '@components/NewsRichTextEditor'
 import FormWrapper from '@components/FormWrapper'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
@@ -10,15 +10,8 @@ import {
   hasMeaningfulNewsContent,
 } from '@helpers/newsRichText.mjs'
 
-const NewsRichTextEditor = dynamic(
-  () => import('@components/NewsRichTextEditor'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-48 animate-pulse rounded-lg border border-gray-300 bg-gray-100" />
-    ),
-  }
-)
+// TipTap откладывает создание до клиентского mount (immediatelyRender: false).
+// Не добавляем второй загрузчик с неинтерактивной заглушкой поверх редактора.
 
 const newsFunc = (newsItem = null, onSaved = null) => {
   const newsId = newsItem?._id ?? null

@@ -80,6 +80,13 @@ export const getAiAnalysisProviderConfig = (settings = {}) => {
   }
 }
 
+// Консервативный перечень проверенных image-input моделей. Не менять провайдера
+// и не подменять пользовательскую модель при неподдерживаемом vision.
+export const isAiVisionProvider = (provider) =>
+  ['artistcrm', 'aitunnel', 'openai'].includes(provider.name) &&
+  ['gpt-4o-mini', 'gpt-4o-mini-2024-07-18', 'gpt-4o',
+    'gpt-4o-2024-05-13', 'gpt-4o-2024-08-06', 'gpt-4o-2024-11-20'].includes(provider.model)
+
 export const requestAiChatCompletion = async ({
   settings = {},
   messages,
@@ -91,8 +98,13 @@ export const requestAiChatCompletion = async ({
   groupId = '',
   prepaidImport = false,
   timeoutMs,
+  requireVision = false,
 }) => {
   const provider = getAiAnalysisProviderConfig(settings)
+  if (requireVision && (!isAiVisionProvider(provider) ||
+    (settings.aiAnalysisProvider && !AI_ANALYSIS_PROVIDERS[normalizeProviderName(settings.aiAnalysisProvider)]))) {
+    throw Object.assign(new Error('Выбранная модель не поддерживает распознавание фото'), { code: 'AI_VISION_UNSUPPORTED' })
+  }
   if (!provider.apiKey) return null
   let reservation = null
   let platformBilling = null
@@ -102,7 +114,9 @@ export const requestAiChatCompletion = async ({
     reservation = await platformBilling.reservePlatformAiUsage({
       tenantId: settings.tenantId,
       userId: settings.userId,
-      feature,
+      // OCR — отдельный вызов, но billing feature совместим с существующей
+      // схемой и порогами черновика; новые enum/миграции не требуются.
+      feature: feature === 'event_photo_ocr' ? 'event_draft' : feature,
       model: provider.model,
       operationId,
       groupId,
@@ -153,12 +167,14 @@ export const requestAiChatCompletion = async ({
     throw new Error(message)
   }
 
+  const content = String(payload?.choices?.[0]?.message?.content || '').trim()
+  if (!content) {
+    await platformBilling?.failPlatformAiUsage(reservation, 'AI_PROVIDER_EMPTY_RESPONSE')
+    throw new Error('AI вернул пустой ответ')
+  }
   if (reservation) {
     await platformBilling.settlePlatformAiUsage(reservation, payload?.usage)
   }
-
-  const content = String(payload?.choices?.[0]?.message?.content || '').trim()
-  if (!content) throw new Error('AI вернул пустой ответ')
   return {
     content,
     provider: provider.name,

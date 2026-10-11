@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, AppState, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
@@ -11,14 +12,16 @@ import { getSyncStatePresentation } from '../../shared/domain/syncStatePresentat
 import { getSyncQueueCounts } from '../../shared/sync/syncState'
 import { getOutboxSummary } from '../../shared/storage/outbox'
 import { runSync } from '../../shared/sync/syncEngine'
-import { Button, EmptyState, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../shared/ui/components'
+import { EmptyState, Notice, PageHeader, Screen, Surface } from '../../shared/ui/components'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
-import { spacing, type Palette } from '../../shared/ui/theme'
+import { spacing, type Palette, type TemporalStatus } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { MobileEventCard } from '../events/MobileEventCard'
 import { useEventsScope } from '../navigation/EventsScope'
 import { performAttentionAction } from './actions'
 import { selectAttention, segments, segmentLabels, type AttentionItem } from './selectors'
 import { TaskCard } from './TaskCard'
+import { AttentionSection, ClientDateRow, CompactAction, RequestCard, SummaryChip } from './AttentionPresentation'
 
 const emptyText = { overdue: 'Просроченных задач нет', today: 'На сегодня задач нет', tomorrow: 'На завтра задач нет' }
 
@@ -86,104 +89,107 @@ export default function AttentionScreen() {
     catch { setActionError('Не удалось выполнить синхронизацию. Изменения остаются на телефоне.') }
     finally { setBusy(false); void queue.refetch() }
   }
-  const section = (id: string, content: ReactNode) => <View key={id} testID={`attention-section-${id}`}
-    style={styles.section} onLayout={(event) => { positions.current[id] = event.nativeEvent.layout.y }}>{content}</View>
+  const section = (id: string, title: string, count: number | undefined, content: ReactNode,
+    options: { tone?: TemporalStatus; accent?: string; help?: string } = {}) =>
+    <AttentionSection key={id} id={id} title={title} count={count} {...options}
+      onLayout={(event) => { positions.current[id] = event.nativeEvent.layout.y }}>{content}</AttentionSection>
   const summary = [
-    ...segments.map((id) => ({ id, title: segmentLabels[id], count: data.pending[id] })),
-    { id: 'past-requests', title: 'Заявки с прошедшей датой', count: data.pastRequests.length },
-    { id: 'no-next-step', title: 'Без следующего шага', count: data.withoutNextStep.length },
-    { id: 'closing', title: 'Не закрыто', count: data.pastUnclosed.length },
-    { id: 'dates', title: 'Даты клиентов', count: data.clientDates.length },
+    ...segments.map((id) => ({ id, label: { overdue: 'просроч.', today: 'сегодня', tomorrow: 'завтра' }[id], color: palette.sectionAccent[id], count: data.pending[id] })),
+    { id: 'closing', label: 'не закрыто', color: palette.sectionAccent.overdue, count: data.pastUnclosed.length },
+    { id: 'past-requests', label: `${requestNoun(data.pastRequests.length)} с прошедшей датой`, color: palette.primary, count: data.pastRequests.length },
+    { id: 'no-next-step', label: 'без следующего шага', color: palette.primary, count: data.withoutNextStep.length },
+    // Current PWA summary uses teal for client dates; no corresponding global palette role.
+    { id: 'dates', label: 'даты клиентов', color: '#0d9488', count: data.clientDates.length },
   ].filter((item) => item.count > 0)
   const hasQueue = Boolean(queue.data && queue.data.pendingCount + queue.data.issueCount > 0)
+  const syncSection = hasQueue || queue.isPending || queue.isError || (sync && !['never', 'success'].includes(sync.status))
+    ? section('sync', 'Синхронизация', queue.data ? queue.data.pendingCount + queue.data.issueCount : undefined, <>
+      {queue.isPending ? <ActivityIndicator accessibilityLabel="Загрузка очереди синхронизации" color={palette.primary} /> : null}
+      {queue.isError ? <>
+        <Notice tone="danger" message="Не удалось прочитать очередь синхронизации" />
+        <CompactAction title="Повторить чтение очереди" onPress={() => void queue.refetch()} />
+      </> : null}
+      {hasQueue || (sync && !['never', 'success'].includes(sync.status)) ? <View testID="dashboard-sync-state" style={styles.syncState}>
+        <Text style={styles.stateTitle}>{syncPresentation.title}</Text>
+        <Text style={styles.muted}>{syncPresentation.description}</Text>
+        {queue.data ? <Text style={styles.muted}>Ожидает: {queue.data.pendingCount} · Ошибки и конфликты: {queue.data.issueCount}{'\n'}Ошибки операций: {queue.data.outbox.failed || 0} · Конфликты: {queue.data.outbox.conflict || 0}</Text> : null}
+        <View style={styles.actions}>
+          <CompactAction title="Повторить синхронизацию" loading={busy || sync?.status === 'syncing'} onPress={() => void retrySync()} />
+          <CompactAction title="Открыть состояние синхронизации" variant="ghost" onPress={() => router.push('/sync' as never)} />
+        </View>
+      </View> : null}
+    </>, { tone: queue.data?.issueCount ? 'overdue' : 'neutral' }) : null
   return <Screen scroll={false} contentStyle={styles.screen}>
     <ScrollView ref={scroll} testID="attention-scroll" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <PageHeader title="Важное" subtitle="Задачи, оплаты и ближайшие даты" />
+      <PageHeader title="Важное" />
       {actionError ? <Notice tone="danger" message={actionError} /> : null}
-      {readError ? <Surface><Notice tone="danger" message="Не удалось прочитать локальные данные обзора" /><Button title="Повторить чтение" onPress={retryRead} /></Surface>
+      {readError ? <Surface><Notice tone="danger" message="Не удалось прочитать локальные данные обзора" /><CompactAction title="Повторить чтение" onPress={retryRead} /></Surface>
         : loading ? <ActivityIndicator accessibilityLabel="Загрузка обзора" color={palette.primary} /> : <>
           {!events.data?.length ? <EmptyState title="Здесь пока нет работ" description="Создайте первую заявку — она сохранится и без сети."
             action={{ title: 'Новая заявка', onPress: () => router.push('/events/edit/new' as never) }} /> : null}
-          {summary.length ? <ScrollView horizontal testID="attention-summary" contentContainerStyle={styles.summary}>
-            {summary.map((item) => <Button key={item.id} testID={`attention-summary-${item.id}`} title={`${item.title} · ${item.count}`} variant="secondary"
+          {summary.length ? <View testID="attention-summary" style={styles.summary}>
+            {summary.map((item) => <SummaryChip key={item.id} id={item.id} label={`${item.count} ${item.label}`} color={item.color}
               onPress={() => scroll.current?.scrollTo({ y: positions.current[item.id] ?? 0, animated: true })} />)}
-          </ScrollView> : null}
-          {data.pastRequests.length ? section('past-requests', <>
-            <SectionTitle>Заявки с прошедшей датой · {data.pastRequests.length}</SectionTitle>
+          </View> : null}
+          {data.pastRequests.length ? section('past-requests', 'Заявки с прошедшей датой', data.pastRequests.length, <>
             <Text style={styles.muted}>Дата прошла — уточните результат. Проверьте оплаты и закройте заявку, отмените её или перенесите дату.</Text>
-            <OverviewList id="past-requests" items={data.pastRequests} empty="" render={(event) => <Surface key={event._id}>
-              <SectionTitle>{event.eventType || 'Заявка'}</SectionTitle>
-              <Text style={styles.text}>{[clientsById.get(event.clientId || '')?.firstName, clientsById.get(event.clientId || '')?.secondName].filter(Boolean).join(' ') || 'Клиент не указан'}</Text>
-              <Text style={styles.muted}>{new Date((event.dateEnd ?? event.eventDate)!).toLocaleString('ru-RU')}</Text>
-              <Button title="Закрыть" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, decision: 'closed', section: 'finance' } } as never)} />
-              <Button title="Отменить" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, decision: 'canceled' } } as never)} />
-              <Button title="Перенести дату" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, section: 'general' } } as never)} />
-              <Button title="Открыть заявку" variant="secondary" onPress={() => router.push(`/events/${event._id}` as never)} />
-            </Surface>} />
-          </>) : null}
-          {data.pastUnclosed.length ? section('closing', <Surface>
-            <SectionTitle>Закрытие {terms.pluralGenitive}</SectionTitle>
-            <Text style={styles.text}>Не закрыто: {data.pastUnclosed.length}. Проверьте итоги прошедших работ.</Text>
-            <Button title="Открыть незакрытые" onPress={() => { selectScope('past', true); router.push('/(tabs)/events') }} />
-          </Surface>) : null}
-          {segments.map((segment) => section(segment, <>
-            <SectionTitle>{segmentLabels[segment]} · {data.pending[segment]}</SectionTitle>
+            <OverviewList id="past-requests" items={data.pastRequests} empty="" initialCount={5} step={10}
+              render={(event) => <RequestCard key={event._id} event={event} client={clientsById.get(event.clientId || '')} past />} />
+          </>, { help: getFieldHelp('attention.pastRequests'), tone: 'today' }) : null}
+          {data.pastUnclosed.length ? section('closing', `Закрытие ${terms.pluralGenitive}`, data.pastUnclosed.length, <>
+            <Text style={styles.muted}>Не закрыто: {data.pastUnclosed.length}. Проверьте итоги прошедших работ.</Text>
+            <CompactAction title="Открыть незакрытые" onPress={() => { selectScope('past', true); router.push('/(tabs)/events') }} />
+          </>, { tone: 'overdue' }) : null}
+          {segments.map((segment) => section(segment, segmentLabels[segment], data.pending[segment],
             <OverviewList id={segment} items={data.groups[segment]} empty={emptyText[segment]}
-              render={(item) => <TaskCard key={item.key} item={item} segment={segment} busy={busy} onAction={runAction} />} />
-          </>))}
-          {section('no-next-step', <>
-            <SectionTitle>Заявки без следующего шага · {data.withoutNextStep.length}</SectionTitle>
-            <OverviewList id="no-next-step" items={data.withoutNextStep} empty="Заявок без следующего шага нет" render={(event) => <Surface key={event._id}>
-              <SectionTitle>{event.eventType || 'Заявка'}</SectionTitle>
-              <Text style={styles.text}>{[clientsById.get(event.clientId || '')?.firstName, clientsById.get(event.clientId || '')?.secondName].filter(Boolean).join(' ') || 'Клиент не указан'}</Text>
-              <Button title="Назначить контакт" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, section: 'contacts' } } as never)} />
-              <Button title="Открыть заявку" variant="secondary" onPress={() => router.push(`/events/${event._id}` as never)} />
-            </Surface>} />
-          </>)}
-          {section('upcoming', <>
-            <SectionTitle>{terms.pluralCapitalized} на 3 дня</SectionTitle>
-            <OverviewList id="upcoming" items={data.upcoming} empty={`На ближайшие 3 дня ${terms.pluralGenitive} нет`}
-              render={(event) => <MobileEventCard key={event._id} event={event} testID={`attention-event-${event._id}`}
-                client={clients.data?.find((client) => client._id === event.clientId)} clientsById={clientsById}
-                services={(services.data || []).filter((service) => event.servicesIds?.includes(service._id))}
-                transactions={(transactions.data || []).filter((transaction) => transaction.eventId === event._id)}
-                onPress={() => router.push(`/events/${event._id}` as never)} />} />
-          </>)}
-          {data.clientDates.length ? section('dates', <>
-            <SectionTitle>Значимые даты клиентов</SectionTitle>
-            <OverviewList id="dates" items={data.clientDates} empty="Значимых дат нет" render={(item) => <Surface key={item.key}>
-              <SectionTitle>{item.title}</SectionTitle>
-              <Text style={styles.text}>{[item.client.firstName, item.client.secondName, item.client.thirdName].filter(Boolean).join(' ') || 'Клиент'}</Text>
-              {item.comment ? <Text style={styles.text}>{item.comment}</Text> : null}
-              <Text style={styles.muted}>{item.nextDate.toLocaleDateString('ru-RU')} · {item.daysLeft === 0 ? 'Сегодня' : item.daysLeft === 1 ? 'Завтра' : `Через ${item.daysLeft} дн.`}</Text>
-              <Button title="Открыть клиента" variant="secondary" onPress={() => router.push(`/clients/${item.client._id}` as never)} />
-            </Surface>} />
-          </>) : null}
+              render={(item) => <TaskCard key={item.key} item={item} segment={segment} busy={busy} onAction={runAction} />} />,
+            { tone: segment, accent: palette.sectionAccent[segment] }))}
+          {section('no-next-step', 'Заявки без следующего шага', data.withoutNextStep.length, <>
+            {data.withoutNextStep.length ? <Text style={styles.muted}>Здесь заявки без невыполненной задачи с датой. Назначьте звонок, встречу или другое действие. Просроченные задачи показаны в «Просрочено». Заявки с прошедшей датой вынесены в отдельный блок.</Text> : null}
+            <OverviewList id="no-next-step" items={data.withoutNextStep} empty="Заявок без следующего шага нет" initialCount={5} step={10}
+              render={(event) => <RequestCard key={event._id} event={event} client={clientsById.get(event.clientId || '')} past={false} />} />
+          </>, { help: getFieldHelp('attention.withoutNextStep'), tone: 'today' })}
         </>}
-      {queue.isError ? <Surface><Notice tone="danger" message="Не удалось прочитать очередь синхронизации" /><Button title="Повторить чтение очереди" onPress={() => void queue.refetch()} /></Surface> : null}
-      {hasQueue || (sync && !['never', 'success'].includes(sync.status)) ? section('sync', <Surface testID="dashboard-sync-state">
-        <SectionTitle>{syncPresentation.title}</SectionTitle>
-        <Text style={styles.text}>{syncPresentation.description}</Text>
-        {queue.data ? <Text style={styles.muted}>Ожидает: {queue.data.pendingCount} · Ошибки и конфликты: {queue.data.issueCount}{'\n'}Ошибки операций: {queue.data.outbox.failed || 0} · Конфликты: {queue.data.outbox.conflict || 0}</Text> : null}
-        <Button title="Повторить синхронизацию" loading={busy || sync?.status === 'syncing'} onPress={() => void retrySync()} />
-        <Button title="Открыть состояние синхронизации" variant="secondary" onPress={() => router.push('/sync')} />
-      </Surface>) : null}
+      {syncSection}
+      {!readError && !loading ? <>
+        {section('upcoming', `${terms.pluralCapitalized} на 3 дня`, data.upcoming.length,
+          <OverviewList id="upcoming" items={data.upcoming} empty={`На ближайшие 3 дня ${terms.pluralGenitive} нет`}
+            render={(event) => <MobileEventCard key={event._id} event={event} testID={`attention-event-${event._id}`}
+              client={clientsById.get(event.clientId || '')} clientsById={clientsById}
+              services={(services.data || []).filter((service) => event.servicesIds?.includes(service._id))}
+              transactions={(transactions.data || []).filter((transaction) => transaction.eventId === event._id)}
+              onPress={() => router.push(`/events/${event._id}` as never)} />} />,
+          { tone: 'upcoming', accent: palette.primary })}
+        {data.clientDates.length ? section('dates', 'Значимые даты клиентов', data.clientDates.length,
+          <OverviewList id="dates" items={data.clientDates} empty="Значимых дат нет"
+            render={(item) => <ClientDateRow key={item.key} item={item} />} />, { tone: 'upcoming' }) : null}
+      </> : null}
     </ScrollView>
   </Screen>
 }
 
-function OverviewList<T>({ id, items, empty, render }: { id: string; items: T[]; empty: string; render: (item: T) => ReactNode }) {
-  const [expanded, setExpanded] = useState(false)
+function requestNoun(count: number) {
+  const last = count % 10, hundred = count % 100
+  return hundred >= 11 && hundred <= 14 ? 'заявок' : last === 1 ? 'заявка' : last >= 2 && last <= 4 ? 'заявки' : 'заявок'
+}
+
+function OverviewList<T>({ id, items, empty, render, initialCount = 12, step }: {
+  id: string; items: T[]; empty: string; render: (item: T) => ReactNode; initialCount?: number; step?: number
+}) {
+  const [visibleCount, setVisibleCount] = useState(initialCount)
   const styles = useThemeStyles(createStyles)
   if (!items.length) return <Text style={styles.muted}>{empty}</Text>
-  return <>{(expanded ? items : items.slice(0, 12)).map(render)}
-    {!expanded && items.length > 12 ? <Button testID={`attention-show-all-${id}`} title={`Показать все (${items.length})`} variant="secondary" onPress={() => setExpanded(true)} /> : null}</>
+  return <>{items.slice(0, visibleCount).map(render)}
+    {items.length > visibleCount ? <CompactAction testID={`attention-show-all-${id}`}
+      title={step ? `Показать ещё (${items.length - visibleCount})` : `Показать все (${items.length})`}
+      onPress={() => setVisibleCount((count) => step ? count + step : items.length)} /> : null}</>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
   screen: { padding: 0, paddingBottom: 0 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
-  section: { gap: spacing.sm },
-  summary: { gap: spacing.sm },
-  text: { color: palette.text, fontSize: 14 },
-  muted: { color: palette.cardMuted, fontSize: 13 },
+  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  syncState: { gap: spacing.sm },
+  stateTitle: { fontFamily: typography.fontFamily, color: palette.cardTitle, fontSize: 14, fontWeight: '600' },
+  muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 })

@@ -5,6 +5,8 @@ import { useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
 import MicIcon from '@mui/icons-material/Mic'
 import NoteAddIcon from '@mui/icons-material/NoteAdd'
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
+import PhotoDraftModal from '@components/PhotoDraftModal'
 import TextSnippetIcon from '@mui/icons-material/TextSnippet'
 import TextDraftModal from '@components/TextDraftModal'
 import VoiceDraftOverlay from '@components/VoiceDraftOverlay'
@@ -25,6 +27,7 @@ const useEventCreateMenu = () => {
   const tariffs = useAtomValue(tariffsAtom)
   const queryClient = useQueryClient()
   const [voiceDraftOpen, setVoiceDraftOpen] = useState(false)
+  const [photoDraftOpen, setPhotoDraftOpen] = useState(false)
   const [textDraftOpen, setTextDraftOpen] = useState(false)
 
   const allowVoiceDraft = useMemo(
@@ -45,6 +48,8 @@ const useEventCreateMenu = () => {
   const handleCreateByText = useCallback(() => {
     setTextDraftOpen(true)
   }, [])
+
+  const handleCreateByPhoto = useCallback(() => setPhotoDraftOpen(true), [])
 
   const cacheAiClient = useCallback(
     (client) => {
@@ -88,6 +93,7 @@ const useEventCreateMenu = () => {
   const handleTextDraft = useCallback(
     (fields, sourceText, aiFilledFields, client, aiWarnings) => {
       setTextDraftOpen(false)
+      setPhotoDraftOpen(false)
       cacheAiClient(client)
       modalsFunc.event?.create?.(fields?.status || 'draft', {
         initialEvent: {
@@ -120,6 +126,7 @@ const useEventCreateMenu = () => {
         icon: <MicIcon fontSize="small" />,
         onClick: handleCreateByVoice,
       })
+      if (loggedUser?.role === 'dev') result.push({ key: 'photo', label: 'Из фотографии', icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
       result.push({
         key: 'text',
         label: 'Свободным текстом',
@@ -131,9 +138,11 @@ const useEventCreateMenu = () => {
   }, [
     createDisabled,
     allowVoiceDraft,
+    loggedUser?.role,
     handleCreateRequest,
     handleCreateByVoice,
     handleCreateByText,
+    handleCreateByPhoto,
   ])
 
   const draftModals = (
@@ -144,6 +153,7 @@ const useEventCreateMenu = () => {
           onDraft={handleVoiceDraft}
         />
       ) : null}
+      {photoDraftOpen && allowVoiceDraft && loggedUser?.role === 'dev' ? <PhotoDraftModal open onClose={() => setPhotoDraftOpen(false)} onDraft={handleTextDraft} /> : null}
       <TextDraftModal
         open={textDraftOpen}
         onClose={() => setTextDraftOpen(false)}

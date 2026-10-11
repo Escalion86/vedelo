@@ -3,6 +3,8 @@ import { getAuthSession } from '../../src/shared/auth/tokenStore'
 import type { MobileUser } from '../../src/shared/auth/types'
 import { CompactField } from '../../src/shared/ui/CompactField'
 import { PaymentHistory } from '../../src/features/billing/PaymentHistory'
+import { getFieldHelp } from '../../src/shared/domain/fieldHelp'
+import { FieldHelp } from '../../src/shared/ui/FieldHelp'
 import { safeHttps } from '../../src/features/billing/history'
 import { useScreenLifetime } from '../../src/features/profile/useScreenLifetime'
 import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
@@ -256,6 +258,7 @@ function UserBillingScreen() {
           </View>
         </>
       ) : null}
+      <FieldHelp label="История операций по балансу" text={getFieldHelp('billing.history')} />
       <PaymentHistory />
     </Screen>
   )

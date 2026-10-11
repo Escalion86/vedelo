@@ -6,6 +6,7 @@ import { env } from '../../shared/config/env'
 import { Button, ErrorNotice, Field, Notice, SectionTitle, StatusChip, Surface } from '../../shared/ui/components'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { spacing, type Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { IntegrationFormState } from './IntegrationFormState'
 import { readCalendars, readGoogle, readOAuthUrl, responseData, safeError, validOAuthCallback, type CalendarItem, type GoogleStatus, type Reminder } from './integrationContract'
 import { IntegrationCancelled, useIntegrationSession, type OperationGate } from './useIntegrationSession'
@@ -83,7 +84,7 @@ export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: Operatio
     return session.run(() => api.delete('/mobile/v1/integrations/google-calendar', undefined, { skipRefresh: true }), receipt, () => ({ matches: (next) => !(next as GoogleStatus).connected && !(next as GoogleStatus).enabled && (next as GoogleStatus).calendarId === '', message: 'Google Calendar отключён, OAuth-токены удалены' }))
   }
   return <Surface testID="integration-form-google-calendar">
-    <SectionTitle>Google Calendar</SectionTitle>
+    <SectionTitle help={getFieldHelp('integrations.googleSync')}>Google Calendar</SectionTitle>
     <IntegrationFormState loading={session.initialLoading} error={session.loadError} notice={session.notice} needsRead={session.needsRead || (!google && !session.initialLoading)} working={session.working} onRead={() => void session.load()} />
     {google ? <>
       {!google.available ? <Notice tone="warning" message="Синхронизация недоступна на текущем тарифе. Сохранённое подключение можно отключить." /> : null}
@@ -98,7 +99,7 @@ export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: Operatio
         {calendars?.map((calendar) => <Pressable key={calendar.id} accessibilityRole="radio" accessibilityLabel={`Выбрать календарь ${calendar.summary || calendar.id}`} accessibilityState={{ checked: calendar.id === google.calendarId, disabled: !editable || calendarLoading }} disabled={!editable || calendarLoading} onPress={() => void selectCalendar(calendar)} style={[styles.choice, calendar.id === google.calendarId && styles.selected]}>
           <Text style={styles.title}>{calendar.summary || calendar.id}</Text><Text style={[styles.muted, calendar.id === google.calendarId && { color: palette.cardMeta }]}>{calendar.primary ? 'Основной календарь' : calendar.accessRole}</Text>
         </Pressable>)}
-        <SectionTitle>Напоминания Google Calendar</SectionTitle>
+        <SectionTitle help={getFieldHelp('integrations.googleNotifications')}>Напоминания Google Calendar</SectionTitle>
         <Toggle title="Использовать стандартные уведомления Google" enabled={useDefault} disabled={!editable} onPress={() => setUseDefault((previous) => !previous)} />
         {!useDefault ? <>
           {reminders.map((reminder, index) => <View key={index} style={styles.reminder}>

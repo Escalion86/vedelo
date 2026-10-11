@@ -10,6 +10,7 @@ import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import EventsScreen from '../../../app/(tabs)/events'
 import type { Event } from '../../shared/domain/types'
 
+jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: null }) }))
 const mockNavigate = jest.fn()
 const mockPush = jest.fn()
 let mockPath = '/events'
@@ -19,7 +20,7 @@ const mockEvents: Event[] = [
   { _id: 'future', status: 'active', eventDate: '2099-01-01', description: 'Будущая работа' },
   { _id: 'past', status: 'active', eventDate: '2000-01-01', description: 'Прошлая работа', additionalEvents: [{ date: '2000-01-01', done: false }] },
 ]
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null, FontAwesome5: () => null }))
 jest.mock('expo-router', () => ({ router: {
   navigate: (href: unknown) => mockNavigate(href), push: (href: unknown) => mockPush(href),
 }, usePathname: () => mockPath, useFocusEffect: (fn: () => void) => require('react').useEffect(fn, [fn]) }))
@@ -27,7 +28,7 @@ jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
   useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }),
 }))
-jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы', accusative: 'заказ' }) }))
+jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы', plural: 'заказы', accusative: 'заказ' }) }))
 jest.mock('../../shared/hooks/useCachedEntities', () => ({ useCachedEntities: (type: string) => ({ data: type === 'events' ? mockEvents : [], isFetching: false }) }))
 jest.mock('./MenuSheet', () => {
   const { Text } = require('react-native')
@@ -159,4 +160,15 @@ it('бейдж считает только незавершённые проср
     { date: '2026-10-01T11:59:00Z', done: false }, { date: '2026-09-01', done: true },
     { date: '2026-10-02', done: false }, { date: 'invalid' }, {}, { date: now.toISOString() },
   ] }], now)).toBe(1)
+})
+
+it.each(['light', 'dark'] as const)('выбор %s имеет видимую форму, FAB сохранён и overlay отражает выбор', (mode) => {
+  const screen = render(shell(props('events'), mode))
+  const backgroundColor = mode === 'light' ? 'rgba(255,255,255,0.16)' : 'rgba(201,168,106,0.16)'
+  expect(screen.getByTestId('bottom-icon-events')).toHaveStyle({ backgroundColor, borderRadius: 8 })
+  expect(screen.getByTestId('bottom-icon-clients')).toHaveStyle({ backgroundColor: 'transparent' })
+  expect(screen.getByTestId('bottom-icon-create')).toHaveStyle({ width: 50, height: 50, borderRadius: 999 })
+  fireEvent.press(screen.getByTestId('bottom-slot-menu'))
+  expect(screen.getByTestId('bottom-icon-menu')).toHaveStyle({ backgroundColor })
+  expect(screen.getByTestId('bottom-icon-events')).toHaveStyle({ backgroundColor: 'transparent' })
 })

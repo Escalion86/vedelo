@@ -14,7 +14,7 @@ const mockList = jest.fn()
 let mockEvents: Event[] = []
 let mockTransactions: Transaction[] = []
 const client: Client = { _id: 'local-a', firstName: 'Анна', secondName: 'Иванова', phone: 79991234567, comment: '<p>Важная заметка</p>', preferredContactChannel: 'max', inn: '1234567890', kpp: '123', bankName: 'Банк', significantDates: [{ title: 'День рождения', date: '2000-05-20', comment: 'Поздравить' }] }
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => mockParams, useFocusEffect: (fn: () => unknown) => require('react').useEffect(fn, [fn]) }))
 jest.mock('../../shared/storage/cache', () => ({ getCachedEntity: (...args: unknown[]) => mockGet(...args), listCachedEntities: (...args: unknown[]) => mockList(...args) }))
@@ -30,7 +30,10 @@ afterEach(() => jest.restoreAllMocks())
 it.each([['light', lightPalette], ['dark', darkPalette]] as const)('S: просмотр %s с копированием, контактами, реквизитами и порядком web-блоков', async (mode, palette) => {
   const screen = setup(mode)
   await waitFor(() => expect(screen.getByText('Иванова Анна')).toBeTruthy())
-  expect(screen.getByTestId('client-detail-header')).toHaveStyle({ borderColor: palette.border })
+  expect(screen.getByTestId('client-detail-header')).toHaveStyle({ borderColor: mode === 'light' ? '#bfdbfe' : '#2b2418', borderRadius: 12 })
+  expect(screen.getByTestId('client-detail-avatar')).toHaveStyle({ borderColor: mode === 'light' ? '#bfdbfe' : '#3b2f1d' })
+  expect(screen.getByText('Заказы')).toHaveStyle({ fontSize: 12, fontWeight: '600', textTransform: 'uppercase' })
+  expect(screen.getByText('Посмотреть')).toHaveStyle({ color: mode === 'light' ? '#2563eb' : '#bfdbfe', fontSize: 12 })
   expect(screen.getByText('Комментарий: Важная заметка')).toBeTruthy()
   expect(screen.getByText('Приоритетная связь: MAX')).toBeTruthy()
   expect(screen.getByText('ИНН: 1234567890')).toBeTruthy()

@@ -4,7 +4,7 @@ import { router, useFocusEffect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import type { Client, Service, Transaction } from '../../src/shared/domain/types'
 import { useCachedEntities } from '../../src/shared/hooks/useCachedEntities'
-import { Button, EmptyState, ErrorNotice, PageHeader, Screen } from '../../src/shared/ui/components'
+import { Button, EmptyState, ErrorNotice, Screen } from '../../src/shared/ui/components'
 import { useTheme, useThemeStyles } from '../../src/shared/ui/ThemeProvider'
 import { type Palette } from '../../src/shared/ui/theme'
 import { EventCalendar } from '../../src/features/events/EventCalendar'
@@ -16,9 +16,13 @@ import { buildEventCalendarOccurrences, countOccurrencesByDate, startOfMonth, to
 import { useWorkItemTerminology } from '../../src/shared/hooks/useWorkItemTerminology'
 import { useEventsScope } from '../../src/features/navigation/EventsScope'
 
+import { ListHeader } from '../../src/shared/ui/ListHeader'
+import { useAuth } from '../../src/shared/auth/AuthProvider'
+
 type ViewMode = 'list' | 'calendar'
 type EventRow = { key: string; event: ListEvent; occurrence?: EventCalendarOccurrence }
 export default function EventsScreen() {
+  const { user } = useAuth()
   const terminology = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
@@ -105,8 +109,7 @@ export default function EventsScreen() {
     testID={`event-row-${item.key}`} onPress={() => router.push(`/events/${item.event._id}` as never)} />
   return (
     <Screen scroll={false} contentStyle={styles.screen}>
-      <View style={styles.heading}><PageHeader title={terminology.pluralCapitalized} count={events.length}
-        subtitle={scope === 'past' ? 'Прошедшие' : 'Предстоящие'} /></View>
+      <ListHeader title={`${scope === 'past' ? 'Прошедшие' : 'Предстоящие'} ${terminology.plural}`} count={events.length} user={user} />
       <View style={styles.toolbar}>
         <EventFilters scope={scope} value={currentFilters} towns={towns} onChange={(value) => setFilters((current) => ({ ...current, [scope]: value }))} />
         <Pressable testID={`events-view-${viewMode === 'list' ? 'calendar' : 'list'}`} accessibilityRole="button"
@@ -139,7 +142,7 @@ export default function EventsScreen() {
   )
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
-  screen: { paddingHorizontal: 0, paddingBottom: 0, gap: 8 },
+  screen: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, gap: 8 },
   heading: { paddingHorizontal: 16 }, toolbar: { paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   viewButton: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: palette.border, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: palette.rowPressed }, lists: { flex: 1, minHeight: 0 }, hidden: { opacity: 0, zIndex: -1 },

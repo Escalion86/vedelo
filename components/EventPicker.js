@@ -20,6 +20,7 @@ const EventPicker = ({
   onClear,
   disabled,
   label,
+  help,
   required,
   error,
   paddingY,
@@ -47,6 +48,7 @@ const EventPicker = ({
   return (
     <InputWrapper
       label={resolvedLabel}
+      help={help}
       required={required}
       error={error}
       paddingY={paddingY}

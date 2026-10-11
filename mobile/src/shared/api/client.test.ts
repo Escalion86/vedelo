@@ -157,3 +157,12 @@ describe('mobile api refresh policy', () => {
     expect(save).toHaveBeenCalledTimes(1)
   })
 })
+
+it('платный photo POST с skipRefresh не повторяется после 401', async () => {
+  jest.clearAllMocks()
+  access.mockResolvedValue('expired-access')
+  global.fetch = jest.fn().mockResolvedValue(response(401, { error: 'Не авторизован' }))
+  await expect(createApiClient().post('/mobile/v1/events/ai-photo-draft', { image: 'data:image/png;base64,test' }, { skipRefresh: true })).rejects.toMatchObject({ status: 401 })
+  expect(global.fetch).toHaveBeenCalledTimes(1)
+  expect(refresh).not.toHaveBeenCalled()
+})

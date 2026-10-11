@@ -17,7 +17,7 @@ export function referralLink(apiBaseUrl: string, userId: string) {
   try {
     const url = new URL(apiBaseUrl)
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return ''
-    return `${url.origin}/login?mode=register&ref=${encodeURIComponent(userId)}`
+    return `${url.origin}/register?ref=${encodeURIComponent(userId)}`
   } catch { return '' }
 }
 export const referralName = (user: z.infer<typeof row>['user']) => [user.secondName, user.firstName, user.thirdName].filter(Boolean).join(' ').trim() || 'Пользователь'

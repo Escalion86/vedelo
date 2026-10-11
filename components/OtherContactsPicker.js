@@ -1,3 +1,4 @@
+import fieldHelp from '@helpers/fieldHelp.json'
 import Input from '@components/Input'
 import InputWrapper from '@components/InputWrapper'
 import AddIconButton from '@components/AddIconButton'
@@ -18,7 +19,7 @@ const OtherContactsPicker = ({
   onAddContact,
   label = 'Прочие контакты',
 }) => (
-  <InputWrapper label={label} fullWidth>
+  <InputWrapper label={label} help={fieldHelp['event.otherContacts']} fullWidth>
     <div className="flex w-full flex-col gap-2">
       {contacts.map((contact, index) => {
         const contactClient = clients.find(
@@ -56,6 +57,7 @@ const OtherContactsPicker = ({
             <div className="flex w-full min-w-0 items-end gap-2">
               <Input
                 label="Кем является"
+                help={fieldHelp['event.contactRole']}
                 value={contact.comment}
                 onChange={(value) => onChangeComment?.(index, value)}
                 className="min-w-0 flex-1"

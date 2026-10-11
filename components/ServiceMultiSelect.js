@@ -38,6 +38,7 @@ const ServiceMultiSelect = ({
   onEdit,
   error,
   required,
+  help,
   onClearError,
 }) => {
   // Determine data source: prefer prop services, otherwise use atom
@@ -145,7 +146,7 @@ const ServiceMultiSelect = ({
   )
 
   return (
-    <InputWrapper label="Услуги" required={required} error={error}>
+    <InputWrapper label="Услуги" help={help} required={required} error={error}>
       <div className="flex w-full gap-x-1">
         <div className={cn('flex flex-1 flex-col gap-1')}>
           {!hasServices ? (

@@ -1,8 +1,12 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from './FieldHelp'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import Button from '@components/Button'
+import PeriodPicker from '@components/PeriodPicker'
 import LoadingSpinner from '@components/LoadingSpinner'
 import NativeSelect from '@components/NativeSelect'
 import Notice from '@components/Notice'
@@ -54,8 +58,8 @@ const GoogleCalendarImportSettings = () => {
   const [calendarStatus, setCalendarStatus] = useState({ loading: true })
   const [calendars, setCalendars] = useState([])
   const [selectedCalendarId, setSelectedCalendarId] = useState('')
-  const [dateFrom, setDateFrom] = useState(initialRange.from)
-  const [dateTo, setDateTo] = useState(initialRange.to)
+  const [period, setPeriod] = useState(initialRange)
+  const { from: dateFrom, to: dateTo } = period
   const [preview, setPreview] = useState(null)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
@@ -312,7 +316,11 @@ const GoogleCalendarImportSettings = () => {
     <div className="flex flex-col gap-4 pb-6">
       <section className="surface-card rounded-xl border p-4">
         <h3 className="text-lg font-semibold text-gray-900">
-          Импорт из Google Calendar
+          Импорт из Google Calendar{' '}
+          <FieldHelp
+            text={fieldHelp['import.google']}
+            label="Импорт из Google Calendar"
+          />
         </h3>
         <p className="mt-1 text-sm text-gray-600">
           Сначала получите список событий и стоимость. Ничего не будет создано
@@ -388,52 +396,25 @@ const GoogleCalendarImportSettings = () => {
       {importCalendarReady ? (
         <section className="surface-card rounded-xl border p-4">
           <h3 className="font-semibold text-gray-900">Период импорта</h3>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              С даты
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(event) => setDateFrom(event.target.value)}
-                className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-gray-900"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              По дату
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(event) => setDateTo(event.target.value)}
-                className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-gray-900"
-              />
-            </label>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="action-icon-button h-9 cursor-pointer rounded px-3 text-sm"
-              onClick={() => {
-                const from = new Date()
-                const to = new Date(from)
-                to.setMonth(to.getMonth() + 3)
-                setDateFrom(formatInputDate(from))
-                setDateTo(formatInputDate(to))
-              }}
-            >
-              Ближайшие 3 месяца
-            </button>
-            <button
-              type="button"
-              className="action-icon-button h-9 cursor-pointer rounded px-3 text-sm"
-              onClick={() => {
-                const range = getDefaultRange()
-                setDateFrom(range.from)
-                setDateTo(range.to)
-              }}
-            >
-              Ближайшие 6 месяцев
-            </button>
-          </div>
+          <PeriodPicker
+            className="mt-3"
+            label="Период импорта"
+            value={period}
+            onChange={setPeriod}
+            requiredRange
+            resetValue={initialRange}
+            disabled={loading || importing}
+            extraPresets={[3, 6].map((months) => {
+              const from = new Date()
+              const to = new Date(from)
+              to.setMonth(to.getMonth() + months)
+              return {
+                id: `next-${months}-months`,
+                label: `Ближайшие ${months} месяцев`,
+                range: { from: formatInputDate(from), to: formatInputDate(to) },
+              }
+            })}
+          />
           <div className="mt-4 flex justify-end">
             <Button
               name={`Найти ${terms.pluralAccusative}`}
@@ -446,11 +427,7 @@ const GoogleCalendarImportSettings = () => {
       ) : null}
 
       {error ? (
-        <Notice
-          tone="error"
-          role="alert"
-          className="calendar-import-error p-3"
-        >
+        <Notice tone="error" role="alert" className="calendar-import-error p-3">
           {error}
         </Notice>
       ) : null}
@@ -492,10 +469,7 @@ const GoogleCalendarImportSettings = () => {
           </div>
 
           {insufficientBalance ? (
-            <Notice
-              tone="warning"
-              className="calendar-import-warning mt-3 p-3"
-            >
+            <Notice tone="warning" className="calendar-import-warning mt-3 p-3">
               Баланса может не хватить на выбранные описания. Уменьшите выбор
               или пополните баланс.
             </Notice>

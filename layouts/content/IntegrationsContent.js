@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useAtom, useAtomValue } from 'jotai'
@@ -259,6 +261,7 @@ const ApiKeyEditorModal = ({
     <div className="flex flex-col gap-3">
       <Input
         label="Название источника"
+        help={fieldHelp['integrations.leadSource']}
         value={name}
         onChange={setName}
         noMargin
@@ -295,6 +298,7 @@ const ApiKeyEditorModal = ({
       </div>
       <IconCheckBox
         label="Ключ активен"
+        help={fieldHelp['integrations.leadKeyEnabled']}
         checked={enabled}
         onClick={() => setEnabled((value) => !value)}
         noMargin
@@ -1475,6 +1479,7 @@ const IntegrationsContent = () => {
               <div className="tablet:grid-cols-2 grid grid-cols-1 gap-3">
                 <Input
                   label="Avito Client ID"
+                  help={fieldHelp['integrations.avitoCredentials']}
                   value={avitoClientId}
                   onChange={(value) => saveCustom({ avitoClientId: value })}
                   noMargin
@@ -1501,6 +1506,7 @@ const IntegrationsContent = () => {
               <div className="flex items-start gap-2">
                 <Input
                   label="Адрес webhook Avito"
+                  help={fieldHelp['integrations.webhook']}
                   value={avitoWebhookUrl}
                   onChange={() => {}}
                   disabled
@@ -1614,6 +1620,7 @@ const IntegrationsContent = () => {
                 />
                 <Input
                   label="Строка подтверждения Callback API"
+                  help={fieldHelp['integrations.vkCallback']}
                   value={vkConfirmationCode}
                   onChange={(value) =>
                     saveCustom({ vkGroupConfirmationCode: value })
@@ -1625,6 +1632,7 @@ const IntegrationsContent = () => {
 
               <Input
                 label="Токен сообщества VK"
+                help={fieldHelp['integrations.vkToken']}
                 value={vkAccessToken}
                 onChange={(value) => saveCustom({ vkGroupAccessToken: value })}
                 type="password"
@@ -1814,6 +1822,7 @@ const IntegrationsContent = () => {
               <div className="rounded border border-gray-200 bg-white px-3 py-3">
                 <IconCheckBox
                   label="Создавать карточку клиента, если контакта Telegram нет в базе клиентов"
+                  help={fieldHelp['integrations.telegramAutoClients']}
                   checked={telegramAutoCreateClients}
                   onClick={saveTelegramAutoCreateClients}
                   noMargin
@@ -2034,6 +2043,7 @@ const IntegrationsContent = () => {
               />
               <Select
                 label="Провайдер AI-анализа"
+                help={fieldHelp['integrations.aiProvider']}
                 value={aiAnalysisProvider}
                 onChange={selectAiProvider}
                 options={[
@@ -2178,6 +2188,7 @@ const IntegrationsContent = () => {
                   )}
                   <Input
                     label="Модель AI-анализа"
+                    help={fieldHelp['integrations.aiModels']}
                     value={aiAnalysisModel}
                     onChange={(value) =>
                       saveCustom({

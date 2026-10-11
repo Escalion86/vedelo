@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import { useEffect, useRef, useState } from 'react'
 import Input from '@components/Input'
 import ComboBox from '@components/ComboBox'
@@ -352,6 +354,7 @@ export default function DocumentCreateDialog({
           ) : null}
           <Input
             label="Дата документа"
+            help={fieldHelp['documents.date']}
             type="date"
             value={date}
             onChange={setDate}

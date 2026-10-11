@@ -1,0 +1,25 @@
+# Этап: единый выбор периода нативного клиента
+
+Реализуй общий нативный контрол и два потребителя с настоящими тестами. Отчёт/общение по-русски. Прочитай `docs/AI_HANDOFF.md` целиком, `docs/UI_CONVENTIONS.md`, `docs/period-picker/AUDIT.md`, одобренный пример `sketches/period-picker/index.html`. Аудит уже сделан родителем: не ограничивайся планом, нужны файлы и исполненные проверки.
+
+## Границы
+
+Ты владеешь только mobile/src/shared/ui новым `PeriodPicker.tsx` (+helper/tests если нужно), thin wrapper `mobile/src/features/finance/TransactionPeriodFilter.tsx`, `mobile/app/history.tsx`, тестами этих компонентов/экранов. Параллельный агент делает web: его новые файлы не читать/не изменять; использовать текущий одобренный статический пример как эталон. Не менять shared ui theme/components/CompactField/FilterOverlay (используй их), app version/configs/package/ROADMAP/AI_HANDOFF. Не менять mobile domain finance/history filter helpers, API, timezone преобразования, offline core, схемы, кеш-ключи, route/deep links, идентификаторы, navigation/auth/build configs. Не менять годовой StatisticsSection, одиночные даты и даты начала/конца самой работы. Google-import только web-link, не создавать ещё один нативный импорт. Не исправлять чужие существующие изменения. Не commit/push/deploy/build APK. Рабочая копия грязная, сохранять все чужие изменения.
+
+## Общий компонент
+
+Поведение и вид одобренного демо: песочная подпись в реальных palette-токенах, одно поле с календарём слева и шевроном справа, рядом круглая кнопка сброса с доступным именем. Первая модальная панель: только готовые периоды. «Выбрать даты» открывает отдельный календарный шаг, ручной ввод ДД.ММ.ГГГГ скрыт по доп.кнопке. Не выводить одновременно пресеты, календарь, поля ввода, селекторы года/месяца. Размеры/цвета — существующие theme/Button/CompactField, без жёстко заданных копий цветов демо. Компонент нативный React Native, не WebView.
+
+Контролируемый `{from,to}` в YYYY-MM-DD. Локальный день, строго существующие даты, один день допустим, конец включён. Быстрые «За всё время», «Сегодня», «Последние 7 дней» (включая сегодня), «Текущий месяц», «Прошлый месяц» применяются сразу. Транзакциям также прежние «Завтра», «На выходных», отметки activeDates. Календарь/ручной ввод работают в draft; Apply применяет обе границы атомарно; отмена/Back/внешнее закрытие/Android hardware-back не меняют внешних значений. Сброс к пустому диапазону, открытые границы допустимы в обоих потребителях. Ошибки явные, invalid/incomplete дата и reverse-range не применяются. Обновление внешнего значения между открытиями не оставляет stale draft. Disabled блокирует field/reset/preset. Accessible names/states; дни доступны как кнопки с полными датами, range selected/active days различимы не только цветом. Modal/ScrollView/KeyboardAvoidingView либо существующий подход гарантирует достижимость Apply на узком/коротком экране.
+
+Финансы: сохранить текущий interface TransactionPeriodFilter и existing Finance screen filter/activeDates/empty offline behavior, заменить реализацию thin adapter над общим контролом. История: два CompactField дат → общий компонент; onChange атомарно установить dateFrom/dateTo; сохранить dateRangeError/useHistory/fixed route/filters collapse/сброс остальных фильтров. Никаких изменений правил `UTC-start + local-end` и serialization в domain helpers.
+
+## Проверки
+
+До реализации новый failing тест с записанным exit. Jest/RNTL общий компонент: закрытый вид, сначала только пресеты, переход календарь/manual, apply/cancel/reset, внешнее controlled-update, disabled, некорректная дата/високосный день/reverse/open-boundary/one-day, Android-back, activeDates, accessibility. Jest-интеграция обоих реальных адаптеров/экранов: фильтрация получает ровно обе границы, collapse/cancel не сбрасывают остальные условия, finance activeDates передаются. Заглушать только network/stores/native external bridge, не сам компонент. Следуй существующей структуре Jest/tests; не добавляй зависимости.
+
+Выполнить `npm --prefix mobile run typecheck`, focused Jest новых и связанных history/finance тестов и, если разумно, полный Jest. Зафиксировать фактические результаты, не подменять тесты заглушками UI. До начала `npm --prefix mobile run typecheck` прошло; baseline остальных тестов установи до изменений если необходимо. На реальном Android/adb запуск не обещать если его нет: явно записать не проверено. Также `git diff --check`. Версию/root/mobile не менять.
+
+## Артефакты
+
+`docs/period-picker/REPORT-MOBILE.md`: changed_files, сохранённые контракты обоих потребителей, фактические команды/exit/test counts, все blockers, что не проверено на устройстве, особенности паритета. Инкрементальная запись файлов. Завершать после реальных прогонов, не только описания. Родитель отдельно проверит diff и тесты. Никаких коммитов/деплоя/APK.

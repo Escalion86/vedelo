@@ -39,6 +39,10 @@ export const lightPalette = {
   kpiBackground: '#f9fafb',
   kpiBorder: '#e5e7eb',
   primary: '#9a6b27',
+  generalText: '#7d6435',
+  headerBackground: '#ffffff',
+  contactButton: { background: '#ffffff', border: '#dedbd3' },
+  clientMutedPush: role('#6b7280', '#f3f4f6', '#e5e7eb'),
   primaryPressed: '#80551c',
   onPrimary: '#ffffff',
   secondaryBorder: 'rgba(138,111,59,0.35)',
@@ -57,6 +61,7 @@ export const lightPalette = {
   navigationText: 'rgba(255,255,255,0.92)',
   navigationLabel: '#ffffff',
   navigationActive: '#ffffff',
+  navigationSelectedBackground: 'rgba(255,255,255,0.16)',
   // .mobile-bottomnav-badge / .mobile-bottomnav-row-badge из текущего web.
   counterBadge: role('#ffffff', '#dc2626', '#dc2626'),
   fabBackground: '#ffffff',
@@ -72,7 +77,7 @@ export const lightPalette = {
   transactionExpenseOutline: '#ef4444',
   transactionExpensePressedFill: 'rgba(239,68,68,0.08)',
   // Contact brands are identical in both PWA themes; trial channels stay red.
-  contacts: { max: '#615cff', whatsapp: '#16a34a', telegram: '#2563eb', trial: '#f87171', onBadge: '#ffffff', onTrialBadge: '#1f1b14' },
+  contacts: { max: '#615cff', whatsapp: '#16a34a', telegram: '#2563eb', trial: '#f87171', trialBadge: '#ef4444', phone: '#15803d', vk: '#2563eb', viber: '#9333ea', instagram: '#a16207', email: '#f87171', onBadge: '#ffffff', onTrialBadge: '#ffffff' },
   rowPressed: 'rgba(0,0,0,0.05)',
   rowSelected: 'rgba(154,107,39,0.14)',
   notice: {
@@ -90,6 +95,7 @@ export const lightPalette = {
     neutral: role('#374151', '#f9fafb', '#d1d5db'),
   },
   // Полоса карточки повторяет EventCard, независимо от chip экрана просмотра.
+  eventCardProfit: { positive: role('#166534', '#dcfce7', '#86efac'), negative: role('#b91c1c', '#fee2e2', '#fca5a5'), zero: role('#374151', '#ffffff', '#cbd5e1') },
   eventCardMarker: { draft: '#f59e0b', active: '#3b82f6', finished: '#9ca3af', canceled: '#ef4444', closed: '#10b981' },
   eventViewStatus: {
     draft: role('#374151', '#f9fafb', '#d1d5db'),
@@ -122,6 +128,12 @@ export const darkPalette: Palette = {
   kpiBackground: '#100d0a',
   kpiBorder: '#2b2418',
   primary: '#c9a86a',
+  generalText: '#ebd3a5',
+  headerBackground: '#14110d',
+  contactButton: { background: '#1c1610', border: 'rgba(201,168,106,0.32)' },
+  clientMutedPush: role('#64748b', '#17130f', '#1f2937'),
+  contacts: { ...lightPalette.contacts, phone: '#4ade80' },
+  eventCardProfit: { positive: role('#ecfdf5', '#064e3b', '#14532d'), negative: role('#fee2e2', '#7f1d1d', '#991b1b'), zero: role('#e2e8f0', '#334155', '#475569') },
   primaryPressed: '#ebd3a5',
   onPrimary: '#1f1b14',
   secondaryBorder: 'rgba(201,168,106,0.45)',
@@ -139,6 +151,7 @@ export const darkPalette: Palette = {
   navigationText: 'rgba(247,239,225,0.62)',
   navigationLabel: 'rgba(247,239,225,0.62)',
   navigationActive: '#c9a86a',
+  navigationSelectedBackground: 'rgba(201,168,106,0.16)',
   fabBackground: '#c9a86a',
   fabForeground: '#ffffff',
   transactionIncome: '#15803d',
@@ -185,6 +198,7 @@ export const surfaceElevation = { light: 2, dark: 6 } as const
 export const pageTitleSize = (width: number) => Math.min(32, Math.max(24, width * 0.04))
 // RN 0.83 Android ReactTypefaceUtils only accepts weights in steps of 100.
 export const typography = {
+  fontFamily: 'InterTight',
   pageTitleWeight: 650,
   filterWeight: 550,
   nativePageTitleWeight: '600',

@@ -1,3 +1,5 @@
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
 import ErrorsList from '@components/ErrorsList'
 import FormWrapper from '@components/FormWrapper'
 import Input from '@components/Input'
@@ -200,6 +202,7 @@ const tariffFunc = (tariffId, clone = false) => {
           <FormWrapper twoColumns>
             <Input
               label="Мероприятий в месяц"
+              help={fieldHelp['admin.tariffMonthlyLimit']}
               type="number"
               value={eventsPerMonth}
               onChange={(value) => {
@@ -222,6 +225,7 @@ const tariffFunc = (tariffId, clone = false) => {
             />
           </FormWrapper>
           <div className="grid gap-2">
+            <div className="flex items-center gap-1">
             <button
               type="button"
               role="checkbox"
@@ -231,6 +235,8 @@ const tariffFunc = (tariffId, clone = false) => {
             >
               <IconCheckBox checked={allowClientReviews} label="Отзывы клиентов" noMargin />
             </button>
+            <FieldHelp text={fieldHelp['admin.tariffReviews']} label="Отзывы клиентов" />
+            </div>
             <IconCheckBox
               checked={allowCalendarSync}
               onClick={() => setAllowCalendarSync((prev) => !prev)}

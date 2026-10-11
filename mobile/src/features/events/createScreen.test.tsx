@@ -13,13 +13,22 @@ let mockTransactionsFail = false
 let mockClientsFail = false
 let mockFocusCallbacks: Array<() => unknown> = []
 const mockDispatch = jest.fn()
+let mockPhotoFields: any = { eventType: 'Фото-заказ', clientId: 'client' }
+let mockPhotoApply: (fields: any) => Promise<void>
+const mockClientGet = jest.fn()
+const mockUpsert = jest.fn(async (..._args: unknown[]) => undefined)
+jest.mock('../../shared/api/client', () => ({ api: { get: (...args: unknown[]) => mockClientGet(...args) } }))
+jest.mock('./PhotoDraftSection', () => {
+  const { Text } = require('react-native')
+  return { PhotoDraftSection: ({ onApply }: { onApply: (fields: any) => Promise<void> }) => { mockPhotoApply = onApply; return <Text>mode:photo</Text> } }
+})
 const mockSave = jest.fn()
 const mockDelete = jest.fn(async (_entityType: string, _entityId: string) => undefined)
 const mockGetEntity = jest.fn()
 const mockReplace = jest.fn()
 const mockPush = jest.fn()
 const mockInvalidate = jest.fn(async () => undefined)
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('expo-router', () => ({
@@ -31,6 +40,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@react-navigation/native', () => ({ usePreventRemove: (prevent: boolean, handler: (event: any) => void) => { mockPrevented = prevent; mockOnRemove = handler } }))
 jest.mock('@tanstack/react-query', () => ({ QueryClientContext: jest.requireActual('@tanstack/react-query').QueryClientContext, useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }))
 jest.mock('../../shared/storage/cache', () => ({
+  upsertEntities: (...args: unknown[]) => mockUpsert(...args),
   listCachedEntities: async (kind: string) => {
     if (kind === 'transactions' && mockTransactionsFail) throw new Error('Чтение транзакций недоступно')
     if (kind === 'clients' && mockClientsFail) throw new Error('Чтение клиентов недоступно')
@@ -369,4 +379,38 @@ it('Q: повторное сохранение блокируется, пока 
   fireEvent.press(screen.getByTestId('save-event'))
   expect(mockSave).toHaveBeenCalledTimes(1)
   await act(async () => { resolveSave({ _id: 'local-event' }) })
+})
+
+it('photo applies fields into actual editor without automatic save', async () => {
+  mockParams = { id: 'new', mode: 'photo' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  await act(async () => { await mockPhotoApply(mockPhotoFields) })
+  expect(screen.getByDisplayValue('Фото-заказ')).toBeTruthy()
+  expect(mockSave).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
+  expect(mockSave.mock.calls[0][0].values).toMatchObject({ eventType: 'Фото-заказ', clientId: 'client' })
+})
+it('photo cannot import a foreign client into editor/cache', async () => {
+  mockParams = { id: 'new', mode: 'photo' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  mockClientGet.mockRejectedValueOnce(new Error('Клиент не найден'))
+  await act(async () => { await expect(mockPhotoApply({ clientId: 'foreign-b', eventType: 'Чужая работа' })).rejects.toThrow('Клиент не найден') })
+  expect(screen.queryByDisplayValue('Чужая работа')).toBeNull()
+  expect(mockSave).not.toHaveBeenCalled()
+})
+
+it('photo rechecks and caches a newly recognized client before applying', async () => {
+  mockParams = { id: 'new', mode: 'photo' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  const client = { _id: 'new-client', firstName: 'Борис', tenantId: 'tenant-a' }
+  mockClientGet.mockResolvedValueOnce({ data: client })
+  await act(async () => { await mockPhotoApply({ eventType: 'Фото нового клиента', clientId: 'new-client' }) })
+  expect(mockClientGet).toHaveBeenCalledWith('/mobile/v1/clients/new-client')
+  expect(mockUpsert).toHaveBeenCalledWith('clients', [client])
+  expect(screen.getByDisplayValue('Фото нового клиента')).toBeTruthy()
+  expect(mockSave).not.toHaveBeenCalled()
 })

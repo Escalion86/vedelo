@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from './FieldHelp'
+
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import AppButton from '@components/AppButton'
@@ -103,6 +106,7 @@ const PaymentReceiptControl = ({ item, userId, canEdit = false }) => {
                 : 'Чек не нужен'}
             </AppButton>
           ) : null}
+          {canEdit ? <FieldHelp text={fieldHelp['admin.receiptNotRequired']} label="Чек не нужен" /> : null}
         </div>
       ) : null}
       {canEdit && editing ? (

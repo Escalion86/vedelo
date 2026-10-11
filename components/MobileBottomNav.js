@@ -31,9 +31,9 @@ const CLIENTS_PAGES = ['clients']
 // Разделы, которые уже вынесены в нижнюю панель, — в «Меню» не дублируются
 const BOTTOM_NAV_PAGES = [...EVENTS_PAGES, ATTENTION_PAGE, ...CLIENTS_PAGES]
 
-// Порядок групп в шторке «Меню»: «Настройки» — непосредственно над
-// «Настройками сайта», остальные — в порядке pagesGroups
-const MENU_SHEET_GROUP_ORDER = [4, 11, 7, 5, 8, 9, 6, 10, 12, 99]
+// Порядок разделов мобильного «Меню»; видимость по ролям не меняется.
+// «Разработчик» и возможные дополнительные группы остаются после основного списка.
+const MENU_SHEET_GROUP_ORDER = [7, 5, 9, 13, 11, 12, 6, 10, 99, 4]
 
 // Группы «Меню» с несколькими пунктами сворачиваются в аккордеон
 const COLLAPSIBLE_GROUP_MIN_ITEMS = 2
@@ -310,14 +310,14 @@ const MobileBottomNav = () => {
           {createOpen ? (
             <div
               key="create-menu"
-              className="absolute bottom-[calc(100%+12px)] left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
+              className="mobile-bottomnav-create-menu absolute bottom-[calc(100%+12px)] left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
             >
               <motion.p
                 initial={{ opacity: 0, y: 12, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.95 }}
                 transition={{ duration: 0.16, ease: 'easeOut' }}
-                className="px-3 py-1 text-sm font-semibold whitespace-nowrap text-[#ebd3a5] [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]"
+                className="mobile-bottomnav-create-title text-sm font-semibold whitespace-nowrap"
               >
                 {`Создать ${workItemTerms.accusative}`}
               </motion.p>

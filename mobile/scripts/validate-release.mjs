@@ -109,7 +109,7 @@ for (const permission of [
 for (const asset of [
   app.icon,
   app.splash?.image,
-  app.android?.adaptiveIcon?.foregroundImage,
+  app.android?.adaptiveIcon?.foregroundImage || app.android?.icon || app.icon,
   notificationConfig?.icon,
 ]) {
   const path = resolve(root, String(asset || ''))

@@ -121,27 +121,27 @@ export const CONTENTS = Object.freeze({
   },
   'site-referrals': {
     Component: SiteReferralSettingsContent,
-    name: 'Настройки сайта / Реферальная система',
+    name: 'Администрирование / Реферальная система',
   },
   'ai-usage': {
     Component: AiUsageAdminContent,
-    name: 'Настройки сайта / ИИ и расходы',
+    name: 'Администрирование / ИИ и расходы',
   },
   'registration-trial': {
     Component: RegistrationTrialSettingsContent,
-    name: 'Настройки сайта / Пробный тариф',
+    name: 'Администрирование / Пробный тариф',
   },
   'site-contacts': {
     Component: SiteContactsSettingsContent,
-    name: 'Настройки сайта / Контакты',
+    name: 'Администрирование / Контакты',
   },
   'phone-auth': {
     Component: PhoneAuthSettingsContent,
-    name: 'Настройки сайта / Авторизация',
+    name: 'Администрирование / Авторизация',
   },
   'site-news': {
     Component: SiteNewsContent,
-    name: 'Настройки сайта / Новости платформы',
+    name: 'Администрирование / Новости платформы',
   },
   tariffs: {
     Component: TariffsContent,
@@ -157,7 +157,7 @@ export const CONTENTS = Object.freeze({
   },
   'billing-operations': {
     Component: BillingOperationsContent,
-    name: 'Настройки сайта / Все операции',
+    name: 'Администрирование / Все операции',
   },
   services: {
     Component: ServicesContent,

@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowDown,
@@ -276,6 +279,7 @@ const BillingHistoryContent = ({
         )}
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+          <h2 className="flex items-center gap-1 font-semibold">Баланс и платежи <FieldHelp text={fieldHelp['billing.history']} label="Баланс и платежи" /></h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <SectionCard className="flex items-center gap-3 p-4">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[var(--ui-primary)]">

@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useAtomValue } from 'jotai'
@@ -322,7 +324,7 @@ const ProposalTemplateEditor = ({
         onChange={(messageTemplate) =>
           setDraft((current) => ({ ...current, messageTemplate }))
         }
-        help="Переменные: {{client.firstName}}, {{event.type}}, {{event.date}}, {{proposal.url}}"
+        help={fieldHelp['proposal.templateMessage']}
       />
       <div>
         <h3 className="font-semibold">Что предлагаем клиенту</h3>

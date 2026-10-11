@@ -9,6 +9,7 @@ import { deleteLocalEntity, saveLocalEntity } from '../../shared/storage/mutatio
 import { Button, CompactField, EmptyState, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { servicePatch, serviceValues, type ServiceValues } from './serviceUi'
 
 export const ServiceEditor = ({ group = false }: { group?: boolean }) => {
@@ -121,14 +122,14 @@ export const ServiceEditor = ({ group = false }: { group?: boolean }) => {
       <Surface>
         <CompactField label={group ? 'Название группы' : 'Название'} value={values.title} onChangeText={(title) => change({ title })} editable={!loading} />
         {group ? <><CompactField label="Порядок" value={values.order} onChangeText={(order) => change({ order })} keyboardType="numbers-and-punctuation" editable={!loading} /><Text style={styles.muted}>Услуг в группе: {serviceCount}</Text></> : <>
-          <SectionTitle>Группа</SectionTitle>
+          <SectionTitle help={getFieldHelp('service.group')}>Группа</SectionTitle>
           <View style={styles.options}>
             {[{ _id: '', title: 'Без группы' }, ...groups].map((item) => <Pressable key={item._id} accessibilityRole="radio" accessibilityLabel={item.title || 'Группа'} accessibilityState={{ selected: item._id === values.groupId, disabled: loading }} disabled={loading} onPress={() => change({ groupId: item._id })} style={({ pressed }) => [styles.option, item._id === values.groupId && styles.selected, loading && styles.disabled, pressed && styles.pressed]}><Text style={styles.optionText}>{item.title || 'Группа'}</Text></Pressable>)}
           </View>
           {values.groupId && !groups.some((item) => item._id === values.groupId) ? <Notice tone="warning" message="Исходная группа недоступна. При правке других полей связь сохраняется; при необходимости выберите «Без группы»." /> : null}
-          <CompactField label="Описание" value={values.description} onChangeText={(description) => change({ description })} multiline editable={!loading} />
-          <CompactField label="Продолжительность, минут" value={values.duration} onChangeText={(duration) => change({ duration })} keyboardType="decimal-pad" editable={!loading} />
-          <CompactField label="Цена, ₽" value={values.price} onChangeText={(price) => change({ price })} keyboardType="decimal-pad" editable={!loading} />
+          <CompactField label="Описание" help={getFieldHelp('service.description')} value={values.description} onChangeText={(description) => change({ description })} multiline editable={!loading} />
+          <CompactField label="Продолжительность, минут" help={getFieldHelp('service.duration')} value={values.duration} onChangeText={(duration) => change({ duration })} keyboardType="decimal-pad" editable={!loading} />
+          <CompactField label="Цена, ₽" help={getFieldHelp('service.price')} value={values.price} onChangeText={(price) => change({ price })} keyboardType="decimal-pad" editable={!loading} />
         </>}
         {error ? <Notice tone="danger" message={error} /> : null}
         <Button title="Сохранить" onPress={() => void save()} loading={loading} disabled={saved || (!isNew && !dirty)} />

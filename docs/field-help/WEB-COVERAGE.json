@@ -1,0 +1,1477 @@
+{
+  "event.otherContacts": {
+    "status": "implemented",
+    "field": "Прочие контакты",
+    "host": [
+      {
+        "path": "components/OtherContactsPicker.js",
+        "line": 22,
+        "anchor": "<InputWrapper label={label} help={fieldHelp['event.otherContacts']} fullWidth>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": true,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.description": {
+    "status": "implemented",
+    "field": "Запрос клиента / Описание",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1807,
+        "anchor": "help={fieldHelp['event.description']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": true,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.client": {
+    "status": "implemented",
+    "field": "Клиент",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 124,
+        "anchor": "help={fieldHelp['event.client']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1909,
+        "anchor": "help={fieldHelp['event.client']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.contactRole": {
+    "status": "implemented",
+    "field": "Кем является",
+    "host": [
+      {
+        "path": "components/OtherContactsPicker.js",
+        "line": 60,
+        "anchor": "help={fieldHelp['event.contactRole']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.services": {
+    "status": "implemented",
+    "field": "Услуги",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 195,
+        "anchor": "<FieldHelp text={fieldHelp['event.services']} label=\"Услуги\" />"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1700,
+        "anchor": "help={fieldHelp['event.services']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.type": {
+    "status": "implemented",
+    "field": "Тип события",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1721,
+        "anchor": "help={fieldHelp['event.type']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.dates": {
+    "status": "implemented",
+    "field": "Дата и время",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 221,
+        "anchor": "help={fieldHelp['event.dates']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1764,
+        "anchor": "help={useCompactForm ? undefined : fieldHelp['event.dates']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1778,
+        "anchor": "help={useCompactForm ? undefined : fieldHelp['event.dates']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": true,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.contractSum": {
+    "status": "implemented",
+    "field": "Договорная сумма",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2067,
+        "anchor": "help={fieldHelp['event.contractSum']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.waitDeposit": {
+    "status": "implemented",
+    "field": "Ждём задаток",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2102,
+        "anchor": "help={fieldHelp['event.waitDeposit']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.depositAmount": {
+    "status": "implemented",
+    "field": "Сумма задатка",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2115,
+        "anchor": "help={fieldHelp['event.depositAmount']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.depositDueAt": {
+    "status": "implemented",
+    "field": "Дата ожидания задатка",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2139,
+        "anchor": "help={fieldHelp['event.depositDueAt']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.financeComment": {
+    "status": "implemented",
+    "field": "Комментарий по финансам",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2150,
+        "anchor": "help={fieldHelp['event.financeComment']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.byContract": {
+    "status": "implemented",
+    "field": "По договору",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2172,
+        "anchor": "help={fieldHelp['event.byContract']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.tasks": {
+    "status": "implemented",
+    "field": "Задачи/События",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 284,
+        "anchor": "help={fieldHelp['event.tasks']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1944,
+        "anchor": "help={fieldHelp['event.tasks']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.taskDone": {
+    "status": "implemented",
+    "field": "Сделано — в задаче",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventAdditionalEventEditorModal.js",
+        "line": 204,
+        "anchor": "help={fieldHelp['event.taskDone']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.requestDate": {
+    "status": "implemented",
+    "field": "Дата заявки",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1887,
+        "anchor": "help={fieldHelp['event.requestDate']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.transfer": {
+    "status": "implemented",
+    "field": "Передано коллеге / Коллега",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1829,
+        "anchor": "help={fieldHelp['event.transfer']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.importChecked": {
+    "status": "implemented",
+    "field": "Импорт проверен",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1854,
+        "anchor": "help={fieldHelp['event.importChecked']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1871,
+        "anchor": "help={fieldHelp['event.importChecked']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": true,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "event.status": {
+    "status": "implemented",
+    "field": "Статус",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 320,
+        "anchor": "help={fieldHelp['event.status']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 1659,
+        "anchor": "help={fieldHelp['event.status']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventStatusEditFunc.js",
+        "line": 305,
+        "anchor": "help={fieldHelp['event.status']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.type": {
+    "status": "implemented",
+    "field": "Тип клиента",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 620,
+        "anchor": "<InputWrapper label=\"Тип клиента\" help={fieldHelp['client.type']} paddingY fitWidth>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.preferredChannel": {
+    "status": "implemented",
+    "field": "Приоритетный канал связи",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 638,
+        "anchor": "<InputWrapper label=\"Приоритетный канал связи\" help={fieldHelp['client.preferredChannel']} paddingY fitWidth>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.comment": {
+    "status": "implemented",
+    "field": "Комментарий — в карточке клиента",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 687,
+        "anchor": "help={fieldHelp['client.comment']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.significantDates": {
+    "status": "implemented",
+    "field": "Значимые даты",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 713,
+        "anchor": "<LabeledContainer label=\"Значимые даты\" help={fieldHelp['client.significantDates']}>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.requisites": {
+    "status": "implemented",
+    "field": "Реквизиты для договора",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 773,
+        "anchor": "<div className=\"absolute top-2 right-9\"><FieldHelp text={fieldHelp['client.requisites']} label=\"Реквизиты для договора\" /></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.legalName": {
+    "status": "implemented",
+    "field": "Наименование / ФИО — в реквизитах",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 802,
+        "anchor": "help={fieldHelp['client.legalName']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.merge": {
+    "status": "implemented",
+    "field": "Объединить с другим контактом",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+        "line": 421,
+        "anchor": "<FieldHelp text={fieldHelp['client.merge']} label=\"Объединить с другим контактом\" />          </div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "client.conversationLink": {
+    "status": "implemented",
+    "field": "Привязка переписки",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientContactMergeFunc.js",
+        "line": 410,
+        "anchor": "<FieldHelp text={fieldHelp['client.conversationLink']} label=\"Привязка переписки\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.event": {
+    "status": "implemented",
+    "field": "Мероприятие / Заказ — в транзакции",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 368,
+        "anchor": "help={fieldHelp['transaction.event']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.client": {
+    "status": "implemented",
+    "field": "Клиент — в транзакции",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 390,
+        "anchor": "help={fieldHelp['transaction.client']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.category": {
+    "status": "implemented",
+    "field": "Тип и категория",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 426,
+        "anchor": "<InputWrapper label=\"Тип\" help={fieldHelp['transaction.category']} paddingY fitWidth>"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 445,
+        "anchor": "<InputWrapper label=\"Категория\" help={category === 'referral_in' || category === 'referral_out' ? fieldHelp['transaction.referral'] : fieldHelp['transaction.category']} paddingY fitWidth>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.referral": {
+    "status": "implemented",
+    "field": "Рекомендация — входящий / исходящий процент",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 445,
+        "anchor": "<InputWrapper label=\"Категория\" help={category === 'referral_in' || category === 'referral_out' ? fieldHelp['transaction.referral'] : fieldHelp['transaction.category']} paddingY fitWidth>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.paymentMethod": {
+    "status": "implemented",
+    "field": "Метод оплаты / Обязательство",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 464,
+        "anchor": "<InputWrapper label=\"Метод оплаты\" help={fieldHelp['transaction.paymentMethod']} paddingY fitWidth>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.date": {
+    "status": "implemented",
+    "field": "Дата / Плановая дата",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 487,
+        "anchor": "help={fieldHelp['transaction.date']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "transaction.taxShortcut": {
+    "status": "implemented",
+    "field": "Кнопка 6% — категория «Налоги»",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/transactionFunc.js",
+        "line": 422,
+        "anchor": "<FieldHelp text={fieldHelp['transaction.taxShortcut']} label=\"Расчёт 6%\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "service.group": {
+    "status": "implemented",
+    "field": "Группа услуги",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/serviceFunc.js",
+        "line": 133,
+        "anchor": "help={fieldHelp['service.group']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "service.description": {
+    "status": "implemented",
+    "field": "Описание услуги",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/serviceFunc.js",
+        "line": 153,
+        "anchor": "help={fieldHelp['service.description']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "service.price": {
+    "status": "implemented",
+    "field": "Цена услуги",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/serviceFunc.js",
+        "line": 174,
+        "anchor": "help={fieldHelp['service.price']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "service.duration": {
+    "status": "implemented",
+    "field": "Продолжительность услуги",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/serviceFunc.js",
+        "line": 164,
+        "anchor": "help={fieldHelp['service.duration']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "address.saveToPool": {
+    "status": "implemented",
+    "field": "Сохранить в пул — адрес",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/addressEditorFunc.js",
+        "line": 71,
+        "anchor": "<FieldHelp text={fieldHelp['address.saveToPool']} label={saveButtonLabel || 'Сохранить в пул'} />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "address.comment": {
+    "status": "implemented",
+    "field": "Уточнения по адресу",
+    "host": [
+      {
+        "path": "components/AddressPicker.js",
+        "line": 144,
+        "anchor": "help={fieldHelp['address.comment']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "address.navigation": {
+    "status": "implemented",
+    "field": "Координаты и ссылки навигации",
+    "host": [
+      {
+        "path": "components/AddressPicker.js",
+        "line": 158,
+        "anchor": "help={fieldHelp['address.navigation']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "documents.event": {
+    "status": "implemented",
+    "field": "Файлы и документы — в заказе",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 298,
+        "anchor": "help={fieldHelp['documents.event']}"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2186,
+        "anchor": "help={fieldHelp['documents.event']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "documents.client": {
+    "status": "implemented",
+    "field": "Файлы и документы — в клиенте",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/clientFunc.js",
+        "line": 697,
+        "anchor": "help={fieldHelp['documents.client']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "documents.templates": {
+    "status": "implemented",
+    "field": "Шаблоны документов — страница «Документы»",
+    "host": [
+      {
+        "path": "layouts/content/DocumentsContent.js",
+        "line": 389,
+        "anchor": "<FieldHelp text={fieldHelp['documents.templates']} label=\"Шаблоны документов\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "documents.templateType": {
+    "status": "implemented",
+    "field": "Тип документа — в редакторе шаблона",
+    "host": [
+      {
+        "path": "layouts/content/DocumentsContent.js",
+        "line": 276,
+        "anchor": "help={fieldHelp['documents.templateType']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "documents.artistRequisites": {
+    "status": "implemented",
+    "field": "Реквизиты исполнителя",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/artistRequisitesEditorFunc.js",
+        "line": 193,
+        "anchor": "help={fieldHelp['documents.artistRequisites']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "documents.date": {
+    "status": "implemented",
+    "field": "Дата документа",
+    "host": [
+      {
+        "path": "components/DocumentCreateDialog.js",
+        "line": 357,
+        "anchor": "help={fieldHelp['documents.date']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.title": {
+    "status": "implemented",
+    "field": "Название предложения",
+    "host": [
+      {
+        "path": "components/EventProposalsSection.js",
+        "line": 613,
+        "anchor": "help={fieldHelp['proposal.title']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.expiresAt": {
+    "status": "implemented",
+    "field": "Действует до",
+    "host": [
+      {
+        "path": "components/EventProposalsSection.js",
+        "line": 622,
+        "anchor": "help={fieldHelp['proposal.expiresAt']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.recommended": {
+    "status": "implemented",
+    "field": "Рекомендуем — вариант КП",
+    "host": [
+      {
+        "path": "components/ProposalPackagesEditor.js",
+        "line": 247,
+        "anchor": "<FieldHelp text={fieldHelp['proposal.recommended']} label=\"Рекомендуем\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.blocks": {
+    "status": "implemented",
+    "field": "Дополнительные тексты / Блоки КП",
+    "host": [
+      {
+        "path": "components/EventProposalsSection.js",
+        "line": 658,
+        "anchor": "<Section title=\"Тексты страницы\" help={fieldHelp['proposal.blocks']}>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.apply": {
+    "status": "implemented",
+    "field": "Применить — выбранный вариант КП",
+    "host": [
+      {
+        "path": "components/EventProposalsSection.js",
+        "line": 984,
+        "anchor": "<FieldHelp text={fieldHelp['proposal.apply']} label=\"Применить\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.newVersion": {
+    "status": "implemented",
+    "field": "Редактировать в новой версии",
+    "host": [
+      {
+        "path": "components/EventProposalsSection.js",
+        "line": 890,
+        "anchor": "{proposal.status !== 'draft' ? <FieldHelp text={fieldHelp['proposal.newVersion']} label=\"Редактировать в новой версии\" /> : null}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "attention.withoutNextStep": {
+    "status": "implemented",
+    "field": "Заявки без следующего шага — «Важное»",
+    "host": [
+      {
+        "path": "components/RequestsWithoutNextStep.js",
+        "line": 83,
+        "anchor": "title={<span className=\"inline-flex items-center gap-1\">Заявки без следующего шага <FieldHelp text={fieldHelp['attention.withoutNextStep']} label=\"Заявки без следующего шага\" /></span>}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "attention.pastRequests": {
+    "status": "implemented",
+    "field": "Заявки с прошедшей датой — «Важное»",
+    "host": [
+      {
+        "path": "components/PastRequests.js",
+        "line": 37,
+        "anchor": "title={<span className=\"inline-flex items-center gap-1\">Заявки с прошедшей датой <FieldHelp text={fieldHelp['attention.pastRequests']} label=\"Заявки с прошедшей датой\" /></span>}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "statistics.profitMargin": {
+    "status": "implemented",
+    "field": "Чистая прибыль / Маржа — статистика",
+    "host": [
+      {
+        "path": "layouts/content/StatisticsContent.js",
+        "line": 865,
+        "anchor": "<div className=\"text-xs text-gray-500\">Чистая прибыль <FieldHelp text={fieldHelp['statistics.profitMargin']} label=\"Чистая прибыль\" /></div>"
+      },
+      {
+        "path": "layouts/content/StatisticsContent.js",
+        "line": 871,
+        "anchor": "<div className=\"text-xs text-gray-500\">Маржа <FieldHelp text={fieldHelp['statistics.profitMargin']} label=\"Маржа\" /></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "statistics.expectedProfit": {
+    "status": "implemented",
+    "field": "Ожидаемая прибыль — диаграмма",
+    "host": [
+      {
+        "path": "layouts/content/StatisticsContent.js",
+        "line": 685,
+        "anchor": "<div className=\"text-xs text-gray-500\">{profitCardTitle} {profitCardTitle === 'Ожидаемая прибыль' ? <FieldHelp text={fieldHelp['statistics.expectedProfit']} label={profitCardTitle} /> : null}</div>"
+      },
+      {
+        "path": "layouts/content/StatisticsContent.js",
+        "line": 921,
+        "anchor": "<div className=\"mb-3 flex flex-wrap items-center gap-1 text-sm font-semibold\">Группировка по месяцам <FieldHelp text={fieldHelp['statistics.monthGrouping']} label=\"Группировка по месяцам\" /><span className=\"ml-3 inline-flex items-center gap-1\">Ожидаемая прибыль <FieldHelp text={fieldHelp['statistics.expectedProfit']} label=\"Ожидаемая прибыль\" /></span></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "statistics.includeRequests": {
+    "status": "implemented",
+    "field": "Учитывать заявки — статистика",
+    "host": [
+      {
+        "path": "layouts/content/StatisticsContent.js",
+        "line": 840,
+        "anchor": "help={fieldHelp['statistics.includeRequests']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "statistics.monthGrouping": {
+    "status": "implemented",
+    "field": "Группировка по месяцам — статистика",
+    "host": [
+      {
+        "path": "layouts/content/StatisticsContent.js",
+        "line": 921,
+        "anchor": "<div className=\"mb-3 flex flex-wrap items-center gap-1 text-sm font-semibold\">Группировка по месяцам <FieldHelp text={fieldHelp['statistics.monthGrouping']} label=\"Группировка по месяцам\" /><span className=\"ml-3 inline-flex items-center gap-1\">Ожидаемая прибыль <FieldHelp text={fieldHelp['statistics.expectedProfit']} label=\"Ожидаемая прибыль\" /></span></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "review.request": {
+    "status": "implemented",
+    "field": "Отзыв клиента / Работа выполнена",
+    "host": [
+      {
+        "path": "components/EventClientReview.js",
+        "line": 116,
+        "anchor": "<h3 className=\"font-semibold\">Отзыв клиента <FieldHelp text={fieldHelp['review.request']} label=\"Отзыв клиента\" /></h3>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "review.privateNote": {
+    "status": "implemented",
+    "field": "Заметка для себя — в отзыве",
+    "host": [
+      {
+        "path": "components/ClientReviewCard.js",
+        "line": 98,
+        "anchor": "help={fieldHelp['review.privateNote']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "settings.terminology": {
+    "status": "implemented",
+    "field": "Как называть основную работу",
+    "host": [
+      {
+        "path": "layouts/content/SettingsContent.js",
+        "line": 258,
+        "anchor": "help={fieldHelp['settings.terminology']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "settings.eventForm": {
+    "status": "implemented",
+    "field": "Классическая / Компактная форма",
+    "host": [
+      {
+        "path": "layouts/content/SettingsContent.js",
+        "line": 278,
+        "anchor": "help={fieldHelp['settings.eventForm']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "settings.timeZone": {
+    "status": "implemented",
+    "field": "Часовой пояс",
+    "host": [
+      {
+        "path": "layouts/content/SettingsContent.js",
+        "line": 289,
+        "anchor": "help={fieldHelp['settings.timeZone']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "settings.defaultDuration": {
+    "status": "implemented",
+    "field": "Стандартная длительность",
+    "host": [
+      {
+        "path": "layouts/content/SettingsContent.js",
+        "line": 298,
+        "anchor": "help={fieldHelp['settings.defaultDuration']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "billing.history": {
+    "status": "implemented",
+    "field": "Баланс и платежи",
+    "host": [
+      {
+        "path": "layouts/content/BillingHistoryContent.js",
+        "line": 282,
+        "anchor": "<h2 className=\"flex items-center gap-1 font-semibold\">Баланс и платежи <FieldHelp text={fieldHelp['billing.history']} label=\"Баланс и платежи\" /></h2>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.leadSource": {
+    "status": "implemented",
+    "field": "Название источника — ключ входящих заявок",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 264,
+        "anchor": "help={fieldHelp['integrations.leadSource']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.leadKeyEnabled": {
+    "status": "implemented",
+    "field": "Ключ активен — входящие заявки",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 301,
+        "anchor": "help={fieldHelp['integrations.leadKeyEnabled']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.googleSync": {
+    "status": "implemented",
+    "field": "Синхронизация Google Calendar",
+    "host": [
+      {
+        "path": "components/GoogleCalendarSettings.js",
+        "line": 636,
+        "anchor": "Массовая синхронизация <FieldHelp text={fieldHelp['integrations.googleSync']} label=\"Массовая синхронизация\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.googleFields": {
+    "status": "implemented",
+    "field": "Что отправлять в Google Calendar",
+    "host": [
+      {
+        "path": "components/GoogleCalendarSettings.js",
+        "line": 683,
+        "anchor": "Что отправлять в Google Calendar <FieldHelp text={fieldHelp['integrations.googleFields']} label=\"Что отправлять в Google Calendar\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.googleNotifications": {
+    "status": "implemented",
+    "field": "Уведомления Google Calendar",
+    "host": [
+      {
+        "path": "components/GoogleCalendarSettings.js",
+        "line": 756,
+        "anchor": "Уведомления Google Calendar <FieldHelp text={fieldHelp['integrations.googleNotifications']} label=\"Уведомления Google Calendar\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.webhook": {
+    "status": "implemented",
+    "field": "Адрес приёма событий — Avito / VK / Novofon",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 1509,
+        "anchor": "help={fieldHelp['integrations.webhook']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.vkToken": {
+    "status": "implemented",
+    "field": "Токен сообщества VK",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 1635,
+        "anchor": "help={fieldHelp['integrations.vkToken']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.vkCallback": {
+    "status": "implemented",
+    "field": "Строка подтверждения и секрет Callback API VK",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 1623,
+        "anchor": "help={fieldHelp['integrations.vkCallback']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.avitoCredentials": {
+    "status": "implemented",
+    "field": "Данные приложения Avito",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 1482,
+        "anchor": "help={fieldHelp['integrations.avitoCredentials']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.telegramAutoClients": {
+    "status": "implemented",
+    "field": "Автосоздание клиентов Telegram",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 1825,
+        "anchor": "help={fieldHelp['integrations.telegramAutoClients']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.aiProvider": {
+    "status": "implemented",
+    "field": "Провайдер ИИ",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 2046,
+        "anchor": "help={fieldHelp['integrations.aiProvider']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "integrations.aiModels": {
+    "status": "implemented",
+    "field": "Модель анализа / Модель распознавания",
+    "host": [
+      {
+        "path": "layouts/content/IntegrationsContent.js",
+        "line": 2172,
+        "anchor": "help={fieldHelp['integrations.aiModels']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "import.google": {
+    "status": "implemented",
+    "field": "Импорт из Google Calendar",
+    "host": [
+      {
+        "path": "components/GoogleCalendarImportSettings.js",
+        "line": 318,
+        "anchor": "Импорт из Google Calendar <FieldHelp text={fieldHelp['import.google']} label=\"Импорт из Google Calendar\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "import.fileNote": {
+    "status": "implemented",
+    "field": "Пояснение к файлу — импорт",
+    "host": [
+      {
+        "path": "components/FileImportSettings.js",
+        "line": 286,
+        "anchor": "<div className=\"flex items-center gap-1 text-sm\">Пояснение к файлу <FieldHelp text={fieldHelp['import.fileNote']} label=\"Пояснение к файлу\" /></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "import.rules": {
+    "status": "implemented",
+    "field": "Дополнительные правила и исправления — импорт",
+    "host": [
+      {
+        "path": "components/FileImportSettings.js",
+        "line": 462,
+        "anchor": "<div className=\"flex items-center gap-1 text-sm\">Дополнительные правила и исправления <FieldHelp text={fieldHelp['import.rules']} label=\"Дополнительные правила и исправления\" /></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "import.verify": {
+    "status": "implemented",
+    "field": "Проверка данных после импорта из файла",
+    "host": [
+      {
+        "path": "components/FileImportSettings.js",
+        "line": 488,
+        "anchor": "Записи: {job.records.length} <FieldHelp text={fieldHelp['import.verify']} label=\"Проверка импортированных записей\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "notifications.device": {
+    "status": "implemented",
+    "field": "Уведомления аккаунта / Это устройство",
+    "host": [
+      {
+        "path": "components/PushNotificationsSettings.js",
+        "line": 476,
+        "anchor": "Это устройство <FieldHelp text={fieldHelp['notifications.device']} label=\"Это устройство\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "notifications.reminderTime": {
+    "status": "implemented",
+    "field": "Время ежедневных напоминаний",
+    "host": [
+      {
+        "path": "components/PushNotificationsSettings.js",
+        "line": 552,
+        "anchor": "<div className=\"flex items-center gap-1 text-sm font-semibold\">Время ежедневных напоминаний <FieldHelp text={fieldHelp['notifications.reminderTime']} label=\"Время ежедневных напоминаний\" /></div>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.section": {
+    "status": "implemented",
+    "field": "Коммерческие предложения — в заказе",
+    "host": [
+      {
+        "path": "components/CompactEventForm.js",
+        "line": 304,
+        "anchor": "{proposalsEnabled ? <Section title=\"Коммерческие предложения\" help={fieldHelp['proposal.section']} icon={faPaperclip} summary=\"По необходимости — без договора и счёта\">"
+      },
+      {
+        "path": "layouts/modals/modalsFunc/eventFunc.js",
+        "line": 2213,
+        "anchor": "help={fieldHelp['proposal.section']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.message": {
+    "status": "implemented",
+    "field": "Текст сообщения — КП",
+    "host": [
+      {
+        "path": "components/EventProposalsSection.js",
+        "line": 709,
+        "anchor": "help={fieldHelp['proposal.message']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "proposal.templateMessage": {
+    "status": "implemented",
+    "field": "Сообщение для чата — шаблон КП",
+    "host": [
+      {
+        "path": "components/ProposalTemplateEditor.js",
+        "line": 327,
+        "anchor": "help={fieldHelp['proposal.templateMessage']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.tariffMonthlyLimit": {
+    "status": "implemented",
+    "field": "Мероприятий в месяц — тариф",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/tariffFunc.js",
+        "line": 193,
+        "anchor": "help={fieldHelp['admin.tariffMonthlyLimit']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.tariffReviews": {
+    "status": "implemented",
+    "field": "Отзывы клиентов — тариф",
+    "host": [
+      {
+        "path": "layouts/modals/modalsFunc/tariffFunc.js",
+        "line": 226,
+        "anchor": "<FieldHelp text={fieldHelp['admin.tariffReviews']} label=\"Отзывы клиентов\" />"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": true,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.aiMarkup": {
+    "status": "implemented",
+    "field": "Коэффициент наценки ИИ",
+    "host": [
+      {
+        "path": "layouts/content/AiUsageAdminContent.js",
+        "line": 164,
+        "anchor": "help={fieldHelp['admin.aiMarkup']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.trial": {
+    "status": "implemented",
+    "field": "Пробный тариф / Срок, дней",
+    "host": [
+      {
+        "path": "layouts/content/RegistrationTrialSettingsContent.js",
+        "line": 152,
+        "anchor": "help={fieldHelp['admin.trial']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.chargeType": {
+    "status": "implemented",
+    "field": "Вид ручного списания",
+    "host": [
+      {
+        "path": "components/ManualBalanceChargeForm.js",
+        "line": 100,
+        "anchor": "<InputWrapper label=\"Вид списания\" help={fieldHelp['admin.chargeType']}>"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.chargeDate": {
+    "status": "implemented",
+    "field": "Дата ручного списания",
+    "host": [
+      {
+        "path": "components/ManualBalanceChargeForm.js",
+        "line": 91,
+        "anchor": "help={fieldHelp['admin.chargeDate']}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  },
+  "admin.receiptNotRequired": {
+    "status": "implemented",
+    "field": "Чек не нужен",
+    "host": [
+      {
+        "path": "components/PaymentReceiptControl.js",
+        "line": 109,
+        "anchor": "{canEdit ? <FieldHelp text={fieldHelp['admin.receiptNotRequired']} label=\"Чек не нужен\" /> : null}"
+      }
+    ],
+    "result": "Привязка в настоящем UI-коде проверена tests/fieldHelpWeb.test.mjs; исходный текст, открытие, Escape и границы всплывашки проверены настоящим FieldHelp в четырёх браузерных режимах.",
+    "browserTextVerified": true,
+    "browserHostVerified": false,
+    "browserHostNote": "Полный авторизованный маршрут каждого экрана не открывался: стенд настоящих компонентов и модалок плюс отдельный перебор каталога. Не считать перебор каталога проверкой каждого экрана."
+  }
+}

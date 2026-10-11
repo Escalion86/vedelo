@@ -1,5 +1,6 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
 import FormWrapper from './FormWrapper'
 import Input from './Input'
 import InputWrapper from './InputWrapper'
@@ -140,6 +141,7 @@ const AddressPicker = ({
       }
       <Input
         label={'Уточнения по адресу'}
+        help={fieldHelp['address.comment']}
         type="text"
         value={address.comment}
         onChange={(comment) => onChange({ ...address, comment })}
@@ -153,6 +155,7 @@ const AddressPicker = ({
           <FormWrapper className="mt-1 grid grid-cols-2 gap-x-2 gap-y-3">
             <Input
               label="Широта"
+              help={fieldHelp['address.navigation']}
               type="text"
               value={address.latitude}
               onChange={(latitude) => onChange({ ...address, latitude })}

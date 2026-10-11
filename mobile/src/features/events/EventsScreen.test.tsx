@@ -10,11 +10,13 @@ import type { ListEvent } from './filters'
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: (fn: () => void) => require('react').useEffect(fn, [fn]) }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
-jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: 'Заказы', accusative: 'заказ' }) }))
+jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ pluralCapitalized: mockTerms === 'orders' ? 'Заказы' : 'Мероприятия', plural: mockTerms === 'orders' ? 'заказы' : 'мероприятия', accusative: 'заказ' }) }))
 jest.mock('./MobileEventCard', () => ({ MobileEventCard: ({ event, testID }: { event: ListEvent; testID: string }) => {
   const { Text } = require('react-native')
   return <Text testID={testID}>{event.eventType}</Text>
 } }))
+let mockTerms = 'orders'
+jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: { firstName: 'Анна', images: ['https://example.test/avatar.jpg'] } }) }))
 const mockQuery = { data: [] as ListEvent[], isError: false, isPending: false, isFetching: false, refetch: jest.fn(), refresh: jest.fn() }
 const mockRelated = { data: [], isError: false, isPending: false, isFetching: false, refetch: jest.fn() }
 jest.mock('../../shared/hooks/useCachedEntities', () => ({ useCachedEntities: (kind: string) => kind === 'events' ? mockQuery : mockRelated }))
@@ -96,4 +98,21 @@ it('refreshes scope on time boundary while screen stays open', () => {
   expect(screen.getByText('Будущий заказ')).toBeTruthy()
   act(() => jest.advanceTimersByTime(30_000))
   expect(screen.queryByText('Будущий заказ')).toBeNull()
+})
+
+it.each(['orders', 'events'])('единая шапка, счётчик в строке и рабочий аватар: %s', (terms) => {
+  mockTerms = terms
+  mockQuery.data = [future]
+  const screen = setup()
+  const plural = terms === 'orders' ? 'заказы' : 'мероприятия'
+  expect(screen.getByRole('header', { name: `Предстоящие ${plural}` })).toBeTruthy()
+  expect(screen.queryByText('Предстоящие')).toBeNull()
+  expect(screen.getByTestId('list-header-title-row')).toHaveStyle({ flexDirection: 'row', alignItems: 'baseline' })
+  expect(screen.getByText('1')).toHaveStyle({ color: '#9a6b27' })
+  fireEvent.press(screen.getByLabelText('Открыть профиль'))
+  expect(router.push).toHaveBeenCalledWith('/(tabs)/profile')
+  fireEvent.press(screen.getByText('Перейти к прошедшим'))
+  expect(screen.getByRole('header', { name: `Прошедшие ${plural}` })).toBeTruthy()
+  expect(screen.queryByText('Прошедшие')).toBeNull()
+  mockTerms = 'orders'
 })

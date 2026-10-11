@@ -36,5 +36,5 @@ export function useAiDraftAccess() {
       throw new Error('Для ИИ нужен интернет. Форму можно заполнить вручную.')
     }
   }
-  return { allowAi, online, loading, error, assertAvailable }
+  return { allowAi, online, loading, error, assertAvailable, isDeveloper: user?.role === 'dev' }
 }

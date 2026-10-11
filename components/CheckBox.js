@@ -1,3 +1,4 @@
+import FieldHelp from './FieldHelp'
 import cn from 'classnames'
 
 const CheckBox = ({
@@ -7,6 +8,7 @@ const CheckBox = ({
   small = false,
   big = false,
   label = null,
+  help,
   labelClassName,
   readOnly = false,
   hidden = false,
@@ -73,6 +75,7 @@ const CheckBox = ({
         >
           {label}
         </div>
+        {help ? <FieldHelp text={help} label={typeof label === 'string' ? label : 'поле'} /> : null}
       </div>
     )
   )

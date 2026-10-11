@@ -45,3 +45,9 @@ describe('PWA palettes', () => {
     expect(pageTitleSize(width)).toBe(expected)
   })
 })
+
+it('контактные токены повторяют обе темы PWA, включая белую надпись пробного MAX', () => {
+  for (const palette of [lightPalette, darkPalette]) {
+    expect(palette.contacts).toMatchObject({ whatsapp: '#16a34a', telegram: '#2563eb', max: '#615cff', trial: '#f87171', trialBadge: '#ef4444', onTrialBadge: '#ffffff', vk: '#2563eb', viber: '#9333ea', instagram: '#a16207', email: '#f87171' })
+  }
+})

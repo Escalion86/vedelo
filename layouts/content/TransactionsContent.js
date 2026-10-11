@@ -305,7 +305,7 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
       <ContentHeader>
         <HeaderActions
           left={
-            <div className="ml-2 flex flex-nowrap items-center gap-2">
+            <div className="ml-2 flex min-w-0 flex-wrap items-end gap-2">
               <TransactionTypeFilter value={typeMode} onChange={setTypeMode} />
               <TransactionDateRangeFilter
                 value={dateRange}
@@ -318,7 +318,7 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
               />
             </div>
           }
-          leftClassName="min-w-0 flex-nowrap"
+          leftClassName="min-w-0 flex-wrap"
           right={
             <AddIconButton
               onClick={() => modalsFunc.transaction?.add()}

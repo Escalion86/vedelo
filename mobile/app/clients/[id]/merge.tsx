@@ -13,6 +13,7 @@ import { runSync } from '../../../src/shared/sync/syncEngine'
 import { Button, ErrorNotice, PageHeader, Screen, SectionTitle, Surface } from '../../../src/shared/ui/components'
 import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
+import { getFieldHelp } from '../../../src/shared/domain/fieldHelp'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
 import { clientName } from '../../../src/features/clients/clientList'
 
@@ -152,7 +153,7 @@ export default function ClientMergeScreen() {
 
   return (
     <Screen>
-      <PageHeader title="Объединение клиентов" subtitle={`Основной: ${name(target)}`} />
+      <PageHeader title="Объединение клиентов" help={getFieldHelp('client.merge')} subtitle={`Основной: ${name(target)}`} />
       <Surface>
         <SectionTitle>Выберите дубликат</SectionTitle>
         <View style={styles.search}>

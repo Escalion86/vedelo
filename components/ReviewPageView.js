@@ -154,8 +154,8 @@ const ReviewPageView = ({
       data-preview={preview ? 'true' : undefined}
       data-busy={busy ? 'true' : undefined}
     >
-      <div className={styles.shell}>
-        <header className={styles.cover}>
+      <header className={styles.cover}>
+        <div className={styles.coverContent}>
           {appearance?.logoUrl ? (
             // Публичная страница вне кабинета: обычный img без оптимизатора.
             // eslint-disable-next-line @next/next/no-img-element
@@ -184,10 +184,15 @@ const ReviewPageView = ({
               ) : null}
             </>
           )}
-        </header>
+        </div>
+      </header>
+      <div className={styles.shell}>
         <main className={styles.main}>
           {state === 'form' ? (
-            <FormTag className={styles.card} onSubmit={preview ? undefined : onSubmit}>
+            <FormTag
+              className={styles.card}
+              onSubmit={preview ? undefined : onSubmit}
+            >
               <FormFields
                 appearance={appearance}
                 performerName={performerName}

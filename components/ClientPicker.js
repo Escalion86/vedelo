@@ -21,6 +21,7 @@ const ClientPicker = ({
   onEditClick,
   disabled,
   label,
+  help,
   required,
   error,
   paddingY,
@@ -53,6 +54,7 @@ const ClientPicker = ({
   return (
     <InputWrapper
       label={label}
+      help={help}
       required={required}
       error={error}
       paddingY={paddingY}

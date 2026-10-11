@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
@@ -110,7 +113,7 @@ export default function EventClientReview({ event }) {
   if (!eligible && !review && !query.isError) return null
   return (
     <SurfaceCard className="space-y-3">
-      <h3 className="font-semibold">Отзыв клиента</h3>
+      <h3 className="font-semibold">Отзыв клиента <FieldHelp text={fieldHelp['review.request']} label="Отзыв клиента" /></h3>
       {query.isPending ? (
         <LoadingSpinner text="Загружаем…" />
       ) : query.isError ? (

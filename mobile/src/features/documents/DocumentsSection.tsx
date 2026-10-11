@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router'
 import * as DocumentPicker from 'expo-document-picker'
 import { api } from '../../shared/api/client'
 import type { DocumentTemplate } from '../../shared/domain/types'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { getCachedEntity } from '../../shared/storage/cache'
 import { deleteEncryptedFile, encryptAndQueueFile, listEncryptedFiles, retryFileQueueNow, type EncryptedLocalFile } from '../../shared/storage/encryptedFiles'
 import { runSync } from '../../shared/sync/syncEngine'
@@ -100,7 +101,7 @@ export const DocumentsSection = () => {
   return <>
     {task.error ? <Notice tone="danger" message={task.error} /> : null}
     {task.phase ? <Notice message={task.phase} /> : null}
-    <Surface><SectionTitle>Шаблоны документов{templateState === 'ready' ? ` · ${templates.length}` : ''}</SectionTitle>
+    <Surface><SectionTitle help={getFieldHelp('documents.templates')}>{`Шаблоны документов${templateState === 'ready' ? ` · ${templates.length}` : ''}`}</SectionTitle>
       <Notice message="DOCX-шаблоны доступны при подключении к сети. Документы работ и клиентов открываются из их карточек." />
       {templateState === 'loading' ? <Notice message="Загружаем шаблоны…" /> : templateState === 'error' ? <><Notice tone="danger" message={templateError} /><Button title="Повторить чтение шаблонов" variant="secondary" onPress={() => void loadTemplates()} disabled={Boolean(task.phase)} /></> : templates.length ? templates.map((template) => <DocumentRowView key={template.id} title={template.name} subtitle={`${typeLabel(template.type, template.customTypeName)} · ${template.fileName} ${fileSize(template.size)}`} onOpen={() => router.push(`/more/documents/template/${encodeURIComponent(template.id)}` as never)} disabled={Boolean(task.phase)}>
         <DocumentAction icon="share-variant-outline" label={`Скачать и поделиться шаблоном ${template.name}`} onPress={() => void shareTemplate(template)} disabled={Boolean(task.phase)} />

@@ -28,6 +28,8 @@ import {
 } from '../../../src/shared/ui/components'
 import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
+import { getFieldHelp } from '../../../src/shared/domain/fieldHelp'
+import { FieldHelp } from '../../../src/shared/ui/FieldHelp'
 
 const CLIENT_TYPES = [
   ['none', 'Без типа'],
@@ -218,17 +220,17 @@ export default function ClientEditScreen() {
         <Field label="Instagram" value={values.instagram} onChangeText={(value) => set('instagram', value)} autoCapitalize="none" />
         <Field label="VK" value={values.vk} onChangeText={(value) => set('vk', value)} autoCapitalize="none" />
         <Field label="MAX" value={values.max} onChangeText={(value) => set('max', value)} placeholder="Ссылка max.ru или +7 999 123-45-67" maxLength={500} />
-        <SectionTitle>Тип клиента</SectionTitle>
+        <SectionTitle help={getFieldHelp('client.type')}>Тип клиента</SectionTitle>
         <View style={styles.options}>{CLIENT_TYPES.map(([value, label]) => <Choice key={value} active={values.clientType === value} label={label} onPress={() => set('clientType', value)} />)}</View>
-        <SectionTitle>Приоритетный канал связи</SectionTitle>
+        <SectionTitle help={getFieldHelp('client.preferredChannel')}>Приоритетный канал связи</SectionTitle>
         <View style={styles.options}>{CONTACT_CHANNELS.map(([value, label]) => <Choice key={value} active={values.preferredContactChannel === value} label={label} onPress={() => set('preferredContactChannel', value)} />)}</View>
         {values.preferredContactChannel === 'other' ? <Field label="Другой канал" value={values.preferredContactChannelOther} onChangeText={(value) => set('preferredContactChannelOther', value)} maxLength={100} /> : null}
-        <Field label="Комментарий" value={values.comment} onChangeText={(value) => set('comment', value)} multiline maxLength={2000} />
+        <Field label="Комментарий" help={getFieldHelp('client.comment')} value={values.comment} onChangeText={(value) => set('comment', value)} multiline maxLength={2000} />
       </Surface>
 
-      {!isNew ? <Button title="Файлы и документы" variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} disabled={id.startsWith('local-')} /> : null}
+      {!isNew ? <View style={styles.dateHeader}><View style={styles.flex}><Button title="Файлы и документы" variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} disabled={id.startsWith('local-')} /></View><FieldHelp label="Файлы и документы" text={getFieldHelp('documents.client')} /></View> : null}
       <Surface>
-        <SectionTitle>Значимые даты</SectionTitle>
+        <SectionTitle help={getFieldHelp('client.significantDates')}>Значимые даты</SectionTitle>
         {significantDates.map((item, index) => (
           <View key={item.localKey} style={styles.dateCard}>
             <View style={styles.dateHeader}>
@@ -249,12 +251,15 @@ export default function ClientEditScreen() {
       </Surface>
 
       <Surface>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: requisitesOpen }} style={styles.dateHeader} onPress={() => setRequisitesOpen((value) => !value)}>
+        <View style={styles.dateHeader}>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: requisitesOpen }} style={[styles.dateHeader, styles.flex]} onPress={() => setRequisitesOpen((value) => !value)}>
           <View style={styles.flex}><Text style={styles.dateTitle}>Реквизиты для договора</Text>{!requisitesOpen ? <Text numberOfLines={1} style={styles.hint}>{[values.legalName, values.inn && `ИНН ${values.inn}`].filter(Boolean).join(' · ') || 'Не заполнены'}</Text> : null}</View>
           <MaterialCommunityIcons name={requisitesOpen ? 'chevron-up' : 'chevron-down'} size={20} color={palette.cardMuted} />
         </Pressable>
+        <FieldHelp label="Реквизиты для договора" text={getFieldHelp('client.requisites')} />
+        </View>
         {requisitesOpen ? <View>
-        <Field label="Наименование / ФИО" value={values.legalName} onChangeText={(value) => set('legalName', value)} />
+        <Field label="Наименование / ФИО" help={getFieldHelp('client.legalName')} value={values.legalName} onChangeText={(value) => set('legalName', value)} />
         <View style={styles.row}><View style={styles.flex}><Field label="ИНН" value={values.inn} onChangeText={(value) => set('inn', value)} keyboardType="numeric" /></View><View style={styles.flex}><Field label="КПП" value={values.kpp} onChangeText={(value) => set('kpp', value)} keyboardType="numeric" /></View></View>
         <Field label="ОГРН / ОГРНИП" value={values.ogrn} onChangeText={(value) => set('ogrn', value)} keyboardType="numeric" />
         <Field label="Банк" value={values.bankName} onChangeText={(value) => set('bankName', value)} />

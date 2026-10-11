@@ -1,11 +1,14 @@
+import { typography } from './theme'
 import { useState } from 'react'
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native'
 import { useTheme, useThemeStyles } from './ThemeProvider'
 import type { Palette } from './theme'
+import { HelpLabel } from './FieldHelp'
 
-export const CompactField = ({ label, error, loading = false, search = false, style,
+export const CompactField = ({ label, help, error, loading = false, search = false, style,
   editable = true, accessibilityState, onFocus, onBlur, ...props }: TextInputProps & {
   label: string
+  help?: string
   error?: string
   loading?: boolean
   search?: boolean
@@ -15,7 +18,7 @@ export const CompactField = ({ label, error, loading = false, search = false, st
   const [focused, setFocused] = useState(false)
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      <HelpLabel label={label} help={help} style={styles.label} />
       <TextInput
         accessibilityLabel={label}
         accessibilityRole={search ? 'search' : undefined}
@@ -38,11 +41,11 @@ export const CompactField = ({ label, error, loading = false, search = false, st
 
 const createStyles = (palette: Palette) => StyleSheet.create({
   wrap: { gap: 4 },
-  label: { color: palette.text, fontSize: 12, fontWeight: '600' },
-  input: { minHeight: 40, borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, fontSize: 16,
+  label: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 12, fontWeight: '600' },
+  input: { fontFamily: typography.fontFamily, minHeight: 40, borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, fontSize: 16,
     color: palette.text, backgroundColor: palette.surface, borderColor: palette.border },
   focused: { borderColor: palette.primary },
   invalid: { borderColor: palette.notice.danger.border },
-  error: { color: palette.notice.danger.text, fontSize: 12 },
+  error: { fontFamily: typography.fontFamily, color: palette.notice.danger.text, fontSize: 12 },
   disabled: { opacity: 0.65 },
 })

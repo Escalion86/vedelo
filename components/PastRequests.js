@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
 import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
@@ -31,7 +34,7 @@ export default function PastRequests({
   return (
     <ModalSection
       id="attention-past-requests"
-      title="Заявки с прошедшей датой"
+      title={<span className="inline-flex items-center gap-1">Заявки с прошедшей датой <FieldHelp text={fieldHelp['attention.pastRequests']} label="Заявки с прошедшей датой" /></span>}
       titleClassName="card-title"
       titleRight={
         !isError ? (

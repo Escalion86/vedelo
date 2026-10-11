@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, type EventDraft, type EventFormValues } from '../../../src/shared/domain/eventForm'
 import { consumePendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
 import type { Client, Event, MobileSettings, Service, Transaction } from '../../../src/shared/domain/types'
-import { getCachedEntity, listCachedEntities } from '../../../src/shared/storage/cache'
+import { getCachedEntity, listCachedEntities, upsertEntities } from '../../../src/shared/storage/cache'
 import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/mutations'
 import { Button, ErrorNotice, PageHeader, Screen } from '../../../src/shared/ui/components'
 import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
@@ -15,6 +15,9 @@ import { EventContactsSection } from '../../../src/features/events/EventContacts
 import { EventFinanceSection } from '../../../src/features/events/EventFinanceSection'
 import { eventTransactionsFor, hasDepositPaidTransaction } from '../../../src/features/events/eventFinance'
 import { EventGeneralSection } from '../../../src/features/events/EventGeneralSection'
+import { api } from '../../../src/shared/api/client'
+import { PhotoDraftSection, type PhotoDraftFields } from '../../../src/features/events/PhotoDraftSection'
+import { applyPhotoDraft } from '../../../src/features/events/applyPhotoDraft'
 import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
 import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
@@ -140,6 +143,21 @@ export default function EventEditScreen() {
     return () => { active = false }
   }, [ready, savedWorkId, section]))
   const applyVoiceDraft = (fields: VoiceDraftFields) => setValues((current) => applyVoiceDraftFields(current, fields, new Set(clients.map((client) => client._id))))
+  const applyPhoto = async (fields: PhotoDraftFields) => {
+    let verifiedClients = clients
+    if (typeof fields.clientId === 'string' && !clients.some((client) => client._id === fields.clientId)) {
+      // Проверка новой связи повторно через tenant-protected GET, до записи в cache.
+      const response = await api.get<{ data: Client }>(`/mobile/v1/clients/${encodeURIComponent(fields.clientId)}`)
+      if (!response.data?._id || response.data._id !== fields.clientId) throw new Error('Клиент не найден')
+      await upsertEntities('clients', [response.data])
+      verifiedClients = [...clients, response.data]
+      setClients(verifiedClients)
+      void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] }).catch(() => undefined)
+    }
+    setDirty(true)
+    setDraft((current) => applyPhotoDraft(current, fields,
+      new Set(verifiedClients.map((client) => client._id)), new Set(services.map((service) => service._id))))
+  }
   const openNewTransaction = () => router.push({
     pathname: '/finance/edit/new', params: { eventId: savedWorkId, returnTo: 'event' },
   } as never)
@@ -194,7 +212,7 @@ export default function EventEditScreen() {
     </Pressable>)}</View>
     <View style={styles.section} pointerEvents={loading ? 'none' : 'auto'}>
       <View style={section !== 'general' && { display: 'none' }} accessibilityElementsHidden={section !== 'general'} importantForAccessibility={section === 'general' ? 'auto' : 'no-hide-descendants'}>
-        <VoiceDraftSection onApply={applyVoiceDraft} initialMode={initialMode} />
+        {initialMode === 'photo' ? <PhotoDraftSection onApply={applyPhoto} /> : <VoiceDraftSection onApply={applyVoiceDraft} initialMode={initialMode} />}
       </View>
       {section === 'general' ? <EventGeneralSection draft={draft} onChange={changeDraft}
         services={services.filter((service) => !service.archive || draft.serviceIds.includes(service._id))} clients={clients}

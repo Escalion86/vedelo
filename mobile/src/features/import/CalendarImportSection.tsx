@@ -5,6 +5,7 @@ import { useAuth } from '../../shared/auth/AuthProvider'
 import { Button, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useTheme } from '../../shared/ui/ThemeProvider'
 import { calendarImportEntry } from './calendarImportApi'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 
 export function CalendarImportSection() {
   const { user } = useAuth(), { palette } = useTheme()
@@ -26,7 +27,7 @@ export function CalendarImportSection() {
     }
   }
   return <Surface>
-    <SectionTitle>Импорт из Google Calendar</SectionTitle>
+    <SectionTitle help={getFieldHelp('import.google')}>Импорт из Google Calendar</SectionTitle>
     <Notice tone="info" message="Отдельный Google-импорт пока доступен только в web-кабинете. Обычная синхронизация Google в «Интеграциях» не подключает аккаунт для импорта." />
     <Text style={{ color: palette.cardMuted }}>В браузере войдите в нужный аккаунт Ведело, выберите Google Calendar, подключите отдельный аккаунт и календарь-источник. Нужен тариф с Google Calendar и ИИ. Список, стоимость и запуск подтверждаются в web-кабинете.</Text>
     {error ? <Notice tone="danger" message={error} /> : null}

@@ -1,5 +1,6 @@
 'use client'
 
+import FieldHelp from '@components/FieldHelp'
 import { useCallback, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -42,6 +43,7 @@ const DocumentsEditor = ({
   maxVisible = null,
   noMargin = false,
   showHeading = true,
+  help,
   documentTemplates = [],
   payments = [],
   hasAgreedProposal = false,
@@ -255,6 +257,7 @@ const DocumentsEditor = ({
         {showHeading ? (
           <div className="text-sm font-semibold text-gray-800">
             Файлы и документы · {safeDocuments.length}
+            {help ? <FieldHelp text={help} label="Файлы и документы" /> : null}
           </div>
         ) : null}
         <AddIconButton

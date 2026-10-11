@@ -1,0 +1,53 @@
+.panel {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--surface-toolbar-border);
+  border-radius: 12px;
+  background: var(--surface-toolbar-bg);
+  box-shadow: var(--surface-card-shadow);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggle {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.reset {
+  min-height: 40px;
+}
+
+.summary {
+  margin-top: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fields {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px 8px;
+  margin-top: 12px;
+}
+
+.period {
+  display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+}

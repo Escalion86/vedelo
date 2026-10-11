@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from './FieldHelp'
+
 import { useAtom } from 'jotai'
 import { useCallback, useEffect, useState } from 'react'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
@@ -470,7 +473,7 @@ const PushNotificationsSettings = () => {
         <div className="tablet:border-l tablet:border-gray-200 tablet:pl-3 flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-gray-800">
-              Это устройство
+              Это устройство <FieldHelp text={fieldHelp['notifications.device']} label="Это устройство" />
             </span>
             <span
               className={`push-device-status inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-semibold ${devicePresentation.className}`}
@@ -546,10 +549,9 @@ const PushNotificationsSettings = () => {
         </button> */}
       </div>
       <div className="push-settings-surface rounded border border-gray-200 bg-white/70 p-3">
+        <div className="flex items-center gap-1 text-sm font-semibold">Время ежедневных напоминаний <FieldHelp text={fieldHelp['notifications.reminderTime']} label="Время ежедневных напоминаний" /></div>
         <label className="tablet:max-w-xs flex flex-col gap-2 text-sm text-gray-700">
-          <span className="font-semibold text-gray-800">
-            Время ежедневных напоминаний
-          </span>
+          <span className="sr-only">Время ежедневных напоминаний</span>
           <select
             value={additionalEventsPushTime}
             className="h-10 cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm"

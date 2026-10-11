@@ -1,3 +1,4 @@
+import FieldHelp from './FieldHelp'
 import { useEffect, useId, useRef } from 'react'
 import cn from 'classnames'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -5,6 +6,7 @@ import { faChevronRight } from '@fortawesome/free-solid-svg-icons/faChevronRight
 
 const Section = ({
   title,
+  help,
   summary,
   icon,
   iconClassName = '',
@@ -23,6 +25,7 @@ const Section = ({
     if (invalid && ref.current) ref.current.open = true
   }, [invalid])
   return (
+    <div className="relative">
     <details
       ref={ref}
       open={initiallyOpen || undefined}
@@ -45,15 +48,22 @@ const Section = ({
             </span>
           ) : null}
         </span>
+        {help ? <span aria-hidden="true" className="h-6 w-6 shrink-0" /> : null}
         <FontAwesomeIcon
           icon={faChevronRight}
-          className="compact-event-chevron"
+          className="compact-event-chevron shrink-0"
         />
       </summary>
       <div id={id} className="compact-event-section-body">
         {children}
       </div>
     </details>
+    {help ? (
+      <div className={cn('absolute top-5', highlighted || aiHighlighted ? 'right-9' : 'right-6')}>
+        <FieldHelp text={help} label={title} />
+      </div>
+    ) : null}
+    </div>
   )
 }
 

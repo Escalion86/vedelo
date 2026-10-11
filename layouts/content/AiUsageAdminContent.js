@@ -1,5 +1,7 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+
 import { useEffect, useState } from 'react'
 import Button from '@components/Button'
 import Input from '@components/Input'
@@ -159,6 +161,7 @@ const AiUsageAdminContent = () => {
           </Notice>
           <Input
             label="Коэффициент наценки"
+            help={fieldHelp['admin.aiMarkup']}
             type="number"
             min={1}
             max={10}

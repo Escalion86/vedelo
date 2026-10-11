@@ -1,4 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
 import DateTimePicker from '@components/DateTimePicker'
 import FormWrapper from '@components/FormWrapper'
 import Input from '@components/Input'
@@ -363,6 +365,7 @@ const transactionFunc = (
               onSelectClick={openEventSelectModal}
               onClear={() => setSelectedEventId(null)}
               label="Мероприятие"
+              help={fieldHelp['transaction.event']}
               disabled={isReadOnly}
               showEditButton={!!selectedEventId}
               fullWidth
@@ -384,6 +387,7 @@ const transactionFunc = (
               }
               onViewClick={() => modalsFunc.client?.view(selectedClientId)}
               label="Клиент"
+              help={fieldHelp['transaction.client']}
               disabled={isReadOnly}
               fullWidth
             />
@@ -405,6 +409,7 @@ const transactionFunc = (
             />
           </div>
           {isTaxCategory && (
+            <div className="mb-2 flex items-center gap-1">
             <button
               type="button"
               className="px-2 py-1 mb-2 text-xs font-semibold text-gray-700 transition bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50"
@@ -414,9 +419,11 @@ const transactionFunc = (
             >
               6%
             </button>
+            <FieldHelp text={fieldHelp['transaction.taxShortcut']} label="Расчёт 6%" />
+            </div>
           )}
         </div>
-        <InputWrapper label="Тип" paddingY fitWidth>
+        <InputWrapper label="Тип" help={fieldHelp['transaction.category']} paddingY fitWidth>
           <div className="flex gap-2">
             {TRANSACTION_TYPES.map((item) => (
               <button
@@ -435,7 +442,7 @@ const transactionFunc = (
             ))}
           </div>
         </InputWrapper>
-        <InputWrapper label="Категория" paddingY fitWidth>
+        <InputWrapper label="Категория" help={category === 'referral_in' || category === 'referral_out' ? fieldHelp['transaction.referral'] : fieldHelp['transaction.category']} paddingY fitWidth>
           <div className="flex flex-wrap gap-2">
             {availableCategories.map((item) => (
               <button
@@ -454,7 +461,7 @@ const transactionFunc = (
             ))}
           </div>
         </InputWrapper>
-        <InputWrapper label="Метод оплаты" paddingY fitWidth>
+        <InputWrapper label="Метод оплаты" help={fieldHelp['transaction.paymentMethod']} paddingY fitWidth>
           <div className="flex flex-wrap gap-2">
             {TRANSACTION_PAYMENT_METHODS.map((item) => (
               <button
@@ -477,6 +484,7 @@ const transactionFunc = (
           value={date}
           onChange={(value) => setDate(value ?? new Date().toISOString())}
           label={dateLabel}
+          help={fieldHelp['transaction.date']}
           disabled={loading || isReadOnly}
         />
         {dateHint ? <Note noMargin>{dateHint}</Note> : null}

@@ -10,13 +10,40 @@ const client = { _id: 'client', firstName: 'Анна', secondName: 'Иванов
 const defaultModule = (value) => ({ __esModule: true, default: value })
 const emptyWidget = defaultModule(() => null)
 
-const createLoader = () => {
+const createLoader = (cssChunks) => {
   const cache = new Map()
   const load = (filename) => {
     filename = path.resolve(filename)
     if (cache.has(filename)) return cache.get(filename).exports
     const compiled = { exports: {} }
     cache.set(filename, compiled)
+    if (filename.endsWith('.module.css')) {
+      const bundle = require(process.env.ESBUILD_MODULE || 'esbuild').buildSync(
+        {
+          stdin: {
+            contents: `import styles from ${JSON.stringify(filename)}; module.exports = styles`,
+            resolveDir: process.cwd(),
+            loader: 'js',
+          },
+          bundle: true,
+          format: 'cjs',
+          platform: 'node',
+          outfile: 'card-surface-css-module.js',
+          write: false,
+        }
+      )
+      const styleModule = { exports: {} }
+      new Function(
+        'module',
+        'exports',
+        bundle.outputFiles.find((file) => file.path.endsWith('.js')).text
+      )(styleModule, styleModule.exports)
+      cssChunks.push(
+        bundle.outputFiles.find((file) => file.path.endsWith('.css')).text
+      )
+      compiled.exports = defaultModule(styleModule.exports)
+      return compiled.exports
+    }
     const { code } = transformSync(fs.readFileSync(filename, 'utf8'), {
       filename,
       jsc: {
@@ -95,7 +122,8 @@ const createLoader = () => {
 
 exports.buildCardSurfaceHarness = async () => {
   await loadBindings()
-  const load = createLoader()
+  const cssChunks = []
+  const load = createLoader(cssChunks)
   const EventCard = load('layouts/cards/EventCard.js').default
   const CardWrapper = load('components/CardWrapper.js').default
   const events = [
@@ -161,14 +189,15 @@ exports.buildCardSurfaceHarness = async () => {
       'Общая карточка со свайпом'
     )
   )
-  const css = (
-    await require('postcss')([require('@tailwindcss/postcss')()]).process(
-      fs.readFileSync('app/globals.css', 'utf8'),
-      {
-        from: path.resolve('app/globals.css'),
-      }
-    )
-  ).css
+  const css =
+    (
+      await require('postcss')([require('@tailwindcss/postcss')()]).process(
+        fs.readFileSync('app/globals.css', 'utf8'),
+        {
+          from: path.resolve('app/globals.css'),
+        }
+      )
+    ).css + cssChunks.join('\n')
   return `<!doctype html><html><head><meta charset="utf-8"><title>Проверка карточек</title><style>${css}</style></head><body><main class="cabinet-canvas" style="min-height:100vh">${cards}${plain}${swipe}</main><aside>Фон вне кабинета</aside></body></html>`
 }
 

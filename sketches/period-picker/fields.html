@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Выбор периода — пример Ведело</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f1eb;
+        --card: #fff;
+        --toolbar: #fffefa;
+        --text: #1c1d1f;
+        --muted: #62615d;
+        --border: #dedbd3;
+        --accent: #80551c;
+        --accent-text: #fff;
+        --range: #f1e4cb;
+        --focus: #9a6b27;
+        --error: #ac2424;
+        --shadow: 0 8px 40px #17171420;
+        --radius: 12px;
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #131210;
+        --card: #211f1b;
+        --toolbar: #27241f;
+        --text: #f5f1ea;
+        --muted: #bdb6ab;
+        --border: #514b41;
+        --accent: #e2b878;
+        --accent-text: #241c10;
+        --range: #403525;
+        --focus: #e2b878;
+        --error: #ffa0a0;
+        --shadow: 0 8px 40px #0006;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+      button,
+      input,
+      select {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+      }
+      button {
+        min-height: 44px;
+        padding: 8px 12px;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--accent);
+        background: var(--range);
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 3px;
+      }
+      .primary {
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .primary:hover:not(:disabled) {
+        background: var(--accent);
+        filter: brightness(0.95);
+      }
+      .ghost {
+        border-color: transparent;
+        background: transparent;
+      }
+      .icon {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        flex-shrink: 0;
+      }
+      .top {
+        border-bottom: 1px solid var(--border);
+        background: var(--card);
+      }
+      .top-inner {
+        max-width: 880px;
+        margin: auto;
+        min-height: 68px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+      .brand {
+        font-weight: 750;
+        color: var(--accent);
+        font-size: 20px;
+      }
+      .top-inner h1 {
+        margin: 0;
+        flex: 1;
+        font-size: 17px;
+      }
+      .theme {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .main {
+        max-width: 800px;
+        margin: 24px auto;
+        padding: 0 16px 32px;
+      }
+      .intro {
+        margin-bottom: 20px;
+      }
+      .intro p {
+        margin: 6px 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .badge {
+        font-size: 12px;
+        font-weight: 650;
+        color: var(--accent);
+      }
+      .variants {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .variants button[aria-pressed='true'] {
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+      }
+      .toolbar {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--toolbar);
+      }
+      .period-trigger {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        max-width: 100%;
+        text-align: left;
+      }
+      .period-trigger span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .trigger-arrow {
+        margin-left: auto;
+      }
+      .toolbar-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .toolbar-row #clear {
+        margin-left: auto;
+      }
+      .range-fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+        width: 100%;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+        font-size: 13px;
+      }
+      .field input {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        padding: 8px;
+      }
+      .inline-tools {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .notice {
+        margin: 12px 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .list-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 22px 0 10px;
+      }
+      .list-heading h2 {
+        font-size: 17px;
+        margin: 0;
+      }
+      .list-heading span {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .review {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--card);
+        padding: 15px;
+        margin: 8px 0;
+      }
+      .review-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+      }
+      .review h3 {
+        font-size: 15px;
+        margin: 0;
+      }
+      .rating {
+        font-weight: 700;
+        color: var(--accent);
+        white-space: nowrap;
+      }
+      .review p {
+        margin: 6px 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .review time {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .empty {
+        padding: 26px;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      dialog {
+        width: min(820px, calc(100vw - 32px));
+        max-height: calc(100dvh - 40px);
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--card);
+        color: var(--text);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      dialog::backdrop {
+        background: #0007;
+      }
+      .dialog-shell {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100dvh - 42px);
+      }
+      .dialog-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .dialog-header h2 {
+        font-size: 18px;
+        margin: 0;
+        flex: 1;
+      }
+      .close {
+        padding: 0;
+        width: 44px;
+        display: grid;
+        place-items: center;
+      }
+      .dialog-body {
+        padding: 16px 20px;
+        overflow-y: auto;
+        min-height: 0;
+      }
+      .presets {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .presets button {
+        font-size: 13px;
+        padding: 8px 10px;
+      }
+      .presets button[aria-pressed='true'] {
+        background: var(--range);
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 650;
+      }
+      .draft-fields {
+        margin: 12px 0;
+      }
+      .error {
+        min-height: 21px;
+        color: var(--error);
+        font-size: 13px;
+        margin: 5px 0;
+      }
+      .calendar-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .calendar-nav label {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        gap: 6px;
+      }
+      .calendar-nav select {
+        max-width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        padding: 6px;
+      }
+      .calendar-nav .month {
+        flex: 1;
+      }
+      .nav-arrow {
+        width: 44px;
+        padding: 0;
+        flex-shrink: 0;
+      }
+      .calendars {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+      }
+      .month-title {
+        text-align: center;
+        margin: 0 0 8px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .week,
+      .days {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 2px;
+      }
+      .week span {
+        text-align: center;
+        font-size: 12px;
+        padding: 6px 0;
+        color: var(--muted);
+      }
+      .days button {
+        padding: 0;
+        min-height: 40px;
+        min-width: 0;
+        border-color: transparent;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      .days button.in-range {
+        background: var(--range);
+      }
+      .days button.endpoint {
+        background: var(--accent);
+        color: var(--accent-text);
+        font-weight: 700;
+      }
+      .days button.today:not(.endpoint) {
+        border-color: var(--accent);
+      }
+      .selection-status {
+        font-size: 13px;
+        min-height: 22px;
+        color: var(--muted);
+        margin: 14px 0 0;
+      }
+      .dialog-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+        background: var(--toolbar);
+        flex-shrink: 0;
+      }
+      .dialog-footer .hint {
+        margin-right: auto;
+        font-size: 12px;
+        color: var(--muted);
+        max-width: 300px;
+      }
+      .inline-error {
+        color: var(--error);
+        font-size: 13px;
+        margin-top: 6px;
+      }
+      .second-calendar {
+        display: block;
+      }
+      @media (max-width: 600px) {
+        .top-inner {
+          gap: 8px;
+        }
+        .brand {
+          font-size: 17px;
+        }
+        .top-inner h1 {
+          font-size: 15px;
+        }
+        .theme .theme-label {
+          display: none;
+        }
+        .main {
+          margin-top: 16px;
+          padding: 0 12px 24px;
+        }
+        dialog {
+          margin: auto 0 0;
+          width: 100%;
+          max-width: none;
+          max-height: calc(100dvh - 12px);
+          border-radius: 18px 18px 0 0;
+        }
+        .dialog-shell {
+          max-height: calc(100dvh - 14px);
+        }
+        .dialog-header {
+          padding: 12px 16px;
+        }
+        .dialog-body {
+          padding: 12px 16px;
+        }
+        .dialog-footer {
+          padding: 12px 16px;
+          padding-bottom: max(12px, env(safe-area-inset-bottom));
+        }
+        .calendars {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+        .second-calendar {
+          display: none;
+        }
+        .dialog-footer .hint {
+          width: 100%;
+          max-width: none;
+          margin-bottom: 4px;
+        }
+        .days button {
+          min-height: 42px;
+        }
+        .presets button {
+          flex-grow: 1;
+        }
+        .field input {
+          font-size: 13px;
+          padding: 8px 4px;
+        }
+        .variants button {
+          flex: 1;
+        }
+        .period-trigger {
+          width: 100%;
+        }
+        .toolbar-row #clear {
+          margin-left: 0;
+        }
+        .review-head {
+          align-items: flex-start;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="top-inner">
+        <span class="brand">Ведело</span>
+        <h1>Отзывы клиентов</h1>
+        <button
+          class="theme ghost"
+          id="theme"
+          type="button"
+          aria-label="Переключить тему"
+        >
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M20 15.4A8.5 8.5 0 0 1 8.6 4a8.5 8.5 0 1 0 11.4 11.4Z"
+            /></svg
+          ><span class="theme-label">Тема</span>
+        </button>
+      </div>
+    </header>
+    <main class="main">
+      <section class="intro" aria-label="О примере">
+        <span class="badge">Интерактивный пример · не рабочий кабинет</span>
+        <p>
+          Попробуйте выбрать период. Ниже — вымышленные отзывы, реальные данные
+          и настройки не затрагиваются.
+        </p>
+        <div class="variants" aria-label="Вариант интерфейса">
+          <button id="compact-variant" type="button" aria-pressed="true">
+            Компактный период</button
+          ><button id="fields-variant" type="button" aria-pressed="false">
+            Два поля + календарь
+          </button>
+        </div>
+      </section>
+      <section class="toolbar" aria-label="Период запросов">
+        <div id="compact-ui" class="toolbar-row">
+          <button
+            class="period-trigger"
+            id="open"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="picker"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="16" rx="2" />
+              <path d="M16 3v4M8 3v4M3 11h18" /></svg
+            ><span id="period-label">Период: За всё время</span
+            ><svg
+              class="icon trigger-arrow"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg></button
+          ><button id="clear" class="ghost" type="button" hidden>
+            Сбросить период
+          </button>
+        </div>
+        <div id="fields-ui" hidden>
+          <div class="range-fields">
+            <label class="field"
+              >С даты<input
+                type="text"
+                inputmode="numeric"
+                placeholder="ДД.ММ.ГГГГ"
+                maxlength="10"
+                autocomplete="off"
+                id="inline-from"
+                aria-label="Начало периода на странице" /></label
+            ><label class="field"
+              >По дату включительно<input
+                type="text"
+                inputmode="numeric"
+                placeholder="ДД.ММ.ГГГГ"
+                maxlength="10"
+                autocomplete="off"
+                id="inline-to"
+                aria-label="Конец периода на странице"
+            /></label>
+          </div>
+          <div class="inline-tools">
+            <button
+              id="inline-open"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="picker"
+            >
+              Выбрать в календаре</button
+            ><button id="inline-apply" class="primary" type="button">
+              Применить период</button
+            ><button id="inline-clear" class="ghost" type="button">
+              Сбросить
+            </button>
+          </div>
+          <div id="inline-error" class="inline-error" role="alert"></div>
+        </div>
+      </section>
+      <p class="notice">
+        Период относится к дате запроса отзыва. Конечный день включается
+        полностью.
+      </p>
+      <div class="list-heading">
+        <h2>Пример отзывов</h2>
+        <span id="count" role="status" aria-live="polite"></span>
+      </div>
+      <div id="reviews"></div>
+    </main>
+    <dialog
+      id="picker"
+      aria-labelledby="picker-title"
+      aria-describedby="picker-help"
+    >
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <h2 id="picker-title" tabindex="-1">Период запросов</h2>
+          <button
+            type="button"
+            class="close ghost"
+            id="close"
+            aria-label="Закрыть выбор периода"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </header>
+        <div class="dialog-body">
+          <div
+            class="presets"
+            id="presets"
+            aria-label="Быстрый выбор периода"
+          ></div>
+          <div class="range-fields draft-fields">
+            <label class="field"
+              >С даты<input
+                id="date-from"
+                type="text"
+                inputmode="numeric"
+                placeholder="ДД.ММ.ГГГГ"
+                maxlength="10"
+                autocomplete="off"
+                aria-label="Начало периода" /></label
+            ><label class="field"
+              >По дату включительно<input
+                id="date-to"
+                type="text"
+                inputmode="numeric"
+                placeholder="ДД.ММ.ГГГГ"
+                maxlength="10"
+                autocomplete="off"
+                aria-label="Конец периода"
+            /></label>
+          </div>
+          <p id="picker-help" class="notice">
+            Выберите начало и конец на календаре или введите даты. Можно
+            оставить одну границу пустой.
+          </p>
+          <p id="error" class="error" role="alert"></p>
+          <div class="calendar-nav">
+            <button
+              class="nav-arrow"
+              id="previous"
+              type="button"
+              aria-label="Предыдущий месяц"
+            >
+              ←</button
+            ><label
+              ><span class="sr-only">Месяц</span
+              ><select
+                class="month"
+                id="month"
+                aria-label="Месяц"
+              ></select></label
+            ><label
+              ><span class="sr-only">Год</span
+              ><select id="year" aria-label="Год"></select></label
+            ><button
+              class="nav-arrow"
+              id="next"
+              type="button"
+              aria-label="Следующий месяц"
+            >
+              →
+            </button>
+          </div>
+          <div class="calendars" id="calendars"></div>
+          <p
+            class="selection-status"
+            id="selection-status"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </div>
+        <footer class="dialog-footer">
+          <span class="hint" id="draft-summary">За всё время</span
+          ><button id="cancel" type="button">Отмена</button
+          ><button id="apply" class="primary" type="button">Применить</button>
+        </footer>
+      </div>
+    </dialog>
+    <script>
+      'use strict'
+      const $ = (id) => document.getElementById(id)
+      const pad = (n) => String(n).padStart(2, '0')
+      const iso = (d) =>
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      const parse = (value) => {
+        if (!value) return null
+        const parts = value.split('-').map(Number)
+        return new Date(parts[0], parts[1] - 1, parts[2], 12)
+      }
+      const today = new Date()
+      today.setHours(12, 0, 0, 0)
+      const shift = (base, days) => {
+        const d = new Date(base)
+        d.setDate(d.getDate() + days)
+        return d
+      }
+      const monthNames = [
+        'Январь',
+        'Февраль',
+        'Март',
+        'Апрель',
+        'Май',
+        'Июнь',
+        'Июль',
+        'Август',
+        'Сентябрь',
+        'Октябрь',
+        'Ноябрь',
+        'Декабрь',
+      ]
+      const pretty = (value) =>
+        parse(value)?.toLocaleDateString('ru-RU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }) || ''
+      const short = (value) =>
+        parse(value)?.toLocaleDateString('ru-RU', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }) || ''
+      const summary = (range) =>
+        !range.from && !range.to
+          ? 'За всё время'
+          : range.from && range.to
+            ? range.from === range.to
+              ? pretty(range.from)
+              : `${short(range.from)} — ${short(range.to)}`
+            : range.from
+              ? `С ${pretty(range.from)}`
+              : `По ${pretty(range.to)}`
+      const inputDate = (value) =>
+        value ? value.split('-').reverse().join('.') : ''
+      function readDate(id) {
+        const value = $(id).value.trim()
+        if (!value) return ''
+        const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value)
+        if (!match) return null
+        const candidate = `${match[3]}-${match[2]}-${match[1]}`
+        const date = parse(candidate)
+        return date && iso(date) === candidate ? candidate : null
+      }
+      const valid = (range) =>
+        !(range.from && range.to && range.from > range.to)
+      const presets = [
+        {
+          id: 'all',
+          name: 'За всё время',
+          range: () => ({ from: '', to: '' }),
+        },
+        {
+          id: 'today',
+          name: 'Сегодня',
+          range: () => ({ from: iso(today), to: iso(today) }),
+        },
+        {
+          id: 'week',
+          name: 'Последние 7 дней',
+          range: () => ({ from: iso(shift(today, -6)), to: iso(today) }),
+        },
+        {
+          id: 'month',
+          name: 'Текущий месяц',
+          range: () => ({
+            from: iso(new Date(today.getFullYear(), today.getMonth(), 1, 12)),
+            to: iso(new Date(today.getFullYear(), today.getMonth() + 1, 0, 12)),
+          }),
+        },
+        {
+          id: 'previous',
+          name: 'Прошлый месяц',
+          range: () => ({
+            from: iso(
+              new Date(today.getFullYear(), today.getMonth() - 1, 1, 12)
+            ),
+            to: iso(new Date(today.getFullYear(), today.getMonth(), 0, 12)),
+          }),
+        },
+        { id: 'custom', name: 'Выбрать даты', range: null },
+      ]
+      let applied = { from: '', to: '' },
+        draft = { ...applied },
+        view = new Date(today.getFullYear(), today.getMonth(), 1, 12),
+        boundary = 'start',
+        variant = 'compact',
+        opener = null
+      const samples = [
+        'Корпоратив',
+        'Свадебное выступление',
+        'Юбилей',
+        'Детский праздник',
+        'Презентация',
+        'Частное мероприятие',
+        'Праздник компании',
+        'Семейный вечер',
+      ].map((title, i) => ({
+        title,
+        date: iso(shift(today, -[0, 2, 5, 12, 20, 29, 50, 65][i])),
+        score: [5, 5, 4, 5, 4, 5, 5, 4][i],
+        text: [
+          'Всё прошло вовремя, гостям понравилось.',
+          'Спасибо за выступление и внимание к деталям.',
+          'Организация была понятной и удобной.',
+        ][i % 3],
+      }))
+      function renderReviews() {
+        const visible = samples.filter(
+          (item) =>
+            (!applied.from || item.date >= applied.from) &&
+            (!applied.to || item.date <= applied.to)
+        )
+        $('reviews').replaceChildren()
+        $('count').textContent =
+          `Показано: ${visible.length} из ${samples.length}`
+        for (const item of visible) {
+          const card = document.createElement('article')
+          card.className = 'review'
+          const head = document.createElement('div')
+          head.className = 'review-head'
+          const title = document.createElement('h3')
+          title.textContent = item.title
+          const rating = document.createElement('span')
+          rating.className = 'rating'
+          rating.textContent = `${item.score} из 5`
+          head.append(title, rating)
+          const text = document.createElement('p')
+          text.textContent = item.text
+          const time = document.createElement('time')
+          time.dateTime = item.date
+          time.textContent = `Запрос: ${pretty(item.date)}`
+          card.append(head, text, time)
+          $('reviews').append(card)
+        }
+        if (!visible.length) {
+          const empty = document.createElement('p')
+          empty.className = 'empty'
+          empty.textContent =
+            'В этом периоде нет демонстрационных отзывов. Выберите другой период.'
+          $('reviews').append(empty)
+        }
+        $('period-label').textContent = `Период: ${summary(applied)}`
+        $('clear').hidden = !applied.from && !applied.to
+        $('inline-from').value = inputDate(applied.from)
+        $('inline-to').value = inputDate(applied.to)
+        $('inline-error').textContent = ''
+      }
+      function setVariant(next) {
+        variant = next
+        $('compact-ui').hidden = next !== 'compact'
+        $('fields-ui').hidden = next !== 'fields'
+        $('compact-variant').setAttribute(
+          'aria-pressed',
+          String(next === 'compact')
+        )
+        $('fields-variant').setAttribute(
+          'aria-pressed',
+          String(next === 'fields')
+        )
+        $('inline-from').value = inputDate(applied.from)
+        $('inline-to').value = inputDate(applied.to)
+      }
+      function renderCalendars() {
+        $('calendars').replaceChildren()
+        for (let offset = 0; offset < 2; offset++) {
+          const month = new Date(
+              view.getFullYear(),
+              view.getMonth() + offset,
+              1,
+              12
+            ),
+            container = document.createElement('section')
+          if (offset) container.className = 'second-calendar'
+          container.setAttribute(
+            'aria-label',
+            `${monthNames[month.getMonth()]} ${month.getFullYear()}`
+          )
+          const title = document.createElement('h3')
+          title.className = 'month-title'
+          title.textContent = `${monthNames[month.getMonth()]} ${month.getFullYear()}`
+          container.append(title)
+          const week = document.createElement('div')
+          week.className = 'week'
+          week.setAttribute('aria-hidden', 'true')
+          for (const label of ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']) {
+            const node = document.createElement('span')
+            node.textContent = label
+            week.append(node)
+          }
+          container.append(week)
+          const grid = document.createElement('div')
+          grid.className = 'days'
+          const start = (month.getDay() + 6) % 7,
+            days = new Date(
+              month.getFullYear(),
+              month.getMonth() + 1,
+              0,
+              12
+            ).getDate()
+          for (let i = 0; i < start; i++) {
+            const blank = document.createElement('span')
+            blank.setAttribute('aria-hidden', 'true')
+            grid.append(blank)
+          }
+          for (let day = 1; day <= days; day++) {
+            const date = iso(
+                new Date(month.getFullYear(), month.getMonth(), day, 12)
+              ),
+              button = document.createElement('button')
+            button.type = 'button'
+            button.textContent = String(day)
+            button.dataset.date = date
+            const endpoint = date === draft.from || date === draft.to,
+              inRange =
+                draft.from && draft.to && date >= draft.from && date <= draft.to
+            button.className = [
+              endpoint ? 'endpoint' : '',
+              inRange ? 'in-range' : '',
+              date === iso(today) ? 'today' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+            button.setAttribute(
+              'aria-label',
+              pretty(date) +
+                (date === draft.from ? ', начало периода' : '') +
+                (date === draft.to ? ', конец периода' : '')
+            )
+            button.setAttribute(
+              'aria-pressed',
+              String(Boolean(endpoint || inRange))
+            )
+            if (date === iso(today)) button.setAttribute('aria-current', 'date')
+            button.addEventListener('click', () => {
+              if (boundary === 'start' || !draft.from) {
+                draft = { from: date, to: '' }
+                boundary = 'end'
+              } else if (date < draft.from) {
+                draft = { from: date, to: '' }
+                boundary = 'end'
+              } else {
+                draft.to = date
+                boundary = 'start'
+              }
+              syncDraft()
+              const replacement = $('calendars').querySelector(
+                `[data-date="${date}"]`
+              )
+              replacement?.focus({ preventScroll: true })
+            })
+            grid.append(button)
+          }
+          container.append(grid)
+          $('calendars').append(container)
+        }
+        $('month').value = String(view.getMonth())
+        const chosenYear = String(view.getFullYear())
+        if (!Array.from($('year').options).some((o) => o.value === chosenYear))
+          $('year').add(new Option(chosenYear, chosenYear))
+        $('year').value = chosenYear
+      }
+      function syncDraft() {
+        $('date-from').value = inputDate(draft.from)
+        $('date-to').value = inputDate(draft.to)
+        $('error').textContent = valid(draft)
+          ? ''
+          : 'Конец периода не может быть раньше начала.'
+        $('apply').disabled = !valid(draft)
+        $('date-from').setAttribute('aria-invalid', String(!valid(draft)))
+        $('date-to').setAttribute('aria-invalid', String(!valid(draft)))
+        $('draft-summary').textContent = summary(draft)
+        $('selection-status').textContent =
+          boundary === 'end'
+            ? 'Теперь выберите конец периода. Для открытого периода можно сразу нажать «Применить».'
+            : draft.from || draft.to
+              ? 'Период выбран. Нажмите «Применить», чтобы обновить список.'
+              : 'Выберите готовый период или начальную дату.'
+        for (const button of $('presets').children) {
+          const preset = presets.find((p) => p.id === button.dataset.preset),
+            range = preset.range?.()
+          const selected = range
+            ? draft.from === range.from && draft.to === range.to
+            : !presets.some(
+                (p) =>
+                  p.range && JSON.stringify(p.range()) === JSON.stringify(draft)
+              )
+          button.setAttribute('aria-pressed', String(selected))
+        }
+        renderCalendars()
+      }
+      function openPicker(event) {
+        opener = event.currentTarget
+        draft = { ...applied }
+        boundary = 'start'
+        const initial = parse(draft.from || draft.to) || today
+        view = new Date(initial.getFullYear(), initial.getMonth(), 1, 12)
+        syncDraft()
+        $('picker').showModal()
+        document.body.style.overflow = 'hidden'
+        $('picker-title').focus({ preventScroll: true })
+      }
+      function dismiss() {
+        $('picker').close()
+      }
+      $('picker').addEventListener('close', () => {
+        document.body.style.overflow = ''
+        opener?.focus({ preventScroll: true })
+      })
+      $('picker').addEventListener('click', (event) => {
+        if (event.target !== $('picker')) return
+        const rect = $('picker').getBoundingClientRect()
+        if (
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom
+        )
+          dismiss()
+      })
+      $('open').addEventListener('click', openPicker)
+      $('inline-open').addEventListener('click', openPicker)
+      $('close').addEventListener('click', dismiss)
+      $('cancel').addEventListener('click', dismiss)
+      $('apply').addEventListener('click', () => {
+        if (!valid(draft)) return
+        applied = { ...draft }
+        renderReviews()
+        dismiss()
+      })
+      function clear() {
+        applied = { from: '', to: '' }
+        renderReviews()
+      }
+      $('clear').addEventListener('click', clear)
+      $('inline-clear').addEventListener('click', clear)
+      $('inline-apply').addEventListener('click', () => {
+        const next = {
+          from: readDate('inline-from'),
+          to: readDate('inline-to'),
+        }
+        if (next.from === null || next.to === null) {
+          $('inline-error').textContent =
+            'Введите существующую дату в формате ДД.ММ.ГГГГ.'
+          return
+        }
+        if (!valid(next)) {
+          $('inline-error').textContent =
+            'Конец периода не может быть раньше начала.'
+          return
+        }
+        applied = next
+        renderReviews()
+      })
+      for (const id of ['date-from', 'date-to'])
+        $(id).addEventListener('change', () => {
+          const from = readDate('date-from'),
+            to = readDate('date-to')
+          if (from === null || to === null) {
+            $('error').textContent =
+              'Введите существующую дату в формате ДД.ММ.ГГГГ.'
+            $('apply').disabled = true
+            $('date-from').setAttribute('aria-invalid', String(from === null))
+            $('date-to').setAttribute('aria-invalid', String(to === null))
+            return
+          }
+          draft = { from, to }
+          boundary = 'start'
+          syncDraft()
+        })
+      $('previous').addEventListener('click', () => {
+        view = new Date(view.getFullYear(), view.getMonth() - 1, 1, 12)
+        renderCalendars()
+      })
+      $('next').addEventListener('click', () => {
+        view = new Date(view.getFullYear(), view.getMonth() + 1, 1, 12)
+        renderCalendars()
+      })
+      $('month').addEventListener('change', () => {
+        view = new Date(view.getFullYear(), Number($('month').value), 1, 12)
+        renderCalendars()
+      })
+      $('year').addEventListener('change', () => {
+        view = new Date(Number($('year').value), view.getMonth(), 1, 12)
+        renderCalendars()
+      })
+      monthNames.forEach((name, i) =>
+        $('month').add(new Option(name, String(i)))
+      )
+      for (let y = today.getFullYear() - 10; y <= today.getFullYear() + 5; y++)
+        $('year').add(new Option(String(y), String(y)))
+      for (const preset of presets) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.dataset.preset = preset.id
+        button.textContent = preset.name
+        button.addEventListener('click', () => {
+          if (preset.range) {
+            draft = preset.range()
+            boundary = 'start'
+            const initial = parse(draft.from) || today
+            view = new Date(initial.getFullYear(), initial.getMonth(), 1, 12)
+            syncDraft()
+          } else {
+            $('date-from').focus()
+          }
+        })
+        $('presets').append(button)
+      }
+      $('compact-variant').addEventListener('click', () =>
+        setVariant('compact')
+      )
+      $('fields-variant').addEventListener('click', () => setVariant('fields'))
+      const params = new URLSearchParams(location.search)
+      document.documentElement.dataset.theme =
+        params.get('theme') === 'dark' ? 'dark' : 'light'
+      $('theme').addEventListener('click', () => {
+        const root = document.documentElement
+        root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'
+      })
+      setVariant(params.get('variant') === 'compact' ? 'compact' : 'fields')
+      renderReviews()
+    </script>
+  </body>
+</html>

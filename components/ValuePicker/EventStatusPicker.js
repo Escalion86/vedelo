@@ -17,6 +17,7 @@ const EventStatusPicker = ({
   status,
   onChange = null,
   label = 'Статус мероприятия',
+  help,
   required = false,
   disabledValues = EMPTY_VALUES,
   disabledReasons = EMPTY_REASONS,
@@ -24,6 +25,7 @@ const EventStatusPicker = ({
 }) => (
   <InputWrapper
     label={label}
+    help={help}
     value={status}
     required={required}
     error={error}

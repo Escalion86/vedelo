@@ -562,3 +562,21 @@ HTTP/browser-сценарии в `tests/web/clientReviews.integration.test.mjs`
 (+tenant-negative, save/re-read, defaults, metadata без секрета, valid/branded/
 revoked/expired, загрузка фото через mock облака, submit workflow), гейты
 ux-ui по снятым HTML. Production не менялся.
+
+### Фото заметки → AI-черновик (1.35.0)
+
+`/api/events/ai-photo-draft` и mobile alias используют ограниченный JSON/data URI
+(JPEG/PNG/WebP ≤5 MiB/20 MP), sharp → EXIF rotate/strip/resize JPEG ≤1600,
+vision OCR (`event_photo_ocr`) → общий `server/eventAiDraft.js` (`event_draft`).
+С 1.35.1 временно только role=dev + allowAi в UI и API, до чтения тела. Tenant из context; неизвестная/DeepSeek модель
+отклоняется без внешнего запроса. Платформенный adapter резервирует/рассчитывает
+обе операции отдельно (совместимый billing feature `event_draft`), личный provider не подменяется. Фото не хранится;
+EVENT не сохраняется, прежний client-contact side effect и text/voice fallback
+сохранены. Photo strict без fallback при provider/JSON-ошибках.
+Web shared create hook показывает отдельный PhotoDraftModal с preview/sourceText
+и явным переходом в форму; заголовок нижнего create-меню получил плотную тему и
+scroll на коротком экране. Native `mode=photo` → PhotoDraftSection → обычный
+редактор; платный POST с skipRefresh, клиент проверяется защищённым GET перед
+cache/выбором. Добавлен expo-image-picker SDK55; APK не выпускался, версии mobile
+не менялись. Контракт/тарификация — `docs/ai-photo-draft/README.md`, результаты
+и границы локальных mock OCR-проверок — `docs/ai-photo-draft/REPORT.md`.

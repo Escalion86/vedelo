@@ -9,6 +9,8 @@ import { CompactField } from '../../shared/ui/CompactField'
 import { Notice } from '../../shared/ui/Notice'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { HelpLabel } from '../../shared/ui/FieldHelp'
 import { useWorkItemTerminology } from '../../shared/hooks/useWorkItemTerminology'
 import { useScreenLifetime } from '../profile/useScreenLifetime'
 
@@ -89,7 +91,7 @@ function UserNotifications() {
     {loading ? <Notice message="Загружаем настройки уведомлений…" /> : null}
     {error ? <><Notice tone="danger" message={error} /><Button title="Обновить настройки уведомлений" variant="secondary" onPress={load} disabled={loading} /></> : null}
     {message ? <Notice message={message} /> : null}
-    {device ? <Surface><SectionTitle>Push на этом устройстве</SectionTitle>
+    {device ? <Surface><SectionTitle help={`В Android «Это устройство» означает установленное приложение на этом телефоне. Чтобы получать уведомления здесь, включите push и разрешите уведомления в системе. Подключение и отключение относятся только к текущему устройству.\n\nСправка для веб-версии: ${getFieldHelp('notifications.device')}`}>Push на этом устройстве</SectionTitle>
       <Text style={styles.text}>Разрешение: {device.permission === 'granted' ? 'выдано' : device.permission === 'denied' ? 'запрещено' : 'не запрошено'}</Text>
       <Text style={styles.text}>{enabled ? 'Включено' : device.enabled ? 'Регистрация не подтверждена' : 'Отключено локально'}</Text>
       <Button title={enabled ? 'Отключить на этом устройстве' : 'Включить push'} variant={enabled ? 'secondary' : 'primary'} onPress={enabled ? disable : enable} disabled={loading} />
@@ -98,9 +100,10 @@ function UserNotifications() {
       <Button title="Отправить тест" variant="secondary" onPress={test} disabled={!enabled || loading} />
       {settings && serverConfirmed && !loading && !error ? <Text style={styles.meta}>Активных Android-устройств: {settings.activeDeviceCount}. Отключение действует только для текущего устройства.</Text> : null}
     </Surface> : null}
-    {settings ? <Surface><SectionTitle>Ежедневная сводка</SectionTitle><Text style={styles.text}>{terms.plural} и контакты · {settings.remindersEnabled ? 'Включена' : 'Отключена'}</Text>{serverConfirmed && !loading && !error ? <Text style={styles.meta}>Часовой пояс: {settings.timeZone}</Text> : <Text style={styles.meta}>Часовой пояс: данные не подтверждены</Text>}
+    {settings ? <Surface><SectionTitle>Ежедневная сводка</SectionTitle><Text style={styles.text}>{terms.plural} и контакты · {settings.remindersEnabled ? 'Включена' : 'Отключена'}</Text><HelpLabel label={serverConfirmed && !loading && !error ? `Часовой пояс: ${settings.timeZone}` : 'Часовой пояс: данные не подтверждены'} style={styles.meta}
+        help={`Часовой пояс вашей работы используется сервисом для ежедневных напоминаний. В Android здесь показано текущее значение без возможности изменения; выбор региона доступен в общих настройках веб-версии.\n\nСправка для веб-версии: ${getFieldHelp('settings.timeZone')}`} />
       <Button title={settings.remindersEnabled ? 'Отключить ежедневную сводку' : 'Включить ежедневную сводку'} variant="secondary" onPress={() => save({ remindersEnabled: !settings.remindersEnabled })} disabled={loading} />
-      <CompactField label="Время, шаг 15 минут" value={time} onChangeText={setTime} maxLength={5} editable={!loading} />
+      <CompactField label="Время, шаг 15 минут" help={getFieldHelp('notifications.reminderTime')} value={time} onChangeText={setTime} maxLength={5} editable={!loading} />
       <View style={styles.row}>{['08:00','10:00','12:00','18:00'].map((value) => <Button key={value} title={value} variant={time === value ? 'primary' : 'secondary'} onPress={() => setTime(value)} disabled={loading} />)}</View>
       <Button title="Сохранить время" onPress={() => save({ reminderTime: time })} disabled={loading} />
     </Surface> : null}

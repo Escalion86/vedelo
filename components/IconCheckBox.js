@@ -2,6 +2,7 @@ import { faSquare } from '@fortawesome/free-regular-svg-icons/faSquare'
 import { faSquareCheck } from '@fortawesome/free-regular-svg-icons/faSquareCheck'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
+import FieldHelp from './FieldHelp'
 
 const IconCheckBox = ({
   checked = false,
@@ -9,6 +10,7 @@ const IconCheckBox = ({
   small = false,
   big = false,
   label = null,
+  help,
   labelClassName,
   readOnly = false,
   hidden = false,
@@ -111,6 +113,7 @@ const IconCheckBox = ({
         >
           {label}
         </div>
+        {help ? <FieldHelp text={help} label={typeof label === 'string' ? label : 'поле'} /> : null}
       </div>
     )
   )

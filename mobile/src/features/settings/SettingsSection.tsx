@@ -4,6 +4,7 @@ import { resolveMobileWorkItemTerminology, type PrimaryEntityTerminology } from 
 import { Button, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { useSettingsEditor, type SettingsConfig } from './settingsEditor'
 import { ThemePreferenceSection } from './ThemePreferenceSection'
 
@@ -27,7 +28,7 @@ export const SettingsSection = () => {
     {editor.readError ? <><Notice tone="warning" message={editor.readError} /><Button title="Повторить загрузку" variant="secondary" onPress={editor.retry} disabled={editor.saving || editor.reading} /></> : null}
     {editor.offline ? <Notice message="Показана последняя офлайн-копия. Для сохранения требуется сеть." /> : null}
     <Surface>
-      <SectionTitle>Как называть основную работу</SectionTitle>
+      <SectionTitle help={getFieldHelp('settings.terminology')}>Как называть основную работу</SectionTitle>
       {editor.ready ? <Text style={styles.muted}>Сейчас в приложении: «{terms.pluralCapitalized}». Авторежим использует выбранную сферу работы.</Text> : null}
       {options.map(([value, title]) => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={title} accessibilityState={{ selected: editor.draft === value, disabled: editor.saving || !editor.ready }} disabled={editor.saving || !editor.ready} onPress={() => editor.change(value)} style={({ pressed }) => [styles.option, editor.draft === value && styles.selected, pressed && styles.pressed, (editor.saving || !editor.ready) && styles.disabled]}>
         <View style={styles.grow}><Text style={styles.title}>{title}</Text></View>

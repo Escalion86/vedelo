@@ -15,6 +15,8 @@ const { createRoot } = require('react-dom/client')
 let openedModal
 
 const mocks = {
+  '@helpers/fieldHelp.json': require('../../helpers/fieldHelp.json'),
+  '@components/FieldHelp': () => null,
   jotai: {
     useAtomValue: () => ({ add: (config) => { openedModal = config } }),
   },

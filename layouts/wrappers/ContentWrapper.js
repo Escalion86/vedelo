@@ -15,7 +15,7 @@ const ContentWrapper = ({ children, page }) => {
     >
       <SideBar page={page} />
       <div
-        className="cabinet-canvas flex max-w-[100vw] flex-1 flex-col"
+        className="cabinet-canvas flex min-w-0 max-w-[100vw] flex-1 flex-col"
         // style={{ gridArea: 'child' }}
       >
         {children}

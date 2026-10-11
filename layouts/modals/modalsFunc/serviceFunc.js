@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import fieldHelp from '@helpers/fieldHelp.json'
 import ErrorsList from '@components/ErrorsList'
 import FormWrapper from '@components/FormWrapper'
 import Input from '@components/Input'
@@ -129,6 +130,7 @@ const serviceFunc = (serviceId, clone = false, onSuccess) => {
             {/* <div className="flex-1"> */}
             <Select
               label="Группа"
+              help={fieldHelp['service.group']}
               value={groupId || ''}
               onChange={setGroupId}
               options={groupOptions}
@@ -148,6 +150,7 @@ const serviceFunc = (serviceId, clone = false, onSuccess) => {
           </div>
           <Textarea
             label="Описание"
+            help={fieldHelp['service.description']}
             value={description}
             onChange={(value) => {
               removeError('description')
@@ -158,6 +161,7 @@ const serviceFunc = (serviceId, clone = false, onSuccess) => {
           />
           <InputDuration
             label="Продолжительность"
+            help={fieldHelp['service.duration']}
             value={duration}
             onChange={(value) => {
               removeError('duration')
@@ -167,6 +171,7 @@ const serviceFunc = (serviceId, clone = false, onSuccess) => {
           />
           <Input
             label="Цена"
+            help={fieldHelp['service.price']}
             type="number"
             value={price}
             onChange={(value) => {

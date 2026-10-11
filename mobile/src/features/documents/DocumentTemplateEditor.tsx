@@ -8,6 +8,7 @@ import type { DocumentTemplate } from '../../shared/domain/types'
 import { Button, CompactField, EmptyState, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { DOCX_MIME, documentTypes, readTemplatesResponse, safeDocumentError, validatePickedFile, type PickedFile } from './documentUi'
 import { useDocumentTask } from './useDocumentTask'
 
@@ -125,7 +126,7 @@ export default function DocumentTemplateEditor() {
     </> : <>
       <Surface>
         <CompactField testID="template-name" label="Название шаблона *" value={values.name} onChangeText={(name) => change({ name })} editable={!blocked} maxLength={160} />
-        <SectionTitle>Тип документа</SectionTitle><View style={styles.options}>{documentTypes.map(([type, label]) => <Pressable key={type} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: values.type === type, disabled: blocked }} disabled={blocked} onPress={() => change({ type })} style={[styles.option, values.type === type && styles.selected]}><Text style={styles.text}>{label}</Text></Pressable>)}</View>
+        <SectionTitle help={getFieldHelp('documents.templateType')}>Тип документа</SectionTitle><View style={styles.options}>{documentTypes.map(([type, label]) => <Pressable key={type} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: values.type === type, disabled: blocked }} disabled={blocked} onPress={() => change({ type })} style={[styles.option, values.type === type && styles.selected]}><Text style={styles.text}>{label}</Text></Pressable>)}</View>
         {values.type === 'other' ? <CompactField label="Название типа" value={values.customTypeName} onChangeText={(customTypeName) => change({ customTypeName })} maxLength={120} editable={!blocked} /> : null}
         <SectionTitle>DOCX-файл</SectionTitle><Text style={styles.text}>{values.fileName || 'Файл не выбран'}</Text>
         <Button testID="pick-template-file" title={values.fileName ? 'Заменить DOCX-файл' : 'Выбрать DOCX-файл'} variant="secondary" onPress={() => void pick()} disabled={blocked} />

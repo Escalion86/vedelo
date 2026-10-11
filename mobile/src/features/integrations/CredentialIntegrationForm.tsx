@@ -4,6 +4,7 @@ import { api } from '../../shared/api/client'
 import { Button, Field, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { IntegrationFormState } from './IntegrationFormState'
 import { readProvider, responseData, titles, validIdentifier, type GoogleStatus, type ProviderStatus } from './integrationContract'
 import { useIntegrationSession, type OperationGate } from './useIntegrationSession'
@@ -47,13 +48,13 @@ export function CredentialIntegrationForm({ provider, gate, onStatus, onClose }:
     {details ? <>
       {!details.available ? <Notice tone="warning" message="Интеграция недоступна по тарифу. Сохранённое подключение можно отключить." /> : null}
       {provider === 'avito' ? <>
-        <Field label="Client ID" value={clientId} onChangeText={setClientId} autoCapitalize="none" autoCorrect={false} editable={editable} />
+        <Field help={getFieldHelp('integrations.avitoCredentials')} label="Client ID" value={clientId} onChangeText={setClientId} autoCapitalize="none" autoCorrect={false} editable={editable} />
         <Field label="Client Secret" value={secret} onChangeText={setSecret} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} />
         <Field label="ID пользователя Avito" value={accountId} onChangeText={setAccountId} autoCapitalize="none" autoCorrect={false} editable={editable} />
       </> : <>
         <Field label="ID сообщества" value={accountId} onChangeText={setAccountId} autoCapitalize="none" autoCorrect={false} editable={editable} />
-        <Field label="Токен сообщества" value={secret} onChangeText={setSecret} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} />
-        <Field label="Строка подтверждения Callback API" value={confirmation} onChangeText={setConfirmation} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} />
+        <Field help={getFieldHelp('integrations.vkToken')} label="Токен сообщества" value={secret} onChangeText={setSecret} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} />
+        <Field help={getFieldHelp('integrations.vkCallback')} label="Строка подтверждения Callback API" value={confirmation} onChangeText={setConfirmation} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} />
       </>}
       <Text style={styles.muted}>Секрет отправляется на сервер и очищается после попытки подключения. Локальная копия не сохраняется.</Text>
       <Button title="Проверить и подключить" loading={session.working} disabled={!editable} onPress={() => void connect()} />

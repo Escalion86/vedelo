@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
+
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -241,6 +244,7 @@ const ProposalPackagesEditor = ({
                   noMargin
                 />
               </button>
+              <FieldHelp text={fieldHelp['proposal.recommended']} label="Рекомендуем" />
             </div>
             {packages.length > 1 ? (
               <IconActionButton

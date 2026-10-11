@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { Pressable, Text, View } from 'react-native'
 import { Button, CompactField, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { useTheme } from '../../shared/ui/ThemeProvider'
@@ -37,7 +38,7 @@ export function ReviewStep({ controller, state }: { controller: ImportController
       <CompactField label={q.question} value={state.draft.answers[q.id] || ''} onChangeText={(text) => controller.setAnswer(q.id, text)} editable={!blocked} maxLength={1000} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{[...new Set([...q.options, 'Не знаю'])].map((option) => <Button key={option} title={option} variant="secondary" disabled={blocked} onPress={() => controller.setAnswer(q.id, option)} />)}</View>
     </View>)}
-    <CompactField label="Общий комментарий и исправления" value={state.draft.answers.comment || ''} onChangeText={(text) => controller.setAnswer('comment', text)} multiline maxLength={2000} editable={!blocked} />
+    <CompactField help={getFieldHelp('import.rules')} label="Общий комментарий и исправления" value={state.draft.answers.comment || ''} onChangeText={(text) => controller.setAnswer('comment', text)} multiline maxLength={2000} editable={!blocked} />
     <Text style={{ color: palette.text }}>Выбрано записей: {state.draft.selectedIds.length}. Созданные и уже импортированные исключены из повторного запуска.</Text>
     <Button title="Рассчитать импорт выбранных записей" onPress={controller.quote} disabled={blocked} />
     {state.job?.ignored.length ? <Surface><SectionTitle>Пропущенные строки</SectionTitle>{state.job.ignored.map((line) => <Text key={line.id} selectable style={{ color: palette.text }}>{line.section} / {line.id}: {line.text}</Text>)}</Surface> : null}

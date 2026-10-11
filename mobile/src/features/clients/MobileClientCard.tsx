@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useMemo, useState } from 'react'
 import { ActivityIndicator, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -7,8 +8,7 @@ import { Surface } from '../../shared/ui/components'
 import { QuickActionsSheet, QuickContacts } from '../../shared/ui/QuickContacts'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
-import { useWorkItemTerminology } from '../../shared/hooks/useWorkItemTerminology'
-import { clientName, clientSummary, contactChannelLabel, plainComment } from './clientList'
+import { clientSummary, contactChannelLabel, plainComment } from './clientList'
 
 const statuses = {
   draft: { label: 'Ждём ответа', tone: 'warning' }, active: { label: 'Подтверждена', tone: 'success' },
@@ -19,7 +19,6 @@ export function MobileClientCard({ client, summary, onDelete }: {
 }) {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
-  const terms = useWorkItemTerminology()
   const { width } = useWindowDimensions()
   const [actions, setActions] = useState(false)
   const busy = client.syncStatus === 'syncing'
@@ -32,23 +31,24 @@ export function MobileClientCard({ client, summary, onDelete }: {
       if (state.dx > 60) onDelete(client)
     },
   }), [busy, client, onDelete])
+  const displayName = [client.firstName, client.secondName, client.thirdName].map(part => part?.trim()).filter(Boolean).join(' ') || '-'
   const status = summary.latest ? statuses[summary.latest.status] : null
   const tone = status ? palette.notice[status.tone] : palette.notice.neutral
   const date = summary.lastDate ? new Date(summary.lastDate).toLocaleDateString('ru-RU') : '—'
   const stats = [
     ['Заявки', summary.counts.requests], ['Отмены', summary.counts.canceled],
     ['Выполн.', summary.counts.finished + summary.counts.closed],
-    [terms.pluralCapitalized, summary.counts.active],
+    ['События', summary.counts.active],
   ] as const
   return <View {...gestures.panHandlers}>
-    <Pressable testID={`client-card-${client._id}`} accessibilityRole="button" accessibilityLabel={`Открыть клиента: ${clientName(client)}`}
+    <Pressable testID={`client-card-${client._id}`} accessibilityRole="button" accessibilityLabel={`Открыть клиента: ${displayName}`}
       disabled={busy} onPress={() => open(`/clients/${client._id}`)} style={({ pressed }) => pressed && styles.pressed}>
-      <Surface style={styles.card} testID={`client-shell-${client._id}`}>
+      <Surface style={[styles.card, width < 420 && styles.compactCard]} testID={`client-shell-${client._id}`}>
         <View style={styles.header}>
-          <Text numberOfLines={1} style={[styles.name, { fontSize: width < 420 ? 15.2 : 16 }]}>{clientName(client)}</Text>
-          {client.messengerPushMuted ? <MaterialCommunityIcons accessible accessibilityLabel="Push-уведомления отключены" name="bell-off-outline" size={18} color={palette.cardMuted} /> : null}
+          <Text numberOfLines={1} style={[styles.name, { fontFamily: typography.fontFamily, fontSize: width < 420 ? 15.2 : 16 }]}>{displayName}</Text>
+          {client.messengerPushMuted ? <View accessible accessibilityLabel="Push-уведомления отключены" style={styles.mutedPush}><MaterialCommunityIcons name="bell-off" size={14} color={palette.clientMutedPush.text} /></View> : null}
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Действия с клиентом: ${clientName(client)}`} accessibilityState={{ expanded: actions, disabled: busy }}
+        <Pressable accessibilityRole="button" accessibilityLabel={`Действия с клиентом: ${displayName}`} accessibilityState={{ expanded: actions, disabled: busy }}
           disabled={busy} style={styles.menu} onPress={(e) => { e.stopPropagation(); setActions(true) }}>
           <MaterialCommunityIcons name="dots-vertical" size={22} color={palette.cardMuted} />
         </Pressable>
@@ -58,9 +58,9 @@ export function MobileClientCard({ client, summary, onDelete }: {
           </View>
           <Text numberOfLines={1} style={styles.comment}>{contactChannelLabel(client) ? `Предпочитает ${contactChannelLabel(client)}` : plainComment(client.comment) || ' '}</Text>
         </View>
-        <View style={styles.footer}>
+        <View testID={`client-contacts-${client._id}`} style={styles.footer}>
           <View style={styles.stats}>{stats.filter(([, count]) => count > 0).map(([label, count]) => <Text key={label} style={styles.stat}>{label} {count}</Text>)}</View>
-          <QuickContacts client={client} maxVisible={width < 360 ? 1 : 2} />
+          <QuickContacts client={client} availableWidth={width - 128} />
         </View>
         {client.syncStatus === 'pending' ? <Text style={styles.meta}>Ожидает отправки</Text> : null}
         {busy ? <ActivityIndicator accessibilityLabel="Синхронизация клиента" color={palette.primary} /> : null}
@@ -77,14 +77,15 @@ export function MobileClientCard({ client, summary, onDelete }: {
   </View>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
-  card: { padding: 12, gap: 0, marginBottom: 0 }, pressed: { opacity: 0.78 },
+  card: { padding: 16, minHeight: 190, gap: 0, marginBottom: 0 }, compactCard: { padding: 10.4, minHeight: 178 }, pressed: { opacity: 0.78 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderColor: palette.border, paddingRight: 40, paddingBottom: 8 },
-  name: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '600', color: palette.cardTitle },
+  name: { fontFamily: typography.fontFamily, flex: 1, minWidth: 0, fontSize: 16, fontWeight: '600', color: palette.cardTitle },
+  mutedPush: { width: 28, height: 28, borderRadius: 999, borderWidth: 1, borderColor: palette.clientMutedPush.border, backgroundColor: palette.clientMutedPush.background, alignItems: 'center', justifyContent: 'center' },
   menu: { position: 'absolute', top: 4, right: 4, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  middle: { paddingVertical: 8, gap: 8 }, last: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  meta: { fontSize: 13, color: palette.cardMuted }, comment: { fontSize: 14, color: palette.cardMeta },
-  badge: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }, badgeText: { fontSize: 12, fontWeight: '600' },
+  middle: { flex: 1, justifyContent: 'center', paddingVertical: 8, gap: 8 }, last: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  meta: { fontFamily: typography.fontFamily, fontSize: 13, color: palette.cardMuted }, comment: { fontFamily: typography.fontFamily, fontSize: 14, color: palette.cardMeta },
+  badge: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }, badgeText: { fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '600' },
   footer: { borderTopWidth: 1, borderColor: palette.border, paddingTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stats: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, stat: { fontSize: 11, color: palette.cardMuted },
-  error: { color: palette.notice.danger.text, fontSize: 13 }, action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
+  stats: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, stat: { fontFamily: typography.fontFamily, fontSize: 11, color: palette.cardMuted },
+  error: { fontFamily: typography.fontFamily, color: palette.notice.danger.text, fontSize: 13 }, action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
 })

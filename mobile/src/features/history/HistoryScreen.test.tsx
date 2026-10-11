@@ -79,10 +79,13 @@ it('fixed route синхронизирован при смене params; invalid
   mockParams = { entityType: 'event', entityId: 'd'.repeat(24) }; screen.rerender(draw()); await waitFor(() => expect(mockGet.mock.calls.length).toBe(2)); expect(mockGet.mock.calls[1][0]).toContain(`entityType=event&entityId=${mockParams.entityId}`)
   mockParams = { entityType: 'bad', entityId: 'd'.repeat(24) }; screen.rerender(draw()); expect(screen.getByText(/Некорректный адрес/)).toBeTruthy(); expect(mockGet).toHaveBeenCalledTimes(2)
 })
-it('invalid dates не запрашиваются, диапазон и local cached filter работают', async () => {
-  ;(NetInfo.fetch as jest.Mock).mockResolvedValue({ isConnected: false }); mockList.mockResolvedValue([row(), row('older', { occurredAt: '2026-09-01T00:00:00Z' })]); const screen = render(draw()); await screen.findByText('Изменение older'); fireEvent.press(screen.getByText('Фильтры')); fireEvent.changeText(screen.getByLabelText('С даты'), '2026-02-31')
-  expect(screen.getByText(/существующую дату/)).toBeTruthy(); expect(screen.queryByText('Изменение older')).toBeNull()
-  fireEvent.changeText(screen.getByLabelText('С даты'), '2026-10-01'); await screen.findByText('Изменение 1'); expect(screen.queryByText('Изменение older')).toBeNull(); expect(mockGet).not.toHaveBeenCalled()
+it('invalid draft не меняет историю; открытая граница применяет прежний offline filter', async () => {
+  ;(NetInfo.fetch as jest.Mock).mockResolvedValue({ isConnected: false }); mockList.mockResolvedValue([row(), row('older', { occurredAt: '2026-09-01T00:00:00Z' })]); const screen = render(draw()); await screen.findByText('Изменение older'); fireEvent.press(screen.getByText('Фильтры'))
+  fireEvent.press(screen.getByTestId('history-period-trigger')); fireEvent.press(screen.getByText('Выбрать даты')); fireEvent.press(screen.getByText('Ввести даты вручную'))
+  fireEvent.changeText(screen.getByLabelText('С даты'), '31.02.2026')
+  expect(screen.getByText(/существующую дату/)).toBeTruthy(); expect(screen.getByRole('button', { name: 'Применить' })).toBeDisabled(); expect(screen.getByText('Изменение older', { includeHiddenElements: true })).toBeTruthy()
+  fireEvent.press(screen.getByText('Применить')); expect(mockGet).not.toHaveBeenCalled()
+  fireEvent.changeText(screen.getByLabelText('С даты'), '01.10.2026'); fireEvent.press(screen.getByText('Применить')); await screen.findByText('Изменение 1'); expect(screen.queryByText('Изменение older')).toBeNull(); expect(mockGet).not.toHaveBeenCalled()
 })
 it('смена user/tenant и blur игнорируют поздние запросы до cache', async () => {
   const pending = deferred(); mockGet.mockReturnValueOnce(pending.promise); const screen = render(draw()); await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1))
@@ -106,4 +109,29 @@ it('late entity proof после смены user не открывает мар�
 it('unmount при незавершённом запросе не записывает позднюю историю в cache', async () => {
   const pending = deferred(); mockGet.mockReturnValueOnce(pending.promise); const screen = render(draw()); await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1)); screen.unmount()
   await act(async () => pending.resolve(page([row('late')]))); expect(mockUpsert).not.toHaveBeenCalled(); expect(mockPush).not.toHaveBeenCalled()
+})
+
+it('реальный контрол отправляет обе границы одним запросом; cancel/collapse/reset периода сохраняют другие условия и fixed route', async () => {
+  mockParams = { entityType: 'client', entityId: 'b'.repeat(24) }
+  const screen = render(draw()); await screen.findByText('Изменение 1')
+  fireEvent.changeText(screen.getByLabelText('Поиск'), 'работа'); await waitFor(() => expect(mockGet.mock.calls.at(-1)?.[0]).toContain('search='))
+  fireEvent.press(screen.getByText('Фильтры')); fireEvent.press(screen.getByText('Действия: Все действия')); fireEvent.press(screen.getByRole('button', { name: 'Изменение' })); await waitFor(() => expect(mockGet.mock.calls.at(-1)?.[0]).toContain('operation=update'))
+  fireEvent.press(screen.getByText('Источник: Все источники')); fireEvent.press(screen.getByRole('button', { name: 'Avito' })); await waitFor(() => expect(mockGet.mock.calls.at(-1)?.[0]).toContain('source=avito'))
+  fireEvent.press(screen.getByText('Автор: Все авторы')); fireEvent.press(screen.getByRole('button', { name: 'Анна' })); await waitFor(() => expect(mockGet.mock.calls.at(-1)?.[0]).toContain('actorId=actor1'))
+  mockGet.mockClear()
+  fireEvent.press(screen.getByTestId('history-period-trigger')); fireEvent.press(screen.getByText('Выбрать даты')); fireEvent.press(screen.getByText('Ввести даты вручную'))
+  fireEvent.changeText(screen.getByLabelText('С даты'), '01.10.2026'); fireEvent.changeText(screen.getByLabelText('По дату'), '09.10.2026'); expect(mockGet).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByText('Применить')); await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1))
+  const applied = mockGet.mock.calls[0][0], dates = new URLSearchParams(applied.split('?')[1])
+  expect(dates.get('dateFrom')).toBe('2026-10-01T00:00:00.000Z'); expect(dates.get('dateTo')).toBe(new Date('2026-10-09T23:59:59.999').toISOString())
+  expect(dates.get('entityType')).toBe('client'); expect(dates.get('entityId')).toBe(mockParams.entityId)
+  expect(dates.get('operation')).toBe('update'); expect(dates.get('source')).toBe('avito'); expect(dates.get('actorId')).toBe('actor1'); expect(dates.get('search')).toBe('работа')
+  fireEvent.press(screen.getByText('Фильтры')); expect(screen.queryByTestId('history-period-trigger')).toBeNull(); fireEvent.press(screen.getByText('Фильтры'))
+  fireEvent.press(screen.getByTestId('history-period-trigger')); fireEvent.press(screen.getByText('Выбрать даты')); fireEvent.press(screen.getByText('Ввести даты вручную')); fireEvent.changeText(screen.getByLabelText('С даты'), '02.10.2026'); fireEvent.press(screen.getByText('Отмена'))
+  expect(mockGet).toHaveBeenCalledTimes(1)
+  fireEvent.press(screen.getByRole('button', { name: 'Сбросить период' })); await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2))
+  const resetDates = new URLSearchParams(mockGet.mock.calls[1][0].split('?')[1]); expect(resetDates.has('dateFrom')).toBe(false); expect(resetDates.has('dateTo')).toBe(false)
+  for (const field of ['entityType', 'entityId', 'operation', 'source', 'actorId', 'search']) expect(resetDates.get(field)).toBe(dates.get(field))
+  fireEvent.press(screen.getByText('Сбросить фильтры')); await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(3))
+  expect(mockGet.mock.calls[2][0]).toContain(`entityType=client&entityId=${mockParams.entityId}`); expect(mockGet.mock.calls[2][0]).not.toContain('operation=')
 })

@@ -1,3 +1,4 @@
+import { typography } from './theme'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StyleSheet, Text, View, type ViewProps } from 'react-native'
 import { useTheme, useThemeStyles } from './ThemeProvider'
@@ -35,5 +36,5 @@ export const Notice = ({ tone = 'info', message, style, ...props }: ViewProps & 
 
 const createStyles = (_palette: Palette) => StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, gap: 8 },
-  text: { flex: 1, fontSize: 14, lineHeight: 19.6 },
+  text: { fontFamily: typography.fontFamily, flex: 1, fontSize: 14, lineHeight: 19.6 },
 })

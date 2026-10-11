@@ -12,6 +12,7 @@ import { runSync } from '../../shared/sync/syncEngine'
 import { Button, CompactField, EmptyState, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
+import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { useWorkItemTerminology } from '../../shared/hooks/useWorkItemTerminology'
 import { clientName } from '../clients/clientList'
 import { DocumentAction, DocumentRowView } from './DocumentRow'
@@ -228,7 +229,9 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     {task.phase ? <Notice message={task.phase} /> : null}
     {message ? <Notice tone="success" message={message} /> : null}
     {localClient ? <Notice message="Сначала синхронизируйте клиента. После этого можно загружать файлы." /> : null}
-    <Surface><SectionTitle>Документы · {rows.length}</SectionTitle>
+    <Surface><SectionTitle help={kind === 'events'
+      ? `В Android можно добавить файл, а для подтверждённой синхронизированной работы — сформировать DOCX по шаблону. Вложения доступны и в заявке; создание ссылок на документы в этом экране отсутствует.\n\nОбщая справка: ${getFieldHelp('documents.event')}`
+      : getFieldHelp('documents.client')}>{`Документы · ${rows.length}`}</SectionTitle>
       {rows.length ? rows.map((row) => <DocumentRowView key={row.id} title={row.title || row.file?.name || typeLabel(row.type, row.customTypeName)} subtitle={`${typeLabel(row.type, row.customTypeName)} · ${row.file?.name || (row.legacyUrl ? 'Прежнее вложение' : 'Ссылка на документ')} ${fileSize(row.file?.size)}`} disabled={blocked} onOpen={() => void open(row)}>
         <DocumentAction testID={`share-document-${row.id}`} icon="share-variant-outline" label={`Поделиться документом ${row.title || 'Документ'}`} onPress={() => void open(row, true)} disabled={blocked} />
         <DocumentAction testID={`remove-document-${row.id}`} icon="delete-outline" danger label={`Удалить документ ${row.title || 'Документ'}`} onPress={() => remove(row)} disabled={blocked} />
@@ -244,7 +247,7 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     </Surface>
     {kind === 'events' ? <Surface><SectionTitle>Сформировать по шаблону</SectionTitle>
       {templateState === 'loading' ? <Notice message="Загружаем шаблоны…" /> : templateState === 'error' ? <><Notice tone="danger" message={templateError} /><Button title="Повторить чтение шаблонов" variant="secondary" onPress={() => void loadTemplates()} disabled={blocked} /></> : templates.length ? <View style={styles.options}>{templates.map((template) => <Pressable key={template.id} accessibilityRole="radio" accessibilityLabel={template.name} accessibilityState={{ selected: templateId === template.id, disabled: blocked || Boolean(generation) }} disabled={blocked || Boolean(generation)} onPress={() => setTemplateId(template.id)} style={[styles.option, templateId === template.id && styles.selected]}><Text style={styles.text}>{template.name}</Text><Text style={styles.muted}>{typeLabel(template.type, template.customTypeName)}</Text></Pressable>)}</View> : <Notice message="Сначала добавьте шаблон в разделе «Меню → Документы»." />}
-      <CompactField testID="document-date" label="Дата документа" value={documentDate} onChangeText={setDocumentDate} placeholder="ГГГГ-ММ-ДД" editable={!blocked && !generation} />
+      <CompactField testID="document-date" help={getFieldHelp('documents.date')} label="Дата документа" value={documentDate} onChangeText={setDocumentDate} placeholder="ГГГГ-ММ-ДД" editable={!blocked && !generation} />
       {!isServerEntityId(id) || (entity as Event).status === 'draft' || (entity.syncStatus && entity.syncStatus !== 'synced') ? <Notice tone="warning" message="Формирование доступно для сохранённой на сервере работы после подтверждения заявки и синхронизации изменений." /> : null}
       {generation ? <><Notice tone="warning" message="Проверяем результат предыдущего создания. Повторная генерация автоматически не выполняется." /><Button title="Проверить результат создания" variant="secondary" onPress={() => void task.run('Читаем результат создания…', 'Не удалось проверить результат. Повторите чтение позднее.', (current) => verifyGeneration(generation, current))} disabled={blocked} />
         <Button title="Разрешить новое создание после проверки" variant="secondary" disabled={blocked} onPress={() => {

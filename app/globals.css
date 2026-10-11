@@ -5224,3 +5224,27 @@ body.theme-dark .compact-event-section--ai-highlighted > summary {
 @media (prefers-reduced-motion: reduce) {
   .compact-event-chevron { transition: none; }
 }
+
+/* Фото-черновик: плотная тематическая подложка только заголовка create-меню. */
+.mobile-bottomnav-create-title {
+  background-color: var(--cabinet-canvas-bg);
+  color: var(--ui-secondary-text);
+  border: 1px solid var(--surface-card-border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.mobile-bottomnav-create-menu {
+  max-height: calc(100dvh - 100px - env(safe-area-inset-bottom));
+  max-width: calc(100vw - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+.mobile-bottomnav-create-menu > button { flex-shrink: 0; }
+.photo-draft-content { color: var(--ui-secondary-text); }
+.photo-draft-source { border-color: var(--surface-card-border); background: var(--cabinet-canvas-bg); }
+
+body.theme-dark .mobile-bottomnav-create-title,
+body.theme-dark .photo-draft-source { background-color: var(--sidebar-bg); }

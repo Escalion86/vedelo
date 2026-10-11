@@ -5,8 +5,8 @@ test('buildReferralRows shape сохраняет имя, сумму, число 
 test('пустой валидный mine DTO', () => { expect(readReferrals({ success: true, data: { referrals: [], referralsCount: 0, rewardsCount: 0, rewardsTotal: 0 } }).referrals).toEqual([]) })
 test.each([{ success: false, data }, { success: true, data: { groups: [] } }, { success: true, data: { ...data, referrals: [user] } }, { success: true, data: { ...data, rewardsTotal: NaN } }, { success: true, data: { ...data, referralsCount: 2 } }])('неподдержанный/административный DTO отвергается', (response) => expect(() => readReferrals(response)).toThrow())
 test('ссылка из origin конфигурации, user ID сохраняется без нормализации', () => {
-  expect(referralLink('https://new.example/api', user._id.toUpperCase())).toBe(`https://new.example/login?mode=register&ref=${user._id.toUpperCase()}`)
-  expect(referralLink('http://localhost:3000/api', user._id)).toContain('http://localhost:3000/login?')
+  expect(referralLink('https://new.example/api', user._id.toUpperCase())).toBe(`https://new.example/register?ref=${user._id.toUpperCase()}`)
+  expect(referralLink('http://localhost:3000/api', user._id)).toContain('http://localhost:3000/register?')
 })
 test.each(['javascript:alert(1)', 'https://bearer:secret@example.com/api', 'not-url'])('небезопасный origin не даёт ссылку', (url) => expect(referralLink(url, user._id)).toBe(''))
 test.each(['', ' x'+user._id, user._id+' ', '../events', 'https://example.com'])('невалидный ID не даёт ссылку', (id) => expect(referralLink('https://example.com/api', id)).toBe(''))

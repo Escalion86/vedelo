@@ -1,5 +1,8 @@
 'use client'
 
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from './FieldHelp'
+
 import { useEffect, useState } from 'react'
 import IconCheckBox from '@components/IconCheckBox'
 import AddIconButton from '@components/AddIconButton'
@@ -630,7 +633,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
         {calendarStatus.connected ? (
           <div className="p-3 mt-3 bg-white border border-gray-200 rounded">
             <div className="text-sm font-semibold text-gray-800">
-              Массовая синхронизация
+              Массовая синхронизация <FieldHelp text={fieldHelp['integrations.googleSync']} label="Массовая синхронизация" />
             </div>
             <div className="mt-1 text-xs text-gray-500">
               Отправляет/обновляет в Google Calendar все {terms.pluralAccusative}.
@@ -677,7 +680,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
         ) : null}
         <div className="p-3 mt-4 bg-white border border-gray-200 rounded">
           <div className="text-sm font-semibold text-gray-800">
-            Что отправлять в Google Calendar
+            Что отправлять в Google Calendar <FieldHelp text={fieldHelp['integrations.googleFields']} label="Что отправлять в Google Calendar" />
           </div>
           <IconCheckBox
             checked={Boolean(syncSettings.showStatusIcons)}
@@ -750,7 +753,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
         </div>
         <div className="p-3 mt-4 bg-white border border-gray-200 rounded">
           <div className="text-sm font-semibold text-gray-800">
-            Уведомления Google Calendar
+            Уведомления Google Calendar <FieldHelp text={fieldHelp['integrations.googleNotifications']} label="Уведомления Google Calendar" />
           </div>
           <div className="mt-2">
             <IconCheckBox

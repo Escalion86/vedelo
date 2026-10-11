@@ -9,7 +9,7 @@ import type { Client } from '../../shared/domain/types'
 import { MobileEventCard } from './MobileEventCard'
 import type { ListEvent } from './filters'
 
-jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'BrandIcon' }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
 const client: Client = { _id: 'local-client', firstName: 'Анна', phone: '79990000000', whatsapp: '79990000000', telegram: '@anna', vk: 'anna', email: 'a@example.test' }
@@ -23,13 +23,14 @@ const setup = (values: Partial<ListEvent> = {}, props = {}, dark = false) => {
   </ThemeProvider>)
   return { ...screen, onPress }
 }
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => { jest.clearAllMocks(); jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined) })
+afterEach(() => jest.restoreAllMocks())
 it.each([false, true])('three rows, 58dp date and continuous dividers in dark=%s', (dark) => {
   const screen = setup({}, {}, dark)
   const palette = dark ? darkPalette : lightPalette
   expect(screen.getByTestId('card-shell')).toHaveStyle({ minHeight: 184, borderRadius: 8, backgroundColor: palette.surface })
   expect(screen.getByTestId('card-date')).toHaveStyle({ width: 58, borderRightWidth: 1, borderColor: palette.border })
-  expect(screen.getByTestId('card-footer')).toHaveStyle({ borderTopWidth: 1, minHeight: 40 })
+  expect(screen.getByTestId('card-footer')).toHaveStyle({ borderTopWidth: 1, minHeight: 44 })
   expect(screen.getByText(/Очень длинное название.*Услуга не указана/).props.numberOfLines).toBe(1)
   expect(screen.getAllByLabelText('По договору')).toHaveLength(1)
   expect(screen.queryByText('По договору')).toBeNull()
@@ -63,6 +64,7 @@ it('zero, one and many contact actions; additional contacts expand names, commen
   expect(router.push).toHaveBeenCalledWith('/clients/local-client')
 })
 it('shows all channels in overflow, closes by outside and opens chosen channel', () => {
+  jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 320, height: 800, scale: 1, fontScale: 1 })
   const screen = setup()
   press(screen.getByLabelText('Все способы связи'))
   expect(screen.getByText('Электронная почта')).toBeTruthy()
@@ -211,7 +213,7 @@ it('дата — день недели и число в одной строке,
   const screen = setup({ eventDate: '2026-10-09T21:00:00' })
   expect(screen.getByText('ПТ')).toBeTruthy()
   expect(screen.getByText('09')).toBeTruthy()
-  expect(screen.getByText('ОКТ')).toBeTruthy()
+  expect(screen.getByText('окт')).toBeTruthy()
   expect(screen.getByText('21:00')).toBeTruthy()
   const heading = screen.getByTestId('card-date-heading')
   expect(heading).toHaveStyle({ flexDirection: 'row' })
@@ -224,4 +226,54 @@ it('как PWA скрывает город по умолчанию только 
   press(screen.getByRole('link'))
   expect(Linking.openURL).toHaveBeenCalledWith(`https://2gis.ru/search/${encodeURIComponent('Красноярск, Мира, 10')}`)
   expect(screen.onPress).not.toHaveBeenCalled()
+})
+
+it.each([false, true])('источники нейтральные, как StatusChip PWA, dark=%s', (dark) => {
+  const palette = dark ? darkPalette : lightPalette
+  jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 })
+  for (const sourceLabel of ['Cigam', 'Tilda', 'Сайт']) {
+    const screen = setup({ clientData: { createdViaApi: true, sourceLabel } }, {}, dark)
+    expect(screen.getByText(sourceLabel)).toHaveStyle({ color: palette.status.neutral.text, backgroundColor: palette.status.neutral.background, borderColor: palette.status.neutral.border, borderWidth: 1, borderRadius: 999 })
+    expect(screen.getByTestId('card-shell')).toHaveStyle({ paddingVertical: 10.4, paddingLeft: 14.4, paddingRight: 10.4 })
+    expect(screen.getByTestId('card-footer')).toHaveStyle({ minHeight: 44, paddingTop: 8 })
+    screen.unmount()
+  }
+})
+it.each([320, 390, 414])('длинное имя и шесть каналов при %s; имя доступно полностью', (width) => {
+  jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 })
+  const longName = 'Очень длинное имя клиента '.repeat(8).trim()
+  const screen = setup({}, { client: { ...client, firstName: longName } })
+  expect(screen.getByLabelText(`Клиент: ${longName}`)).toBeTruthy()
+  if (width >= 390) {
+    expect(screen.getByLabelText('ВКонтакте')).toBeTruthy()
+    expect(screen.getByLabelText('Электронная почта')).toBeTruthy()
+    expect(screen.queryByLabelText('Все способы связи')).toBeNull()
+  } else {
+    press(screen.getByLabelText('Все способы связи'))
+    expect(screen.getByText('ВКонтакте')).toBeTruthy()
+    expect(screen.getByText('Электронная почта')).toBeTruthy()
+  }
+  expect(screen.onPress).not.toHaveBeenCalled()
+  jest.restoreAllMocks()
+})
+
+it.each([false, true])('типографика PWA, прошедшая заявка и капсула итога: dark=%s', (dark) => {
+  jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 })
+  const screen = setup({ status: 'draft', eventDate: '2020-10-09T21:00:00' }, {}, dark)
+  expect(screen.getByTestId('card-shell')).toHaveStyle({ minHeight: 248 })
+  expect(screen.getByText('09')).toHaveStyle({ fontSize: 15.2 })
+  expect(screen.getByText('ПТ')).toHaveStyle({ fontSize: 14 })
+  expect(screen.getByText('окт')).toHaveStyle({ fontSize: 16, color: dark ? '#ebd3a5' : '#7d6435' })
+  expect(screen.getByText('Заявка')).toHaveStyle({ borderWidth: 1, borderRadius: 999 })
+  screen.unmount()
+  for (const [amount, colors] of [
+    [0, dark ? ['#e2e8f0', '#334155', '#475569'] : ['#374151', '#ffffff', '#cbd5e1']],
+    [100, dark ? ['#ecfdf5', '#064e3b', '#14532d'] : ['#166534', '#dcfce7', '#86efac']],
+    [-100, dark ? ['#fee2e2', '#7f1d1d', '#991b1b'] : ['#b91c1c', '#fee2e2', '#fca5a5']],
+  ] as const) {
+    const closed = setup({ status: 'closed' }, { transactions: [{ _id: 'tx', eventId: event._id, amount: Math.abs(amount), type: amount < 0 ? 'expense' : 'income' }] }, dark)
+    expect(closed.getByLabelText(new RegExp('^Итог:'))).toHaveStyle({ color: colors[0], backgroundColor: colors[1], borderColor: colors[2], borderWidth: 1, borderRadius: 999, minWidth: 92 })
+    closed.unmount()
+  }
+  jest.restoreAllMocks()
 })

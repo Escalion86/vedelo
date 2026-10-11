@@ -1,3 +1,5 @@
+import fieldHelp from '@helpers/fieldHelp.json'
+import FieldHelp from '@components/FieldHelp'
 import ErrorsList from '@components/ErrorsList'
 import DateInput from '@components/DateInput'
 import FormWrapper from '@components/FormWrapper'
@@ -615,7 +617,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             maxLength={500}
           />
         </div>
-        <InputWrapper label="Тип клиента" paddingY fitWidth>
+        <InputWrapper label="Тип клиента" help={fieldHelp['client.type']} paddingY fitWidth>
           <div className="flex flex-wrap gap-2">
             {CLIENT_TYPES.map((item) => (
               <button
@@ -633,7 +635,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             ))}
           </div>
         </InputWrapper>
-        <InputWrapper label="Приоритетный канал связи" paddingY fitWidth>
+        <InputWrapper label="Приоритетный канал связи" help={fieldHelp['client.preferredChannel']} paddingY fitWidth>
           <div className="flex flex-wrap gap-2">
             {CONTACT_CHANNELS.map((item) => (
               <button
@@ -682,6 +684,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         )}
         <Textarea
           label="Комментарий"
+          help={fieldHelp['client.comment']}
           value={comment}
           onChange={(value) => setComment(value.slice(0, 2000))}
           rows={3}
@@ -691,6 +694,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
           <div className="border-input mt-3.5 mb-1 rounded border-2 bg-white p-3">
             {canUseDocuments ? (
               <DocumentsEditor
+                help={fieldHelp['documents.client']}
                 documents={client.documents ?? []}
                 onChange={updateClientDocuments}
                 entityType="clients"
@@ -706,7 +710,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             )}
           </div>
         ) : null}
-        <LabeledContainer label="Значимые даты">
+        <LabeledContainer label="Значимые даты" help={fieldHelp['client.significantDates']}>
           <div className="flex flex-col gap-3">
             {significantDates.map((item, index) => (
               <div
@@ -765,10 +769,11 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             </button>
           </div>
         </LabeledContainer>
-        <div className="border-input mt-3.5 mb-1 overflow-hidden rounded border-2 bg-white">
+        <div className="border-input relative mt-3.5 mb-1 overflow-hidden rounded border-2 bg-white">
+          <div className="absolute top-2 right-9"><FieldHelp text={fieldHelp['client.requisites']} label="Реквизиты для договора" /></div>
           <button
             type="button"
-            className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left transition hover:bg-gray-50"
+            className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 pr-16 text-left transition hover:bg-gray-50"
             onClick={() => setIsRequisitesCollapsed((value) => !value)}
             aria-expanded={!isRequisitesCollapsed}
           >
@@ -794,6 +799,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
               <div className="grid gap-x-3 sm:grid-cols-2">
                 <Input
                   label="Наименование / ФИО"
+                  help={fieldHelp['client.legalName']}
                   value={legalName}
                   onChange={setLegalName}
                   className="w-full"
