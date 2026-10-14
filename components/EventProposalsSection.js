@@ -23,7 +23,10 @@ import AppButton from '@components/AppButton'
 import AddIconButton from '@components/AddIconButton'
 import IconActionButton from '@components/IconActionButton'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
+import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons/faExternalLinkAlt'
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons/faPaperPlane'
 import { queryKeys } from '@helpers/queryKeys'
 import ProposalLineDialog from '@components/ProposalLineDialog'
 import ProposalPackagesEditor from '@components/ProposalPackagesEditor'
@@ -445,6 +448,7 @@ const EventProposalsSection = ({
         childrenProps: {
           clientId: data.clientId,
           message: data.renderedMessage,
+          publicUrl: data.publicUrl,
           initiallyCopied,
         },
       })
@@ -932,6 +936,7 @@ const EventProposalsSection = ({
                     <AppButton
                       variant="secondary"
                       size="sm"
+                      className="gap-1.5"
                       disabled={busy}
                       onClick={async () => {
                         const data = await loadDetails(proposal)
@@ -943,31 +948,25 @@ const EventProposalsSection = ({
                           )
                       }}
                     >
+                      <FontAwesomeIcon
+                        icon={faExternalLinkAlt}
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
                       Открыть
                     </AppButton>
                     <AppButton
                       variant="secondary"
                       size="sm"
-                      disabled={busy}
-                      onClick={async () => {
-                        const data = await loadDetails(proposal)
-                        if (data?.renderedMessage) {
-                          await copyText(data.renderedMessage)
-                          reportMessage({
-                            tone: 'success',
-                            text: 'Сообщение и ссылка скопированы',
-                          })
-                        }
-                      }}
-                    >
-                      Копировать
-                    </AppButton>
-                    <AppButton
-                      variant="secondary"
-                      size="sm"
+                      className="gap-1.5"
                       disabled={busy}
                       onClick={() => shareProposal(proposal)}
                     >
+                      <FontAwesomeIcon
+                        icon={faPaperPlane}
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
                       Отправить
                     </AppButton>
                     {proposal.selectedPackageId &&

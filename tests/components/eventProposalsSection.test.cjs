@@ -597,7 +597,7 @@ test('share copies the proposal and opens contact choice without sending it', as
   const previousHook = mocks['@helpers/useEventProposalsQuery']
   const previousCopy = mocks['@helpers/copyProposalText']
   const previousFetch = global.fetch
-  const proposal = { _id: 'share', status: 'published', clientId: 'client-share', title: 'КП', packages: [], renderedMessage: 'Здравствуйте! Предложение: https://example.test/proposal/demo' }
+  const proposal = { _id: 'share', status: 'published', clientId: 'client-share', title: 'КП', packages: [], publicUrl: 'https://vedelo.ru/proposal/demo', renderedMessage: 'Здравствуйте! Предложение: https://example.test/proposal/demo' }
   let copied, writes = 0
   mocks['@helpers/useEventProposalsQuery'] = { useEventProposalsQuery: () => ({ data: [proposal] }) }
   mocks['@helpers/copyProposalText'] = { copyProposalText: async (text) => { copied = text } }
@@ -609,13 +609,14 @@ test('share copies the proposal and opens contact choice without sending it', as
   const Section = load('components/EventProposalsSection.js').default
   const element = await mount(t, Section, { eventId: 'share-event' })
   assert.equal(element.textContent.includes('В Telegram'), false)
+  assert.equal(element.textContent.includes('Копировать'), false)
   const send = [...element.querySelectorAll('button')].find((button) => button.textContent === 'Отправить')
   await React.act(async () => send.click())
   assert.equal(copied, proposal.renderedMessage)
   assert.equal(writes, 0)
   const dialog = openedModals.at(-1)
   assert.equal(dialog.title, 'Отправить предложение')
-  assert.deepEqual(dialog.childrenProps, { clientId: proposal.clientId, message: proposal.renderedMessage, initiallyCopied: true })
+  assert.deepEqual(dialog.childrenProps, { clientId: proposal.clientId, message: proposal.renderedMessage, publicUrl: proposal.publicUrl, initiallyCopied: true })
   mocks['@helpers/copyProposalText'].copyProposalText = async () => { throw new Error('denied') }
   // A new module captures the changed clipboard helper, as in a browser denial.
   const FailedSection = load('components/EventProposalsSection.js').default
@@ -636,4 +637,39 @@ test('contact choices include supported channels, respect unavailable numbers an
   assert.match(choices.find((item) => item.id === 'max').detail, /79000000000/)
   assert.deepEqual(getProposalContactOptions(null, message), [])
   assert.deepEqual(getProposalContactOptions({ phone: 79000000000, whatsappPhoneUnavailable: true, telegramPhoneUnavailable: true, maxPhoneUnavailable: true }, message).map((item) => item.id), ['sms'])
+})
+
+test('share dialog copies the message or only the public link on demand', async (t) => {
+  const restore = []
+  const setMock = (key, value) => {
+    const previous = mocks[key]
+    mocks[key] = value
+    restore.push(() => {
+      if (previous === undefined) delete mocks[key]
+      else mocks[key] = previous
+    })
+  }
+  const copied = []
+  setMock('@helpers/copyProposalText', { copyProposalText: async (text) => copied.push(text) })
+  setMock('@helpers/useClientsQuery', { useClientQuery: () => ({ data: { _id: 'client-share', phone: 79000000000 }, isPending: false, isError: false, refetch: () => {} }) })
+  setMock('@helpers/proposalContactOptions', { getProposalContactOptions: () => [] })
+  setMock('@components/InputWrapper', Box)
+  t.after(() => restore.reverse().forEach((undo) => undo()))
+
+  const message = 'Здравствуйте! Предложение: https://vedelo.ru/proposal/demo'
+  const publicUrl = 'https://vedelo.ru/proposal/demo'
+  const Dialog = load('components/ProposalShareDialog.js').default
+  const button = (element, text) => [...element.querySelectorAll('button')].find((item) => item.textContent === text)
+
+  const element = await mount(t, Dialog, { clientId: 'client-share', message, publicUrl })
+  await React.act(async () => button(element, 'Скопировать текст').click())
+  assert.deepEqual(copied, [message])
+  assert.match(element.textContent, /Текст предложения скопирован/)
+  await React.act(async () => button(element, 'Скопировать ссылку').click())
+  assert.deepEqual(copied, [message, publicUrl])
+  assert.match(element.textContent, /Ссылка на предложение скопирована/)
+
+  const withoutUrl = await mount(t, Dialog, { clientId: 'client-share', message })
+  assert.equal(button(withoutUrl, 'Скопировать ссылку'), undefined)
+  assert.equal(button(withoutUrl, 'Скопировать текст') === undefined, false)
 })

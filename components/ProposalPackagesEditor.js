@@ -267,7 +267,10 @@ const ProposalPackagesEditor = ({
                 updatePackage(packageIndex, { description })
               }
             />
-            <div className="mt-2 space-y-2">
+            <div className="input-label mt-2 flex items-center gap-1 px-1 text-xs font-semibold select-none">
+              Список услуг варианта
+            </div>
+            <div className="mt-1 space-y-2">
               {item.lines.map((line, lineIndex) => (
                 <div
                   key={lineIndex}

@@ -91,6 +91,8 @@ const mocks = {
   '@components/Input': InputStub,
   '@components/Notice': Box,
   '@components/Textarea': TextareaStub,
+  '@helpers/fieldHelp.json': require('../../helpers/fieldHelp.json'),
+  '@components/FieldHelp': () => null,
   '@components/ProposalPageView': Box,
   '@components/ProposalLineDialog': Box,
   '@components/CompactEventSection': SectionStub,
