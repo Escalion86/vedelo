@@ -4,7 +4,7 @@ import Proposals from '@models/Proposals'
 import TelegramConversations from '@models/TelegramConversations'
 import SiteSettings from '@models/SiteSettings'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getProposalRequestContext from '@server/proposalRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import {
   canUseProposalBuilder,
@@ -30,7 +30,7 @@ const error = (message, status = 400, code = 'bad_request', data = undefined) =>
 
 export const POST = async (req, { params }) => {
   const { id } = await params
-  const { tenantId, user } = await getTenantContext()
+  const { tenantId, user } = await getProposalRequestContext(req)
   if (!tenantId || !user?._id)
     return error('Не авторизован', 401, 'unauthorized')
   if (!mongoose.Types.ObjectId.isValid(id))

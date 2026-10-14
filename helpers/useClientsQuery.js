@@ -53,7 +53,15 @@ const deleteClientFromQueries = (queryClient, clientId) => {
 export const useClientsQuery = (initialData) =>
   useQuery({
     queryKey: queryKeys.clients(),
-    queryFn: async () => normalizeListPayload(await apiJson('/api/clients')),
+    queryFn: async ({ signal }) => {
+      const payload = await apiJson('/api/clients', { signal })
+      if (!Array.isArray(payload?.data) || payload?.success === false) {
+        throw new Error('Не удалось загрузить клиентов')
+      }
+      return payload.data
+    },
+    retry: 1,
+    refetchOnReconnect: true,
     ...(Array.isArray(initialData) ? { initialData } : {}),
   })
 

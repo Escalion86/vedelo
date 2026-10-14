@@ -7,7 +7,7 @@ import Events from '@models/Events'
 import Services from '@models/Services'
 import { buildAgreedProposal } from '@helpers/proposalWorkflow'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getProposalRequestContext from '@server/proposalRequestContext'
 import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
@@ -27,8 +27,8 @@ import {
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
 
-const authorize = async (id) => {
-  const context = await getTenantContext()
+const authorize = async (req, id) => {
+  const context = await getProposalRequestContext(req)
   if (!context.tenantId || !context.user?._id)
     return { response: error('Не авторизован', 401, 'unauthorized') }
   if (!mongoose.Types.ObjectId.isValid(id))
@@ -70,7 +70,7 @@ const serialize = (proposal, req) => {
 
 export const GET = async (req, { params }) => {
   const { id } = await params
-  const auth = await authorize(id)
+  const auth = await authorize(req, id)
   if (auth.response) return auth.response
   return NextResponse.json({
     success: true,
@@ -80,7 +80,7 @@ export const GET = async (req, { params }) => {
 
 export const PATCH = async (req, { params }) => {
   const { id } = await params
-  const auth = await authorize(id)
+  const auth = await authorize(req, id)
   if (auth.response) return auth.response
   const body = await req.json().catch(() => ({}))
   const action = String(body?.action || '').trim()
@@ -180,8 +180,8 @@ export const PATCH = async (req, { params }) => {
       auth.proposal.title = title
     }
     if (body.validUntil !== undefined) {
-      const date = new Date(body.validUntil)
-      if (Number.isNaN(date.getTime()))
+      const date = body.validUntil === null || body.validUntil === '' ? null : new Date(body.validUntil)
+      if (date && Number.isNaN(date.getTime()))
         return error('Некорректный срок действия', 400, 'bad_valid_until')
       auth.proposal.validUntil = date
     }
@@ -204,9 +204,9 @@ export const PATCH = async (req, { params }) => {
   })
 }
 
-export const DELETE = async (_req, { params }) => {
+export const DELETE = async (req, { params }) => {
   const { id } = await params
-  const auth = await authorize(id)
+  const auth = await authorize(req, id)
   if (auth.response) return auth.response
   const deleted = await Proposals.findOneAndDelete({
     _id: id,

@@ -24,6 +24,8 @@ import {
   faCalendarXmark,
   // faClock,
 } from '@fortawesome/free-solid-svg-icons'
+import AppButton from '@components/AppButton'
+import Notice from '@components/Notice'
 import CardButtons from '@components/CardButtons'
 import ContactsIconsButtons from '@components/ContactsIconsButtons'
 import CardOverlay from '@components/CardOverlay'
@@ -124,11 +126,23 @@ const EventCard = ({
 }) => {
   const { data: cachedEvent } = useEventQuery(eventId, eventProp)
   const event = eventProp ?? cachedEvent
-  const { data: clients = [] } = useClientsQuery()
+  const clientsQuery = useClientsQuery()
+  const { data: clients = [] } = clientsQuery
   const client = useMemo(
     () => clients.find((item) => item._id === event?.clientId) ?? null,
     [clients, event?.clientId]
   )
+  const clientUnspecified = !event?.clientId
+  const clientLoading =
+    !clientUnspecified &&
+    !client &&
+    (clientsQuery.isPending ||
+      clientsQuery.isFetching ||
+      clientsQuery.fetchStatus === 'paused')
+  const clientLoadError =
+    !clientUnspecified && !client && !clientLoading && clientsQuery.isError
+  const clientMissing =
+    !clientUnspecified && !client && !clientLoading && !clientLoadError
   const extraContactDisplays = useMemo(
     () => getEventExtraContactDisplays(event, clients),
     [clients, event]
@@ -327,6 +341,8 @@ const EventCard = ({
   return (
     <CardWrapper
       style={style}
+      // Кнопка повтора не должна быть вложена в другой role="button".
+      role={clientLoadError ? 'group' : 'button'}
       outerClassName={cn(noHorizontalPadding ? '' : 'px-2', 'py-1')}
       onClick={() => !loading && modalsFunc.event?.view(event._id)}
       onSwipeLeft={() => !loading && modalsFunc.event?.edit(event._id)}
@@ -407,7 +423,7 @@ const EventCard = ({
               aria-label="Синхронизация с календарем не выполнена"
             />
           ) : null}
-          {!client ? (
+          {clientUnspecified ? (
             <FontAwesomeIcon
               icon={faUserSlash}
               className="h-4 w-4 shrink-0 text-red-500"
@@ -545,10 +561,47 @@ const EventCard = ({
           )}
         </div>
 
-        <div className="col-span-3 flex min-h-11 min-w-0 flex-nowrap items-center gap-2 border-t border-gray-200 pt-2 text-sm">
-          <span className="min-w-0 truncate">
-            {client ? getPersonFullName(client, { fallback: client._id }) : '-'}
-          </span>
+        <div
+          className={cn(
+            'col-span-3 flex min-h-11 min-w-0 items-center gap-2 border-t border-gray-200 pt-2 text-sm',
+            clientLoadError ? 'flex-wrap' : 'flex-nowrap'
+          )}
+        >
+          {clientLoading ? (
+            <span role="status" aria-busy="true" className="card-muted min-w-0">
+              {clientsQuery.fetchStatus === 'paused'
+                ? 'Нет сети — ждём подключения'
+                : 'Загрузка клиента…'}
+            </span>
+          ) : clientLoadError ? (
+            <Notice
+              tone="error"
+              role="alert"
+              className="flex w-full min-w-0 items-center gap-2 !px-2 !py-0"
+            >
+              <span className="min-w-0 flex-1 text-xs">Не удалось загрузить клиента</span>
+              <AppButton
+                variant="secondary"
+                size="sm"
+                className="min-h-10"
+                aria-label="Повторить загрузку клиентов"
+                onClick={(clickEvent) => {
+                  clickEvent.stopPropagation()
+                  void clientsQuery.refetch({ cancelRefetch: false })
+                }}
+              >
+                Повторить
+              </AppButton>
+            </Notice>
+          ) : (
+            <span className="min-w-0 truncate">
+              {client
+                ? getPersonFullName(client, { fallback: client._id })
+                : clientMissing
+                  ? 'Клиент не найден'
+                  : '-'}
+            </span>
+          )}
           {client ? (
             <div
               className="ml-auto shrink-0"

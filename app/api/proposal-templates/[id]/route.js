@@ -5,7 +5,7 @@ import ProposalTemplates from '@models/ProposalTemplates'
 import Proposals from '@models/Proposals'
 import Services from '@models/Services'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getProposalRequestContext from '@server/proposalRequestContext'
 import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
@@ -20,8 +20,8 @@ import {
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
 
-const authorize = async () => {
-  const context = await getTenantContext()
+const authorize = async (req) => {
+  const context = await getProposalRequestContext(req)
   if (!context.tenantId || !context.user?._id) return { response: error('Не авторизован', 401, 'unauthorized') }
   if (!canUseProposalBuilder(await getUserTariffAccess(context.user._id)))
     return {
@@ -34,8 +34,8 @@ const authorize = async () => {
   return { context }
 }
 
-export const GET = async (_req, { params }) => {
-  const auth = await authorize()
+export const GET = async (req, { params }) => {
+  const auth = await authorize(req)
   if (auth.response) return auth.response
   const { id } = await params
   if (!mongoose.Types.ObjectId.isValid(id)) return error('Некорректный ID', 400, 'bad_id')
@@ -56,7 +56,7 @@ export const GET = async (_req, { params }) => {
 }
 
 export const PATCH = async (req, { params }) => {
-  const auth = await authorize()
+  const auth = await authorize(req)
   if (auth.response) return auth.response
   const { id } = await params
   if (!mongoose.Types.ObjectId.isValid(id)) return error('Некорректный ID', 400, 'bad_id')
@@ -79,8 +79,8 @@ export const PATCH = async (req, { params }) => {
   return NextResponse.json({ success: true, data: item })
 }
 
-export const DELETE = async (_req, { params }) => {
-  const auth = await authorize()
+export const DELETE = async (req, { params }) => {
+  const auth = await authorize(req)
   if (auth.response) return auth.response
   const { id } = await params
   if (!mongoose.Types.ObjectId.isValid(id)) return error('Некорректный ID', 400, 'bad_id')

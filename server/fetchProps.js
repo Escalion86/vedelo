@@ -40,7 +40,8 @@ const normalizeObjectId = (value) => {
 
 const buildSafeDefaultPayload = (serverDateTime, user, extra = {}) => ({
   loggedUser: JSON.parse(JSON.stringify(user ?? null)),
-  clients: [],
+  // null — список не получен; [] допустим только после успешного чтения.
+  clients: null,
   events: [],
   eventsPaging: {
     scope: 'all',
@@ -331,8 +332,14 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
 
     const [clients, transactions, services] = await Promise.all([
       shouldFetchClients
-        ? Clients.find({ tenantId: tenantObjectId }).select('-password').lean()
-        : Promise.resolve([]),
+        ? Clients.find({ tenantId: tenantObjectId })
+            .select('-password')
+            .lean()
+            .catch(() => {
+              console.warn('[fetchProps] clients unavailable', { requestId, page })
+              return null
+            })
+        : Promise.resolve(null),
       shouldFetchTransactions && transactionsQuery
         ? Transactions.find(transactionsQuery).lean()
         : Promise.resolve([]),

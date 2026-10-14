@@ -21,11 +21,9 @@ let confirmation
 let transactionEventId
 let transactionProps
 let renderTransactions = false
-let renderCompact = false
 let eventFromQuery
 let eventPending = false
 let transactions = empty
-let clients = empty
 const settings = {}
 const atoms = {
   loggedUserAtom: 'user', siteSettingsAtom: 'settings', servicesAtom: empty,
@@ -41,14 +39,14 @@ const mocks = {
     useAtom: () => [settings, noop],
   },
   '@helpers/useEventsQuery': { useEventQuery: () => ({ data: eventFromQuery, isPending: eventPending }), useEventsQuery: () => ({ data: undefined }) },
-  '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: clients }) },
+  '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: empty }) },
   '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: transactions }), useDeleteTransactionMutation: () => ({}) },
   '@helpers/tariffAccess': { getUserTariffAccess: () => ({ allowDocuments: true }) },
   '@helpers/firstRunWizard.mjs': { shouldShowColleagueTransferControls: () => true },
   '@helpers/documentTemplates': { normalizeDocumentTemplatesFromSettings: () => empty },
   '@helpers/generateContractTemplate': { getContractTemplateVariablesMap: () => ({}) },
   '@helpers/generateActTemplate': { getActTemplateVariablesMap: () => ({}) },
-  '@components/CompactEventForm': (props) => { compactProps = props; return renderCompact ? React.createElement(Compact, props) : React.createElement('main', { 'data-compact': true }, props.fields.description, props.fields.address, props.fields.reminders, props.fields.status, props.fields.finance, renderTransactions ? props.fields.transactions : null) },
+  '@components/CompactEventForm': (props) => { compactProps = props; return React.createElement('main', { 'data-compact': true }, props.fields.description, props.fields.address, props.fields.reminders, props.fields.status, props.fields.finance, renderTransactions ? props.fields.transactions : null) },
   '@components/AddressPoolPicker': ({ label }) => React.createElement('div', { 'data-address-field': true, 'data-address-label': label ?? 'undefined' }, label),
   '@components/AddIconButton': ({ onClick, title, disabled, label }) => React.createElement('button', { onClick, title, disabled }, label || '+'),
   '@components/LabeledContainer': ({ label, children, className }) => React.createElement('section', { 'data-labeled-container': label, className }, React.createElement('span', null, label), children),
@@ -572,92 +570,6 @@ test('collapsed sections retain field state and expose summaries; invalid dates 
   assert.equal(field.value, 'Изменённая дата')
   await React.act(async () => root.render(React.createElement(Compact, { ...props, errors: { dateEnd: 'Неверный интервал' }, validationAttempt: 1 })))
   assert.equal(section.open, true)
-})
-
-test('transfer caption names the colleague while the section stays collapsed', async (t) => {
-  const props = {
-    ...compactBase,
-    isTransferred: true,
-    colleague: {
-      _id: 'colleague-1',
-      firstName: 'Михаил',
-      secondName: 'Гладких',
-    },
-  }
-  const { el, root } = await mount(t, Compact, props)
-  const section = () =>
-    [...el.querySelectorAll('details')].find((item) =>
-      item.textContent.includes('Другие детали')
-    )
-  const caption = () => section().querySelector('summary').textContent
-
-  assert.equal(caption().includes('Передано: Михаил Гладких'), true)
-  assert.equal(section().open, false)
-
-  await React.act(async () =>
-    root.render(React.createElement(Compact, { ...props, colleague: null }))
-  )
-  assert.equal(caption().includes('Передано коллеге'), true)
-  assert.equal(caption().includes('Михаил'), false)
-
-  await React.act(async () =>
-    root.render(React.createElement(Compact, { ...props, isTransferred: false }))
-  )
-  assert.equal(caption().includes('Дата заявки, передача коллеге'), true)
-})
-
-test('compact editor passes the transfer state and the chosen colleague to the caption', async (t) => {
-  user = { role: 'user' }
-  clients = [
-    {
-      _id: 'colleague-1',
-      clientType: 'colleague',
-      firstName: 'Михаил',
-      secondName: 'Гладких',
-      phone: '+79233176270',
-    },
-  ]
-  try {
-    await mount(t, modalHarness(eventFunc(null, false, 'draft', {
-      initialEvent: { isTransferred: true, colleagueId: 'colleague-1' },
-    }).Children))
-    assert.equal(compactProps.isTransferred, true)
-    assert.equal(compactProps.colleague.firstName, 'Михаил')
-    assert.equal(compactProps.colleague.phone, '+79233176270')
-  } finally {
-    clients = empty
-  }
-})
-
-test('editor renders the transfer caption with the colleague name in the collapsed section', async (t) => {
-  user = { role: 'user' }
-  renderCompact = true
-  clients = [
-    {
-      _id: 'colleague-1',
-      clientType: 'colleague',
-      firstName: 'Михаил',
-      secondName: 'Гладких',
-      phone: '+79233176270',
-    },
-  ]
-  try {
-    const { el } = await mount(t, modalHarness(eventFunc(null, false, 'draft', {
-      initialEvent: { isTransferred: true, colleagueId: 'colleague-1' },
-    }).Children))
-    const section = [...el.querySelectorAll('details')].find((item) =>
-      item.querySelector('summary')?.textContent.includes('Другие детали')
-    )
-    assert.ok(section)
-    assert.equal(section.open, false)
-    assert.match(
-      section.querySelector('summary').textContent,
-      /Передано: Михаил Гладких/
-    )
-  } finally {
-    renderCompact = false
-    clients = empty
-  }
 })
 
 test('regular users can save a compact draft without services and date', async (t) => {

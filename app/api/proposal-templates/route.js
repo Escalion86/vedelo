@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import ProposalTemplates from '@models/ProposalTemplates'
 import Services from '@models/Services'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getProposalRequestContext from '@server/proposalRequestContext'
 import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
@@ -18,8 +18,8 @@ import {
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
 
-export const GET = async () => {
-  const { tenantId, user } = await getTenantContext()
+export const GET = async (req) => {
+  const { tenantId, user } = await getProposalRequestContext(req)
   if (!tenantId || !user?._id) return error('Не авторизован', 401, 'unauthorized')
   if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
     return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'proposal_tariff_required')
@@ -37,7 +37,7 @@ export const GET = async () => {
 }
 
 export const POST = async (req) => {
-  const { tenantId, user } = await getTenantContext()
+  const { tenantId, user } = await getProposalRequestContext(req)
   if (!tenantId || !user?._id) return error('Не авторизован', 401, 'unauthorized')
   if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
     return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'proposal_tariff_required')

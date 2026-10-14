@@ -3,12 +3,23 @@ import Tariffs from '@models/Tariffs'
 import Users from '@models/Users'
 import { applyTariffPurchase } from '@server/billing'
 import dbConnect from '@server/dbConnect'
+import { getAiIncludedExampleRates } from '@server/aiIncludedEstimate'
+import { serializeMobileAiIncludedRates } from '@server/mobile/billing'
 import getRequestContext from '@server/getRequestContext'
 import {
   getMobileBillingUserFilter,
   loadMobileBilling,
 } from '@server/mobile/billingStore'
 import { mobileError, mobileSuccess } from '@server/mobile/routeHelpers'
+
+// The same cached aggregates as web estimates; failure keeps old-client fallback.
+const withIncludedRates = async (billing) => {
+  try {
+    return { ...billing, aiIncludedRates: serializeMobileAiIncludedRates(await getAiIncludedExampleRates()) }
+  } catch {
+    return billing
+  }
+}
 
 const getContext = async (req) => {
   const context = await getRequestContext(req)
@@ -25,7 +36,7 @@ export const GET = async (req) => {
     tenantId: context.tenantId,
   })
   if (!billing) return mobileError('USER_NOT_FOUND', 'Пользователь не найден', 404)
-  return mobileSuccess(billing)
+  return mobileSuccess(await withIncludedRates(billing))
 }
 
 export const POST = async (req) => {
@@ -86,5 +97,5 @@ export const POST = async (req) => {
     userId: context.user._id,
     tenantId: context.tenantId,
   })
-  return mobileSuccess(billing)
+  return mobileSuccess(await withIncludedRates(billing))
 }

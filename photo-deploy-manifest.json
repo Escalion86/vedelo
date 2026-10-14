@@ -1,0 +1,38 @@
+{
+  "version": "1.35.1",
+  "build_id": "wv0SWo1pJ5eIuOgTQj19f",
+  "candidate": {
+    "html": 200,
+    "css_count": 2,
+    "css_status": 200,
+    "unauthorized_photo_endpoints": 401
+  },
+  "live": {
+    "html": 200,
+    "css_count": 2,
+    "css_status": 200,
+    "unauthorized_photo_endpoints": 401
+  },
+  "files_verified": 17,
+  "source_backup": "/home/alex/vedelo-photo-20261008-180817-backup.tar.gz",
+  "previous_build": "/home/apps/vedelo/.next-before-photo-20261008-180817",
+  "manifest": {
+    "app/api/events/ai-draft/route.js": "fd74753a5d891a9ecff882e81edab990c7fcdce83962928a9948511381551c18",
+    "app/api/events/ai-photo-draft/route.js": "31872bf5b6e84e3f4589b4fba69d933e478918d7c6b30c396b56b5fc2c4af1f3",
+    "app/api/mobile/v1/events/ai-photo-draft/route.js": "d725659621dbd65ac3e1b7cd30a3a5672600aa6e1191786a0897d1ad95c866b0",
+    "app/globals.css": "4173e52da9f3b19ceac0801129226f0c8fbed4b30fad6ebd637126df0b68970b",
+    "components/MobileBottomNav.js": "3bbba7063ff8be11c22c60a147ea150a249f34406f587311240bc4ef74c75a73",
+    "components/PhotoDraftModal.js": "7d68850515d3aae61a5ae37603b9cd61e55a1928d320f919a8090348a37d9798",
+    "helpers/useEventCreateMenu.js": "7efc42cfe279ad1e390735065f177cb26eada41cafd040888f7ea224327e4beb",
+    "server/aiChatCompletion.js": "19d3eb7f1449cb34aec331dedde215580a308a7e99d16ff02248e57628ebae36",
+    "server/aiPhotoDraft.js": "ba3882bc448aadc28f56c0a05d189f07e6155e51d405b7cf44ec3c933f12c0eb",
+    "server/eventAiDraft.js": "0e095603949014e8c83fa9a8158e3ad4aa34307cfa702f011384aff3e247b53b",
+    "package.json": "fe56b25e89527e08ee06bf33d0a3210b729b596efd6eae238bb0ba061ed70d40",
+    "package-lock.json": "e14afcf4c2d2351811f4a50beeff87296b6a8d9240257a51a282ef152a58cf61",
+    "docs/ai-photo-draft/README.md": "1ca4424dde2a953f30ee0a2c9de694dd466f9ddffebaf36421be2a260298bbd7",
+    "docs/ai-photo-draft/ROLLOUT.md": "3580b8315d84e1252eca1e708927af2398afce5591fd64354486e6c6dbe1369f",
+    "tests/server/aiPhotoDraft.test.cjs": "2fe7d141e68da4f30e0453e86438f4117aac3c6a8e8bdc6a5ab27946ecff99f3",
+    "tests/server/aiPhotoBilling.test.cjs": "cf3ea6b04ec71d9d870d54733817469cff140ca029ffbda94e0a13b002ae084a",
+    "tests/fixtures/aiPhotoHarness.cjs": "8e4f6b6cadaacdcab51bb7dd0cce165dccb53d3d0d01ef4ebf353378f8f10814"
+  }
+}

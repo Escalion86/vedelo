@@ -71,7 +71,7 @@ const useCabinetStateHydration = (props) => {
 
     setLoggedUser(initialLoggedUser ?? null)
     setEvents(events)
-    setClients(clients)
+    if (Array.isArray(initialClients)) setClients(clients)
     setTransactions(transactions)
     setServices(services)
     setTariffs(tariffs)
@@ -91,7 +91,11 @@ const useCabinetStateHydration = (props) => {
       if (event?._id)
         queryClient.setQueryData(queryKeys.event(event._id), event)
     })
-    queryClient.setQueryData(queryKeys.clients(), clients)
+    // Не выдаём не загруженный/сбойный SSR-список за свежий успешный [].
+    // Уже полученный клиентский кэш при этом сохраняется.
+    if (Array.isArray(initialClients)) {
+      queryClient.setQueryData(queryKeys.clients(), clients)
+    }
     queryClient.setQueryData(queryKeys.transactionsAll, transactions)
     // Пустой список услуг на страницах, которые их не загружают, не должен
     // попадать в кэш: свежие (staleTime) пустые данные блокируют запрос

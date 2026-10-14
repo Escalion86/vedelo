@@ -7,6 +7,7 @@ import Clients from '@models/Clients'
 import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
+import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { REVIEW_DAYS, reviewStatus, canRequestClientReview } from '@helpers/clientReviews.mjs'
 
@@ -68,8 +69,15 @@ export const reviewDto = (review) => ({
   comment: review.comment || '',
   note: review.note || '',
 })
-export const reviewContext = async (requireFeature = false) => {
-  const { user, tenantId } = await getTenantContext()
+export const reviewContext = async (requireFeature = false, req) => {
+  const authorization = req?.headers?.get?.('authorization')
+  // Неполный/нестандартный Bearer не должен превращаться в web-cookie вход.
+  // Формат действующей mobile-сессии проверяет существующий getRequestContext.
+  if (authorization != null && !/^Bearer [^\s,]+$/.test(authorization))
+    return { response: reviewError('Требуется авторизация', 401) }
+  const { user, tenantId } = await (req
+    ? getRequestContext(req)
+    : getTenantContext())
   if (!user || !tenantId)
     return { response: reviewError('Требуется авторизация', 401) }
   if (user.archive) return { response: reviewError('Доступ недоступен', 403) }

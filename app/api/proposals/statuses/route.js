@@ -1,12 +1,12 @@
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
-import getTenantContext from '@server/getTenantContext'
+import getProposalRequestContext from '@server/proposalRequestContext'
 import { canUseProposalBuilder } from '@helpers/proposalAccess'
 import { summarizeProposalStatuses } from '@helpers/proposalStatus.mjs'
 
-export const GET = async () => {
-  const { tenantId, user } = await getTenantContext()
+export const GET = async (req) => {
+  const { tenantId, user } = await getProposalRequestContext(req)
   if (!tenantId || !user?._id)
     return NextResponse.json({ success: false }, { status: 401 })
   if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))

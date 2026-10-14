@@ -15,7 +15,7 @@ import {
 } from '@server/clientReviews'
 
 export const GET = async (req) => {
-  const ctx = await reviewContext()
+  const ctx = await reviewContext(false, req)
   if (ctx.response) return ctx.response
   const params = new URL(req.url).searchParams
   const filter = { tenantId: ctx.tenantId }
@@ -36,7 +36,11 @@ export const GET = async (req) => {
   for (const key of ['from', 'to']) {
     if (!params.has(key)) continue
     const value = params.get(key)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)))
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+      Number.isNaN(Date.parse(value)) ||
+      new Date(value).toISOString().slice(0, 10) !== value
+    )
       return reviewError('Некорректная дата')
     filter.createdAt ||= {}
     filter.createdAt[key === 'from' ? '$gte' : '$lt'] = new Date(
@@ -85,7 +89,7 @@ export const GET = async (req) => {
 }
 
 export const POST = async (req) => {
-  const ctx = await reviewContext(true)
+  const ctx = await reviewContext(true, req)
   if (ctx.response) return ctx.response
   const body = await req.json().catch(() => null)
   if (!validReviewId(body?.eventId))

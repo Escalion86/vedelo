@@ -24,7 +24,7 @@ const normalizeCabinetProps = (input, sessionUser, page) => {
             impersonation: sessionUser?.impersonation ?? null,
           }
         : null,
-    clients: Array.isArray(source.clients) ? source.clients : [],
+    clients: Array.isArray(source.clients) ? source.clients : null,
     events: Array.isArray(source.events) ? source.events : [],
     eventsPaging:
       source.eventsPaging && typeof source.eventsPaging === 'object'

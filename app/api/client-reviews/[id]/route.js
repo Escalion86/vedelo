@@ -20,7 +20,7 @@ export const PATCH = async (req, { params }) => {
   const action = body?.action
   if (!['link', 'renew', 'revoke', 'sent', 'read', 'note'].includes(action))
     return reviewError('Неизвестное действие')
-  const ctx = await reviewContext(['link', 'renew', 'sent'].includes(action))
+  const ctx = await reviewContext(['link', 'renew', 'sent'].includes(action), req)
   if (ctx.response) return ctx.response
   if (!validReviewId(id)) return reviewError('Некорректный идентификатор')
   const filter = { _id: id, tenantId: ctx.tenantId }

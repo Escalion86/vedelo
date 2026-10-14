@@ -967,14 +967,14 @@
     "host": [
       {
         "path": "mobile/src/features/attention/AttentionScreen.tsx",
-        "line": 151,
-        "anchor": "help: getFieldHelp('attention.withoutNextStep')"
+        "line": 136,
+        "anchor": "<SectionTitle help={getFieldHelp('attention.withoutNextStep')}>{`Заявки без следующего шага · ${data.withoutNextStep.length}`}</SectionTitle>"
       }
     ],
     "reason": "есть",
     "evidence": {
       "path": "mobile/src/features/attention/AttentionScreen.tsx",
-      "line": 151,
+      "line": 135,
       "anchor": "Заявки без следующего шага"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
@@ -986,14 +986,14 @@
     "host": [
       {
         "path": "mobile/src/features/attention/AttentionScreen.tsx",
-        "line": 138,
-        "anchor": "help: getFieldHelp('attention.pastRequests')"
+        "line": 113,
+        "anchor": "<SectionTitle help={getFieldHelp('attention.pastRequests')}>{`Заявки с прошедшей датой · ${data.pastRequests.length}`}</SectionTitle>"
       }
     ],
     "reason": "есть",
     "evidence": {
       "path": "mobile/src/features/attention/AttentionScreen.tsx",
-      "line": 138,
+      "line": 93,
       "anchor": "Заявки с прошедшей датой"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",

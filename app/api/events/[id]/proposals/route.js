@@ -8,7 +8,7 @@ import Services from '@models/Services'
 import ProposalTemplates from '@models/ProposalTemplates'
 import Proposals from '@models/Proposals'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getProposalRequestContext, { getProposalArtistProfile } from '@server/proposalRequestContext'
 import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
@@ -19,11 +19,12 @@ import { normalizeProposalTemplateDefaults } from '@helpers/proposalContent'
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
 
-const contextFor = async (eventId) => {
-  const context = await getTenantContext()
+const contextFor = async (req, eventId) => {
+  const context = await getProposalRequestContext(req)
   if (!context.tenantId || !context.user?._id) return { response: error('Не авторизован', 401, 'unauthorized') }
   if (!mongoose.Types.ObjectId.isValid(eventId)) return { response: error('Некорректный ID мероприятия', 400, 'bad_id') }
-  if (!canUseProposalBuilder(await getUserTariffAccess(context.user._id)))
+  const access = await getUserTariffAccess(context.user._id)
+  if (!canUseProposalBuilder(access))
     return {
       response: error(
         PROPOSAL_BUILDER_ACCESS_ERROR,
@@ -34,12 +35,12 @@ const contextFor = async (eventId) => {
   await dbConnect()
   const event = await Events.findOne({ _id: eventId, tenantId: context.tenantId }).lean()
   if (!event) return { response: error('Мероприятие не найдено', 404, 'not_found') }
-  return { context, event }
+  return { context, event, access }
 }
 
-export const GET = async (_req, { params }) => {
+export const GET = async (req, { params }) => {
   const { id } = await params
-  const resolved = await contextFor(id)
+  const resolved = await contextFor(req, id)
   if (resolved.response) return resolved.response
   await Proposals.updateMany(
     { tenantId: resolved.context.tenantId, eventId: id, status: 'published', validUntil: { $lt: new Date() } },
@@ -51,7 +52,7 @@ export const GET = async (_req, { params }) => {
 
 export const POST = async (req, { params }) => {
   const { id } = await params
-  const resolved = await contextFor(id)
+  const resolved = await contextFor(req, id)
   if (resolved.response) return resolved.response
   const body = await req.json().catch(() => ({}))
   const sourceProposalId = String(body?.sourceProposalId || '')
@@ -81,6 +82,8 @@ export const POST = async (req, { params }) => {
     return NextResponse.json({ success: true, data: item }, { status: 201 })
   }
   const templateId = String(body?.templateId || '')
+  const artist = getProposalArtistProfile(resolved.context, resolved.access)
+  if (!artist) return error('Профиль недоступен', 403, 'profile_unavailable')
   if (templateId && !mongoose.Types.ObjectId.isValid(templateId)) return error('Некорректный шаблон', 400, 'template_required')
   const [template, client, services, latest] = await Promise.all([
     templateId ? ProposalTemplates.findOne({ _id: templateId, tenantId: resolved.context.tenantId, status: 'active' }).lean() : { name: 'Коммерческое предложение' },
@@ -107,7 +110,7 @@ export const POST = async (req, { params }) => {
     client,
     services,
     templateServices,
-    artist: resolved.context.user,
+    artist,
     input: body,
   })
   const validUntil = body?.validUntil
