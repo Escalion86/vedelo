@@ -1,4 +1,6 @@
 import { getDatabase } from './database'
+import { assertLocalEntityIdentity, localEntityIdentity, resolveLocalEntityId } from './localEntityIds'
+import { assertLocalDataEpoch, localDataEpoch, withLocalEntityWrite } from './localEntityCoordination'
 
 export type CachedEntity<T extends object> = T & {
   _id: string
@@ -49,15 +51,60 @@ export const listCachedEntities = async <T extends object>(
 export const getCachedEntity = async <T extends object>(
   entityType: string,
   entityId: string
-) => {
+): Promise<CachedEntity<T> | null> => {
   const database = await getDatabase()
+  const resolvedId = await resolveLocalEntityId(entityType, entityId)
   const row = await database.getFirstAsync<{ payload: string }>(
     `SELECT payload FROM entity_cache
      WHERE entity_type = ? AND entity_id = ? AND deleted_at IS NULL`,
     entityType,
-    entityId
+    resolvedId
   )
+  // Remap may have finished while the local row was being read/deleted.
+  const finalId = await resolveLocalEntityId(entityType, entityId)
+  if (finalId !== resolvedId) return getCachedEntity<T>(entityType, finalId)
   return row ? (JSON.parse(row.payload) as CachedEntity<T>) : null
+}
+
+// A server readback owns one queue boundary, just like local save/remap/clear.
+// Keep the public cache helpers reentrant; this boundary contains no network.
+export const publishEntityReadback = async <T extends { syncStatus?: string }>(
+  entityType: string,
+  fresh: Record<string, unknown> & { _id: string },
+  isActive: () => boolean,
+  publish: (entity: CachedEntity<T>) => void
+) => {
+  const epoch = localDataEpoch()
+  const identity = await localEntityIdentity()
+  return withLocalEntityWrite(async () => {
+    const live = () => {
+      assertLocalDataEpoch(epoch)
+      if (!isActive()) throw new Error('SESSION_CHANGED')
+    }
+    live()
+    await assertLocalEntityIdentity(identity)
+    const saved = await getCachedEntity<T>(entityType, fresh._id)
+    const database = await getDatabase()
+    const queued = await database.getFirstAsync<{ operation_id: string }>(
+      `SELECT operation_id FROM outbox WHERE entity_type = ? AND entity_id = ?
+       AND status IN ('pending', 'syncing', 'failed', 'conflict') LIMIT 1`,
+      entityType,
+      fresh._id
+    )
+    await assertLocalEntityIdentity(identity)
+    live()
+    if (!saved || saved._id !== fresh._id || queued ||
+      (saved.syncStatus && saved.syncStatus !== 'synced'))
+      throw new Error('EVENT_HAS_LOCAL_CHANGES')
+    const changes = Object.fromEntries(Object.entries(fresh).filter(([, value]) => value !== undefined))
+    const merged = { ...saved, ...changes } as CachedEntity<T>
+    await upsertEntities(entityType, [merged])
+    // A dispatched SQL write drains before clear. Publish synchronously while
+    // still owning the queue so a later local save cannot precede this UI write.
+    live()
+    publish(merged)
+    return merged
+  })
 }
 
 export const removeCachedEntity = async (entityType: string, entityId: string) => {

@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { Pressable, StyleSheet, Text } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Button, Notice, SectionTitle, Surface } from '../../shared/ui/components'
@@ -9,11 +10,11 @@ const options = [['light', 'Светлая'], ['dark', 'Тёмная'], ['system
 export const ThemePreferenceSection = () => {
   const { palette, preference, hydrated, persistenceStatus, setPreference } = useTheme()
   const styles = useThemeStyles(createStyles)
-  return <Surface>
+  return <Surface testID="settings-theme">
     <SectionTitle>Тема приложения</SectionTitle>
     <Text style={styles.hint}>Настройка только для этого устройства. Работает без сети и не меняет настройки организации.</Text>
     {!hydrated ? <Notice message="Читаем тему этого устройства… Вы можете выбрать тему сейчас." /> : null}
-    {options.map(([value, title]) => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={title}
+    {options.map(([value, title]) => <Pressable testID={`settings-theme-${value}`} key={value} accessibilityRole="radio" accessibilityLabel={title}
       accessibilityState={{ checked: preference === value }} onPress={() => void setPreference(value)}
       style={({ pressed }) => [styles.option, preference === value && styles.selected, pressed && styles.pressed]}>
       <Text style={styles.title}>{title}</Text>
@@ -30,10 +31,10 @@ export const ThemePreferenceSection = () => {
 }
 
 const createStyles = (palette: Palette) => StyleSheet.create({
-  hint: { color: palette.cardMuted, fontSize: 13, lineHeight: 18 },
+  hint: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 13, lineHeight: 18 },
   option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8,
     borderRadius: 4, borderWidth: 1, borderColor: palette.border },
-  title: { flex: 1, minWidth: 0, color: palette.text, fontSize: 14, fontWeight: '600' },
+  title: { fontFamily: typography.fontFamily, flex: 1, minWidth: 0, color: palette.text, fontSize: 14, fontWeight: '600' },
   selected: { borderColor: palette.primary, backgroundColor: palette.rowSelected },
   pressed: { backgroundColor: palette.rowPressed },
 })

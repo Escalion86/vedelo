@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { buildStatisticsChartData } from './monthlyStatistics'
 const id = z.string().min(1)
 const date = z.string().refine((value) => Number.isFinite(Date.parse(value))).nullable()
 const amount = z.number().finite()
@@ -6,7 +7,7 @@ export const statisticsStatuses = ['all', 'draft', 'active', 'finished', 'closed
 export type StatisticsStatus = typeof statisticsStatuses[number]
 export type StatisticsFilters = { year: number | null; town: string; status: StatisticsStatus }
 const payload = z.object({
-  events: z.array(z.object({ _id: id, clientId: id.nullable(), eventType: z.string(), description: z.string(), eventDate: date, dateEnd: date, status: z.enum(['draft', 'active', 'canceled', 'closed']), contractSum: amount, address: z.object({ town: z.string(), street: z.string(), house: z.string() }) })),
+  events: z.array(z.object({ _id: id, clientId: id.nullable(), eventType: z.string(), description: z.string(), eventDate: date, dateEnd: date, status: z.enum(['draft', 'active', 'canceled', 'closed']), contractSum: amount, isTransferred: z.boolean().optional(), address: z.object({ town: z.string(), street: z.string(), house: z.string() }) })),
   clients: z.array(z.object({ _id: id, firstName: z.string(), secondName: z.string() })),
   transactions: z.array(z.object({ _id: id, eventId: id.nullable(), clientId: id.nullable(), amount, type: z.enum(['income', 'expense']), category: z.string(), date, comment: z.string() })),
   filters: z.object({ year: z.number().int().nullable(), town: z.string(), status: z.enum(statisticsStatuses) }),
@@ -23,7 +24,7 @@ export function statisticsPath(filters: StatisticsFilters) {
   if (filters.town) query.set('town', filters.town)
   return `/mobile/v1/statistics?${query}`
 }
-export function calculateStatistics(data: StatisticsPayload) {
+export function calculateStatistics(data: StatisticsPayload, now = new Date()) {
   const eventFinance = new Map(data.events.map((event) => [event._id, { income: 0, expense: 0 }]))
   let income = 0; let expense = 0; let taxes = 0; let commissions = 0
   const categories = new Map<string, number>()
@@ -40,8 +41,15 @@ export function calculateStatistics(data: StatisticsPayload) {
     const finance = transaction.eventId ? eventFinance.get(transaction.eventId) : null
     if (finance) finance[transaction.type] += amount
   }
-  const paymentLeft = data.events.reduce((sum, event) => sum + Math.max(event.contractSum - (eventFinance.get(event._id)?.income || 0), 0), 0)
-  return { income, expense, taxes, commissions, net: income - expense, margin: income > 0 ? ((income - expense) / income) * 100 : 0, paymentLeft, eventFinance,
+  const paymentLeft = data.events.reduce((sum, event) => sum + Math.max(event.contractSum - Math.max(eventFinance.get(event._id)?.income || 0, 0), 0), 0)
+  const depositPaid = data.events.reduce((sum, event) => {
+    const end = event.dateEnd ?? event.eventDate
+    const eligible = event.status === 'draft' || (event.status === 'active' && (!end || Date.parse(end) >= now.getTime()))
+    if (!eligible) return sum
+    return sum + data.transactions.filter(tx => tx.eventId === event._id && tx.type === 'income' && tx.amount > 0).reduce((total, tx) => total + tx.amount, 0)
+  }, 0)
+  const months = buildStatisticsChartData({ selectedYear: data.filters.year, filteredEvents: data.events, filteredTransactions: data.transactions, eventsMap: new Map(data.events.map(event => [event._id, event])), eventFinanceMap: eventFinance, currentDate: now })
+  return { income, expense, taxes, commissions, depositPaid, months, net: income - expense, margin: income > 0 ? ((income - expense) / income) * 100 : 0, paymentLeft, eventFinance,
     topExpenses: Array.from(categories, ([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5),
     topEvents: data.events.map((event) => { const finance = eventFinance.get(event._id)!; return { event, profit: finance.income - finance.expense } }).sort((a, b) => b.profit - a.profit).slice(0, 5) }
 }

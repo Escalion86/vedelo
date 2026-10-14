@@ -1,5 +1,6 @@
 import React from 'react'
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
+const { installReadiness, measureRender, measureEvents } = require('../../../__tests__/stageN/readiness.cjs')
+import { act, fireEvent as nativeFireEvent, render as nativeRender, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import * as WebBrowser from 'expo-web-browser'
@@ -7,6 +8,10 @@ import { IntegrationsSection } from './IntegrationsSection'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import { unconfirmed } from './integrationContract'
+installReadiness('integrations')
+const render = measureRender(nativeRender)
+const fireEvent = measureEvents(nativeFireEvent)
+require('../../../__tests__/stageN/nativeHosts.cjs').initializeNativeHosts(nativeRender)
 const mockGet = jest.fn(); const mockPost = jest.fn(); const mockPatch = jest.fn(); const mockDelete = jest.fn(); const mockPush = jest.fn()
 let mockFocus = true
 jest.mock('expo-router', () => ({ router: { push: (...args: any[]) => mockPush(...args) }, useFocusEffect: (fn: any) => require('react').useEffect(() => mockFocus ? fn() : undefined, [fn, mockFocus]) }))
@@ -14,7 +19,7 @@ jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }))
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }))
 jest.mock('../../shared/config/env', () => ({ env: { appScheme: 'vedelo' } }))
-jest.mock('../../shared/api/client', () => ({ api: { get: (...args: any[]) => mockGet(...args), post: (...args: any[]) => mockPost(...args), patch: (...args: any[]) => mockPatch(...args), delete: (...args: any[]) => mockDelete(...args) } }))
+jest.mock('../../shared/api/client', () => ({ api: { get: (...args: any[]) => require('../../../__tests__/stageN/readiness.cjs').measureCall(mockGet, args, 'integrations'), post: (...args: any[]) => mockPost(...args), patch: (...args: any[]) => mockPatch(...args), delete: (...args: any[]) => mockDelete(...args) } }))
 const ok = (data: any) => ({ success: true, data })
 const key1 = { id: 'first-key', name: 'Первый сайт', enabled: true, lastFour: '1111' }
 const key2 = { id: 'second-key', name: 'Второй сайт', enabled: true, lastFour: '2222' }
@@ -78,7 +83,8 @@ const noPrivileged = () => {
   for (const mock of [mockGet, mockPost, mockPatch, mockDelete]) for (const [path] of mock.mock.calls) expect(path).not.toMatch(/adminUsage|\/ai\/settings|coefficient|operator|telegram\/(connect|disconnect)|integrations\/telegram/)
 }
 it.each(['light', 'dark'] as const)('единый компактный список %s, длинные данные и только пользовательские запросы', async (mode) => {
-  const screen = render(draw(mode)); await screen.findByLabelText('Настроить ИИ-провайдер')
+  const screen = render(draw(mode))
+  await screen.findByLabelText('Настроить ИИ-провайдер')
   const palette = mode === 'dark' ? darkPalette : lightPalette
   expect(StyleSheet.flatten(screen.getByText('Google Calendar').props.style).color).toBe(palette.text)
   expect(screen.getAllByLabelText(/Настроить /)).toHaveLength(7)

@@ -40,7 +40,7 @@ it('импорт/экспорт обозначает текущий пробел
   expect(mockApi).not.toHaveBeenCalled()
 })
 
-it.each(['learning', 'client-reviews'])('новый раздел %s сообщает о незавершённом этапе без API-запросов', (section) => {
+it.each(['learning'])('новый раздел %s сообщает о незавершённом этапе без API-запросов', (section) => {
   mockSection = section
   const screen = render(<MoreSectionScreen />)
   expect(screen.getByText('Пока недоступно в приложении')).toBeTruthy()
@@ -53,4 +53,8 @@ it.each([['profile', '/(tabs)/profile'], ['billing-history', '/billing']])('ли
   render(<MoreSectionScreen />)
   expect(mockReplace).toHaveBeenCalledWith(path)
   expect(mockApi).not.toHaveBeenCalled()
+})
+
+it.each(['client-reviews','review-page'])('зарезервированный точный адрес %s не монтирует соседнюю заглушку из dynamic',section=>{
+ mockSection=section;const screen=render(<MoreSectionScreen/>);expect(screen.getAllByText('Раздел недоступен').length).toBeGreaterThan(0);expect(mockApi).not.toHaveBeenCalled();expect(mockLists).not.toHaveBeenCalled()
 })

@@ -18,6 +18,7 @@ const serializeEvent = (event = {}) => ({
   eventDate: asDate(event.eventDate),
   dateEnd: asDate(event.dateEnd),
   status: String(event.status || 'active'),
+  isTransferred: event.isTransferred === true,
   contractSum: Number(event.contractSum || 0),
   address: {
     town: String(event.address?.town || ''),

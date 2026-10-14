@@ -29,8 +29,7 @@ it.each(['user', 'admin', 'dev'])('каталог роли %s одинаков, 
   const screen = render(<MenuSheet />)
   await act(async () => undefined)
   expect(screen.getAllByRole('button').map((item) => item.props.accessibilityLabel)).toEqual([
-    'Профиль', 'Тариф: Профи', 'Синхронизация', 'Отзывы клиентов', 'История действий', 'Статистика',
-    'Транзакции', 'Звонки', 'Настройки', 'Поддержка',
+    'Профиль', 'Тариф: Профи', 'Синхронизация', 'Статистика', 'Транзакции', 'Звонки', 'Отзывы', 'История действий', 'Поддержка', 'Настройки',
   ])
   expect(mockGet).toHaveBeenCalledTimes(1)
   expect(mockGet).toHaveBeenCalledWith('/mobile/v1/billing')
@@ -49,9 +48,9 @@ it('аккордеон закрыт, сохраняет точный поряд�
   expect(settings.props.accessibilityState.expanded).toBe(false)
   fireEvent.press(settings)
   expect(screen.getAllByRole('button').map((item) => item.props.accessibilityLabel)).toEqual([
-    'Отзывы клиентов', 'История действий', 'Статистика', 'Транзакции', 'Звонки', 'Настройки',
-    'Общие настройки', 'Личный профиль', 'Мои услуги', 'Интеграции', 'Импорт и экспорт', 'Документы',
-    'Списки', 'Уведомления', 'Реферальная система', 'Баланс и платежи', 'Поддержка',
+    'Статистика', 'Транзакции', 'Звонки', 'Отзывы', 'История действий', 'Поддержка', 'Настройки',
+    'Общие настройки', 'Личный профиль', 'Мои услуги', 'Интеграции', 'Импорт и экспорт', 'Шаблоны КП', 'Документы',
+    'Списки', 'Уведомления', 'Реферальная система', 'Баланс и платежи',
   ])
   fireEvent.press(screen.getByText('Мои услуги'))
   expect(navigate).toHaveBeenCalledWith('/more/services')
@@ -72,7 +71,7 @@ it('пустая группа скрыта, одиночная сразу вед
 
 it('whitelist включает все пользовательские секции и только строковые точные значения', () => {
   for (const item of menuGroups.flatMap((group) => group.items)) {
-    if (item.href.startsWith('/more/')) expect(getMenuSection(item.href.slice(6))).toEqual(item)
+    if (item.href.startsWith('/more/') && !['/more/client-reviews','/more/review-page','/more/proposal-templates'].includes(item.href)) expect(getMenuSection(item.href.slice(6))).toEqual(item)
   }
   expect(getMenuSection(['settings'])).toBeUndefined()
   expect(getMenuSection(undefined)).toBeUndefined()

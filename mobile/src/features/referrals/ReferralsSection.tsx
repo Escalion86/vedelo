@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
 import { ActivityIndicator, Share, StyleSheet, Text } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
@@ -11,6 +12,7 @@ import type { Palette } from '../../shared/ui/theme'
 import { money } from '../statistics/statistics'
 import { useSectionData } from '../statistics/useSectionData'
 import { readReferrals, referralLink, referralName } from './referrals'
+import { ReferralQr } from './ReferralQr'
 const path = '/mobile/v1/referrals?scope=mine'
 const read = async (signal: AbortSignal) => readReferrals(await api.get(path, { signal }))
 const day = (value: string | null) => value ? new Date(value).toLocaleDateString('ru-RU') : '—'
@@ -40,7 +42,7 @@ export function ReferralsSection() {
     {session.loading ? <ActivityIndicator accessibilityLabel="Загрузка рефералов" color={palette.primary} /> : null}
     {session.error ? <Notice tone="danger" message={session.error} /> : null}
     {session.data ? <>
-      <Surface><SectionTitle>Ваша реферальная ссылка</SectionTitle><Text style={styles.meta}>Поделитесь ссылкой с новым пользователем.</Text>{link ? <Text selectable style={styles.link}>{link}</Text> : <Notice tone="danger" message="Не удалось сформировать ссылку для текущего профиля." />}<Button title="Скопировать ссылку" onPress={() => act('copy')} disabled={!link || busy} /><Button title="Поделиться ссылкой" variant="secondary" onPress={() => act('share')} disabled={!link || busy || typeof Share.share !== 'function'} /></Surface>
+      <Surface><SectionTitle>Ваша реферальная ссылка</SectionTitle><Text style={styles.meta}>Поделитесь ссылкой с новым пользователем.</Text>{link ? <Text testID="referral-link" selectable style={styles.link}>{link}</Text> : <Notice tone="danger" message="Не удалось сформировать ссылку для текущего профиля." />}{link ? <ReferralQr key={link} link={link} /> : null}<Button title="Скопировать ссылку" onPress={() => act('copy')} disabled={!link || busy} /><Button title="Поделиться ссылкой" variant="secondary" onPress={() => act('share')} disabled={!link || busy || typeof Share.share !== 'function'} /></Surface>
       <Surface variant="kpi"><Text style={styles.text}>Приглашено: {session.data.referralsCount}</Text><Text style={styles.text}>Начислено: {money(session.data.rewardsTotal)}</Text><Text style={styles.meta}>Начислений: {session.data.rewardsCount}</Text></Surface>
       {!session.data.referrals.length ? <EmptyState title="Рефералов пока нет" description="Пока никто не зарегистрировался по вашей ссылке." /> : session.data.referrals.map((row) => <Surface key={row.user._id}><Text style={styles.title}>{referralName(row.user)}</Text><Text style={styles.meta}>Регистрация: {day(row.user.createdAt)}</Text><Text style={styles.text}>{money(row.rewardsTotal)} · Начислений: {row.rewardsCount}</Text><Text style={styles.meta}>Последнее начисление: {day(row.lastRewardAt)}</Text></Surface>)}
     </> : null}
@@ -48,4 +50,4 @@ export function ReferralsSection() {
     <Button title={session.error ? 'Повторить загрузку' : 'Обновить'} variant="secondary" onPress={session.load} loading={session.loading} disabled={busy} />
   </>
 }
-const createStyles = (p: Palette) => StyleSheet.create({ title: { color: p.cardTitle, fontSize: 16, fontWeight: '600' }, text: { color: p.text, fontSize: 14, lineHeight: 20 }, meta: { color: p.cardMuted, fontSize: 12, lineHeight: 18 }, link: { color: p.text, fontSize: 14, lineHeight: 22, flexShrink: 1 } })
+const createStyles = (p: Palette) => StyleSheet.create({ title: { fontFamily: typography.fontFamily, color: p.cardTitle, fontSize: 16, fontWeight: '600' }, text: { fontFamily: typography.fontFamily, color: p.text, fontSize: 14, lineHeight: 20 }, meta: { fontFamily: typography.fontFamily, color: p.cardMuted, fontSize: 12, lineHeight: 18 }, link: { fontFamily: typography.fontFamily, color: p.text, fontSize: 14, lineHeight: 22, flexShrink: 1 } })

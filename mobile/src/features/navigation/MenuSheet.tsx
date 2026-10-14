@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
@@ -16,15 +17,15 @@ import { MenuRow } from './MenuRow'
 export function MenuCatalogue({ onNavigate, supportUnread = 0, groups = menuGroups, activePath = '' }: {
   onNavigate: (href: string) => void; supportUnread?: number; groups?: readonly MenuGroup[]; activePath?: string
 }) {
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
   return <>{groups.filter((group) => group.items.length > 0).map((group) => {
     const accordion = group.items.length > 1
-    const open = expanded === group.title
+    const open = expanded.has(group.title)
     return <View key={group.title}>
-      {accordion ? <MenuRow title={group.title} icon={group.title === 'Поддержка' ? 'message-alert-outline' : 'cog-outline'} badge={group.title === 'Поддержка' ? supportUnread : 0} expanded={open}
-        onPress={() => setExpanded(open ? null : group.title)} /> : null}
+      {accordion ? <MenuRow title={group.title} testID={`menu-group-${group.title}`} icon={group.title === 'Отзывы' ? 'comment-text-outline' : group.title === 'Поддержка' ? 'message-alert-outline' : 'cog-outline'} badge={group.title === 'Поддержка' ? supportUnread : 0} expanded={open}
+        onPress={() => setExpanded(previous => { const next = new Set(previous); if (previous.has(group.title)) next.delete(group.title); else next.add(group.title); return next })} /> : null}
       {(!accordion || open) ? group.items.map((item) => <MenuRow key={item.href}
-        title={item.title} icon={item.icon} nested={accordion}
+        testID={`menu-item-${item.href}`} title={item.title} icon={item.icon} nested={accordion}
         selected={activePath === item.href.replace('/(tabs)', '')}
         badge={item.href === '/support' ? supportUnread : 0} onPress={() => onNavigate(item.href)} />) : null}
     </View>
@@ -71,5 +72,5 @@ export function MenuSheet({ onNavigate = (href) => router.push(href as never), a
 const createStyles = (palette: Palette) => StyleSheet.create({
   content: { padding: 6, borderRadius: 16, backgroundColor: palette.canvas },
   personal: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border, marginBottom: 6, paddingBottom: 6 },
-  hint: { color: palette.cardMuted, fontSize: 11, paddingLeft: 42, paddingRight: 12, paddingBottom: 4 },
+  hint: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 11, paddingLeft: 42, paddingRight: 12, paddingBottom: 4 },
 })

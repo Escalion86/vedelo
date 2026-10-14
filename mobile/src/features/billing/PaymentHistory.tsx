@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
 import { Linking, Text, View, StyleSheet } from 'react-native'
 import { useFocusEffect } from 'expo-router'
@@ -60,4 +61,4 @@ export function PaymentHistory() {
     {cursor ? <Button title="Показать более ранние" variant="secondary" onPress={() => void load(cursor)} loading={loading} /> : null}
   </>
 }
-const createStyles = (palette: Palette) => StyleSheet.create({ row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }, title: { color: palette.text, fontSize: 15, fontWeight: '700', flexShrink: 1 }, text: { color: palette.text, fontSize: 14 }, meta: { color: palette.cardMuted, fontSize: 12, lineHeight: 18 }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 } })
+const createStyles = (palette: Palette) => StyleSheet.create({ row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }, title: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 15, fontWeight: '700', flexShrink: 1 }, text: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 14 }, meta: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, lineHeight: 18 }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 } })

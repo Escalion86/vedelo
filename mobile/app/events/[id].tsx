@@ -16,6 +16,7 @@ import { buildEventNavigationLinks, formatEventAddress } from '../../src/feature
 import { eventPublicApiSource, isEventImportChecked } from '../../src/features/events/filters'
 import { getEventCardClientName, getEventCardStatus, getEventCardStatusKey } from '../../src/features/events/eventCard'
 import { detailDate, eventDuration, getEventDetailFinance } from '../../src/features/events/eventDetail'
+import { EventOnlineSections } from '../../src/features/proposals/EventOnlineSections'
 import { EventFinanceSummary } from '../../src/features/events/EventFinanceSummary'
 import { editEventSection, EventDetailActions } from '../../src/features/events/EventDetailActions'
 
@@ -133,6 +134,7 @@ export default function EventDetailScreen() {
       {taskError ? <Notice tone="danger" message={taskError} /> : null}
       <Button title="Изменить задачи" variant="secondary" onPress={() => editEventSection(event._id, 'contacts')} />
     </Surface>
+    <EventOnlineSections event={event} />
     <Surface testID="event-navigation"><SectionTitle>Навигация</SectionTitle>
       {links.length ? links.map((link) => <Button key={link.url} title={link.title} variant="secondary" onPress={() => void openContactUrl(link.url)} />)
         : <Text style={styles.muted}>Укажите адрес, чтобы построить маршрут.</Text>}

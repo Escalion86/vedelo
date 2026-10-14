@@ -1,3 +1,4 @@
+import { typography } from '../../src/shared/ui/theme'
 import { ApiError } from '../../src/shared/api/errors'
 import { getAuthSession } from '../../src/shared/auth/tokenStore'
 import type { MobileUser } from '../../src/shared/auth/types'
@@ -28,7 +29,6 @@ import {
   formatBalanceRunway,
   formatBillingDate,
   formatRubles,
-  getTariffFeatures,
 } from '../../src/features/billing/format'
 import type {
   MobileBilling,
@@ -44,6 +44,8 @@ import {
   Screen,
 } from '../../src/shared/ui/components'
 import { radius, spacing, type Palette } from '../../src/shared/ui/theme'
+
+import { TariffFeatures } from '../../src/features/billing/TariffFeatures'
 
 const quickAmounts = [500, 1000, 3000]
 
@@ -231,13 +233,13 @@ function UserBillingScreen() {
               {billing.currentTariff ? <StatusChip label="Выбран" tone="neutral" /> : null}
             </View>
             {billing.currentTariff ? <Text style={styles.muted}>{billing.currentTariff.price > 0 ? `${formatRubles(billing.currentTariff.price)} в месяц` : 'Бесплатный тариф'}{billing.currentTariff.eventsPerMonth > 0 ? ` · до ${billing.currentTariff.eventsPerMonth} ${terms.pluralGenitive}` : ` · без ограничений по ${terms.pluralDative}`}</Text> : null}
+            {billing.currentTariff ? <TariffFeatures tariff={billing.currentTariff} rates={billing.aiIncludedRates} context="current" /> : null}
           </Surface>
 
           <View style={styles.tariffsSection}>
             <SectionTitle>Сменить тариф</SectionTitle>
             {billing.tariffs.map((tariff) => {
               const quote = tariff.change
-              const features = getTariffFeatures(tariff)
               const disabled = busy || loading || !quote || Boolean(quote?.current || quote?.blockedReason)
               const buttonTitle = quote?.current
                 ? 'Текущий тариф'
@@ -248,7 +250,7 @@ function UserBillingScreen() {
                 <Surface key={tariff._id} style={quote?.current ? styles.currentCard : undefined}>
                   <View style={styles.titleRow}><View style={styles.grow}><Text style={styles.tariffTitle}>{tariff.title}</Text><Text style={styles.tariffPrice}>{tariff.price > 0 ? `${formatRubles(tariff.price)}/мес` : 'Бесплатно'}</Text></View>{quote?.current ? <StatusChip label="Текущий" tone="success" /> : null}</View>
                   <Text style={styles.muted}>{tariff.eventsPerMonth > 0 ? `До ${tariff.eventsPerMonth} ${terms.pluralGenitive} в месяц` : `Без ограничений по ${terms.pluralDative}`}</Text>
-                  {features.length ? <Text style={styles.features}>{features.join(' · ')}</Text> : null}
+                  <TariffFeatures tariff={tariff} rates={billing.aiIncludedRates} />
                   {quote?.creditAmount ? <Text style={styles.credit}>Компенсация за текущий тариф: {formatRubles(quote.creditAmount)}</Text> : null}
                   {quote?.blockedReason ? <Text style={styles.warning}>{quote.blockedReason}</Text> : null}
                   <Button title={buttonTitle} variant={quote?.current ? 'secondary' : 'primary'} disabled={disabled} onPress={() => selectTariff(tariff)} />
@@ -267,26 +269,26 @@ function UserBillingScreen() {
 const createStyles = (palette: Palette) => StyleSheet.create({
   grow: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  eyebrow: { color: palette.cardMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  eyebrow: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
   balanceCard: { backgroundColor: palette.rowSelected },
   balanceMeta: { color: palette.cardMeta },
-  balance: { color: palette.text, fontSize: 32, fontWeight: '800', marginTop: spacing.xs },
+  balance: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 32, fontWeight: '800', marginTop: spacing.xs },
   balanceIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' },
-  runway: { color: palette.text, fontSize: 14, fontWeight: '700' },
-  muted: { color: palette.cardMuted, fontSize: 13, lineHeight: 19 },
+  runway: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 14, fontWeight: '700' },
+  muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 13, lineHeight: 19 },
   message: { backgroundColor: palette.notice.success.background },
-  messageText: { color: palette.notice.success.text, fontSize: 13, fontWeight: '700' },
+  messageText: { fontFamily: typography.fontFamily, color: palette.notice.success.text, fontSize: 13, fontWeight: '700' },
   quickAmounts: { flexDirection: 'row', gap: spacing.sm },
   quickAmount: { flex: 1, minHeight: 40, borderRadius: radius.md, borderWidth: 1, borderColor: palette.border, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.rowPressed },
   quickAmountActive: { borderColor: palette.primary, backgroundColor: palette.rowSelected },
-  quickAmountText: { color: palette.text, fontSize: 13, fontWeight: '700' },
+  quickAmountText: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 13, fontWeight: '700' },
   quickAmountTextActive: { color: palette.selectionText },
-  currentTariff: { color: palette.text, fontSize: 22, fontWeight: '800', marginTop: spacing.xs },
+  currentTariff: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 22, fontWeight: '800', marginTop: spacing.xs },
   tariffsSection: { gap: spacing.md },
   currentCard: { borderColor: palette.notice.success.text },
-  tariffTitle: { color: palette.text, fontSize: 18, fontWeight: '800' },
-  tariffPrice: { color: palette.primary, fontSize: 16, fontWeight: '700', marginTop: spacing.xs },
-  features: { color: palette.text, fontSize: 13, lineHeight: 20 },
-  credit: { color: palette.notice.success.text, fontSize: 13, fontWeight: '700' },
-  warning: { color: palette.notice.warning.text, fontSize: 13, fontWeight: '700' },
+  tariffTitle: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 18, fontWeight: '800' },
+  tariffPrice: { fontFamily: typography.fontFamily, color: palette.primary, fontSize: 16, fontWeight: '700', marginTop: spacing.xs },
+  features: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 13, lineHeight: 20 },
+  credit: { fontFamily: typography.fontFamily, color: palette.notice.success.text, fontSize: 13, fontWeight: '700' },
+  warning: { fontFamily: typography.fontFamily, color: palette.notice.warning.text, fontSize: 13, fontWeight: '700' },
 })

@@ -79,9 +79,9 @@ export function PeriodPicker({ value, onChange, label = 'Период', disabled
     {externalError ? <Text accessibilityRole="alert" style={styles.error}>{externalError}</Text> : null}
     <Modal visible={visible} transparent animationType="none" onRequestClose={close} onShow={() => focusAccessible(heading.current)}>
       {visible ? <KeyboardAvoidingView testID={`${testID}-layer`} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.layer, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]}>
+        style={[styles.layer, { paddingTop: insets.top + 12, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right, justifyContent: viewport.width <= 600 ? 'flex-end' : 'center' }]}>
         <Pressable testID={`${testID}-outside`} accessible={false} importantForAccessibility="no" style={StyleSheet.absoluteFill} onPress={close} />
-        <View testID={testID} accessibilityViewIsModal style={[styles.panel, { width: Math.min(340, viewport.width - insets.left - insets.right - 24), maxHeight: viewport.height - insets.top - insets.bottom - 24 }]}>
+        <View testID={testID} accessibilityViewIsModal style={[styles.panel, { width: viewport.width <= 600 ? viewport.width - insets.left - insets.right : Math.min(390, viewport.width - insets.left - insets.right - 32), maxHeight: viewport.height - insets.top - insets.bottom - 12 }]}>
           <View style={styles.headingRow}>
             {stage !== 'presets' ? <Pressable accessibilityRole="button" accessibilityLabel="Назад к готовым периодам" disabled={disabled} accessibilityState={{ disabled }} style={styles.iconButton} onPress={() => { updateDraft({ ...value }); setSelectingEnd(false); setStage('presets') }}><MaterialCommunityIcons name="chevron-left" size={24} color={palette.text} /></Pressable> : null}
             <Text ref={heading} accessibilityRole="header" style={styles.heading}>{caption}</Text>
@@ -133,13 +133,13 @@ export function PeriodPicker({ value, onChange, label = 'Период', disabled
 }
 const createStyles = (p: Palette) => StyleSheet.create({
   wrap: { gap: 4, flexShrink: 1, flexGrow: 1, minWidth: 160, maxWidth: '100%' }, label: { fontFamily: typography.fontFamily, color: p.generalText, fontSize: 12, fontWeight: '600' },
-  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, field: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, borderColor: p.border, backgroundColor: p.surface },
-  value: { flex: 1, flexShrink: 1, fontFamily: typography.fontFamily, fontSize: 16, color: p.text }, reset: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: p.secondaryBorder, backgroundColor: p.secondaryBackground },
-  focused: { borderColor: p.primary }, disabled: { opacity: 0.65 }, layer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  panel: { flexShrink: 1, borderWidth: 1, borderRadius: 10, borderColor: p.toolbarBorder, backgroundColor: p.canvas, elevation: 12, overflow: 'hidden' }, scroll: { flexShrink: 1 }, content: { padding: 12, gap: 10 },
-  headingRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12 }, heading: { flex: 1, fontFamily: typography.fontFamily, color: p.text, fontSize: 16, fontWeight: '600' }, iconButton: { minWidth: 40, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, month: { flex: 1, textAlign: 'center', fontFamily: typography.fontFamily, color: p.text, fontSize: 14 },
+  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, field: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, borderColor: p.border, backgroundColor: p.surface },
+  value: { flex: 1, flexShrink: 1, fontFamily: typography.fontFamily, fontSize: 14, color: p.secondaryText }, reset: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: p.secondaryBorder, backgroundColor: p.secondaryBackground },
+  focused: { borderColor: p.primary }, disabled: { opacity: 0.65 }, layer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.overlayBackdrop },
+  panel: { flexShrink: 1, borderWidth: 1, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderColor: p.border, backgroundColor: p.periodBackground, elevation: 12, overflow: 'hidden' }, scroll: { flexShrink: 1 }, content: { padding: 12, gap: 10 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12 }, heading: { flex: 1, fontFamily: typography.fontFamily, color: p.periodForeground, fontSize: 16, fontWeight: '600' }, iconButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, month: { flex: 1, textAlign: 'center', fontFamily: typography.fontFamily, color: p.periodForeground, fontSize: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' }, weekday: { width: '14.285714%', textAlign: 'center', color: p.cardMuted, fontFamily: typography.fontFamily, fontSize: 11 },
-  day: { width: '14.285714%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, borderColor: 'transparent' }, dayText: { fontFamily: typography.fontFamily, color: p.text, fontSize: 12 }, selected: { backgroundColor: p.primary }, endpoint: { borderColor: p.text }, selectedText: { color: p.onPrimary }, active: { position: 'absolute', bottom: 0, color: p.generalText, fontSize: 14 },
+  day: { width: '14.285714%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, borderColor: 'transparent' }, dayText: { fontFamily: typography.fontFamily, color: p.periodForeground, fontSize: 12 }, selected: { backgroundColor: p.primary }, endpoint: { borderColor: p.text }, selectedText: { color: p.onPrimary }, active: { position: 'absolute', bottom: 0, color: p.generalText, fontSize: 14 },
   meta: { fontFamily: typography.fontFamily, color: p.cardMuted, fontSize: 12, lineHeight: 18 }, error: { fontFamily: typography.fontFamily, color: p.notice.danger.text, fontSize: 12 },
 })

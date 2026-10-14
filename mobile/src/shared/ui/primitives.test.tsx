@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Dimensions, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { fireEvent, render } from '@testing-library/react-native'
 import { ThemeProvider } from './ThemeProvider'
 import { Button, EmptyState, Field, PageHeader, StatusChip, Surface } from './components'
@@ -69,9 +69,9 @@ it('CompactField показывает ошибку, а Field сохраняет 
 it('PageHeader показывает нулевой счётчик; Surface имеет отдельные варианты', () => {
   const screen = render(themed(<><PageHeader title="Клиенты" count={0} />
     <Surface testID="card" /><Surface variant="toolbar" testID="toolbar" /><Surface variant="kpi" testID="kpi" /></>))
-  expect(screen.getByText('0')).toHaveStyle({ fontSize: 16, fontWeight: '500' })
-  const size = Math.min(32, Math.max(24, Dimensions.get('window').width * 0.04))
-  expect(screen.getByRole('header')).toHaveStyle({ fontSize: size, lineHeight: size * 1.05, letterSpacing: size * -0.035 })
+  expect(screen.getByText('0')).toHaveStyle({ fontSize: 12, fontWeight: '600' })
+  expect(screen.getByRole('header')).toHaveStyle({ fontSize: 16, fontFamily: 'InterTight' })
+  expect(screen.getByTestId('page-header')).toHaveStyle({ minHeight: 64 })
   expect(screen.getByTestId('card')).toHaveStyle({ borderWidth: 1, borderRadius: 8 })
   expect(screen.getByTestId('toolbar')).toHaveStyle({ backgroundColor: lightPalette.toolbarBackground, borderRadius: 0 })
   expect(screen.getByTestId('kpi')).toHaveStyle({ backgroundColor: lightPalette.kpiBackground, borderRadius: 8 })
@@ -151,7 +151,7 @@ it('FilterControl отдаёт selected/expanded и зону касания', ()
   const screen = render(themed(<FilterControl title="Фильтры" selected expanded />))
   expect(screen.getByRole('button').props.accessibilityState).toMatchObject({ selected: true, expanded: true })
   expect(screen.getByRole('button').props.hitSlop).toBe(6)
-  expect(screen.getByRole('button')).toHaveStyle({ minHeight: 36, borderRadius: 10 })
+  expect(screen.getByRole('button')).toHaveStyle({ minHeight: 40, borderRadius: 10 })
 })
 
 it.each([false, true])('общая поверхность отделена от canvas, рамка и тень сохраняются: dark=%s', (dark) => {

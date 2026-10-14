@@ -36,7 +36,7 @@ it.each(['light', 'dark'] as const)('закрытое поле %s: тема, п�
   const screen = render(draw(original, jest.fn(), {}, mode))
   const palette = mode === 'dark' ? darkPalette : lightPalette
   expect(StyleSheet.flatten(screen.getByText('Период').props.style).color).toBe(palette.generalText)
-  expect(screen.getByTestId('period-picker-trigger')).toHaveStyle({ backgroundColor: palette.surface, borderColor: palette.border, minHeight: 40 })
+  expect(screen.getByTestId('period-picker-trigger')).toHaveStyle({ backgroundColor: palette.surface, borderColor: palette.border, minHeight: 44 })
   expect(screen.getByRole('button', { name: 'Период: 1 октября 2026 г. — 9 октября 2026 г.', selected: true, expanded: false })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Сбросить период' })).toBeTruthy()
   expect(screen.queryByText('Выберите период')).toBeNull()
@@ -143,7 +143,7 @@ it('навигация месяца с переходом года не меня
 it('узкая короткая панель ограничена viewport, manual и Apply внутри scroll/keyboard avoiding', () => {
   jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 280, height: 360, scale: 1, fontScale: 1 })
   const screen = render(draw()); manual(screen)
-  expect(screen.getByTestId('period-picker')).toHaveStyle({ width: 256, maxHeight: 336 })
+  expect(screen.getByTestId('period-picker')).toHaveStyle({ width: 280, maxHeight: 348 })
   expect(screen.UNSAFE_getByType(KeyboardAvoidingView)).toBeTruthy()
   expect(screen.UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled')
   expect(screen.getByText('Применить')).toBeTruthy()

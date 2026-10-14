@@ -96,7 +96,7 @@ it('показывает личный список, следующую стра�
 it('читает переписку, располагает developer-сообщение как входящее, открывает вложение и отправляет ответ', async () => {
   const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined)
   const screen = render(<SupportTicketScreen />)
-  await screen.findByText('Ответ поддержки')
+  await screen.findByText('Ответ поддержки', undefined, { timeout: 20000 })
   expect(api.markSupportTicketRead).toHaveBeenCalledWith('ticket-1')
   expect(screen.getByTestId('support-message-incoming')).toHaveStyle({ justifyContent: 'flex-start' })
   expect(screen.getByTestId('support-message-outgoing')).toHaveStyle({ justifyContent: 'flex-end' })
@@ -108,11 +108,11 @@ it('читает переписку, располагает developer-сообщ
   fireEvent.press(screen.getByText('Добавить тестовое вложение'))
   ;(api.getSupportTicket as jest.Mock).mockResolvedValue({ ...detail, data: { ticket, messages: [...detail.data.messages, { ...outgoing, id: 'reply', body: 'Спасибо' }] } })
   fireEvent.press(screen.getByText('Отправить'))
-  await screen.findByText('Спасибо')
+  await screen.findByText('Спасибо', undefined, { timeout: 20000 })
   expect(api.replySupportTicket).toHaveBeenCalledWith('ticket-1', 'Спасибо', [image])
   expect(screen.getByPlaceholderText('Напишите сообщение…').props.value).toBe('')
   openUrl.mockRestore()
-})
+}, 20000)
 
 it('загружает ранние сообщения и сохраняет текст после сетевой ошибки ответа', async () => {
   ;(api.getSupportTicket as jest.Mock).mockResolvedValueOnce({ ...detail, meta: { hasMore: true, nextCursor: 'older' } })

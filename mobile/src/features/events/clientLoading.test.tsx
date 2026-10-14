@@ -1,0 +1,93 @@
+import React from 'react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
+import { MobileEventCard } from './MobileEventCard'
+import { ApiError } from '../../shared/api/errors'
+
+const mockGet = jest.fn()
+const mockList = jest.fn()
+const mockUpsert = jest.fn(async (..._args: unknown[]) => undefined)
+jest.mock('../reviews/hooks', () => ({ useReviewStatuses: () => ({ data: {}, isPending: false }) }))
+jest.mock('../../shared/api/client', () => ({ api: { get: (...args: unknown[]) => mockGet(...args) } }))
+jest.mock('../../shared/storage/cache', () => ({ listCachedEntities: (...args: unknown[]) => mockList(...args), upsertEntities: (...args: unknown[]) => mockUpsert(...args) }))
+jest.mock('../../shared/sync/syncEngine', () => ({ runSync: jest.fn() }))
+jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }))
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
+const clients: QueryClient[] = []
+const setup = (clientId: string | null = 'c') => {
+  const query = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  clients.push(query)
+  const open = jest.fn()
+  const screen = render(<QueryClientProvider client={query}><MobileEventCard event={{ _id: 'e', status: 'draft', eventType: 'Работа', clientId }} services={[]} transactions={[]} testID="card" onPress={open} /></QueryClientProvider>)
+  return { ...screen, query, open }
+}
+beforeEach(() => { jest.clearAllMocks(); onlineManager.setOnline(true); mockList.mockResolvedValue([]) })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); onlineManager.setOnline(true) })
+it('A: нет ID — настоящее пустое состояние без запроса', async () => {
+  const screen = setup(null)
+  await act(async () => undefined)
+  expect(screen.getByLabelText('Клиент не указан')).toBeTruthy()
+  expect(mockGet).not.toHaveBeenCalled()
+})
+it('A: задержанный GET клиента не маскируется missing, поздний ответ обновляет строку', async () => {
+  let finish: (value: unknown) => void = () => undefined
+  mockGet.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  const screen = setup()
+  await screen.findByText('Загрузка клиента…')
+  await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1))
+  expect(screen.queryByLabelText('Клиент не указан')).toBeNull()
+  expect(screen.queryByText('Клиент не найден')).toBeNull()
+  expect(screen.getByTestId('card')).not.toBeDisabled()
+  await act(async () => finish({ data: { _id: 'c', firstName: 'Анна', phone: '79990000000' } }))
+  await screen.findByText('Анна')
+  expect(screen.getByLabelText('Позвонить')).toBeTruthy()
+  expect(mockUpsert).toHaveBeenCalled()
+})
+it('A: ошибка и повтор не открывают карточку; неверный DTO не становится missing', async () => {
+  mockGet.mockRejectedValueOnce(new Error('Недоступно')).mockResolvedValueOnce({ data: { _id: 'foreign' } }).mockResolvedValueOnce({ data: { _id: 'c', firstName: 'Борис' } })
+  const screen = setup()
+  await screen.findByText('Не удалось загрузить клиента')
+  fireEvent.press(screen.getByLabelText('Повторить загрузку клиента'), { stopPropagation: jest.fn() })
+  await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2))
+  expect(screen.queryByText('Клиент не найден')).toBeNull()
+  expect(mockUpsert).not.toHaveBeenCalled()
+  await screen.findByLabelText('Повторить загрузку клиента')
+  fireEvent.press(screen.getByLabelText('Повторить загрузку клиента'), { stopPropagation: jest.fn() })
+  await screen.findByText('Борис')
+  expect(screen.open).not.toHaveBeenCalled()
+})
+it('A: отсутствие подтверждается защищённым GET 404, generic 404 остаётся ошибкой', async () => {
+  const missing = new ApiError('HTTP 404', 404)
+  mockGet.mockRejectedValueOnce(missing)
+  const screen = setup()
+  await screen.findByText('Клиент не найден')
+  expect(screen.queryByLabelText('Клиент не указан')).toBeNull()
+  screen.unmount()
+  mockGet.mockRejectedValueOnce(new ApiError('API недоступен', 404))
+  const next = setup()
+  await next.findByText('Не удалось загрузить клиента')
+})
+it('A: paused offline ждёт подключения, local-клиент не запрашивается на сервере', async () => {
+  onlineManager.setOnline(false)
+  const screen = setup()
+  await screen.findByText('Нет сети — ждём подключения')
+  expect(mockGet).not.toHaveBeenCalled()
+  mockGet.mockResolvedValue({ data: { _id: 'c', firstName: 'Анна' } })
+  await act(async () => onlineManager.setOnline(true))
+  await screen.findByText('Анна')
+  screen.unmount()
+  const local = setup('local-c')
+  await local.findByText('Клиент недоступен на устройстве')
+  expect(mockGet).toHaveBeenCalledTimes(1)
+})
+it('A: найденный кэш не стирается фоновым сбоем', async () => {
+  mockList.mockResolvedValue([{ _id: 'c', firstName: 'Анна' }])
+  const screen = setup()
+  await screen.findByText('Анна')
+  mockList.mockRejectedValue(new Error('Ошибка cache'))
+  await act(async () => { await screen.query.refetchQueries({ queryKey: ['cached-entities', 'clients'] }) })
+  expect(screen.getByText('Анна')).toBeTruthy()
+  expect(screen.queryByText('Клиент не найден')).toBeNull()
+  expect(mockGet).not.toHaveBeenCalled()
+})

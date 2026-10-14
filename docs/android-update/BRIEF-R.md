@@ -1,0 +1,27 @@
+# R: завершить APK-кандидат без нового общего аудита
+
+Владелец прямо требует доделать прежний APK. Запись `/home/aleksei/reports/vedelo/2026-10-11/update/owner-finish-continuation-20261012T195440Z.json`. Один минимальный test-only fix измеренной lazy Expo platform initialization, далее адресная проверка и ровно один полный final mobile Jest на последних байтах. Продукт Android уже принят и защищён; не изменять runtime ради теста.
+
+Assigned `/home/aleksei/projects/vedelo-mobile-finish-20261013` branch work/mobile-finish-20261013, HEAD35f9a64c29c0b8c078a0b54149a1949069a868ed. Exact P3023 bytes; protected parent BRIEF-R добавлен до входного inventory. Все dependencies только читаемые symlinks на private donor, installs/updates через них запрещены. Reports `/home/aleksei/reports/vedelo/2026-10-11/update/R-finish-mobile`, scratch `/home/aleksei/.hermes/cache/scratch/vedelo-r-20261013` TMPDIR там/tmp.
+
+## Прямая установленная граница
+
+В Q сохранены независимые controller stock fresh89/90 vscached90/90 и instrumented fresh89/90 vscached90/90. Logs /update/Q-diagnostic/CONTROLLER-standard-unit.log и CONTROLLER-diagnostic-unit.log; failed service означает diagnostic RED, не отсутствие прогона. Автор Q точным phase trace установил: после Promise.allSettled fulfilled readOverview впервые обращается к настоящим Expo lazy URL/TextDecoder. Cold Babel оригинальные transform URL260ms+TextDecoder1177ms расходуют deadline первого findByLabelText1000ms и задерживают React commit; instrumentation effect292ms учитывается отдельно. Точные excerpt SHA в /update/Q-diagnostic/AUTHOR-result.json, но не читать8MB весь результат/trace. Source unchanged3023. Не считать гипотезу закрытием исторического createScreen active timeout5000ms без проверки.
+
+## Единственное допустимое исправление
+
+Добавить минимальный настоящий platform globals bootstrap ДО начала test/find deadlines: eager initialization реальных Expo URL/TextDecoder getter/constructors (при необходимости связанных реально выявленных стандартных global), не заменять реализацию polyfills/mocks/stubs и не feature prefetch. Лучше единый test-only setupAfterEnv, чтобы работать штатным npm test, не custom transformer.
+
+Разрешены только `mobile/package.json` поле `jest.setupFilesAfterEnv` (все прочие поля/версии/deps/scripts защищены), новый `mobile/__tests__/stageR/polyfillBootstrap.cjs`, маленькая regression в stageR и docs/android-update/REPORT-R.md. Исходные existing tests/helpers и их161 expectations/матрицы/порядок/деадлайны НЕ менять; product/network/auth/SQLite/cache/offline/identity/outbox/lifecycle/UI/configs/rootlocks/ID/подпись защищены. Требуемое исключение по setup не распространяется на остальной package. Нельзя поднять1000/5000/20s, добавлятьskip/only/console suppression, приводитьrequestargs к старому виду. Если этот single fix не решает измеренную причину, не начинать последовательность иных guards/новый auto repair loop.
+
+Код пишет только detached Codex CLI gpt-6.1-sol в assigned R, workspace-write sandbox, own add-dir reports/scratch, явные PATH/TMPDIR/userbus. Не снова общая разведка с150поисками/большими повторными reports: известные source/evidence, реализуй маленькийbootstrap и прогони реальные проверки. Старые author/controller primary остаются immutable.
+
+1. Сохрани RED точного отсутствующего pre-test global bootstrap/холодного сценария до edits (можно использовать реальный frozen Q controller89/90 после собственной сверки source SHA плюс регрессию before bootstrap). Не переписывать историческую причину и не выдавать compile crash за semanticRED.
+2. Сделай единственный test-only bootstrap, сохрани совпадение всехprotected source SHA кроме точного package field и новых test files.
+3. Получи STOCK affected125+новаяregression fresh/cached: IntegrationsSection/createScreen/integration.stageE/readback.stageN/boundRead.stageO; частныйcache, без extra CLI timeout/transformers. Оба stageE реальных lifecycle/readback cases достигнуты.
+4. Typecheck, baseline-aware lint изменённыхtest-onlyfiles, неизменный real E16 и ровно один общий `npm test -- --json --outputFile=<ownunique>` на FINALRбайтах; source before/after. Завершение каждойкоманды actualexit/counts отдельно. Если full на другойcaseнеположителен, раскрыть настоящийblocker, не понижатьgate/не менятьproduct.
+5. Управляющий отдельно повторяет affected fresh на FINALSHA, проверяет finalsource и package-field-only change, fullprimaryJestJSONcounts и reached original assert. Не выдавай authorpassed за independentreview. Зафиксируй независимую краткую code/specreview маленькогоbootstrap в отдельном controller отчёте.
+
+Всеheavycommands поexisting `/home/aleksei/reports/vedelo/2026-10-11/update/test-queue.lock` rb/flockEX; APIreview параллельнотожеиспользуетqueue. queued/start/finishedexclusiveevidence; командынеждать одним toolcall>450s, еслидольшеотслеживатьсвойточныйотсоединённыйпроцесс, сохраняялivenessкаждый<=5мин. Не убиватьчужойlock/children. No.env/credentials/tokens/accounts/cloud/appsAI/Telegram/productionaccess. Canonical/P/Q/T/donor/PartyCRM/profiles/skills/parenttodo не менять. No commit/push/checkout/reset/stash/deploy/EAS: сборку APK запускает parent после настоящего PASS.
+
+Итог concise result.json/REPORT-R.md: actual counts/exitprimary, finalSourceInventory/SHA, ownminimaldiff, allprotectedmatching, stockfresh/cached/full/typecheck/lint/E16, controllerOwnRepeat, unresolved,pending[],releaseApproved=false. Все own units/services закрыть. Делать работающий минимальный результат, не ещё один общий аудит.

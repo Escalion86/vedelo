@@ -14,8 +14,9 @@ export type PhotoDraftFields = VoiceDraftFields & {
   servicesIds?: unknown; isByContract?: unknown; financeComment?: unknown
   address?: (NonNullable<VoiceDraftFields['address']> & { comment?: unknown }) | null
 }
-type PhotoResponse = { fields?: PhotoDraftFields; sourceText?: string; aiWarnings?: string[]; error?: string }
-type Props = { onApply: (fields: PhotoDraftFields) => void | Promise<void> }
+export type PhotoDraftMetadata = { sourceText: string; aiWarnings: string[]; aiFilledFields: string[] }
+type PhotoResponse = { fields?: PhotoDraftFields; sourceText?: string; aiWarnings?: string[]; aiFilledFields?: string[]; error?: string }
+type Props = { onApply: (fields: PhotoDraftFields, metadata: PhotoDraftMetadata) => void | Promise<void> }
 type Photo = { uri: string; mime: string }
 const MAX_BYTES = 5 * 1024 * 1024
 
@@ -76,7 +77,7 @@ function PhotoEditor({ onApply, access }: Props & { access: ReturnType<typeof us
   const apply = async () => {
     if (!result?.fields || locked.current) return
     locked.current = true; setBusy(true); setError('')
-    try { await onApply(result.fields); if (mounted.current) { setResult(null); setPhoto(null) } }
+    try { await onApply(result.fields, { sourceText: result.sourceText || '', aiWarnings: result.aiWarnings || [], aiFilledFields: result.aiFilledFields || [] }); if (mounted.current) { setResult(null); setPhoto(null) } }
     catch { if (mounted.current) setError('Не удалось перенести черновик. Проверьте подключение и повторите применение без нового распознавания.') }
     finally { locked.current = false; if (mounted.current) setBusy(false) }
   }

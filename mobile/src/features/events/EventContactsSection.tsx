@@ -9,12 +9,16 @@ import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { FieldHelp } from '../../shared/ui/FieldHelp'
+import { EventAiHighlight } from './EventAiHighlight'
 import { ClientPickerField } from './ClientPickerField'
 
 const localKey = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 export type EventContactsSectionProps = {
+  group?: 'contacts' | 'tasks'
+  aiFields?: ReadonlySet<string>
+  onManualEdit?: (keys: string[]) => void
   draft: EventDraft
   onChange: (draft: EventDraft) => void
   clients: Client[]
@@ -23,7 +27,7 @@ export type EventContactsSectionProps = {
 }
 
 /** P: клиент и контакты — только локальный черновик, мутации делает редактор через outbox. */
-export const EventContactsSection = ({ draft, onChange, clients, onCreateClient, onOpenClient }: EventContactsSectionProps) => {
+export const EventContactsSection = ({ draft, onChange, clients, onCreateClient, onOpenClient, group, aiFields, onManualEdit }: EventContactsSectionProps) => {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const [showDone, setShowDone] = useState(false)
@@ -57,19 +61,19 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
 
   return (
     <View style={styles.section}>
-      <Surface>
+      {group !== 'tasks' ? <><Surface>
         <SectionTitle>Основной клиент</SectionTitle>
-        <ClientPickerField
+        <EventAiHighlight field="clientId" active={aiFields?.has('clientId')}><ClientPickerField
           allowEmpty
           clients={clients}
           excludeIds={contactIds}
           label="Клиент"
           help={getFieldHelp('event.client')}
-          onChange={(clientId) => onChange({ ...draft, values: { ...v, clientId } })}
+          onChange={(clientId) => { onManualEdit?.(['clientId']); onChange({ ...draft, values: { ...v, clientId } }) }}
           onEdit={onOpenClient}
           testID="event-main-client"
           value={v.clientId}
-        />
+        /></EventAiHighlight>
         {selectedClient ? <QuickContacts client={selectedClient} maxVisible={8} /> : null}
         {!v.clientId ? (
           <Pressable accessibilityRole="button" onPress={onCreateClient} style={styles.createLink}>
@@ -131,8 +135,9 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
         </Pressable>
       </Surface>
 
-      <Surface>
-        <SectionTitle help={getFieldHelp('event.tasks')}>Задачи/События</SectionTitle>
+      </> : null}
+      {group !== 'contacts' ? <Surface>
+        {!group ? <SectionTitle help={getFieldHelp('event.tasks')}>Задачи/События</SectionTitle> : null}
         {hasDone ? (
           <Pressable
             accessibilityRole="checkbox"
@@ -203,7 +208,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
           <MaterialCommunityIcons name="plus" size={18} color={palette.primary} />
           <Text style={styles.addText}>Добавить задачу/событие</Text>
         </Pressable>
-      </Surface>
+      </Surface> : null}
     </View>
   )
 }

@@ -1,5 +1,6 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
 import { api } from '../../shared/api/client'
 import { Button, ErrorNotice, Notice, Surface } from '../../shared/ui/components'
@@ -60,15 +61,19 @@ export function IntegrationsSection() {
     {error ? <ErrorNotice message={error} /> : null}
     {aiError ? <Notice tone="warning" message={aiError} /> : null}
     {overview ? <Surface testID="integrations-list">
-      {rows.map(([provider, icon, description]) => <IntegrationRow key={provider} title={titles[provider]} icon={icon} description={description} state={overview[provider]} selected={selected === provider} onPress={() => { if (lifetime.current.active) setSelected((previous) => previous === provider ? null : provider) }} />)}
+      {rows.map(([provider, icon, description]) => <View key={provider} testID={`integration-inline-${provider}`}>
+        <IntegrationRow title={titles[provider]} icon={icon} description={description} state={overview[provider]} selected={selected === provider} onPress={() => { if (lifetime.current.active) setSelected((previous) => previous === provider ? null : provider) }} />
+        {selected === provider ? <>
+    {provider === 'google-calendar' ? <GoogleCalendarForm gate={gate.current} onStatus={(state) => updateStatus('google-calendar', state)} onClose={close} /> : null}
+    {provider === 'avito' || provider === 'vk' ? <CredentialIntegrationForm key={provider} provider={provider} gate={gate.current} onStatus={(state) => updateStatus(provider, state)} onClose={close} /> : null}
+    {provider === 'telephony' || provider === 'ai' || provider === 'public-leads' ? <ManagedIntegrationsSection key={provider} initialProvider={provider as ManagedProvider} overview={{}} onChanged={noReload} gate={gate.current} onStatus={updateStatus} onClose={close} /> : null}
+    {provider === 'telegram' ? <TelegramSection state={overview?.telegram as ProviderStatus | undefined} /> : null}
+        </> : null}
+      </View>)}
     </Surface> : null}
-    {selected === 'google-calendar' ? <GoogleCalendarForm gate={gate.current} onStatus={(state) => updateStatus('google-calendar', state)} onClose={close} /> : null}
-    {selected === 'avito' || selected === 'vk' ? <CredentialIntegrationForm key={selected} provider={selected} gate={gate.current} onStatus={(state) => updateStatus(selected, state)} onClose={close} /> : null}
-    {selected === 'telephony' || selected === 'ai' || selected === 'public-leads' ? <ManagedIntegrationsSection key={selected} initialProvider={selected as ManagedProvider} overview={{}} onChanged={noReload} gate={gate.current} onStatus={updateStatus} onClose={close} /> : null}
-    {selected === 'telegram' ? <TelegramSection state={overview?.telegram as ProviderStatus | undefined} /> : null}
     <Button title={error ? 'Повторить загрузку интеграций' : 'Обновить статусы'} variant="secondary" loading={loading} onPress={() => void load()} />
     <Button title="Открыть переписки Avito и VK" variant="secondary" onPress={() => router.push('/conversations' as never)} />
     <Text style={styles.muted}>Секреты интеграций хранятся на сервере. Введённые и одноразовые значения доступны только в открытой форме.</Text>
   </>
 }
-const createStyles = (palette: Palette) => StyleSheet.create({ muted: { color: palette.cardMuted, fontSize: 12, lineHeight: 18 } })
+const createStyles = (palette: Palette) => StyleSheet.create({ muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, lineHeight: 18 } })

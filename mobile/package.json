@@ -56,6 +56,7 @@
     "react-native": "0.83.6",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
+    "react-native-webview": "13.16.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -65,17 +66,23 @@
     "@types/react": "~19.2.14",
     "babel-preset-expo": "~55.0.8",
     "cross-env": "^10.1.0",
+    "esbuild": "0.25.12",
     "jest": "^29.7.0",
     "jest-expo": "~55.0.20",
+    "react-native-web": "0.21.4",
     "react-test-renderer": "19.2.0",
     "typescript": "~5.9.3"
   },
   "jest": {
     "preset": "jest-expo",
+    "setupFilesAfterEnv": [
+      "<rootDir>/__tests__/stageR/polyfillBootstrap.cjs"
+    ],
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/android/",
-      "/ios/"
+      "/ios/",
+      "<rootDir>/__tests__/stageO/boundRead\\.ts$"
     ]
   }
 }

@@ -1,13 +1,21 @@
 import React from 'react'
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
+const { installReadiness, measureRender, measureEvents } = require('../../../__tests__/stageN/readiness.cjs')
+import { act, fireEvent as nativeFireEvent, render as nativeRender, waitFor, within } from '@testing-library/react-native/pure'
 import { Alert, Keyboard } from 'react-native'
 import EventEditScreen from '../../../app/events/edit/[id]'
 import { resetPendingEventClient, setPendingEventClient } from '../../shared/domain/eventClientHandoff'
 
+require('../../../__tests__/stageO/measuredCleanup.cjs').installMeasuredCleanup()
+installReadiness('create')
+const render = measureRender(nativeRender)
+const fireEvent = measureEvents(nativeFireEvent)
+require('../../../__tests__/stageN/nativeHosts.cjs').initializeNativeHosts(nativeRender)
 let mockParams: Record<string, unknown>
 let mockPrevented = false
 let mockOnRemove: (event: any) => void
 let mockClients: any[] = []
+let mockServices: any[] = []
+let mockSettings: any[] = []
 let mockTransactions: any[] = []
 let mockTransactionsFail = false
 let mockClientsFail = false
@@ -17,11 +25,13 @@ let mockPhotoFields: any = { eventType: 'Фото-заказ', clientId: 'client
 let mockPhotoApply: (fields: any) => Promise<void>
 const mockClientGet = jest.fn()
 const mockUpsert = jest.fn(async (..._args: unknown[]) => undefined)
-jest.mock('../../shared/api/client', () => ({ api: { get: (...args: unknown[]) => mockClientGet(...args) } }))
+jest.mock('../../shared/api/client', () => ({ api: { get: (...args: unknown[]) => require('../../../__tests__/stageN/readiness.cjs').measureCall(mockClientGet, args, 'client') } }))
 jest.mock('./PhotoDraftSection', () => {
   const { Text } = require('react-native')
   return { PhotoDraftSection: ({ onApply }: { onApply: (fields: any) => Promise<void> }) => { mockPhotoApply = onApply; return <Text>mode:photo</Text> } }
 })
+let mockSavedEntity: any = null
+let mockReadbackFail = false
 const mockSave = jest.fn()
 const mockDelete = jest.fn(async (_entityType: string, _entityId: string) => undefined)
 const mockGetEntity = jest.fn()
@@ -33,7 +43,7 @@ jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('expo-router', () => ({
   useFocusEffect: (callback: () => unknown) => { mockFocusCallbacks.push(callback) },
-  router: { push: (path: unknown) => mockPush(path), replace: (path: unknown) => mockReplace(path) },
+  router: { back: jest.fn(), push: (path: unknown) => mockPush(path), replace: (path: unknown) => mockReplace(path) },
   useLocalSearchParams: () => mockParams,
   useNavigation: () => ({ dispatch: mockDispatch }),
 }))
@@ -44,11 +54,11 @@ jest.mock('../../shared/storage/cache', () => ({
   listCachedEntities: async (kind: string) => {
     if (kind === 'transactions' && mockTransactionsFail) throw new Error('Чтение транзакций недоступно')
     if (kind === 'clients' && mockClientsFail) throw new Error('Чтение клиентов недоступно')
-    return kind === 'clients' ? mockClients : kind === 'transactions' ? mockTransactions : []
+    return kind === 'clients' ? mockClients : kind === 'transactions' ? mockTransactions : kind === 'siteSettings' ? mockSettings : kind === 'services' ? mockServices : []
   },
-  getCachedEntity: (entityType: string, id: string) => mockGetEntity(entityType, id),
+  getCachedEntity: (entityType: string, id: string) => mockSavedEntity?._id === id ? mockReadbackFail ? Promise.reject(new Error('Ошибка перечитывания')) : Promise.resolve(mockSavedEntity) : mockGetEntity(entityType, id),
 }))
-jest.mock('../../shared/storage/mutations', () => ({ saveLocalEntity: (payload: unknown) => mockSave(payload), deleteLocalEntity: (entityType: string, entityId: string) => mockDelete(entityType, entityId) }))
+jest.mock('../../shared/storage/mutations', () => ({ saveLocalEntity: async (payload: any) => { const result = await mockSave(payload); mockSavedEntity = { ...payload.values, ...result }; return result }, deleteLocalEntity: (entityType: string, entityId: string) => mockDelete(entityType, entityId) }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ genitive: 'заказа', accusative: 'заказ', labelCapitalized: 'Заказ' }) }))
 jest.mock('./VoiceDraftSection', () => {
   const { Text } = require('react-native')
@@ -64,9 +74,13 @@ const runFocus = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockSavedEntity = null
+  mockReadbackFail = false
   mockFocusCallbacks = []
   mockClients = [{ _id: 'client', firstName: 'Анна' }]
   mockTransactions = []
+  mockServices = []
+  mockSettings = [{ custom: { eventFormVariant: 'classic' } }]
   mockTransactionsFail = false
   mockClientsFail = false
   mockParams = { id: 'new', clientId: 'client' }
@@ -159,7 +173,7 @@ it('общий draft переживает смену вкладок, клави�
   expect(mockSave.mock.calls[1][0].values).toMatchObject({ eventType: 'Новый заказ', contractSum: 17000,
     additionalEvents: [expect.objectContaining({ title: 'Перезвонить' })] })
   alert.mockRestore()
-})
+}, 10000)
 
 it('прямой переход в секцию и local ID сохраняют редактирование через outbox', async () => {
   mockParams = { id: 'local-event', section: 'finance' }
@@ -413,4 +427,180 @@ it('photo rechecks and caches a newly recognized client before applying', async 
   expect(mockUpsert).toHaveBeenCalledWith('clients', [client])
   expect(screen.getByDisplayValue('Фото нового клиента')).toBeTruthy()
   expect(mockSave).not.toHaveBeenCalled()
+})
+
+
+it('A: компактная форма по умолчанию — независимое раскрытие, помощь и отмена выбора услуг', async () => {
+  mockSettings = []
+  const screen = render(<EventEditScreen />)
+  await screen.findByTestId('event-compact-client')
+  expect(screen.queryByTestId('event-section-general')).toBeNull()
+  expect(screen.queryByLabelText('Начало')).toBeNull()
+  fireEvent.press(screen.getByTestId('event-compact-dates-toggle'))
+  fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15 12:00')
+  fireEvent.press(screen.getByTestId('event-compact-location-toggle'))
+  expect(screen.getByLabelText('Начало')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('event-compact-dates-toggle'))
+  fireEvent.press(screen.getByLabelText('Подсказка: Дата и время'), { stopPropagation: jest.fn() })
+  expect(screen.getByTestId('field-help-panel')).toBeTruthy()
+  expect(screen.queryByLabelText('Начало')).toBeNull()
+  fireEvent.press(screen.getByLabelText('Закрыть подсказку'))
+  fireEvent.press(screen.getByTestId('event-compact-services-toggle'))
+  fireEvent.press(screen.getByText('Выбрать услуги'))
+  fireEvent.changeText(within(screen.getByTestId('event-service-picker')).getByTestId('event-type'), 'Не применять')
+  fireEvent.press(screen.getByText('Отмена выбора услуг'))
+  expect(screen.queryByDisplayValue('Не применять')).toBeNull()
+  expect(mockSave).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByTestId('event-compact-dates-toggle'))
+  expect(screen.getByDisplayValue('2026-10-15 12:00')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('cancel-event'))
+  expect(require('expo-router').router.back).toHaveBeenCalledTimes(1)
+  expect(mockPrevented).toBe(true)
+  expect(mockSave).not.toHaveBeenCalled()
+})
+
+it('A: валидация раскрывает нужный раздел; ошибка очереди сохраняет ввод', async () => {
+  mockSettings = []
+  mockParams = { id: 'new' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByTestId('event-compact-client')
+  fireEvent.press(screen.getByTestId('save-event'))
+  expect(screen.getByTestId('event-main-client-search')).toBeTruthy()
+  fireEvent.changeText(screen.getByTestId('event-main-client-search'), 'Анна')
+  fireEvent.press(screen.getByTestId('event-main-client-option-client'))
+  fireEvent.press(screen.getByTestId('event-compact-status-toggle'))
+  fireEvent.press(screen.getByText('Подтверждено'))
+  fireEvent.press(screen.getByTestId('save-event'))
+  expect(screen.getByLabelText('Начало')).toBeTruthy()
+  fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15 12:00')
+  mockSave.mockRejectedValueOnce(new Error('Очередь недоступна'))
+  fireEvent.press(screen.getByTestId('save-event'))
+  await screen.findByText('Очередь недоступна')
+  expect(screen.getByDisplayValue('2026-10-15 12:00')).toBeTruthy()
+})
+
+it('A: передача видна в сводке и несвязанная правка сохраняет исходные persisted-поля', async () => {
+  mockSettings = []
+  mockParams = { id: 'existing' }
+  const source = { _id: 'existing', status: 'draft', clientId: 'client', isTransferred: true, colleagueId: 'colleague',
+    eventType: 'Исходный', description: '<p>Запрос</p>', servicesIds: ['old-service'],
+    eventDate: '2026-10-15T12:00:12.123Z', dateEnd: '2026-10-15T14:00:12.123Z',
+    address: { town: 'Город', street: 'Улица', house: '1', entrance: '2', floor: '3', flat: '4', comment: 'Вход', latitude: '55', longitude: '37', link2Gis: 'https://2gis.ru', linkYandexNavigator: 'https://yandex.ru' },
+    requestCreatedAt: '2026-10-01T12:12:12.123Z', calendarImportChecked: true, importedFromFile: true, fileImportChecked: true,
+    contractSum: 120.25, waitDeposit: true, depositExpectedAmount: 20.25, depositDueAt: '2026-10-13T12:00:12.123Z',
+    financeComment: 'Счёт', isByContract: true, otherContacts: [{ clientId: 'other', comment: 'Бухгалтер' }],
+    additionalEvents: [{ _id: 'task', title: 'Позвонить', description: '<p>О цене</p>', date: '2026-10-12T12:00:12.123Z', done: true, doneAt: '2026-10-10T12:00:00Z' }],
+  }
+  mockClients.push({ _id: 'colleague', firstName: 'Борис', secondName: 'Петров' })
+  mockGetEntity.mockResolvedValue(source)
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('Передано: Борис Петров')
+  fireEvent.press(screen.getByTestId('event-compact-finance-toggle'))
+  fireEvent.changeText(screen.getByLabelText('Комментарий по финансам'), 'Новая заметка')
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
+  const payload = mockSave.mock.calls[0][0].values
+  for (const key of ['isTransferred', 'colleagueId', 'eventType', 'description', 'servicesIds', 'eventDate', 'dateEnd', 'address', 'requestCreatedAt', 'calendarImportChecked', 'fileImportChecked', 'contractSum', 'waitDeposit', 'depositExpectedAmount', 'depositDueAt', 'isByContract', 'otherContacts', 'additionalEvents']) {
+    expect(payload[key]).toEqual((source as any)[key])
+  }
+  expect(payload.financeComment).toBe('Новая заметка')
+})
+
+it('A: фото сохраняет источник, предупреждения, подсветку поля и свёрнутого раздела', async () => {
+  mockSettings = []
+  mockParams = { id: 'new', mode: 'photo' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  await act(async () => { await (mockPhotoApply as any)({ eventType: 'Фото-заказ', clientId: 'client', contractSum: 123.45 },
+    { sourceText: 'Оригинальная заметка', aiWarnings: ['Проверьте сумму'], aiFilledFields: ['eventType', 'contractSum', 'clientId'] }) })
+  expect(screen.getByText('Оригинальная заметка')).toBeTruthy()
+  expect(screen.getByText('Проверьте сумму')).toBeTruthy()
+  expect(screen.getByTestId('event-compact-services-ai')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('event-compact-services-toggle'))
+  expect(screen.getByTestId('ai-field-eventType')).toBeTruthy()
+  fireEvent.changeText(screen.getByTestId('event-type'), 'Ручная правка')
+  expect(screen.queryByTestId('event-compact-services-ai')).toBeNull()
+  expect(screen.getByTestId('event-compact-finance-ai')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('event-compact-finance-toggle'))
+  expect(screen.getByTestId('ai-field-contractSum')).toBeTruthy()
+  fireEvent.changeText(screen.getByLabelText('Договорная сумма'), '123.45')
+  expect(screen.queryByTestId('event-compact-finance-ai')).toBeNull()
+  expect(screen.getByText('Проверьте сумму')).toBeTruthy()
+  expect(mockSave).not.toHaveBeenCalled()
+})
+
+it('A: ошибка перечитывания точного объекта сохраняет ввод и повтор использует тот же local ID', async () => {
+  mockSettings = []
+  mockReadbackFail = true
+  const screen = render(<EventEditScreen />)
+  await screen.findByTestId('event-compact-services-toggle')
+  fireEvent.press(screen.getByTestId('event-compact-services-toggle'))
+  fireEvent.changeText(screen.getByTestId('event-type'), 'Не терять')
+  fireEvent.press(screen.getByTestId('save-event'))
+  await screen.findByText('Ошибка перечитывания')
+  expect(screen.getByDisplayValue('Не терять')).toBeTruthy()
+  expect(mockReplace).not.toHaveBeenCalled()
+  mockReadbackFail = false
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/events/local-event'))
+  expect(mockSave.mock.calls[1][0].entityId).toBe('local-event')
+})
+
+it('A: медленный защищённый GET при фото не стирает несвязанную ручную правку', async () => {
+  mockParams = { id: 'new', mode: 'photo' }
+  let resolveClient: (result: any) => void = () => undefined
+  mockClientGet.mockImplementationOnce(() => new Promise(resolve => { resolveClient = resolve }))
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  let pending: Promise<void> = Promise.resolve()
+  await act(async () => { pending = mockPhotoApply({ eventType: 'Фото', clientId: 'new-client' }) })
+  fireEvent.changeText(screen.getByLabelText('Описание'), 'Введено во время GET')
+  await act(async () => { resolveClient({ data: { _id: 'new-client', firstName: 'Борис' } }); await pending })
+  expect(screen.getByDisplayValue('Введено во время GET')).toBeTruthy()
+  expect(screen.getByDisplayValue('Фото')).toBeTruthy()
+})
+
+it('A: применение выбора услуг меняет draft, отмена сохраняет выбор и подсветку', async () => {
+  mockSettings = []
+  mockServices = [{ _id: 'service-a', title: 'Услуга А' }, { _id: 'service-b', title: 'Услуга Б' }]
+  mockParams = { id: 'new', mode: 'photo' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  await act(async () => { await (mockPhotoApply as any)({ eventType: 'С фото', clientId: 'client', servicesIds: ['service-a'] },
+    { sourceText: 'Источник', aiWarnings: [], aiFilledFields: ['eventType', 'servicesIds'] }) })
+  fireEvent.press(screen.getByTestId('event-compact-services-toggle'))
+  fireEvent.press(screen.getByText('Выбрать услуги'))
+  fireEvent.changeText(within(screen.getByTestId('event-service-picker')).getByTestId('event-type'), 'Отмена')
+  fireEvent.press(within(screen.getByTestId('event-service-picker')).getByText('Услуга Б'))
+  fireEvent.press(screen.getByText('Отмена выбора услуг'))
+  expect(screen.getByTestId('event-type').props.value).toBe('С фото')
+  expect(screen.getByTestId('ai-field-eventType')).toBeTruthy()
+  fireEvent.press(screen.getByText('Выбрать услуги'))
+  fireEvent.changeText(within(screen.getByTestId('event-service-picker')).getByTestId('event-type'), 'Применено')
+  fireEvent.press(within(screen.getByTestId('event-service-picker')).getByText('Услуга Б'))
+  fireEvent.press(screen.getByText('Применить услуги'))
+  expect(screen.getByTestId('event-type').props.value).toBe('Применено')
+  expect(screen.queryByTestId('ai-field-eventType')).toBeNull()
+  expect(mockSave).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  expect(mockSave.mock.calls[0][0].values.servicesIds).toEqual(['service-a', 'service-b'])
+})
+it('A: ошибка сохранения оставляет AI-маркеры; успешное перечитывание снимает их', async () => {
+  mockSettings = []
+  mockParams = { id: 'new', mode: 'photo' }
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('mode:photo')
+  await act(async () => { await (mockPhotoApply as any)({ eventType: 'С фото', clientId: 'client' },
+    { sourceText: 'Источник', aiWarnings: ['Проверить'], aiFilledFields: ['eventType', 'clientId'] }) })
+  mockSave.mockRejectedValueOnce(new Error('Ошибка записи'))
+  fireEvent.press(screen.getByTestId('save-event'))
+  await screen.findByText('Ошибка записи')
+  expect(screen.getByTestId('event-compact-services-ai')).toBeTruthy()
+  expect(screen.getByText('Источник')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/events/local-event'))
+  expect(screen.queryByTestId('event-compact-services-ai')).toBeNull()
+  expect(screen.queryByTestId('event-compact-client-ai')).toBeNull()
+  expect(screen.queryByText('Источник')).toBeNull()
 })

@@ -21,7 +21,7 @@ const draw = (kind: 'statistics' | 'referrals' = 'statistics', mode: 'light' | '
 function deferred() { let resolve!: (value: any) => void; let reject!: (value: any) => void; const promise = new Promise<any>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 const statistics = (path: string, amount = 123) => { const query = new URL(`https://local.example${path}`).searchParams; return { success: true, data: { events: [], clients: [], transactions: amount ? [{ _id: 'tx-1', clientId: null, eventId: null, amount, type: 'income', category: '', date: null, comment: 'Кириллица; "внутри"\nновая строка' }] : [], filters: { year: query.has('year') ? Number(query.get('year')) : null, town: query.get('town') || '', status: query.get('status') || 'all' } } } }
 const referralData = (name = 'Анна') => ({ success: true, data: { referralsCount: 1, rewardsCount: 2, rewardsTotal: 50, referrals: [{ user: { _id: 'c'.repeat(24), firstName: name, secondName: 'Фамилия '.repeat(15), thirdName: '', registrationType: '', createdAt: '2026-10-01T00:00:00Z' }, rewardsCount: 2, rewardsTotal: 50, lastRewardAt: '2026-10-02T00:00:00Z' }] } })
-beforeEach(() => { jest.resetAllMocks(); mockFocus = true; mockUser = { _id: 'a'.repeat(24), tenantId: 'tenant-a', role: 'dev' }; mockGet.mockImplementation(async (path: string) => path.includes('/referrals') ? referralData() : statistics(path)); (Clipboard.setStringAsync as jest.Mock).mockResolvedValue(true); (shareStatisticsCsv as jest.Mock).mockResolvedValue(undefined) })
+beforeEach(() => { jest.resetAllMocks(); global.fetch=jest.fn().mockResolvedValue({ok:true,headers:{get:()=> 'image/png'},arrayBuffer:async()=>new Uint8Array([137,80,78,71,13,10,26,10]).buffer}); mockFocus = true; mockUser = { _id: 'a'.repeat(24), tenantId: 'tenant-a', role: 'dev' }; mockGet.mockImplementation(async (path: string) => path.includes('/referrals') ? referralData() : statistics(path)); (Clipboard.setStringAsync as jest.Mock).mockResolvedValue(true); (shareStatisticsCsv as jest.Mock).mockResolvedValue(undefined) })
 it.each(['light', 'dark'] as const)('статистика %s с financial hierarchy/terms, подтверждённые данные для CSV', async (mode) => {
   const screen = render(draw('statistics', mode)); const net = await screen.findByTestId('statistics-net')
   expect(StyleSheet.flatten(net.props.style).color).toBe((mode === 'dark' ? darkPalette : lightPalette).text)
@@ -62,7 +62,7 @@ it.each(['statistics', 'referrals'] as const)('%s session change, blur и unmoun
   mockUser = { _id: 'b'.repeat(24), tenantId: 'tenant-b', role: 'user' }; screen.rerender(draw(kind)); await screen.findByText(kind === 'statistics' ? 'Финансовый результат' : 'Ваша реферальная ссылка')
   await act(async () => pending.resolve(kind === 'statistics' ? statistics('/mobile/v1/statistics?status=all', 999) : referralData('Старый')))
   expect(screen.queryByText(/Старый|Доходы: 999/)).toBeNull()
-  if (kind === 'referrals') expect(screen.getByText(`https://current.example/login?mode=register&ref=${mockUser._id}`)).toBeTruthy()
+  if (kind === 'referrals') expect(screen.getByText(`https://current.example/register?ref=${mockUser._id}`)).toBeTruthy()
   const late = deferred(); mockGet.mockReturnValueOnce(late.promise); fireEvent.press(screen.getByText('Обновить')); mockFocus = false; screen.rerender(draw(kind)); await act(async () => late.resolve({ success: false }))
   expect(screen.queryByText(/Не удалось загрузить данные/)).toBeNull(); screen.unmount()
 })
@@ -70,9 +70,9 @@ it.each(['light', 'dark'] as const)('рефералы %s: scope=mine для dev,
   const screen = render(draw('referrals', mode)); await screen.findByText('Ваша реферальная ссылка')
   expect(mockGet.mock.calls.every(([path]) => path === '/mobile/v1/referrals?scope=mine')).toBe(true)
   expect(screen.getByText('50 ₽ · Начислений: 2')).toBeTruthy(); expect(screen.getByText(/Последнее начисление:/)).toBeTruthy()
-  const link = screen.getByText(`https://current.example/login?mode=register&ref=${mockUser._id}`)
+  const link = screen.getByText(`https://current.example/register?ref=${mockUser._id}`)
   expect(StyleSheet.flatten(link.props.style).color).toBe((mode === 'dark' ? darkPalette : lightPalette).text)
-  expect(screen.queryByText(/5%|QR|Выручка/)).toBeNull()
+  expect(screen.queryByText(/5%|Выручка/)).toBeNull()
 })
 it('clipboard false/rejection, repeat guard, share отмена и поздний результат', async () => {
   const pending = deferred(); (Clipboard.setStringAsync as jest.Mock).mockReturnValueOnce(pending.promise)

@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
@@ -5,6 +6,7 @@ import { api } from '../../shared/api/client'
 import { Button, ErrorNotice, Notice } from '../../shared/ui/components'
 import { radius, spacing, type Palette } from '../../shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
+import { aiEstimate } from '../billing/aiEstimate'
 import { isObject, responseData, safeError } from './integrationContract'
 
 export type AiProvider = 'artistcrm' | 'aitunnel'
@@ -178,7 +180,7 @@ export const AiUsagePanel = ({
   const platformActive = activeProvider === 'artistcrm'
 
   return (
-    <View style={styles.container}>
+    <View testID="ai-usage-panel" style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.sectionTitle}>Расходы ИИ Ведело</Text>
         <Button
@@ -212,7 +214,7 @@ export const AiUsagePanel = ({
 
           {usage.tariffIncluded?.enabled ? (
             <View style={styles.listBox}>
-              <Text style={styles.listTitle}>ИИ включён в тариф</Text>
+              <Text style={styles.listTitle}>ИИ включён в тариф</Text><Text testID="ai-usage-estimate" style={styles.muted}>Примерно {aiEstimate(usage.tariffIncluded.includedRub).join(" или ")}. Примеры разных сценариев по средним расходам ИИ; фактический расход зависит от длины записи и объёма текста.</Text>
               <Text style={styles.muted}>
                 Израсходовано {formatMoney(usage.tariffIncluded.usedRub)} из{' '}
                 {formatMoney(usage.tariffIncluded.includedRub)} · осталось{' '}
@@ -299,7 +301,7 @@ const createStyles = (colors: Palette) => StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  sectionTitle: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
+  sectionTitle: { fontFamily: typography.fontFamily, flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
   compactButton: { minHeight: 40, paddingHorizontal: spacing.md },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   metric: {
@@ -310,10 +312,10 @@ const createStyles = (colors: Palette) => StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.kpiBackground,
   },
-  metricLabel: { color: colors.cardMuted, fontSize: 11 },
-  metricValue: { color: colors.text, fontSize: 15, fontWeight: '800' },
-  warningText: { color: colors.notice.warning.text, fontSize: 12, lineHeight: 18 },
-  muted: { color: colors.cardMuted, fontSize: 12, lineHeight: 18 },
+  metricLabel: { fontFamily: typography.fontFamily, color: colors.cardMuted, fontSize: 11 },
+  metricValue: { fontFamily: typography.fontFamily, color: colors.text, fontSize: 15, fontWeight: '800' },
+  warningText: { fontFamily: typography.fontFamily, color: colors.notice.warning.text, fontSize: 12, lineHeight: 18 },
+  muted: { fontFamily: typography.fontFamily, color: colors.cardMuted, fontSize: 12, lineHeight: 18 },
   listBox: {
     gap: spacing.xs,
     padding: spacing.md,
@@ -321,7 +323,7 @@ const createStyles = (colors: Palette) => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
   },
-  listTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  listTitle: { fontFamily: typography.fontFamily, color: colors.text, fontSize: 13, fontWeight: '700' },
   row: {
     minHeight: 42,
     flexDirection: 'row',
@@ -332,7 +334,7 @@ const createStyles = (colors: Palette) => StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
-  rowLabel: { flexShrink: 1, color: colors.text, fontSize: 12, fontWeight: '600' },
-  rowValue: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  rowLabel: { fontFamily: typography.fontFamily, flexShrink: 1, color: colors.text, fontSize: 12, fontWeight: '600' },
+  rowValue: { fontFamily: typography.fontFamily, color: colors.text, fontSize: 12, fontWeight: '700' },
   grow: { flex: 1 },
 })

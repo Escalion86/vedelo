@@ -284,3 +284,15 @@ it.each(['other-id', 'false-string'] as const)('W: некорректный PUT 
   expect(mockGet).toHaveBeenCalledTimes(reads)
   expect(screen.queryByText('Изменения подтверждены сервером')).toBeNull()
 })
+
+it('Г: radio выбранной терминологии сообщает checked и сохраняет черновик после сетевого сбоя', async () => {
+  const screen = draw()
+  await settled(screen)
+  fireEvent.press(screen.getByRole('radio', { name: 'Заказы' }))
+  expect(screen.getByRole('radio', { name: 'Заказы' }).props.accessibilityState.checked).toBe(true)
+  mockPut.mockRejectedValueOnce(new Error('Сеть недоступна'))
+  fireEvent.press(screen.getByText('Сохранить настройки'))
+  await screen.findByText(/Не удалось подтвердить сохранение/)
+  expect(screen.getByRole('radio', { name: 'Заказы' }).props.accessibilityState.checked).toBe(true)
+  expect(screen.getByRole('radio', { name: 'Мероприятия' }).props.accessibilityState.checked).toBe(false)
+})

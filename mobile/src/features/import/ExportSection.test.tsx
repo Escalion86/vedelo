@@ -20,7 +20,7 @@ beforeEach(() => { jest.clearAllMocks(); mockUser = { _id: 'a', tenantId: 'ta' }
 afterEach(() => jest.restoreAllMocks())
 it.each(['light', 'dark'] as const)('экран %s/theme, три набора, counts, single share', async mode => {
   const screen = render(draw(mode)); await screen.findByText('☑ Заявки (draft) · 1')
-  expect(StyleSheet.flatten(screen.getByText('Экспорт').props.style).color).toBe((mode === 'dark' ? darkPalette : lightPalette).text)
+  expect(StyleSheet.flatten(screen.getByText('Экспорт').props.style).color).toBe((mode === 'dark' ? darkPalette : lightPalette).headerTitleColor)
   expect(screen.getAllByRole('checkbox')).toHaveLength(3)
   fireEvent.press(screen.getByLabelText('Заявки (draft)')); fireEvent.press(screen.getByLabelText('Транзакции')); fireEvent.press(screen.getByText('Экспортировать выбранные CSV'))
   await screen.findByText(/Окна передачи: 1 из 1/); expect(mockShare.mock.calls[0][0]).toBe('events'); expect(mockShare.mock.calls[0][1]).toContain('\ufeffID;Дата начала'); screen.unmount()

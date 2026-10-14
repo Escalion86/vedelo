@@ -7,6 +7,7 @@ import { Button, Field, Notice, SectionTitle, Surface } from '../../shared/ui/co
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { EventAiHighlight } from './EventAiHighlight'
 import { FieldHelp } from '../../shared/ui/FieldHelp'
 import { formatEventCardMoney } from './eventCard'
 import {
@@ -23,6 +24,9 @@ const formatTransactionDate = (value?: string | null) => {
 }
 
 export type EventFinanceSectionProps = {
+  group?: 'finance' | 'documents'
+  aiFields?: ReadonlySet<string>
+  onManualEdit?: (keys: string[]) => void
   draft: EventDraft
   onChange: (draft: EventDraft) => void
   transactions: Transaction[]
@@ -39,7 +43,7 @@ export type EventFinanceSectionProps = {
 
 /** Q: финансы работы. Обязательства — план, факт — только оплаченные транзакции. */
 export const EventFinanceSection = ({
-  draft, onChange, transactions, transactionsError = false, eventId, documentsCount,
+  draft, onChange, group, aiFields, onManualEdit, transactions, transactionsError = false, eventId, documentsCount,
   onAddTransaction, onOpenTransaction, onDeleteTransaction, onOpenDocuments, onRetryTransactions,
 }: EventFinanceSectionProps) => {
   const styles = useThemeStyles(createStyles)
@@ -48,7 +52,7 @@ export const EventFinanceSection = ({
   const related = eventTransactionsFor(transactions, eventId)
   const depositPaid = !transactionsError && hasDepositPaidTransaction(related)
   const split = splitEventTransactions(related)
-  const setValues = (patch: Partial<typeof v>) => onChange({ ...draft, values: { ...v, ...patch } })
+  const setValues = (patch: Partial<typeof v>) => { onManualEdit?.(Object.keys(patch)); onChange({ ...draft, values: { ...v, ...patch } }) }
   const confirmDelete = (transaction: Transaction) => Alert.alert(
     'Удалить транзакцию?',
     'Транзакция будет удалена сейчас локально. Удаление будет передано при синхронизации.',
@@ -89,15 +93,15 @@ export const EventFinanceSection = ({
 
   return (
     <View style={styles.section}>
-      <Surface>
-        <SectionTitle>Финансы</SectionTitle>
-        <Field keyboardType="numeric" label="Договорная сумма" help={getFieldHelp('event.contractSum')}
-          onChangeText={(contractSum) => setValues({ contractSum })} testID="event-contract-sum" value={v.contractSum} />
+      {group !== 'documents' ? <><Surface>
+        {!group ? <SectionTitle>Финансы</SectionTitle> : null}
+        <EventAiHighlight field="contractSum" active={aiFields?.has('contractSum')}><Field keyboardType="numeric" label="Договорная сумма" help={getFieldHelp('event.contractSum')}
+          onChangeText={(contractSum) => setValues({ contractSum })} testID="event-contract-sum" value={v.contractSum} /></EventAiHighlight>
         {depositPaid ? (
           <Notice message="Задаток отмечен фактической транзакцией. Ожидание задатка скрыто." tone="info" />
         ) : (
           <>
-            <View style={styles.toggle}>
+            <EventAiHighlight field="waitDeposit" active={aiFields?.has('waitDeposit')}><View style={styles.toggle}>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: v.waitDeposit }}
               onPress={() => setValues({ waitDeposit: !v.waitDeposit })} style={styles.toggle}>
               <MaterialCommunityIcons name={v.waitDeposit ? 'checkbox-marked' : 'checkbox-blank-outline'}
@@ -105,22 +109,22 @@ export const EventFinanceSection = ({
               <Text style={styles.toggleText}>Ждем задаток</Text>
             </Pressable>
             <FieldHelp label="Ждем задаток" text={getFieldHelp('event.waitDeposit')} />
-            </View>
+            </View></EventAiHighlight>
             {v.waitDeposit ? (
               <>
-                <Field keyboardType="numeric" label="Сумма задатка" help={getFieldHelp('event.depositAmount')}
+                <EventAiHighlight field="depositExpectedAmount" active={aiFields?.has('depositExpectedAmount')}><Field keyboardType="numeric" label="Сумма задатка" help={getFieldHelp('event.depositAmount')}
                   onChangeText={(depositExpectedAmount) => setValues({ depositExpectedAmount })}
-                  testID="event-deposit-amount" value={v.depositExpectedAmount} />
-                <Field label="Дата ожидания задатка" help={getFieldHelp('event.depositDueAt')}
+                  testID="event-deposit-amount" value={v.depositExpectedAmount} /></EventAiHighlight>
+                <EventAiHighlight field="depositDueAt" active={aiFields?.has('depositDueAt')}><Field label="Дата ожидания задатка" help={getFieldHelp('event.depositDueAt')}
                   onChangeText={(depositDueAt) => setValues({ depositDueAt })}
-                  placeholder="2026-07-20 10:00" testID="event-deposit-due" value={v.depositDueAt} />
+                  placeholder="2026-07-20 10:00" testID="event-deposit-due" value={v.depositDueAt} /></EventAiHighlight>
               </>
             ) : null}
           </>
         )}
-        <Field label="Комментарий по финансам" help={getFieldHelp('event.financeComment')} multiline
-          onChangeText={(financeComment) => setValues({ financeComment })} testID="event-finance-comment" value={v.financeComment} />
-        <View style={styles.toggle}>
+        <EventAiHighlight field="financeComment" active={aiFields?.has('financeComment')}><Field label="Комментарий по финансам" help={getFieldHelp('event.financeComment')} multiline
+          onChangeText={(financeComment) => setValues({ financeComment })} testID="event-finance-comment" value={v.financeComment} /></EventAiHighlight>
+        <EventAiHighlight field="isByContract" active={aiFields?.has('isByContract')}><View style={styles.toggle}>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: v.isByContract }}
           onPress={() => setValues({ isByContract: !v.isByContract })} style={styles.toggle}>
           <MaterialCommunityIcons name={v.isByContract ? 'checkbox-marked' : 'checkbox-blank-outline'}
@@ -128,7 +132,7 @@ export const EventFinanceSection = ({
           <Text style={styles.toggleText}>По договору</Text>
         </Pressable>
         <FieldHelp label="По договору" text={getFieldHelp('event.byContract')} />
-        </View>
+        </View></EventAiHighlight>
       </Surface>
 
       <Surface>
@@ -170,9 +174,10 @@ export const EventFinanceSection = ({
         )}
       </Surface>
 
-      <Surface>
-        <SectionTitle>Документы</SectionTitle>
-        <Text style={styles.muted}>Документов: {documentsCount}</Text>
+      </> : null}
+      {group !== 'finance' ? <Surface>
+        {!group ? <SectionTitle>Документы</SectionTitle> : null}
+        {!group ? <Text style={styles.muted}>Документов: {documentsCount}</Text> : null}
         {eventId ? (
           <Button onPress={onOpenDocuments} title="Файлы и документы" variant="secondary" />
         ) : (
@@ -181,7 +186,7 @@ export const EventFinanceSection = ({
             <Button disabled onPress={() => undefined} title="Файлы и документы" variant="secondary" />
           </>
         )}
-      </Surface>
+      </Surface> : null}
     </View>
   )
 }

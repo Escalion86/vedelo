@@ -50,7 +50,7 @@ export const FieldHelp = ({ text, label }: { text: string; label: string }) => {
         if (!open) input.current = TextInput.State.currentlyFocusedInput()
         setOpen((value) => !value)
       }}>
-      <Text importantForAccessibility="no" accessibilityElementsHidden style={styles.icon}>ⓘ</Text>
+      <View testID="field-help-icon" importantForAccessibility="no" accessibilityElementsHidden style={styles.iconCircle}><Text importantForAccessibility="no" accessibilityElementsHidden allowFontScaling={false} style={styles.infoText}>i</Text></View>
     </Pressable>
     {open ? <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent
       onRequestClose={close} onShow={() => focusAccessible(heading.current)}>
@@ -88,6 +88,8 @@ const createStyles = (p: Palette) => StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   label: { flexShrink: 1 },
   trigger: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: p.secondaryText, alignItems: 'center', justifyContent: 'center' },
+  infoText: { fontFamily: typography.fontFamily, color: p.secondaryText, fontSize: 14, fontWeight: '600' },
   icon: { fontFamily: typography.fontFamily, color: p.secondaryText, fontSize: 22 },
   layer: { flex: 1, backgroundColor: p.canvas },
   safeArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },

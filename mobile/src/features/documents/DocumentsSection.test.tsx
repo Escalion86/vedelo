@@ -70,3 +70,10 @@ it('X: устаревший локальный file ID не share, late download
   await act(async () => finish({ success: true, data: [template] }))
   expect(mockDownload).not.toHaveBeenCalled()
 })
+it('C: отдельный вход в шаблоны КП сохраняет DOCX и локальные вложения', async () => {
+  const screen = draw(); await screen.findByText('Локальный файл')
+  expect(screen.getByText('Шаблоны документов · 1')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('proposal-templates-entry'))
+  expect(mockPush).toHaveBeenCalledWith('/more/proposal-templates')
+  expect(screen.getByText('Локальный файл')).toBeTruthy()
+})

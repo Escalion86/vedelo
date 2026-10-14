@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useState } from 'react'
 import { StyleSheet, Text } from 'react-native'
 import { api } from '../../shared/api/client'
@@ -67,4 +68,4 @@ export function CredentialIntegrationForm({ provider, gate, onStatus, onClose }:
     <Button title="Закрыть без сохранения" variant="secondary" onPress={() => { session.invalidate(); clear(); onClose() }} />
   </Surface>
 }
-const createStyles = (palette: Palette) => StyleSheet.create({ muted: { color: palette.cardMuted, fontSize: 12, lineHeight: 18 } })
+const createStyles = (palette: Palette) => StyleSheet.create({ muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, lineHeight: 18 } })

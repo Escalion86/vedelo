@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
@@ -22,11 +23,11 @@ export function MenuRow({ title, icon, onPress, nested, expanded, selected, disa
 }
 
 const createStyles = (palette: Palette) => StyleSheet.create({
-  row: { minHeight: 42, borderRadius: 9, gap: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center' },
+  row: { minHeight: 44, borderRadius: 9, gap: 10, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center' },
   nested: { paddingLeft: 34 },
-  title: { flex: 1, color: palette.secondaryText, fontSize: 13, fontWeight: '600' },
+  title: { fontFamily: typography.fontFamily, flex: 1, color: palette.secondaryText, fontSize: 13, fontWeight: '600' },
   selected: { backgroundColor: palette.rowSelected },
   pressed: { backgroundColor: palette.rowPressed }, disabled: { opacity: 0.65 },
   badge: { borderRadius: 999, paddingHorizontal: 6, minHeight: 20, justifyContent: 'center', backgroundColor: palette.counterBadge.background },
-  badgeText: { color: palette.counterBadge.text, fontSize: 11, fontWeight: '700' },
+  badgeText: { fontFamily: typography.fontFamily, color: palette.counterBadge.text, fontSize: 11, fontWeight: '700' },
 })

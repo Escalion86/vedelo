@@ -99,6 +99,7 @@ export const DocumentsSection = () => {
     ], { cancelable: true, onDismiss: () => { confirming.current = false } })
   }
   return <>
+    <Button testID="proposal-templates-entry" title="Шаблоны коммерческих предложений" variant="secondary" onPress={() => router.push('/more/proposal-templates' as never)} />
     {task.error ? <Notice tone="danger" message={task.error} /> : null}
     {task.phase ? <Notice message={task.phase} /> : null}
     <Surface><SectionTitle help={getFieldHelp('documents.templates')}>{`Шаблоны документов${templateState === 'ready' ? ` · ${templates.length}` : ''}`}</SectionTitle>

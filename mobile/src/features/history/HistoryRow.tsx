@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
@@ -57,4 +58,4 @@ export function HistoryRow({ item, navigationAllowed }: { item: HistoryItem; nav
     </View> : null}
   </Surface>
 }
-const createStyles = (p: Palette) => StyleSheet.create({ header: { flexDirection: 'row', gap: 8, minHeight: 48 }, grow: { flex: 1, minWidth: 0 }, title: { color: p.cardTitle, fontSize: 14, fontWeight: '600' }, entity: { color: p.cardMeta, fontSize: 13, lineHeight: 19, marginTop: 3 }, meta: { color: p.cardMuted, fontSize: 12, lineHeight: 18, marginTop: 4 }, changes: { gap: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: p.border }, change: { gap: 4, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.border }, label: { color: p.text, fontSize: 12, fontWeight: '600' } })
+const createStyles = (p: Palette) => StyleSheet.create({ header: { flexDirection: 'row', gap: 8, minHeight: 48 }, grow: { flex: 1, minWidth: 0 }, title: { fontFamily: typography.fontFamily, color: p.cardTitle, fontSize: 14, fontWeight: '600' }, entity: { fontFamily: typography.fontFamily, color: p.cardMeta, fontSize: 13, lineHeight: 19, marginTop: 3 }, meta: { fontFamily: typography.fontFamily, color: p.cardMuted, fontSize: 12, lineHeight: 18, marginTop: 4 }, changes: { gap: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: p.border }, change: { gap: 4, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.border }, label: { fontFamily: typography.fontFamily, color: p.text, fontSize: 12, fontWeight: '600' } })

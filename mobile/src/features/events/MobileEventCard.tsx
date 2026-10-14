@@ -1,3 +1,5 @@
+import { EventClientReviewStatus } from '../reviews/EventClientReviewStatus'
+import { EventCardClientLookup, EventCardClientState } from './EventCardClient'
 import { typography } from '../../shared/ui/theme'
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
@@ -16,7 +18,7 @@ import { formatEventCardMoney, getEventCardAddress, getEventCardAttention,
   getEventCardStatusKey, getEventCardTitle, getEventCardDateParts } from './eventCard'
 
 type Props = {
-  event: ListEvent; defaultTown?: string; client?: Client; clientsById?: ReadonlyMap<string, Client>
+  event: ListEvent & { isDemo?: boolean }; defaultTown?: string; client?: Client; clientsById?: ReadonlyMap<string, Client>
   services: Service[]; transactions: Transaction[]; occurrence?: EventCalendarOccurrence
   testID: string; onPress: () => void; loading?: boolean; error?: string
 }
@@ -36,7 +38,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
     occurrence.key === `${event._id}:contact:${task._id || index}`) : null
   const taskInfo = selectedTask ? getEventCardTaskPresentation(selectedTask) : attention?.dateLabel ? attention : null
   const attentionTone = selectedTask?.done ? palette.status.tomorrow : taskInfo ? palette.status[taskInfo.temporalTone] : palette.status.overdue
-  const busy = loading || event.syncStatus === 'syncing'
+  const busy = (loading && !event.clientId) || event.syncStatus === 'syncing'
   const syncError = error || (event.syncStatus === 'failed' ? 'Не удалось синхронизировать' : event.syncStatus === 'conflict' ? 'Конфликт изменений' : '')
   const pastRequest = event.status === 'draft' && Boolean(event.eventDate) && new Date(event.dateEnd || event.eventDate!) < new Date()
   const profitTone = palette.eventCardProfit[finance.net < 0 ? 'negative' : finance.net > 0 ? 'positive' : 'zero']
@@ -54,7 +56,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
           {event.isByContract ? indicator('file-document-check-outline', 'По договору', palette.notice.info.text) : null}
           {!isEventImportChecked(event) ? indicator('alert-outline', 'Импорт не проверен', palette.notice.warning.text) : null}
           {event.calendarSyncError ? indicator('calendar-alert', 'Ошибка календаря', palette.notice.danger.text) : null}
-          {!client && !loading ? indicator('account-off-outline', 'Клиент не указан', palette.notice.danger.text) : null}
+
           <Text style={[styles.title, { fontFamily: typography.fontFamily, fontSize: width < 420 ? 15.2 : 16 }]} numberOfLines={1}>{getEventCardTitle(event, services)}</Text>
         </View>
         <Pressable testID={`${testID}-overflow`} accessibilityRole="button" accessibilityLabel="Действия с работой" accessibilityState={{ expanded: sheet === 'actions', disabled: busy }}
@@ -69,7 +71,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
           <View style={styles.details}>
             <View style={styles.address}>
               <Text numberOfLines={1} style={[styles.meta, styles.addressText]}>{address || '-'}</Text>
-              {mapUrl ? <Pressable accessibilityRole="link" accessibilityLabel={`Открыть адрес в 2ГИС: ${address || 'Координаты места'}`}
+              {mapUrl ? <Pressable testID={`${testID}-map-target-40-android-e`} accessibilityRole="link" accessibilityLabel={`Открыть адрес в 2ГИС: ${address || 'Координаты места'}`}
                 style={styles.mapButton} onPress={(e) => { e.stopPropagation(); void openContactUrl(mapUrl) }}>
                 <MaterialCommunityIcons name="map-marker-outline" size={18} color={palette.primary} />
               </Pressable> : null}
@@ -95,12 +97,13 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
           </View>
         </View>
         <View style={styles.footer} testID={`${testID}-footer`}>
-          <Text accessibilityLabel={client ? `Клиент: ${getEventCardClientName(client)}` : undefined} style={[styles.client, !client && styles.missing]} numberOfLines={1}>{loading ? 'Загрузка сведений…' : client ? getEventCardClientName(client) : '-'}</Text>
-          <QuickContacts client={client} availableWidth={width - 92 - (otherContacts.length ? 40 : 0)} />
+          {!client && event.clientId ? <EventCardClientLookup key={event.clientId} clientId={event.clientId} availableWidth={width - 92 - (otherContacts.length ? 40 : 0)} />
+            : <EventCardClientState client={client} state={client ? 'found' : 'none'} availableWidth={width - 92 - (otherContacts.length ? 40 : 0)} />}
           {otherContacts.length ? <Pressable accessibilityRole="button" accessibilityLabel={`Дополнительные контакты: ${otherContacts.length}`}
             accessibilityState={{ expanded: sheet === 'contacts' }} style={styles.contactsMore}
             onPress={(e) => { e.stopPropagation(); setSheet('contacts') }}><Text style={styles.moreText}>+{otherContacts.length}</Text></Pressable> : null}
         </View>
+        {!event._id.startsWith('local-') && !event.isDemo ? <EventClientReviewStatus eventId={event._id} /> : null}
         {event.syncStatus === 'pending' ? <Text style={styles.pending}>Ожидает отправки</Text> : null}
         {busy ? <View testID={`${testID}-loading`} style={styles.loading} pointerEvents="auto"><ActivityIndicator accessibilityLabel="Загрузка" color={palette.primary} /></View> : null}
         {syncError ? <Pressable testID={`${testID}-error`} accessibilityRole="button" accessibilityLabel={`${syncError}. Открыть синхронизацию`}
@@ -150,7 +153,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, lineHeight: 17 }, details: { flex: 1, minWidth: 0, paddingVertical: 8, gap: 4, justifyContent: 'center' },
   address: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addressText: { flexShrink: 1 },
-  mapButton: { width: 28, minHeight: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  mapButton: { width: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   attentionRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 40 },
   attention: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, flexShrink: 1, alignSelf: 'flex-start' },
   attentionDate: { fontFamily: typography.fontFamily, fontSize: 11, fontWeight: '700', lineHeight: 14 }, attentionText: { fontFamily: typography.fontFamily, fontSize: 11, lineHeight: 14 },

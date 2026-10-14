@@ -13,6 +13,7 @@ import { QuickContacts } from '../../../src/shared/ui/QuickContacts'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
 import type { Palette } from '../../../src/shared/ui/theme'
 import { clientName, contactChannelLabel, plainComment } from '../../../src/features/clients/clientList'
+import { ClientReviewsSection } from '../../../src/features/reviews/ClientReviewsSection'
 import { getClientViewPalette } from '../../../src/features/clients/clientViewTheme'
 
 const money = (value: number) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`
@@ -104,6 +105,7 @@ export default function ClientDetailScreen() {
     <Surface><DetailSectionTitle>Файлы и документы</DetailSectionTitle><Button title={`Файлы и документы · ${client.documents?.length || 0}`} variant="secondary" onPress={() => router.push(`/clients/${id}/documents` as never)} />
       {client._id.startsWith('local-') ? <Notice tone="info" message="Загрузка файлов доступна после синхронизации клиента." /> : null}
     </Surface>
+    {!client._id.startsWith('local-') ? <ClientReviewsSection key={client._id} clientId={client._id} /> : null}
     {requisites.length ? <Surface><DetailSectionTitle>Реквизиты</DetailSectionTitle>{requisites.map(([label, value]) => <Text key={label} style={styles.text}>{label}: {value}</Text>)}</Surface> : null}
     {client.significantDates?.some((date) => date.title || date.date || date.comment) ? <Surface><DetailSectionTitle>Значимые даты</DetailSectionTitle>{client.significantDates.filter((date) => date.title || date.date || date.comment).map((date, index) => <View key={date._id || index} style={styles.summary}><Text style={styles.text}>{date.title || 'Дата'}{date.date ? `: ${dateText(date.date, true)}` : ''}</Text>{date.comment ? <Text style={styles.muted}>{plainComment(date.comment)}</Text> : null}</View>)}</Surface> : null}
     <Button title="Переписки Avito и VK" variant="secondary" onPress={() => router.push({ pathname: '/conversations', params: { clientId: id } } as never)} />

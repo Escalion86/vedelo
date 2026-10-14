@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
@@ -181,6 +182,6 @@ function ManagedForm({ provider, gate, onStatus, onClose }: { provider: ManagedP
   </Surface>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
-  muted: { color: palette.cardMuted, fontSize: 12, lineHeight: 18 }, title: { color: palette.text, fontSize: 14, fontWeight: '700', flexShrink: 1 }, value: { color: palette.text, fontSize: 13, lineHeight: 19, flexShrink: 1 },
+  muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, lineHeight: 18 }, title: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 14, fontWeight: '700', flexShrink: 1 }, value: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 13, lineHeight: 19, flexShrink: 1 },
   key: { gap: spacing.sm, padding: spacing.sm, borderWidth: 1, borderColor: palette.border, borderRadius: 8 }, secret: { gap: spacing.sm, padding: spacing.sm, borderWidth: 1, borderColor: palette.notice.warning.border, borderRadius: 8 },
 })

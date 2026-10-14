@@ -1,3 +1,4 @@
+import { withLocalDataClear } from './localEntityCoordination'
 import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import * as SQLite from 'expo-sqlite'
@@ -91,7 +92,7 @@ export const getStartupRecoverySummary = (): StartupRecoverySummary => ({
   ...startupRecoverySummary,
 })
 
-export const clearLocalData = async () => {
+export const clearLocalData = () => withLocalDataClear(async () => {
   const database = await getDatabase()
   await database.withTransactionAsync(async () => {
     await database.execAsync(`
@@ -110,4 +111,4 @@ export const clearLocalData = async () => {
     // Database rows are already gone; an orphaned encrypted blob contains no plaintext.
   }
   startupRecoverySummary = { outboxOperations: 0, files: 0 }
-}
+})

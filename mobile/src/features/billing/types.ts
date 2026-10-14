@@ -15,6 +15,8 @@ export type MobileTariff = {
   allowCalendarSync: boolean
   allowStatistics: boolean
   allowDocuments: boolean
+  allowClientReviews?: boolean
+  allowTelegramIntegration?: boolean
   allowProposals?: boolean
   allowTelephony: boolean
   allowAi: boolean
@@ -26,6 +28,7 @@ export type MobileTariff = {
 }
 
 export type MobileBilling = {
+  aiIncludedRates?: AiIncludedRates
   account: {
     balance: number
     billingStatus: string
@@ -38,3 +41,10 @@ export type MobileBilling = {
   currentTariff: MobileTariff | null
   tariffs: MobileTariff[]
 }
+
+export type AiIncludedRates = Partial<{
+  transcriptionRubPerSecond: number
+  voiceNoteRub: number
+  eventDraftRub: number
+  fileRecordRub: number
+}>

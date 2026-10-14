@@ -9,6 +9,9 @@ import type { Client } from '../../shared/domain/types'
 import { MobileEventCard } from './MobileEventCard'
 import type { ListEvent } from './filters'
 
+jest.mock('../reviews/hooks', () => ({ useReviewStatuses: () => ({ data: {}, isPending: false }) }))
+jest.mock('../../shared/api/client', () => ({ api: { get: jest.fn() } }))
+jest.mock('../../shared/storage/cache', () => ({ listCachedEntities: jest.fn(), upsertEntities: jest.fn() }))
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'BrandIcon' }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }))
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))

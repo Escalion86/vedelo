@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import * as WebBrowser from 'expo-web-browser'
@@ -125,8 +126,8 @@ function Toggle({ title, enabled, disabled, onPress }: { title: string; enabled:
   return <Pressable accessibilityRole="switch" accessibilityLabel={title} accessibilityState={{ checked: enabled, disabled }} disabled={disabled} onPress={onPress} style={[styles.toggle, disabled && { opacity: 0.65 }]}><Text style={styles.grow}>{title}</Text><StatusChip label={enabled ? 'Да' : 'Нет'} tone={enabled ? 'success' : 'neutral'} /></Pressable>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
-  title: { color: palette.text, fontSize: 14, fontWeight: '700', flexShrink: 1 }, muted: { color: palette.cardMuted, fontSize: 12, lineHeight: 18 },
+  title: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 14, fontWeight: '700', flexShrink: 1 }, muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12, lineHeight: 18 },
   choice: { minHeight: 48, padding: spacing.sm, gap: 4, borderRadius: 8, borderWidth: 1, borderColor: palette.border }, selected: { backgroundColor: palette.rowSelected, borderColor: palette.primary },
-  toggle: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm }, grow: { color: palette.text, flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18 },
+  toggle: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm }, grow: { fontFamily: typography.fontFamily, color: palette.text, flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18 },
   reminder: { gap: spacing.sm, padding: spacing.sm, borderWidth: 1, borderColor: palette.border, borderRadius: 8 },
 })

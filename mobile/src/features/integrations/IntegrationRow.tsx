@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusChip } from '../../shared/ui/components'
@@ -20,6 +21,6 @@ export function IntegrationRow({ title, description, state, icon, selected, onPr
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 64, padding: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border, borderRadius: 8 },
-  grow: { flex: 1, minWidth: 0 }, title: { color: palette.text, fontSize: 14, fontWeight: '700' },
-  description: { color: palette.cardMeta, fontSize: 12, lineHeight: 17, marginTop: 2 }, status: { alignSelf: 'flex-start', marginTop: 4, maxWidth: '100%' },
+  grow: { flex: 1, minWidth: 0 }, title: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 14, fontWeight: '700' },
+  description: { fontFamily: typography.fontFamily, color: palette.cardMeta, fontSize: 12, lineHeight: 17, marginTop: 2 }, status: { alignSelf: 'flex-start', marginTop: 4, maxWidth: '100%' },
 })

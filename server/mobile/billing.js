@@ -29,6 +29,7 @@ export const serializeMobileBilling = ({
   currentTariff,
   tariffs,
   now = new Date(),
+  aiIncludedRates,
 }) => {
   const balance = Math.max(Number(user?.balance ?? 0), 0)
   const runway = calculateBalanceRunway({
@@ -38,6 +39,7 @@ export const serializeMobileBilling = ({
     now,
   })
   return {
+    ...(aiIncludedRates ? { aiIncludedRates: serializeMobileAiIncludedRates(aiIncludedRates) } : {}),
     account: {
       balance,
       billingStatus: user?.billingStatus || 'active',
@@ -60,3 +62,11 @@ export const serializeMobileBilling = ({
     ),
   }
 }
+
+// Only public aggregated costs; never usage rows, identities or provider metadata.
+export const serializeMobileAiIncludedRates = (rates = {}) =>
+  Object.fromEntries(
+    ['transcriptionRubPerSecond', 'voiceNoteRub', 'eventDraftRub', 'fileRecordRub']
+      .filter((key) => Number.isFinite(rates[key]) && rates[key] >= 0)
+      .map((key) => [key, rates[key]])
+  )

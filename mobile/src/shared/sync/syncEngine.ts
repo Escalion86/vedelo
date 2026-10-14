@@ -1,8 +1,11 @@
+import { assertLocalEntityIdentity, localEntityIdentity, recordLocalEntityId } from '../storage/localEntityIds'
+import { assertLocalDataEpoch, localDataEpoch, withLocalEntityWrite } from '../storage/localEntityCoordination'
 import NetInfo from '@react-native-community/netinfo'
 import { api } from '../api/client'
 import {
   applyTombstones,
   getSyncCursor,
+  getCachedEntity,
   removeCachedEntity,
   setSyncCursor,
   upsertEntities,
@@ -11,6 +14,7 @@ import { getDatabase } from '../storage/database'
 import { syncFileQueue } from '../storage/encryptedFiles'
 import {
   getOutboxSummary,
+  enqueueOperation,
   listPendingOperations,
   replacePendingEntityId,
   replacePendingLocalReferences,
@@ -77,28 +81,58 @@ const saveConflicts = async (result: PushResult) => {
   }
 }
 
-const processPushResult = async (result: PushResult, attempts: number) => {
+type LocalCreateCapture = {
+  identity: string
+  epoch: number
+  entity: Record<string, unknown> | null
+}
+
+const processPushResult = async (result: PushResult, attempts: number, capture: LocalCreateCapture | null) => {
   if (result.status === 'applied') {
-    if (result.entityType && result.entity?._id) {
-      if (
-        result.localEntityId &&
-        String(result.localEntityId) !== String(result.entity._id)
-      ) {
-        await replacePendingEntityId(
-          result.entityType,
-          result.localEntityId,
-          String(result.entity._id)
-        )
-        await replacePendingLocalReferences(
-          result.localEntityId,
-          String(result.entity._id)
-        )
-        await removeCachedEntity(result.entityType, result.localEntityId)
-      }
-      await upsertEntities(result.entityType, [
-        result.entity as Record<string, unknown> & { _id: string },
-      ])
+    const entityType = result.entityType
+    const serverEntity = result.entity as (Record<string, unknown> & { _id: string }) | null
+    const localId = result.localEntityId
+    if (capture) {
+      await withLocalEntityWrite(async () => {
+        assertLocalDataEpoch(capture.epoch)
+        await assertLocalEntityIdentity(capture.identity)
+        assertLocalDataEpoch(capture.epoch)
+        if (entityType && serverEntity?._id && localId && localId !== String(serverEntity._id)) {
+          const current = await getCachedEntity<Record<string, unknown>>(entityType, localId)
+          // Save may have completed while create was on the network. Preserve only
+          // edits since capture; the server still owns ID and syncVersion.
+          const edits = Object.fromEntries(Object.entries(current || {}).filter(([key, value]) =>
+            !['_id', 'syncVersion', 'updatedAt', 'syncStatus'].includes(key) &&
+            JSON.stringify(value) !== JSON.stringify(capture.entity?.[key])
+          ))
+          await assertLocalEntityIdentity(capture.identity)
+          assertLocalDataEpoch(capture.epoch)
+          if (current) await upsertEntities(entityType, [{ ...serverEntity, ...edits }])
+          await recordLocalEntityId(entityType, localId, String(serverEntity._id), capture.identity)
+          await replacePendingEntityId(entityType, localId, String(serverEntity._id))
+          await replacePendingLocalReferences(localId, String(serverEntity._id))
+          await removeCachedEntity(entityType, localId)
+          if (!current) {
+            // Delete won while create was in flight. The server create is already
+            // applied, so finish the deletion using the unchanged server delete DTO.
+            await enqueueOperation({
+              entityType,
+              entityId: String(serverEntity._id),
+              method: 'delete',
+              payload: {},
+              baseVersion: serverEntity.syncVersion ? String(serverEntity.syncVersion) : null,
+              baseValues: null,
+              attachments: [],
+            })
+          }
+        } else if (entityType && serverEntity?._id) {
+          await upsertEntities(entityType, [serverEntity])
+        }
+        await updateOperationStatus(result.operationId, 'synced')
+      })
+      return
     }
+    if (entityType && serverEntity?._id) await upsertEntities(entityType, [serverEntity])
     await updateOperationStatus(result.operationId, 'synced')
     return
   }
@@ -121,18 +155,43 @@ const processPushResult = async (result: PushResult, attempts: number) => {
 
 const pushOutbox = async () => {
   for (let processed = 0; processed < 50; processed += 1) {
+    const captureEpoch = localDataEpoch()
     const [operation] = await listPendingOperations(1)
+    let requestOperation = operation
     if (!operation) return
-    await updateOperationStatus(operation.operationId, 'syncing', {
+    const isLocalCreate = operation.method === 'create' && operation.entityId.startsWith('local-')
+    if (!isLocalCreate) await updateOperationStatus(operation.operationId, 'syncing', {
       attempts: operation.attempts,
     })
+    let capture: LocalCreateCapture | null = null
     try {
+      if (isLocalCreate) {
+        // Capture epoch before the async identity read, without holding the queue
+        // across platform auth reads or the following network request.
+        const epoch = captureEpoch
+        const identity = await localEntityIdentity()
+        capture = await withLocalEntityWrite(async () => {
+          assertLocalDataEpoch(epoch)
+          await assertLocalEntityIdentity(identity)
+          // The selected create may have been merged/discarded before capture.
+          const [pending] = await listPendingOperations(1)
+          if (!pending || pending.operationId !== operation.operationId) throw new Error('LOCAL_CREATE_CHANGED')
+          requestOperation = pending
+          const entity = await getCachedEntity<Record<string, unknown>>(operation.entityType, operation.entityId)
+          if (!entity) throw new Error('LOCAL_ENTITY_DELETED')
+          assertLocalDataEpoch(epoch)
+          await updateOperationStatus(operation.operationId, 'syncing', { attempts: pending.attempts })
+          return { epoch, identity, entity }
+        })
+        await assertLocalEntityIdentity(capture.identity)
+        assertLocalDataEpoch(capture.epoch)
+      }
       const response = await api.post<{
         success: true
         data: { results: PushResult[] }
-      }>('/mobile/v1/sync/push', { operations: [operation] })
+      }>('/mobile/v1/sync/push', { operations: [requestOperation] })
       const result = response.data.results[0]
-      if (result) await processPushResult(result, operation.attempts)
+      if (result) await processPushResult(result, requestOperation.attempts, capture)
       else throw new Error('Сервер не вернул результат синхронизации')
     } catch (error) {
       const nextAttempts = operation.attempts + 1

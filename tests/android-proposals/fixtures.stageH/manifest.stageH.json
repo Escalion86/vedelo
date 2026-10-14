@@ -1,0 +1,380 @@
+{
+  "generator": "generate-fixtures.stageH.py",
+  "ffmpeg": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers",
+  "commands": [
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=32x32:rate=10:duration=2",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-threads",
+        "1",
+        "-pix_fmt",
+        "yuv420p",
+        "-f",
+        "mp4",
+        "/home/aleksei/.hermes/cache/scratch/vedelo-android-H/tmp/stageH-fixture-cdfng1_v/regular.mp4"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=32x32:rate=10:duration=2",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-threads",
+        "1",
+        "-g",
+        "5",
+        "-movflags",
+        "frag_keyframe+empty_moov",
+        "-f",
+        "mp4",
+        "pipe:1"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=32x32:rate=10:duration=2",
+        "-an",
+        "-c:v",
+        "libvpx",
+        "-threads",
+        "1",
+        "-g",
+        "5",
+        "-cluster_time_limit",
+        "500",
+        "-f",
+        "webm",
+        "pipe:1"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:duration=0.2",
+        "-vn",
+        "-c:a",
+        "aac",
+        "-f",
+        "mp4",
+        "/home/aleksei/.hermes/cache/scratch/vedelo-android-H/tmp/stageH-fixture-iuq2wcz9/audio-only.mp4"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:duration=0.2",
+        "-vn",
+        "-c:a",
+        "libopus",
+        "-f",
+        "webm",
+        "pipe:1"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=128x128:rate=25:duration=2",
+        "-frames:v",
+        "50",
+        "-f",
+        "gif",
+        "/home/aleksei/.hermes/cache/scratch/vedelo-android-H/tmp/stageH-fixture-1pesa0oa/animated-128x128x50.gif"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-filter_threads",
+        "1",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=red:size=1024x1024:rate=20:duration=2",
+        "-frames:v",
+        "40",
+        "-f",
+        "gif",
+        "/home/aleksei/.hermes/cache/scratch/vedelo-android-H/tmp/stageH-fixture-sb9_513i/over-40M.gif"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "node",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/generate-fixtures.stageH.cjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/animated-128x128x50.gif",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/audio-only.mp4",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/audio-only.webm",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/fragmented.mp4",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/over-40M.gif",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/regular.mp4",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/stream.webm",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/projects/vedelo-android-server-fixes2-20261011/tests/android-proposals/fixtures.stageH/unknown-clusters.webm",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-xerror",
+        "-threads",
+        "1",
+        "-i",
+        "/home/aleksei/.hermes/cache/scratch/vedelo-android-H/tmp/stageH-free45.mp4",
+        "-f",
+        "null",
+        "-"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "ffmpeg",
+        "-version"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "positiveGif": {
+    "width": 128,
+    "height": 6400,
+    "pageHeight": 128,
+    "pages": 50,
+    "actualPixels": 819200,
+    "reencodedBytes": 94958
+  },
+  "negativeGif": {
+    "width": 1024,
+    "height": 40960,
+    "pages": 40,
+    "actualPixels": 41943040
+  },
+  "files": {
+    "animated-128x128x50.gif": {
+      "bytes": 95202,
+      "sha256": "433e5a64cef18e980a442a231f696a8009d568c175a8daee173bf53a20dcd271"
+    },
+    "audio-only.mp4": {
+      "bytes": 2922,
+      "sha256": "2085a009ce2f9f47fe463af2a3eab1dbf3e121523ddf4708391971a4f3bed61c"
+    },
+    "audio-only.webm": {
+      "bytes": 2745,
+      "sha256": "983f9d871f81a68da3ebdd40f3fe58b14e17f4a371f3674bcaeb696e22429b06"
+    },
+    "fragmented.mp4": {
+      "bytes": 4562,
+      "sha256": "2f3683c39a1c2d3fc1531eafa0b2c6ff8bc7b25270a7c8b3bf00c6b7adee54b2"
+    },
+    "over-40M.gif": {
+      "bytes": 6748,
+      "sha256": "fa8decd85d1efae1855d9b50e49bb281337cff54ec98396f151f07f0cb7b5150"
+    },
+    "regular.mp4": {
+      "bytes": 3040,
+      "sha256": "58e27f248b5def71bf4c0b0a3b78d7dc95bb15bbcdb21effc76cd49233caaa15"
+    },
+    "stream.webm": {
+      "bytes": 4284,
+      "sha256": "e0b8ae42cf9da78044a9dcd1353f03512fc7e805aee05d53cdbba8de0a9fdd26"
+    },
+    "unknown-clusters.webm": {
+      "bytes": 4284,
+      "sha256": "25a7efeab67b53316554805d844396becf838ce4f54e0e5efb52920d46700e52"
+    }
+  }
+}

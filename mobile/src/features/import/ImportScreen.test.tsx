@@ -6,6 +6,15 @@ import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import { EVENT_ID, JOB_ID, OTHER_ID, NEW_QUOTE_ID, makeJob, makeReview, makeQuoted, response, summary, deferred } from './fixtures'
 jest.setTimeout(20000)
+// Инициализация только native hosts до отсчёта сценариев, без feature/provider/API.
+const nativeHosts = require('react-native')
+const nativeHostFixture = render(React.createElement(nativeHosts.View, null,
+  React.createElement(nativeHosts.ScrollView, null,
+    React.createElement(nativeHosts.Pressable, null,
+      React.createElement(nativeHosts.Text, null, 'Native fixture')),
+    React.createElement(nativeHosts.ActivityIndicator, { animating: false }),
+    React.createElement(nativeHosts.TextInput, { value: '' }))))
+nativeHostFixture.unmount()
 const mockGet = jest.fn(), mockPost = jest.fn(), mockUpload = jest.fn(), mockPicker = jest.fn(), mockSync = jest.fn(), mockInvalidate = jest.fn(), mockCached = jest.fn(), mockPush = jest.fn(), mockOnline = jest.fn(), mockSyncState = jest.fn(), mockCleanup = jest.fn(), mockDispatch = jest.fn()
 let mockFocus = true, mockParams: Record<string, unknown> = {}, mockUser: any = { _id: '1'.repeat(24), tenantId: 'tenant' }
 let mockBeforeRemove: (event: any) => void
@@ -30,7 +39,7 @@ beforeEach(() => { jest.clearAllMocks(); mockFocus = true; mockParams = {}; mock
 afterEach(() => jest.restoreAllMocks())
 it.each(['light', 'dark'] as const)('native route %s / long names / theme / no fictional Google-export buttons', async (mode) => {
   const longName = 'Очень длинное название файла '.repeat(12) + '.csv'; mockGet.mockResolvedValue(response([summary(makeJob({ fileName: longName }))])); const screen = render(draw(mode)); await screen.findByText(longName + ' · Файл загружен')
-  const title = screen.getByText('Импорт и экспорт'); expect(StyleSheet.flatten(title.props.style).color).toBe((mode === 'dark' ? darkPalette : lightPalette).text)
+  const title = screen.getByText('Импорт и экспорт'); expect(StyleSheet.flatten(title.props.style).color).toBe((mode === 'dark' ? darkPalette : lightPalette).headerTitleColor)
   expect(screen.getByText(/Отдельный Google-импорт пока доступен только/)).toBeTruthy(); expect(screen.getByRole('button', { name: 'Открыть общий экспорт' })).toBeTruthy(); expect(screen.getByLabelText('Этапы импорта')).toBeTruthy(); screen.unmount()
 })
 it('loading/empty/error/retry без ложного пустого успеха', async () => { const pending = deferred<unknown>(); mockGet.mockReturnValueOnce(pending.promise); const screen = render(draw()); expect(screen.getByLabelText('Запрос импорта')).toBeTruthy(); expect(screen.queryByText('Сохранённых импортов пока нет')).toBeNull(); await act(async () => pending.reject(new Error('SECRET PII'))); expect(screen.queryByText('SECRET PII')).toBeNull(); fireEvent.press(screen.getByText('Обновить список импортов')); await screen.findByText('Сохранённых импортов пока нет'); screen.unmount() })

@@ -1,11 +1,10 @@
 import type { PropsWithChildren, ReactNode } from 'react'
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
-  useWindowDimensions,
   type PressableProps, type StyleProp, type TextInputProps, type ViewStyle, type ViewProps,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { pageTitleSize, radius, spacing, surfaceElevation, surfaceShadow, typography, type Palette, type TemporalStatus, type EventViewStatus } from './theme'
+import { radius, spacing, surfaceElevation, surfaceShadow, typography, type Palette, type TemporalStatus, type EventViewStatus } from './theme'
 import { useTheme, useThemeStyles } from './ThemeProvider'
 import { Notice } from './Notice'
 import { FieldHelp, HelpLabel } from './FieldHelp'
@@ -32,15 +31,11 @@ export const PageHeader = ({ title, help, count, subtitle, action }: {
   title: string; help?: string; count?: number | string; subtitle?: string; action?: ReactNode
 }) => {
   const styles = useThemeStyles(createStyles)
-  const { width } = useWindowDimensions()
-  const fontSize = pageTitleSize(width)
   return (
-    <View style={styles.pageHeader}>
+    <View testID="page-header" style={styles.pageHeader}>
       <View style={styles.pageHeaderText}>
         <View style={styles.pageTitleRow}>
-          <Text accessibilityRole="header" style={[styles.pageTitle, { fontFamily: typography.fontFamily,
-            fontSize, lineHeight: fontSize * 1.05, letterSpacing: fontSize * -0.035,
-          }]}>{title}</Text>
+          <Text accessibilityRole="header" accessibilityLabel={title} numberOfLines={1} style={styles.pageTitle}>{title}</Text>
           {help ? <FieldHelp key={title} text={help} label={title} /> : null}
           {count != null ? <Text style={styles.pageCount}>{count}</Text> : null}
         </View>
@@ -174,11 +169,11 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.canvas },
   scrollContent: { flexGrow: 1 },
   screenContent: { flex: 1, gap: spacing.lg, padding: spacing.lg, paddingBottom: 96 },
-  pageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  pageHeader: { minHeight: 64, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 7, borderBottomWidth: 1, borderColor: palette.border, backgroundColor: palette.headerBackground, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   pageHeaderText: { flex: 1, minWidth: 0 },
-  pageTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' },
-  pageTitle: { fontFamily: typography.fontFamily, color: palette.text, fontWeight: typography.nativePageTitleWeight, flexShrink: 1 },
-  pageCount: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 16, fontWeight: '500' },
+  pageTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  pageTitle: { fontFamily: typography.fontFamily, color: palette.headerTitleColor, fontSize: 16, lineHeight: 24, fontWeight: typography.nativePageTitleWeight, flexShrink: 1 },
+  pageCount: { fontFamily: typography.fontFamily, color: palette.primary, fontSize: 12, lineHeight: 16, fontWeight: '600', flexShrink: 0 },
   pageSubtitle: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 14, lineHeight: 20, marginTop: 3 },
   surface: { borderWidth: 1, padding: spacing.lg, gap: spacing.md },
   card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 8, elevation: surfaceElevation[palette.mode], ...surfaceShadow[palette.mode] },

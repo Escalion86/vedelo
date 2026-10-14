@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { useCallback, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
@@ -10,6 +11,7 @@ import { HelpLabel } from '../../shared/ui/FieldHelp'
 import { useWorkItemTerminology } from '../../shared/hooks/useWorkItemTerminology'
 import { calculateStatistics, categoryLabel, money, readStatistics, statisticsCsv, statisticsPath, type StatisticsStatus } from './statistics'
 import { useSectionData } from './useSectionData'
+import { MonthlyProfitChart } from './MonthlyProfitChart'
 import { shareStatisticsCsv } from './exportCsv'
 
 const statuses: [StatisticsStatus, string][] = [['all', 'Все'], ['draft', 'Заявки'], ['active', 'Предстоящие'], ['finished', 'Прошедшие'], ['closed', 'Закрытые'], ['canceled', 'Отменённые']]
@@ -56,13 +58,15 @@ export function StatisticsSection() {
     {data && analytics ? <>
       {!data.events.length && !data.transactions.length ? <EmptyState title="За выбранный период данных нет" description="Выберите другой год, статус или город." /> : null}
       <Surface variant="kpi"><Text style={styles.meta}>{terms.pluralCapitalized}: {data.events.length} · Транзакции: {data.transactions.length}</Text><SectionTitle help={getFieldHelp('statistics.profitMargin')}>Финансовый результат</SectionTitle><Text testID="statistics-net" style={styles.total}>{money(analytics.net)}</Text><Text style={styles.income}>Доходы: {money(analytics.income)}</Text><Text style={styles.expense}>Расходы: {money(analytics.expense)}</Text><Text style={styles.text}>Маржа: {analytics.margin.toFixed(1)}%</Text><Text style={styles.meta}>Остатки к оплате: {money(analytics.paymentLeft)}</Text><Text style={styles.meta}>Налоги: {money(analytics.taxes)} · Комиссии: {money(analytics.commissions)}</Text></Surface>
+      <Surface variant="kpi"><Text style={styles.meta}>Получено по предстоящим {terms.pluralDative || terms.plural}</Text><Text testID="statistics-received-upcoming" style={styles.income}>{money(analytics.depositPaid)}</Text><Text style={styles.meta}>Сумма положительных доходов по заявкам и предстоящим работам. Обязательства также могут входить в сумму.</Text></Surface>
+      <MonthlyProfitChart months={analytics.months} />
       {analytics.topExpenses.length ? <Surface><SectionTitle>Основные расходы</SectionTitle>{analytics.topExpenses.map((item) => <View key={item.category} style={styles.row}><Text style={styles.grow}>{categoryLabel(item.category)}</Text><Text style={styles.text}>{money(item.amount)}</Text></View>)}</Surface> : null}
       {analytics.topEvents.length ? <Surface><SectionTitle>Самые прибыльные {terms.plural}</SectionTitle>{analytics.topEvents.map(({ event, profit }) => <Pressable key={event._id} accessibilityRole="button" accessibilityLabel={`Открыть: ${event.description || event.eventType || terms.label}`} style={styles.row} onPress={() => { if (/^[a-f\d]{24}$/i.test(event._id)) router.push(`/events/${event._id}` as never) }}><View style={styles.flex}><Text style={styles.text}>{event.description || event.eventType || terms.labelCapitalized}</Text><Text style={styles.meta}>{event.eventDate ? new Date(event.eventDate).toLocaleDateString('ru-RU') : 'Дата не указана'}</Text></View><Text style={profit >= 0 ? styles.income : styles.expense}>{money(profit)}</Text></Pressable>)}</Surface> : null}
-      <Notice tone="info" message="Статистика получена для выбранных фильтров. API не передаёт способ оплаты: обязательства могут входить в суммы. Этот CSV содержит только выбранные данные." />
+      <Notice testID="statistics-obligations" tone="info" message="Статистика получена для выбранных фильтров. Текущий учёт включает обязательства — обещанные расчёты, а не только фактически полученные и выплаченные деньги. Этот CSV содержит только выбранные данные." />
     </> : null}
     {notice?.key === session.key ? <Notice tone="danger" message={notice.message} /> : null}
     <Button title="Экспортировать CSV" onPress={exportCsv} loading={busy} disabled={!data || session.loading || Boolean(session.error)} />
     <Button title={session.error ? 'Повторить загрузку' : 'Обновить'} variant="secondary" onPress={session.load} loading={session.loading} disabled={busy} />
   </>
 }
-const createStyles = (p: Palette) => StyleSheet.create({ wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 48, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: p.border }, flex: { flex: 1, minWidth: 100 }, grow: { flex: 1, color: p.text, fontSize: 14 }, text: { color: p.text, fontSize: 14, lineHeight: 20 }, meta: { color: p.cardMuted, fontSize: 12, lineHeight: 18 }, total: { color: p.text, fontSize: 28, fontWeight: '700' }, income: { color: p.notice.success.text, fontSize: 14, fontWeight: '600' }, expense: { color: p.notice.danger.text, fontSize: 14, fontWeight: '600' } })
+const createStyles = (p: Palette) => StyleSheet.create({ wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 48, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: p.border }, flex: { flex: 1, minWidth: 100 }, grow: { fontFamily: typography.fontFamily, flex: 1, color: p.text, fontSize: 14 }, text: { fontFamily: typography.fontFamily, color: p.text, fontSize: 14, lineHeight: 20 }, meta: { fontFamily: typography.fontFamily, color: p.cardMuted, fontSize: 12, lineHeight: 18 }, total: { fontFamily: typography.fontFamily, color: p.text, fontSize: 28, fontWeight: '700' }, income: { fontFamily: typography.fontFamily, color: p.notice.success.text, fontSize: 14, fontWeight: '600' }, expense: { fontFamily: typography.fontFamily, color: p.notice.danger.text, fontSize: 14, fontWeight: '600' } })

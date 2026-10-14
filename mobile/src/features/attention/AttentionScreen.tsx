@@ -16,6 +16,7 @@ import { EmptyState, Notice, PageHeader, Screen, Surface } from '../../shared/ui
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { spacing, type Palette, type TemporalStatus } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { UnreadClientReviewsSection } from '../reviews/ClientReviewsSection'
 import { MobileEventCard } from '../events/MobileEventCard'
 import { useEventsScope } from '../navigation/EventsScope'
 import { performAttentionAction } from './actions'
@@ -127,10 +128,10 @@ export default function AttentionScreen() {
         : loading ? <ActivityIndicator accessibilityLabel="Загрузка обзора" color={palette.primary} /> : <>
           {!events.data?.length ? <EmptyState title="Здесь пока нет работ" description="Создайте первую заявку — она сохранится и без сети."
             action={{ title: 'Новая заявка', onPress: () => router.push('/events/edit/new' as never) }} /> : null}
-          {summary.length ? <View testID="attention-summary" style={styles.summary}>
+          {summary.length ? <ScrollView horizontal testID="attention-summary" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summary} style={styles.summaryScroll}>
             {summary.map((item) => <SummaryChip key={item.id} id={item.id} label={`${item.count} ${item.label}`} color={item.color}
               onPress={() => scroll.current?.scrollTo({ y: positions.current[item.id] ?? 0, animated: true })} />)}
-          </View> : null}
+          </ScrollView> : null}
           {data.pastRequests.length ? section('past-requests', 'Заявки с прошедшей датой', data.pastRequests.length, <>
             <Text style={styles.muted}>Дата прошла — уточните результат. Проверьте оплаты и закройте заявку, отмените её или перенесите дату.</Text>
             <OverviewList id="past-requests" items={data.pastRequests} empty="" initialCount={5} step={10}
@@ -164,6 +165,7 @@ export default function AttentionScreen() {
           <OverviewList id="dates" items={data.clientDates} empty="Значимых дат нет"
             render={(item) => <ClientDateRow key={item.key} item={item} />} />, { tone: 'upcoming' }) : null}
       </> : null}
+      <UnreadClientReviewsSection />
     </ScrollView>
   </Screen>
 }
@@ -187,7 +189,7 @@ function OverviewList<T>({ id, items, empty, render, initialCount = 12, step }: 
 const createStyles = (palette: Palette) => StyleSheet.create({
   screen: { padding: 0, paddingBottom: 0 },
   content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
-  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  summaryScroll: { flexGrow: 0, flexShrink: 0 }, summary: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   syncState: { gap: spacing.sm },
   stateTitle: { fontFamily: typography.fontFamily, color: palette.cardTitle, fontSize: 14, fontWeight: '600' },
   muted: { fontFamily: typography.fontFamily, color: palette.cardMuted, fontSize: 12 },

@@ -3,21 +3,23 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, St
 import { router, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router'
 import { usePreventRemove } from '@react-navigation/native'
 import { useQueryClient } from '@tanstack/react-query'
-import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, type EventDraft, type EventFormValues } from '../../../src/shared/domain/eventForm'
+import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, validateEventDraft, type EventDraft, type EventFormValues } from '../../../src/shared/domain/eventForm'
 import { consumePendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
 import type { Client, Event, MobileSettings, Service, Transaction } from '../../../src/shared/domain/types'
 import { getCachedEntity, listCachedEntities, upsertEntities } from '../../../src/shared/storage/cache'
 import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/mutations'
-import { Button, ErrorNotice, PageHeader, Screen } from '../../../src/shared/ui/components'
-import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
+import { Button, ErrorNotice, Notice, PageHeader, Screen, Surface } from '../../../src/shared/ui/components'
+import { radius, spacing, typography, type Palette } from '../../../src/shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
 import { EventContactsSection } from '../../../src/features/events/EventContactsSection'
 import { EventFinanceSection } from '../../../src/features/events/EventFinanceSection'
 import { eventTransactionsFor, hasDepositPaidTransaction } from '../../../src/features/events/eventFinance'
 import { EventGeneralSection } from '../../../src/features/events/EventGeneralSection'
 import { api } from '../../../src/shared/api/client'
-import { PhotoDraftSection, type PhotoDraftFields } from '../../../src/features/events/PhotoDraftSection'
-import { applyPhotoDraft } from '../../../src/features/events/applyPhotoDraft'
+import { PhotoDraftSection, type PhotoDraftMetadata, type PhotoDraftFields } from '../../../src/features/events/PhotoDraftSection'
+import { CompactEventForm } from '../../../src/features/events/CompactEventForm'
+import { validationSection, type CompactSectionId } from '../../../src/features/events/compactEventForm'
+import { applyPhotoDraft, photoDraftHighlights } from '../../../src/features/events/applyPhotoDraft'
 import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
 import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
@@ -55,10 +57,23 @@ export default function EventEditScreen() {
   const [attempt, setAttempt] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [photoMetadata, setPhotoMetadata] = useState<PhotoDraftMetadata | null>(null)
+  const [aiFields, setAiFields] = useState<Set<string>>(() => new Set())
+  const [openSections, setOpenSections] = useState<Set<CompactSectionId>>(() => new Set<CompactSectionId>(entry.section === 'contacts' ? ['client'] : entry.section === 'finance' ? ['finance'] : []))
+  const [invalid, setInvalid] = useState<{ section: CompactSectionId; message: string }>()
+  const savedLocalId = useRef('')
   const [dirty, setDirty] = useState(false)
   const [savedPath, setSavedPath] = useState('')
   const busy = useRef(false)
   const { values } = draft
+  const compact = settings?.custom?.eventFormVariant !== 'classic'
+  const onManualEdit = (keys: string[]) => {
+    setAiFields(current => { const next = new Set(current); keys.forEach(key => next.delete(key)); return next })
+    setInvalid(undefined)
+  }
+  const toggleCompact = (id: CompactSectionId) => setOpenSections(current => {
+    const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next
+  })
   // Транзакции и документы принадлежат уже сохранённой работе, а не новой/клонируемой форме.
   const savedWorkId = isNew || isClone ? '' : entry.id
   const loadSourceId = entry.cloneId || savedWorkId
@@ -130,6 +145,7 @@ export default function EventEditScreen() {
           const pendingClient = consumePendingEventClient()
           if (pendingClient && clientItems.some((client) => client._id === pendingClient)) {
             setDirty(true)
+            setAiFields(current => { const next = new Set(current); next.delete('clientId'); return next })
             setDraft((current) => ({ ...current, values: { ...current.values, clientId: pendingClient } }))
           }
         }
@@ -143,7 +159,7 @@ export default function EventEditScreen() {
     return () => { active = false }
   }, [ready, savedWorkId, section]))
   const applyVoiceDraft = (fields: VoiceDraftFields) => setValues((current) => applyVoiceDraftFields(current, fields, new Set(clients.map((client) => client._id))))
-  const applyPhoto = async (fields: PhotoDraftFields) => {
+  const applyPhoto = async (fields: PhotoDraftFields, metadata?: PhotoDraftMetadata) => {
     let verifiedClients = clients
     if (typeof fields.clientId === 'string' && !clients.some((client) => client._id === fields.clientId)) {
       // Проверка новой связи повторно через tenant-protected GET, до записи в cache.
@@ -155,8 +171,13 @@ export default function EventEditScreen() {
       void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] }).catch(() => undefined)
     }
     setDirty(true)
-    setDraft((current) => applyPhotoDraft(current, fields,
-      new Set(verifiedClients.map((client) => client._id)), new Set(services.map((service) => service._id))))
+    const clientIds = new Set(verifiedClients.map(client => client._id))
+    const serviceIds = new Set(services.map(service => service._id))
+    // GET может ждать сеть: применяем к последнему draft, сохраняя несвязанные ручные правки.
+    setDraft(current => applyPhotoDraft(current, fields, clientIds, serviceIds))
+    setPhotoMetadata(metadata || null)
+    setAiFields(photoDraftHighlights(fields, metadata?.aiFilledFields || [], clientIds, serviceIds))
+    setInvalid(undefined)
   }
   const openNewTransaction = () => router.push({
     pathname: '/finance/edit/new', params: { eventId: savedWorkId, returnTo: 'event' },
@@ -178,15 +199,29 @@ export default function EventEditScreen() {
     if (!ready || busy.current) return
     setError('')
     try {
+      const validationError = validateEventDraft(draft)
+      if (validationError) {
+        const id = validationSection(validationError)
+        setInvalid({ section: id, message: validationError })
+        setOpenSections(current => new Set([...current, id]))
+        if (!compact) setSection(id === 'client' || id === 'tasks' ? 'contacts' : id === 'finance' ? 'finance' : 'general')
+        throw new Error(validationError)
+      }
       const payload = serializeEventDraft(draft, {
         clientIds: new Set(clients.map((c) => c._id)), serviceIds: new Set(services.map((s) => s._id)),
         // При ошибке чтения транзакций сохраняем черновик как есть, без нулевой подмены.
         depositPaid: !transactionsError && hasDepositPaidTransaction(relatedTransactions),
       })
       busy.current = true; setLoading(true)
-      const entity = await saveLocalEntity({ entityType: 'events', entityId: isNew || isClone ? undefined : entry.id, values: payload })
+      const entity = await saveLocalEntity({ entityType: 'events', entityId: savedLocalId.current || (isNew || isClone ? undefined : entry.id), values: payload })
       void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'events'] }).catch(() => undefined)
-      setSavedPath(`/events/${entity._id}`)
+      savedLocalId.current = entity._id
+      const saved = await getCachedEntity<Event>('events', entity._id)
+      if (!saved) throw new Error('Не удалось перечитать сохранённую работу. Повторите сохранение')
+      savedLocalId.current = saved._id
+      setAiFields(new Set())
+      setPhotoMetadata(null)
+      setSavedPath(`/events/${saved._id}`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить') }
     finally { busy.current = false; setLoading(false) }
   }
@@ -205,25 +240,41 @@ export default function EventEditScreen() {
   if (!ready) return <Screen><PageHeader title="Редактирование" />{error ? <><ErrorNotice message={error} /><Button title="Повторить" onPress={() => setAttempt((value) => value + 1)} /></> : <ActivityIndicator accessibilityLabel="Загрузка формы" color={palette.primary} />}</Screen>
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><Screen keyboardShouldPersistTaps="handled">
     <PageHeader title={isNew || isClone ? (values.status === 'draft' ? 'Новая заявка' : `Создать ${terms.accusative}`) : 'Редактирование'} />
-    <View style={styles.options}>{EVENT_SECTIONS.map(([key, label]) => <Pressable key={key} testID={`event-section-${key}`}
+    {!compact ? <View style={styles.options}>{EVENT_SECTIONS.map(([key, label]) => <Pressable key={key} testID={`event-section-${key}`}
       accessibilityRole="tab" accessibilityState={{ selected: section === key, disabled: loading }} disabled={loading}
       onPress={() => setSection(key)} style={[styles.option, section === key && styles.optionActive]}>
       <Text style={[styles.optionText, section === key && styles.optionTextActive]}>{label}</Text>
-    </Pressable>)}</View>
+    </Pressable>)}</View> : null}
+    {photoMetadata ? <Surface testID="event-photo-source"><Text style={styles.photoSource} selectable>{photoMetadata.sourceText}</Text>
+      <Notice tone="warning" message="Поля заполнены ИИ. Проверьте данные по оригиналу перед сохранением." />
+      {photoMetadata.aiWarnings.map((warning, index) => <Notice key={index} tone="warning" message={warning} />)}
+    </Surface> : null}
     <View style={styles.section} pointerEvents={loading ? 'none' : 'auto'}>
-      <View style={section !== 'general' && { display: 'none' }} accessibilityElementsHidden={section !== 'general'} importantForAccessibility={section === 'general' ? 'auto' : 'no-hide-descendants'}>
+      <View style={!compact && section !== 'general' ? { display: 'none' } : undefined} accessibilityElementsHidden={!compact && section !== 'general'} importantForAccessibility={compact || section === 'general' ? 'auto' : 'no-hide-descendants'}>
         {initialMode === 'photo' ? <PhotoDraftSection onApply={applyPhoto} /> : <VoiceDraftSection onApply={applyVoiceDraft} initialMode={initialMode} />}
       </View>
-      {section === 'general' ? <EventGeneralSection draft={draft} onChange={changeDraft}
+      {compact ? <CompactEventForm draft={draft} onChange={changeDraft} clients={clients}
+        services={services.filter(service => !service.archive || draft.serviceIds.includes(service._id))}
+        eventTypes={(settings?.custom?.eventTypes || []).filter(value => typeof value === 'string')}
+        towns={(settings?.towns || []).filter(value => typeof value === 'string')}
+        showTransfer={settings?.custom?.showColleagueTransferFields === true || Boolean(draft.source?.isTransferred)} genitive={terms.genitive}
+        aiFields={aiFields} onManualEdit={onManualEdit} openSections={openSections} onToggle={toggleCompact} invalid={invalid}
+        contacts={{ onCreateClient: () => router.push({ pathname: '/clients/edit/[id]', params: { id: 'new', returnTo: 'event' } } as never),
+          onOpenClient: clientId => router.push(`/clients/edit/${clientId}` as never) }}
+        finance={{ documentsCount, eventId: savedWorkId, transactions: relatedTransactions, transactionsError,
+          onAddTransaction: openNewTransaction, onDeleteTransaction: removeTransaction, onOpenTransaction: openTransaction,
+          onOpenDocuments: () => router.push(`/events/${savedWorkId}/documents` as never), onRetryTransactions: () => { void loadTransactions() } }}
+      /> : null}
+      {!compact && section === 'general' ? <EventGeneralSection draft={draft} onChange={changeDraft} aiFields={aiFields} onManualEdit={onManualEdit}
         services={services.filter((service) => !service.archive || draft.serviceIds.includes(service._id))} clients={clients}
         eventTypes={(settings?.custom?.eventTypes || []).filter((value) => typeof value === 'string')}
         towns={(settings?.towns || []).filter((value) => typeof value === 'string')}
         showTransfer={settings?.custom?.showColleagueTransferFields === true || Boolean(draft.source?.isTransferred)} genitive={terms.genitive} /> : null}
-      {section === 'contacts' ? <EventContactsSection clients={clients} draft={draft} onChange={changeDraft}
+      {!compact && section === 'contacts' ? <EventContactsSection clients={clients} draft={draft} onChange={changeDraft} aiFields={aiFields} onManualEdit={onManualEdit}
         onCreateClient={() => router.push({ pathname: '/clients/edit/[id]', params: { id: 'new', returnTo: 'event' } } as never)}
         onOpenClient={(clientId) => router.push(`/clients/edit/${clientId}` as never)} /> : null}
-      {section === 'finance' ? <EventFinanceSection documentsCount={documentsCount} draft={draft} eventId={savedWorkId}
-        onChange={changeDraft} onAddTransaction={openNewTransaction} onDeleteTransaction={removeTransaction}
+      {!compact && section === 'finance' ? <EventFinanceSection documentsCount={documentsCount} draft={draft} eventId={savedWorkId}
+        onChange={changeDraft} aiFields={aiFields} onManualEdit={onManualEdit} onAddTransaction={openNewTransaction} onDeleteTransaction={removeTransaction}
         onOpenDocuments={() => router.push(`/events/${savedWorkId}/documents` as never)} onOpenTransaction={openTransaction}
         onRetryTransactions={() => { void loadTransactions() }} transactions={relatedTransactions}
         transactionsError={transactionsError} /> : null}
@@ -231,11 +282,13 @@ export default function EventEditScreen() {
     {clientsError ? <ErrorNotice message="Не удалось обновить клиентов. Вернитесь к вкладке, чтобы повторить загрузку." /> : null}
     {error ? <ErrorNotice message={error} /> : null}
     <Button testID="save-event" title="Сохранить" loadingTitle="Сохраняем…" onPress={save} loading={loading} />
+    <Button testID="cancel-event" title="Отмена" variant="secondary" onPress={() => router.back()} disabled={loading} />
     {!isNew && !isClone ? <Button title={`Удалить ${terms.accusative}`} variant="danger" onPress={remove} disabled={loading} /> : null}
   </Screen></KeyboardAvoidingView>
 }
 const createStyles = (colors: Palette) => StyleSheet.create({
   section: { gap: spacing.md },
+  photoSource: { fontFamily: typography.fontFamily, color: colors.text, fontSize: 14, lineHeight: 20 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   option: {
     minHeight: 42,

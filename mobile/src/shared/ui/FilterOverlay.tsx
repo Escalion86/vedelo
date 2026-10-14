@@ -130,7 +130,7 @@ export const FilterOverlay = ({ title = 'Фильтры', visible, onOpen, onClo
 }
 
 const createStyles = (palette: Palette) => StyleSheet.create({
-  control: { minHeight: 36, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, gap: 8,
+  control: { minHeight: 40, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, gap: 8,
     alignItems: 'center', justifyContent: 'center', backgroundColor: palette.secondaryBackground, borderColor: palette.secondaryBorder },
   controlSelected: { backgroundColor: palette.primary, borderColor: palette.primary },
   controlSelectedPressed: { backgroundColor: palette.primaryPressed, borderColor: palette.primaryPressed },

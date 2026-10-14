@@ -13,6 +13,8 @@ import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import type { Event } from '../../shared/domain/types'
 import { useQuery } from '@tanstack/react-query'
 
+jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: { _id: 'unit-user', tenantId: 'unit-tenant' } }) }))
+jest.mock('../reviews/hooks', () => ({ useReviews: () => ({ data: { items: [], total: 0, allowClientReviews: false }, isPending: false }), useReviewStatuses: () => ({ data: {}, isPending: false }), useRefreshReviews: () => jest.fn() }))
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null, FontAwesome5: () => null }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }))
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }))
@@ -207,7 +209,9 @@ test.each([lightPalette, darkPalette])('секции и капсулы PWA, от
     expect(screen.getByTestId(`attention-summary-dot-${segment}`)).toHaveStyle({ width: 7, height: 7, backgroundColor: palette.sectionAccent[segment] })
   }
   expect(screen.getByTestId('attention-section-upcoming')).toHaveStyle({ borderLeftWidth: 3, borderLeftColor: palette.primary })
-  expect(screen.getByTestId('attention-summary')).toHaveStyle({ flexDirection: 'row', flexWrap: 'wrap', gap: 6 })
+  expect(screen.getByTestId('attention-summary').props.horizontal).toBe(true)
+  expect(screen.getByTestId('attention-summary').props.contentContainerStyle).toMatchObject({ flexDirection: 'row', gap: 6 })
+  expect(screen.getByTestId('attention-summary').props.contentContainerStyle.flexWrap).toBeUndefined()
   expect(screen.getByText('1 просроч.')).toHaveStyle({ fontSize: 12, fontWeight: '700' })
   expect(screen.getByText('Сегодня')).toHaveStyle({ fontSize: 14, fontWeight: '600' })
   expect(screen.getByTestId('attention-summary-today')).toHaveStyle({ minHeight: 40 })

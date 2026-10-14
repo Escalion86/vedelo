@@ -1,3 +1,4 @@
+import { typography } from '../../shared/ui/theme'
 import { StyleSheet, Text } from 'react-native'
 import { Notice, SectionTitle, StatusChip, Surface } from '../../shared/ui/components'
 import { useThemeStyles } from '../../shared/ui/ThemeProvider'
@@ -15,4 +16,4 @@ export function TelegramSection({ state }: { state?: ProviderStatus }) {
     <Notice tone="info" message="В Android доступен только просмотр состояния Telegram Business. Полное управление через мобильную авторизацию пока не поддерживается." />
   </Surface>
 }
-const createStyles = (palette: Palette) => StyleSheet.create({ text: { color: palette.text, fontSize: 13, lineHeight: 18 } })
+const createStyles = (palette: Palette) => StyleSheet.create({ text: { fontFamily: typography.fontFamily, color: palette.text, fontSize: 13, lineHeight: 18 } })
