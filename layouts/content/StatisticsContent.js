@@ -918,7 +918,13 @@ const StatisticsContent = () => {
               ) : null}
             </div>
 
-            <div className="mb-3 flex flex-wrap items-center gap-1 text-sm font-semibold">Группировка по месяцам <FieldHelp text={fieldHelp['statistics.monthGrouping']} label="Группировка по месяцам" /><span className="ml-3 inline-flex items-center gap-1">Ожидаемая прибыль <FieldHelp text={fieldHelp['statistics.expectedProfit']} label="Ожидаемая прибыль" /></span></div>
+            <div className="mb-3 flex flex-wrap items-center gap-1 text-sm font-semibold">
+              <h3>Прибыль по месяцам</h3>
+              <FieldHelp
+                text={fieldHelp['statistics.monthGrouping']}
+                label="Прибыль по месяцам"
+              />
+            </div>
             <div className="flex flex-wrap items-center gap-4 mb-3 text-sm text-gray-700">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 bg-blue-600 rounded" />
@@ -947,6 +953,15 @@ const StatisticsContent = () => {
                   }}
                 />
                 <span>Будущие месяцы</span>
+              </div>
+              <div className="flex basis-full items-center gap-1 text-xs">
+                <span>
+                  Ожидаемая прибыль — текущая прибыль + недооплачено.
+                </span>
+                <FieldHelp
+                  text={fieldHelp['statistics.expectedProfit']}
+                  label="Ожидаемая прибыль"
+                />
               </div>
             </div>
             {stats.length === 0 ? (

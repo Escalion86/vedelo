@@ -66,6 +66,8 @@ export default function CompactEventForm({
   otherContacts,
   documents,
   proposalsEnabled = false,
+  isTransferred = false,
+  colleague = null,
   aiHighlightedFields = EMPTY_AI_HIGHLIGHTED_FIELDS,
   statusLabel,
   status,
@@ -92,6 +94,12 @@ export default function CompactEventForm({
     (id) =>
       services.find((item) => item._id === id) || { _id: id, title: 'Услуга' }
   )
+  const transferredToName = getPersonFullName(colleague)
+  const detailsSummary = isTransferred
+    ? transferredToName
+      ? `Передано: ${transferredToName}`
+      : 'Передано коллеге'
+    : ''
   const hasAiHighlight = (...fieldNames) =>
     fieldNames.some((fieldName) => aiHighlightedFields.has(fieldName))
   return (
@@ -308,7 +316,7 @@ export default function CompactEventForm({
           <Section
             title="Другие детали"
             icon={faSliders}
-            summary="Дата заявки, передача коллеге"
+            summary={detailsSummary || 'Дата заявки, передача коллеге'}
             invalid={Boolean(errors.colleagueId)}
           >
             {fields.other}
