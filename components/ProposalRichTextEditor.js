@@ -3,8 +3,8 @@
 import AppButton from '@components/AppButton'
 import Notice from '@components/Notice'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { EditorContent, useEditor } from '@tiptap/react'
-import { Node, mergeAttributes } from '@tiptap/core'
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import { Extension, Mark, Node, mergeAttributes } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import { sendFile } from '@helpers/cloudinary'
@@ -13,6 +13,71 @@ import {
   PROPOSAL_VARIABLE_OPTIONS,
   sanitizeProposalRichText,
 } from '@helpers/proposalRichText'
+import {
+  PROPOSAL_FONT_FAMILIES,
+  PROPOSAL_FONT_SIZES,
+  PROPOSAL_TEXT_ALIGNMENTS,
+  normalizeProposalTextStyle,
+} from '@helpers/proposalTextStyles'
+
+const textStyleAttributes = {
+  fontFamily: 'font-family',
+  fontSize: 'font-size',
+  color: 'color',
+}
+const ProposalTextStyle = Mark.create({
+  name: 'proposalTextStyle',
+  addAttributes() {
+    return Object.fromEntries(
+      Object.entries(textStyleAttributes).map(([key, property]) => [
+        key,
+        {
+          default: null,
+          parseHTML: (element) =>
+            normalizeProposalTextStyle(property, element.style[key]) || null,
+          renderHTML: (attrs) => {
+            const value = normalizeProposalTextStyle(property, attrs[key])
+            return value ? { style: `${property}: ${value}` } : {}
+          },
+        },
+      ])
+    )
+  },
+  parseHTML() {
+    return [{ tag: 'span[style]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', mergeAttributes(HTMLAttributes), 0]
+  },
+})
+
+const ProposalAlignment = Extension.create({
+  name: 'proposalAlignment',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph', 'heading'],
+        attributes: {
+          textAlign: {
+            default: null,
+            parseHTML: (element) =>
+              normalizeProposalTextStyle(
+                'text-align',
+                element.style.textAlign
+              ) || null,
+            renderHTML: (attrs) => {
+              const align = normalizeProposalTextStyle(
+                'text-align',
+                attrs.textAlign
+              )
+              return align ? { style: `text-align: ${align}` } : {}
+            },
+          },
+        },
+      },
+    ]
+  },
+})
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const MAX_VIDEO_SIZE_BYTES = 40 * 1024 * 1024
@@ -159,6 +224,8 @@ const ProposalRichTextEditor = ({
       ProposalVariable,
       ProposalImage,
       ProposalVideo,
+      ProposalTextStyle,
+      ProposalAlignment,
     ],
     []
   )
@@ -179,6 +246,29 @@ const ProposalRichTextEditor = ({
         onChange(sanitizeProposalRichText(currentEditor.getHTML()))
     },
   })
+
+  const selection =
+    useEditorState({
+      editor,
+      selector: ({ editor: active }) =>
+        active
+          ? {
+            ...active.getAttributes('proposalTextStyle'),
+            isEmpty: active.isEmpty,
+              textAlign:
+                active.getAttributes('paragraph').textAlign ||
+                active.getAttributes('heading').textAlign ||
+                '',
+              bold: active.isActive('bold'),
+              italic: active.isActive('italic'),
+              bulletList: active.isActive('bulletList'),
+              orderedList: active.isActive('orderedList'),
+              blockquote: active.isActive('blockquote'),
+              link: active.isActive('link'),
+              heading: active.getAttributes('heading').level,
+            }
+          : {},
+    }) || {}
 
   useEffect(() => {
     if (!editor) return
@@ -268,11 +358,93 @@ const ProposalRichTextEditor = ({
     <div className="flex flex-col gap-2">
       <div className="proposal-rich-text-editor overflow-hidden rounded-lg border border-gray-300 bg-white">
         <div className="proposal-rich-text-toolbar flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 p-2">
+          <select
+            aria-label="Семейство шрифта"
+            className="h-10 min-w-0 cursor-pointer rounded border border-gray-300 bg-white px-2 text-sm"
+            value={selection.fontFamily || ''}
+            onChange={(event) =>
+              editor
+                .chain()
+                .focus()
+                .setMark('proposalTextStyle', {
+                  fontFamily: event.target.value || null,
+                })
+                .run()
+            }
+          >
+            <option value="">Шрифт темы</option>
+            {PROPOSAL_FONT_FAMILIES.map((font) => (
+              <option key={font} value={font}>
+                {font}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Размер шрифта"
+            className="h-10 cursor-pointer rounded border border-gray-300 bg-white px-2 text-sm"
+            value={selection.fontSize || ''}
+            onChange={(event) =>
+              editor
+                .chain()
+                .focus()
+                .setMark('proposalTextStyle', {
+                  fontSize: event.target.value || null,
+                })
+                .run()
+            }
+          >
+            <option value="">Размер</option>
+            {PROPOSAL_FONT_SIZES.map((size) => (
+              <option key={size} value={`${size}px`}>
+                {size} px
+              </option>
+            ))}
+          </select>
+          <label className="flex cursor-pointer items-center gap-1 text-xs">
+            Цвет
+            <input
+              type="color"
+              aria-label="Цвет текста"
+              className="h-10 w-10 cursor-pointer"
+              value={selection.color || '#000000'}
+              onChange={(event) =>
+                editor
+                  .chain()
+                  .focus()
+                  .setMark('proposalTextStyle', { color: event.target.value })
+                  .run()
+              }
+            />
+          </label>
+          <select
+            aria-label="Выравнивание текста"
+            className="h-10 max-w-full cursor-pointer rounded border border-gray-300 bg-white px-2 text-sm"
+            value={selection.textAlign || ''}
+            onChange={(event) =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes('paragraph', {
+                  textAlign: event.target.value || null,
+                })
+                .updateAttributes('heading', {
+                  textAlign: event.target.value || null,
+                })
+                .run()
+            }
+          >
+            <option value="">Выравнивание</option>
+            {PROPOSAL_TEXT_ALIGNMENTS.map((align, index) => (
+              <option key={align} value={align}>
+                {['Слева', 'По центру', 'Справа', 'По ширине'][index]}
+              </option>
+            ))}
+          </select>
           <AppButton
             size="sm"
             type="button"
-            variant={editor.isActive('bold') ? 'primary' : 'secondary'}
-            aria-pressed={editor.isActive('bold')}
+            variant={selection.bold ? 'primary' : 'secondary'}
+            aria-pressed={selection.bold}
             onClick={() => editor.chain().focus().toggleBold().run()}
             title="Полужирный"
           >
@@ -281,8 +453,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={editor.isActive('italic') ? 'primary' : 'secondary'}
-            aria-pressed={editor.isActive('italic')}
+            variant={selection.italic ? 'primary' : 'secondary'}
+            aria-pressed={selection.italic}
             onClick={() => editor.chain().focus().toggleItalic().run()}
             title="Курсив"
           >
@@ -291,10 +463,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={
-              editor.isActive('heading', { level: 2 }) ? 'primary' : 'secondary'
-            }
-            aria-pressed={editor.isActive('heading', { level: 2 })}
+            variant={selection.heading === 2 ? 'primary' : 'secondary'}
+            aria-pressed={selection.heading === 2}
             onClick={() =>
               editor.chain().focus().toggleHeading({ level: 2 }).run()
             }
@@ -304,10 +474,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={
-              editor.isActive('heading', { level: 3 }) ? 'primary' : 'secondary'
-            }
-            aria-pressed={editor.isActive('heading', { level: 3 })}
+            variant={selection.heading === 3 ? 'primary' : 'secondary'}
+            aria-pressed={selection.heading === 3}
             onClick={() =>
               editor.chain().focus().toggleHeading({ level: 3 }).run()
             }
@@ -317,8 +485,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={editor.isActive('bulletList') ? 'primary' : 'secondary'}
-            aria-pressed={editor.isActive('bulletList')}
+            variant={selection.bulletList ? 'primary' : 'secondary'}
+            aria-pressed={selection.bulletList}
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             title="Маркированный список"
           >
@@ -327,8 +495,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={editor.isActive('orderedList') ? 'primary' : 'secondary'}
-            aria-pressed={editor.isActive('orderedList')}
+            variant={selection.orderedList ? 'primary' : 'secondary'}
+            aria-pressed={selection.orderedList}
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             title="Нумерованный список"
           >
@@ -337,8 +505,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={editor.isActive('blockquote') ? 'primary' : 'secondary'}
-            aria-pressed={editor.isActive('blockquote')}
+            variant={selection.blockquote ? 'primary' : 'secondary'}
+            aria-pressed={selection.blockquote}
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             title="Цитата"
           >
@@ -347,8 +515,8 @@ const ProposalRichTextEditor = ({
           <AppButton
             size="sm"
             type="button"
-            variant={editor.isActive('link') ? 'primary' : 'secondary'}
-            aria-pressed={editor.isActive('link')}
+            variant={selection.link ? 'primary' : 'secondary'}
+            aria-pressed={selection.link}
             onClick={setLink}
           >
             Ссылка
@@ -387,7 +555,7 @@ const ProposalRichTextEditor = ({
             }}
           />
           <select
-            className="h-8 min-w-40 cursor-pointer rounded border border-gray-300 bg-white px-2 text-xs"
+            className="h-10 max-w-full min-w-40 cursor-pointer rounded border border-gray-300 bg-white px-2 text-xs"
             defaultValue=""
             onChange={(event) => {
               const key = event.target.value
@@ -416,7 +584,7 @@ const ProposalRichTextEditor = ({
         </div>
         <div className="relative">
           <EditorContent editor={editor} />
-          {editor.isEmpty && placeholder ? (
+          {selection.isEmpty && placeholder ? (
             <div className="pointer-events-none absolute top-3 left-3 text-sm text-gray-400">
               {placeholder}
             </div>

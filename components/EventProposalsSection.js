@@ -15,7 +15,6 @@ import {
   useEventProposalsQuery,
   cacheEventProposal,
 } from '@helpers/useEventProposalsQuery'
-import Section from '@components/CompactEventSection'
 import Input from '@components/Input'
 import Textarea from '@components/Textarea'
 import ComboBox from '@components/ComboBox'
@@ -28,25 +27,24 @@ import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons/faExternalLinkAlt'
 import { faPaperPlane } from '@fortawesome/free-solid-svg-icons/faPaperPlane'
 import { queryKeys } from '@helpers/queryKeys'
-import ProposalLineDialog from '@components/ProposalLineDialog'
 import ProposalPackagesEditor from '@components/ProposalPackagesEditor'
 import ProposalAppearanceEditor from '@components/ProposalAppearanceEditor'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import { useServicesQuery } from '@helpers/useEntityQueries'
 import { isProposalSelectionApplied } from '@helpers/proposalWorkflow'
 import { sendFile } from '@helpers/cloudinary'
-import { renderProposalVariables } from '@helpers/proposalContent'
+import {
+  renderProposalVariables,
+  toProposalEditorBlocks,
+  getVisibleProposalBlocks,
+} from '@helpers/proposalContent'
+import ProposalContentEditor from '@components/ProposalContentEditor'
 import {
   getProposalBlockContentHtml,
-  PROPOSAL_RICH_TEXT_BLOCK_TYPES,
   renderProposalRichTextVariables,
 } from '@helpers/proposalRichText'
 import { useQueryClient } from '@tanstack/react-query'
 
-const ProposalRichTextEditor = dynamic(
-  () => import('@components/ProposalRichTextEditor'),
-  { ssr: false }
-)
 const ProposalPageView = dynamic(() => import('@components/ProposalPageView'), {
   ssr: false,
 })
@@ -120,6 +118,10 @@ const EventProposalsSection = ({
     initialProposal
       ? {
           ...initialProposal,
+          blocksSnapshot: toProposalEditorBlocks(
+            initialProposal.blocksSnapshot,
+            initialProposal.artistSnapshot
+          ),
           validUntil: dateInput(initialProposal.validUntil),
         }
       : null
@@ -129,6 +131,10 @@ const EventProposalsSection = ({
       initialProposal
         ? {
             ...initialProposal,
+            blocksSnapshot: toProposalEditorBlocks(
+              initialProposal.blocksSnapshot,
+              initialProposal.artistSnapshot
+            ),
             validUntil: dateInput(initialProposal.validUntil),
           }
         : null
@@ -462,15 +468,6 @@ const EventProposalsSection = ({
     }
   }
 
-
-  const updateBlock = (blockIndex, patch) =>
-    setEditing((current) => ({
-      ...current,
-      blocksSnapshot: current.blocksSnapshot.map((block, index) =>
-        index === blockIndex ? { ...block, ...patch } : block
-      ),
-    }))
-
   const uploadLogo = async (file) => {
     if (
       !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
@@ -581,18 +578,16 @@ const EventProposalsSection = ({
       previewVariables
     )
     previewMessage.unknown.forEach((key) => unresolved.add(key))
-    editing.blocksSnapshot
-      .filter((block) => block.enabled !== false)
-      .forEach((block) => {
-        renderProposalVariables(
-          `${block.title || ''}\n${block.text || ''}`,
-          previewVariables
-        ).unknown.forEach((key) => unresolved.add(key))
-        renderProposalRichTextVariables(
-          getProposalBlockContentHtml(block),
-          previewVariables
-        ).unknown.forEach((key) => unresolved.add(key))
-      })
+    getVisibleProposalBlocks(editing.blocksSnapshot).forEach((block) => {
+      renderProposalVariables(
+        `${block.title || ''}\n${block.text || ''}`,
+        previewVariables
+      ).unknown.forEach((key) => unresolved.add(key))
+      renderProposalRichTextVariables(
+        getProposalBlockContentHtml(block),
+        previewVariables
+      ).unknown.forEach((key) => unresolved.add(key))
+    })
     const previewBlocks = editing.blocksSnapshot.map((block) => ({
       ...block,
       title: renderProposalVariables(block.title || '', previewVariables).text,
@@ -630,80 +625,121 @@ const EventProposalsSection = ({
           value={editing.validUntil || ''}
           onChange={(validUntil) => setEditing({ ...editing, validUntil })}
         />
-        <ProposalAppearanceEditor
-          value={editing.appearance}
-          onChange={(appearance) =>
-            setEditing((current) => ({ ...current, appearance }))
-          }
-          onUpload={uploadLogo}
-          busy={busy}
-        />
         {unresolved.size ? (
           <Notice tone="warning">
             Заполните переменные перед публикацией: {[...unresolved].join(', ')}
           </Notice>
         ) : null}
-        <div>
-          <h3 className="font-semibold">Что предлагаем клиенту</h3>
-        </div>
-        <ProposalPackagesEditor
-          packages={editing.packages}
-          onChange={(packages) =>
-            setEditing((current) => ({ ...current, packages }))
+        <ProposalContentEditor
+          blocks={editing.blocksSnapshot}
+          onChange={(blocksSnapshot) =>
+            setEditing((current) => ({ ...current, blocksSnapshot }))
           }
-          services={services}
-          servicesLoading={servicesLoading}
-          servicesError={servicesError}
-          busy={busy}
-          initiallyOpenIds={(initialProposal?.packages || []).map(
-            (candidate) => candidate.id
-          )}
-        />
-        <Section title="Тексты страницы" help={fieldHelp['proposal.blocks']}>
-          <div className="mt-3 space-y-3">
-            {editing.blocksSnapshot.map((block, blockIndex) => (
-              <div key={block.id || block.type} className="rounded border p-2">
-                <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={block.enabled !== false}
-                    onChange={(event) =>
-                      updateBlock(blockIndex, { enabled: event.target.checked })
-                    }
-                  />
-                  {{
-                    cover: 'Обложка',
-                    intro: 'Вступление',
-                    packages: 'Варианты и цены',
-                    media: 'Фото и видео',
-                    benefits: 'Преимущества',
-                    terms: 'Условия',
-                    contacts: 'Контакты',
-                  }[block.type] || block.type}
-                </label>
-                <Input
-                  inputClassName="min-w-0"
-                  label="Заголовок блока"
-                  fullWidth
-                  value={block.title || ''}
-                  onChange={(title) => updateBlock(blockIndex, { title })}
-                />
-                {PROPOSAL_RICH_TEXT_BLOCK_TYPES.includes(block.type) ? (
-                  <div className="mt-2">
-                    <ProposalRichTextEditor
-                      value={getProposalBlockContentHtml(block)}
-                      onChange={(contentHtml) =>
-                        updateBlock(blockIndex, { contentHtml })
+          directory={`proposals/${editing._id || 'draft'}`}
+          artist={editing.artistSnapshot}
+          appearanceEditor={
+            <ProposalAppearanceEditor
+              value={editing.appearance}
+              onChange={(appearance) =>
+                setEditing((current) => ({ ...current, appearance }))
+              }
+              onUpload={uploadLogo}
+              busy={busy}
+            />
+          }
+          mediaEditor={
+            <details className="rounded-lg border border-gray-200 p-3">
+              <summary className="cursor-pointer font-semibold">
+                Фото и видео ({editing.mediaSnapshot?.length || 0}/10)
+              </summary>
+              <div className="mt-2 space-y-2">
+                {(editing.mediaSnapshot || []).map((item, index) => (
+                  <div
+                    key={item.id || item.url}
+                    className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
+                  >
+                    <span className="min-w-0 truncate">
+                      {item.title || item.url}
+                    </span>
+                    <IconActionButton
+                      icon={faTrashAlt}
+                      title="Удалить"
+                      variant="danger"
+                      size="sm"
+                      onClick={() =>
+                        setEditing((current) => ({
+                          ...current,
+                          mediaSnapshot: current.mediaSnapshot.filter(
+                            (_, mediaIndex) => mediaIndex !== index
+                          ),
+                        }))
                       }
-                      placeholder="Введите текст блока…"
-                      directory={`proposals/${editing._id || 'draft'}`}
                     />
                   </div>
-                ) : null}
+                ))}
               </div>
-            ))}
-          </div>
-        </Section>
+              <div className="tablet:flex-row mt-3 flex flex-col gap-2">
+                <AppButton
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => mediaInput.current?.click()}
+                >
+                  Загрузить фото или видео
+                </AppButton>
+                <input
+                  ref={mediaInput}
+                  className="hidden"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,video/mp4"
+                  disabled={busy}
+                  onChange={(event) => {
+                    uploadProposalMedia(event.target.files?.[0])
+                    event.target.value = ''
+                  }}
+                />
+                <AddIconButton
+                  title="Добавить видео-ссылку"
+                  label="Добавить видео-ссылку"
+                  size="sm"
+                  className="ml-auto self-end px-3"
+                  onClick={() => {
+                    const url = window.prompt(
+                      'Ссылка на VK Video, Rutube или YouTube'
+                    )
+                    if (url)
+                      setEditing((current) => ({
+                        ...current,
+                        mediaSnapshot: [
+                          ...(current.mediaSnapshot || []),
+                          {
+                            id: crypto.randomUUID(),
+                            kind: 'video_link',
+                            url,
+                            title: 'Видео',
+                          },
+                        ].slice(0, 10),
+                      }))
+                  }}
+                />
+              </div>
+            </details>
+          }
+        >
+          <ProposalPackagesEditor
+            packages={editing.packages}
+            onChange={(packages) =>
+              setEditing((current) => ({ ...current, packages }))
+            }
+            services={services}
+            servicesLoading={servicesLoading}
+            servicesError={servicesError}
+            busy={busy}
+            initiallyOpenIds={(initialProposal?.packages || []).map(
+              (candidate) => candidate.id
+            )}
+          />
+        </ProposalContentEditor>
         <details className="rounded-lg border border-gray-200 p-3">
           <summary className="cursor-pointer font-semibold">
             Сообщение для чата
@@ -716,82 +752,7 @@ const EventProposalsSection = ({
             onChange={(messageText) => setEditing({ ...editing, messageText })}
           />
         </details>
-        <details className="rounded-lg border border-gray-200 p-3">
-          <summary className="cursor-pointer font-semibold">
-            Фото и видео ({editing.mediaSnapshot?.length || 0}/10)
-          </summary>
-          <div className="mt-2 space-y-2">
-            {(editing.mediaSnapshot || []).map((item, index) => (
-              <div
-                key={item.id || item.url}
-                className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
-              >
-                <span className="min-w-0 truncate">
-                  {item.title || item.url}
-                </span>
-                <IconActionButton
-                  icon={faTrashAlt}
-                  title="Удалить"
-                  variant="danger"
-                  size="sm"
-                  onClick={() =>
-                    setEditing((current) => ({
-                      ...current,
-                      mediaSnapshot: current.mediaSnapshot.filter(
-                        (_, mediaIndex) => mediaIndex !== index
-                      ),
-                    }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          <div className="tablet:flex-row mt-3 flex flex-col gap-2">
-            <AppButton
-              variant="secondary"
-              size="sm"
-              disabled={busy}
-              onClick={() => mediaInput.current?.click()}
-            >
-              Загрузить фото или видео
-            </AppButton>
-            <input
-              ref={mediaInput}
-              className="hidden"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,video/mp4"
-              disabled={busy}
-              onChange={(event) => {
-                uploadProposalMedia(event.target.files?.[0])
-                event.target.value = ''
-              }}
-            />
-            <AddIconButton
-              title="Добавить видео-ссылку"
-              label="Добавить видео-ссылку"
-              size="sm"
-              className="ml-auto self-end px-3"
-              onClick={() => {
-                const url = window.prompt(
-                  'Ссылка на VK Video, Rutube или YouTube'
-                )
-                if (url)
-                  setEditing((current) => ({
-                    ...current,
-                    mediaSnapshot: [
-                      ...(current.mediaSnapshot || []),
-                      {
-                        id: crypto.randomUUID(),
-                        kind: 'video_link',
-                        url,
-                        title: 'Видео',
-                      },
-                    ].slice(0, 10),
-                  }))
-              }}
-            />
-          </div>
-        </details>
+
         <AppButton
           type="button"
           variant="secondary"
@@ -891,7 +852,12 @@ const EventProposalsSection = ({
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {proposal.status !== 'draft' ? <FieldHelp text={fieldHelp['proposal.newVersion']} label="Редактировать в новой версии" /> : null}
+                    {proposal.status !== 'draft' ? (
+                      <FieldHelp
+                        text={fieldHelp['proposal.newVersion']}
+                        label="Редактировать в новой версии"
+                      />
+                    ) : null}
                     <IconActionButton
                       icon={faPencilAlt}
                       variant="warning"
@@ -972,15 +938,18 @@ const EventProposalsSection = ({
                     {proposal.selectedPackageId &&
                     !isProposalSelectionApplied(proposal) ? (
                       <div className="flex items-center gap-1">
-                      <AppButton
-                        variant="primary"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => action(proposal, 'apply')}
-                      >
-                        Применить
-                      </AppButton>
-                      <FieldHelp text={fieldHelp['proposal.apply']} label="Применить" />
+                        <AppButton
+                          variant="primary"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => action(proposal, 'apply')}
+                        >
+                          Применить
+                        </AppButton>
+                        <FieldHelp
+                          text={fieldHelp['proposal.apply']}
+                          label="Применить"
+                        />
                       </div>
                     ) : null}
                     {proposal.status === 'published' ? (

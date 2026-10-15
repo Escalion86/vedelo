@@ -101,7 +101,7 @@ export const PATCH = async (req, { params }) => {
     )
     if (!auth.proposal.validUntil || new Date(auth.proposal.validUntil) <= new Date()) return error('Укажите будущий срок действия', 400, 'expired')
     const unresolved = getProposalUnknownVariables({
-      blocks: auth.proposal.blocksSnapshot.filter((block) => block.enabled !== false),
+      blocks: auth.proposal.blocksSnapshot,
       messageText: auth.proposal.messageText,
       variables: { proposal: { url: previewUrl }, client: auth.proposal.clientSnapshot, event: auth.proposal.eventSnapshot, artist: auth.proposal.artistSnapshot },
     })

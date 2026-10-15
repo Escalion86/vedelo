@@ -1,5 +1,7 @@
 import {
   getProposalBlockContentHtml,
+  escapeProposalHtml,
+  sanitizeProposalRichText,
   renderProposalRichTextVariables,
 } from './proposalRichText.js'
 import { calculatePackageTotal } from './proposalWorkflow.js'
@@ -13,6 +15,9 @@ export const PROPOSAL_BLOCK_TYPES = Object.freeze([
   'terms',
   'contacts',
   'cta',
+  'header',
+  'packagesIntro',
+  'closing',
 ])
 
 export const DEFAULT_PROPOSAL_BLOCKS = Object.freeze([
@@ -150,6 +155,68 @@ export const normalizeProposalBlocks = (blocks) => {
   })
 }
 
+export const PROPOSAL_EDITOR_SECTION_TYPES = Object.freeze([
+  'header',
+  'packagesIntro',
+  'closing',
+])
+export const hasProposalEditorSections = (blocks = []) =>
+  PROPOSAL_EDITOR_SECTION_TYPES.every((type) =>
+    blocks.some((block) => block.type === type)
+  )
+
+// Старые блоки остаются в снимке для совместимости и не выводятся второй раз.
+// Переход выполняется только при открытии веб-редактора, без миграции базы.
+export const toProposalEditorBlocks = (blocks, artist = {}) => {
+  const normalized = normalizeProposalBlocks(blocks)
+  if (hasProposalEditorSections(normalized)) return normalized
+  const sectionHtml = (types) =>
+    normalized
+      .filter((block) => types.includes(block.type) && block.enabled !== false)
+      .map((block) => {
+        const heading = block.title
+          ? `<h2>${escapeProposalHtml(block.title)}</h2>`
+          : ''
+        const contacts =
+          block.type === 'contacts'
+            ? ['fullName', 'phone', 'telegram']
+                .filter((key) => artist[key])
+                .map((key) => `<p>{{artist.${key}}}</p>`)
+                .join('')
+            : ''
+        return heading + getProposalBlockContentHtml(block) + contacts
+      })
+      .join('')
+  const sections = [
+    { type: 'header', contentHtml: sectionHtml(['cover', 'intro']) },
+    { type: 'packagesIntro', contentHtml: '' },
+    {
+      type: 'closing',
+      contentHtml: sectionHtml(['benefits', 'terms', 'cta', 'contacts']),
+    },
+  ].map((block) => ({
+    id: block.type,
+    title: '',
+    text: '',
+    items: [],
+    enabled: true,
+    ...block,
+    contentHtml: sanitizeProposalRichText(block.contentHtml),
+  }))
+  return [...normalized, ...sections]
+}
+
+export const getVisibleProposalBlocks = (blocks = []) => {
+  if (!hasProposalEditorSections(blocks))
+    return blocks.filter((block) => block.enabled !== false)
+  return ['header', 'packagesIntro', 'packages', 'media', 'closing'].flatMap(
+    (type) => {
+      const block = blocks.find((item) => item.type === type)
+      return block && block.enabled !== false ? [block] : []
+    }
+  )
+}
+
 export const normalizeProposalPackages = (packages) => {
   if (!Array.isArray(packages)) return []
   return packages.slice(0, 6).flatMap((item, index) => {
@@ -179,7 +246,11 @@ export const normalizeProposalPackages = (packages) => {
         lines,
         total: Math.max(
           0,
-          item.manualTotal === false ? calculatePackageTotal(lines) : (Number.isFinite(Number(item.total)) ? Number(item.total) : calculatePackageTotal(lines))
+          item.manualTotal === false
+            ? calculatePackageTotal(lines)
+            : Number.isFinite(Number(item.total))
+              ? Number(item.total)
+              : calculatePackageTotal(lines)
         ),
         manualTotal: item.manualTotal !== false,
         recommended: Boolean(item.recommended),
@@ -190,7 +261,8 @@ export const normalizeProposalPackages = (packages) => {
 
 export const PROPOSAL_TEMPLATE_SERVICES_LIMIT = 30
 
-const isProposalServiceId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''))
+const isProposalServiceId = (value) =>
+  /^[a-f\d]{24}$/i.test(String(value || ''))
 
 // Шаблон хранит те же варианты, что и КП: позиции, описание, цену, отметку
 // «Рекомендуем» и ручной итог. Поле servicesIds сохранено для совместимости
@@ -250,7 +322,10 @@ export const buildProposalDefaultPackages = ({
   const lines = (selected.length ? selected : eventServices || []).map(
     proposalServiceLine
   )
-  const linesTotal = lines.reduce((sum, line) => sum + (Number(line.price) || 0), 0)
+  const linesTotal = lines.reduce(
+    (sum, line) => sum + (Number(line.price) || 0),
+    0
+  )
   const contractTotal = Number(eventTotal)
   const hasContractTotal = Number.isFinite(contractTotal) && contractTotal > 0
   return [
@@ -271,7 +346,10 @@ export const buildProposalDefaultLines = (input) =>
 
 // Шаблон старого формата (один список услуг) отдаётся клиенту уже с вариантами:
 // и редактор шаблона, и редактор КП работают с моделью вариантов.
-export const materializeProposalTemplateDefaults = (defaults, services = []) => {
+export const materializeProposalTemplateDefaults = (
+  defaults,
+  services = []
+) => {
   const normalized = normalizeProposalTemplateDefaults(defaults)
   if (normalized.packages.length) return normalized
   return {
@@ -311,7 +389,7 @@ export const getProposalUnknownVariables = ({
   const unknown = new Set(
     renderProposalVariables(messageText, variables).unknown
   )
-  normalizeProposalBlocks(blocks).forEach((block) => {
+  getVisibleProposalBlocks(normalizeProposalBlocks(blocks)).forEach((block) => {
     renderProposalVariables(
       `${block.title}\n${block.text}`,
       variables
@@ -324,10 +402,12 @@ export const getProposalUnknownVariables = ({
   return [...unknown]
 }
 
-export const DEFAULT_PROPOSAL_MESSAGE = 'Здравствуйте, {{client.firstName}}! Предложение для вашего мероприятия можете посмотреть по ссылке: {{proposal.url}}'
+export const DEFAULT_PROPOSAL_MESSAGE =
+  'Здравствуйте, {{client.firstName}}! Предложение для вашего мероприятия можете посмотреть по ссылке: {{proposal.url}}'
 
 // Upgrade only the exact previous default; preserve custom messages.
 export const normalizeProposalMessage = (value) =>
-  value === 'Здравствуйте, {{client.firstName}}! Подготовили предложение для вашего мероприятия: {{proposal.url}}'
+  value ===
+  'Здравствуйте, {{client.firstName}}! Подготовили предложение для вашего мероприятия: {{proposal.url}}'
     ? DEFAULT_PROPOSAL_MESSAGE
     : value

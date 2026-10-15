@@ -5,6 +5,10 @@ import styles from './ProposalPageView.module.css'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import Notice from '@components/Notice'
 import ProposalRichTextView from '@components/ProposalRichTextView'
+import {
+  getVisibleProposalBlocks,
+  hasProposalEditorSections,
+} from '@helpers/proposalContent'
 import { formatMoney } from '@helpers/formatMoney'
 
 const proposalImageLoader = ({ src }) => src
@@ -17,11 +21,16 @@ export default function ProposalPageView({
   preview = false,
 }) {
   const appearance = normalizeProposalAppearance(proposal.appearance)
+  const isSectionLayout = hasProposalEditorSections(proposal.blocks || [])
   const blocks = new Map(
-    (proposal.blocks || [])
-      .filter((item) => item.enabled !== false)
-      .map((item) => [item.type, item])
+    getVisibleProposalBlocks(proposal.blocks || []).map((item) => [
+      item.type,
+      item,
+    ])
   )
+  const header = blocks.get('header')
+  const packagesIntro = blocks.get('packagesIntro')
+  const closing = blocks.get('closing')
   const cover = blocks.get('cover')
   const intro = blocks.get('intro')
   const packagesBlock = blocks.get('packages')
@@ -56,19 +65,25 @@ export default function ProposalPageView({
               className={styles.logo}
             />
           ) : null}
-          <div
-            className={`${styles.eyebrow} text-xs font-semibold tracking-[0.22em] uppercase`}
-          >
-            Персональное предложение
-          </div>
-          <h1 className="tablet:text-5xl mt-3 text-3xl font-semibold tracking-tight">
-            {cover?.title || proposal.title}
-          </h1>
-          {proposal.client?.firstName ? (
-            <p className={`${styles.headerMuted} mt-4 text-lg`}>
-              Для {proposal.client.firstName}
-            </p>
-          ) : null}
+          {isSectionLayout ? (
+            <ProposalRichTextView html={header?.contentHtml} />
+          ) : (
+            <>
+              <div
+                className={`${styles.eyebrow} text-xs font-semibold tracking-[0.22em] uppercase`}
+              >
+                Персональное предложение
+              </div>
+              <h1 className="tablet:text-5xl mt-3 text-3xl font-semibold tracking-tight">
+                {cover?.title || proposal.title}
+              </h1>
+              {proposal.client?.firstName ? (
+                <p className={`${styles.headerMuted} mt-4 text-lg`}>
+                  Для {proposal.client.firstName}
+                </p>
+              ) : null}
+            </>
+          )}
           {validUntil ? (
             <p className={`${styles.headerMuted} mt-6 text-sm`}>
               Действует до {validUntil}
@@ -87,6 +102,9 @@ export default function ProposalPageView({
             </section>
           ) : null}
 
+          {packagesIntro ? (
+            <ProposalRichTextView html={packagesIntro.contentHtml} />
+          ) : null}
           {packagesBlock ? (
             <section>
               <h2 className="text-2xl font-semibold">{packagesBlock.title}</h2>
@@ -99,7 +117,7 @@ export default function ProposalPageView({
                       className={`rounded-2xl border p-5 transition ${selected ? styles.selected : item.recommended ? styles.recommended : styles.border}`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0 break-words">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-xl font-semibold">
                               {item.title}
@@ -124,7 +142,7 @@ export default function ProposalPageView({
                           {formatMoney(item.total)}
                         </div>
                       </div>
-                      {item.lines?.length ? (
+                      {item.lines?.length > 1 ? (
                         <ul
                           className={`${styles.border} mt-4 space-y-2 border-t pt-4`}
                         >
@@ -151,6 +169,13 @@ export default function ProposalPageView({
                             </li>
                           ))}
                         </ul>
+                      ) : null}
+                      {item.lines?.length === 1 && item.lines[0].description ? (
+                        <p
+                          className={`${styles.muted} mt-4 text-sm leading-6 whitespace-pre-line`}
+                        >
+                          {item.lines[0].description}
+                        </p>
                       ) : null}
                       <button
                         type="button"
@@ -223,6 +248,14 @@ export default function ProposalPageView({
             </section>
           ) : null}
 
+          {closing ? (
+            <section aria-label="Условия и контакты">
+              <ProposalRichTextView
+                html={closing.contentHtml}
+                className="leading-7"
+              />
+            </section>
+          ) : null}
           {benefits?.contentHtml || benefits?.items?.length ? (
             <section>
               <h2 className="text-2xl font-semibold">{benefits.title}</h2>

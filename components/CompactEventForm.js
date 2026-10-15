@@ -66,6 +66,7 @@ export default function CompactEventForm({
   otherContacts,
   documents,
   proposalsEnabled = false,
+  proposalsSummary,
   isTransferred = false,
   colleague = null,
   aiHighlightedFields = EMPTY_AI_HIGHLIGHTED_FIELDS,
@@ -309,7 +310,7 @@ export default function CompactEventForm({
         >
           {fields.documents}
         </Section>
-        {proposalsEnabled ? <Section title="Коммерческие предложения" help={fieldHelp['proposal.section']} icon={faPaperclip} summary="По необходимости — без договора и счёта">
+        {proposalsEnabled ? <Section title="Коммерческие предложения" help={fieldHelp['proposal.section']} icon={faPaperclip} summary={proposalsSummary || "Загружаем предложения…"}>
           {fields.proposals}
         </Section> : null}
         <div data-invalid={Boolean(errors.colleagueId)}>

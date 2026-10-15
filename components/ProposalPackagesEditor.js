@@ -209,7 +209,7 @@ const ProposalPackagesEditor = ({
             noDivider
             wrapSummary
           >
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <Input
                 inputClassName="min-w-0"
                 label="Название варианта"
@@ -220,6 +220,21 @@ const ProposalPackagesEditor = ({
                 value={item.title}
                 onChange={(title) => updatePackage(packageIndex, { title })}
               />
+              {packages.length > 1 ? (
+                <IconActionButton
+                  icon={faTrashAlt}
+                  title="Удалить вариант"
+                  variant="danger"
+                  size="sm"
+                  onClick={() =>
+                    onChange(
+                      packages.filter((_, index) => index !== packageIndex)
+                    )
+                  }
+                />
+              ) : null}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
               <button
                 type="button"
                 role="checkbox"
@@ -244,21 +259,11 @@ const ProposalPackagesEditor = ({
                   noMargin
                 />
               </button>
-              <FieldHelp text={fieldHelp['proposal.recommended']} label="Рекомендуем" />
-            </div>
-            {packages.length > 1 ? (
-              <IconActionButton
-                icon={faTrashAlt}
-                title="Удалить вариант"
-                variant="danger"
-                size="sm"
-                onClick={() =>
-                  onChange(
-                    packages.filter((_, index) => index !== packageIndex)
-                  )
-                }
+              <FieldHelp
+                text={fieldHelp['proposal.recommended']}
+                label="Рекомендуем"
               />
-            ) : null}
+            </div>
             <Textarea
               label="Описание варианта"
               rows={2}
@@ -269,6 +274,10 @@ const ProposalPackagesEditor = ({
             />
             <div className="input-label mt-2 flex items-center gap-1 px-1 text-xs font-semibold select-none">
               Список услуг варианта
+              <FieldHelp
+                text="Если в варианте одна услуга, клиент увидит название варианта и итоговую стоимость — без повторения названия и цены услуги."
+                label="Список услуг варианта"
+              />
             </div>
             <div className="mt-1 space-y-2">
               {item.lines.map((line, lineIndex) => (

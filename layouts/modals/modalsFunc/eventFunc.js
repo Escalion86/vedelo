@@ -42,6 +42,7 @@ import InputWrapper from '@components/InputWrapper'
 import LabeledContainer from '@components/LabeledContainer'
 import OtherContactsPicker from '@components/OtherContactsPicker'
 import DocumentsEditor from '@components/DocumentsEditor'
+import EventProposalsSummary from '@components/EventProposalsSummary'
 import EventProposalsSection from '@components/EventProposalsSection'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
@@ -2209,7 +2210,7 @@ const eventFunc = (
           {canUseProposals ? (
             <div className="mt-3">
               <LabeledContainer
-                label={useCompactForm ? undefined : 'Коммерческие предложения'}
+                label={useCompactForm ? undefined : <span>Коммерческие предложения <span className="text-xs font-normal"><EventProposalsSummary eventId={persistedEventId} /></span></span>}
                 help={fieldHelp['proposal.section']}
                 noMargin
               >
@@ -2507,6 +2508,7 @@ const eventFunc = (
             isTransferred={isTransferred}
             colleague={selectedColleague}
             proposalsEnabled={canUseProposals}
+            proposalsSummary={<EventProposalsSummary eventId={persistedEventId} />}
             documents={documents}
             aiHighlightedFields={aiHighlightedFields}
             statusLabel={

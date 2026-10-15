@@ -46,7 +46,7 @@ export default function ProposalAppearanceEditor({
               height={80}
               loader={logoLoader}
               unoptimized
-              className="h-20 w-44 rounded border border-gray-200 bg-white object-contain p-2"
+              className="h-20 w-44 rounded border border-gray-200 object-contain p-2"
             />
           ) : null}
           <AppButton

@@ -107,6 +107,9 @@ const mocks = {
   '@helpers/formatMoney': { formatMoney: (value) => String(value) },
   '@helpers/cloudinary': { sendFile: async () => null },
   '@helpers/proposalContent': {
+    toProposalEditorBlocks: require('../../helpers/proposalContent.js').toProposalEditorBlocks,
+    hasProposalEditorSections: require('../../helpers/proposalContent.js').hasProposalEditorSections,
+    getVisibleProposalBlocks: require('../../helpers/proposalContent.js').getVisibleProposalBlocks,
     renderProposalVariables: (value) => ({ text: value, unknown: [] }),
   },
   '@helpers/proposalRichText': {
@@ -154,6 +157,8 @@ const mount = async (t, Component, props) => {
 mocks['@components/ProposalPackagesEditor'] = load(
   'components/ProposalPackagesEditor.js'
 )
+
+mocks['@components/ProposalContentEditor'] = load('components/ProposalContentEditor.js').default
 
 test.before(async () => {
   await loadBindings()

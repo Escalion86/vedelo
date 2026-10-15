@@ -104,6 +104,12 @@ const mocks = {
     pickerCalls.push({ initialIds, onApply, options })
     return { title: 'Выбор услуг', confirmButtonName: 'Применить' }
   },
+  '@helpers/apiClient': {
+    apiJson: async (url, options) => {
+      savedRequests.push({ url, payload: JSON.parse(options.body), method: options.method })
+      return { success: true }
+    },
+  },
   '@helpers/CRUD': {
     postData: async (url, payload) => {
       savedRequests.push({ url, payload })
@@ -125,6 +131,9 @@ const mocks = {
   '@helpers/queryKeys': { queryKeys: { services: () => ['services'] } },
   '@tanstack/react-query': { useQueryClient: () => queryClient },
   '@helpers/proposalContent': {
+    toProposalEditorBlocks: require('../../helpers/proposalContent.js').toProposalEditorBlocks,
+    hasProposalEditorSections: require('../../helpers/proposalContent.js').hasProposalEditorSections,
+    getVisibleProposalBlocks: require('../../helpers/proposalContent.js').getVisibleProposalBlocks,
     DEFAULT_PROPOSAL_BLOCKS: [{ type: 'cover', title: 'Обложка', enabled: true }],
     DEFAULT_PROPOSAL_MESSAGE: 'Здравствуйте, {{client.firstName}}!',
     normalizeProposalTemplateDefaults: (defaults) => ({
@@ -232,6 +241,8 @@ const valueSetterFor = () =>
     'value'
   ).set
 
+mocks['@components/ProposalContentEditor'] = load('components/ProposalContentEditor.js').default
+
 test.before(async () => {
   await loadBindings()
 })
@@ -248,7 +259,7 @@ test('редактор шаблона устроен как редактор К�
   assert.equal(source.includes('ProposalPackagesEditor'), true)
 
   const { element } = await mountEditor(t)
-  assert.equal(element.textContent.includes('Что предлагаем клиенту'), true)
+  assert.equal(element.textContent.includes('Варианты и цены'), true)
   // Вариант с названием, позициями, ценой и отметкой «Рекомендуем».
   assert.equal(
     element.querySelector('input[aria-label="Название варианта"]').value,
@@ -426,4 +437,13 @@ test('ошибка загрузки услуг видна и блокирует 
     true
   )
   assert.equal(findButton(element, 'Выбрать услуги').disabled, true)
+})
+
+test('изменение существующего шаблона использует реальный контракт PATCH', async (t) => {
+  const { changes } = await mountEditor(t)
+  await React.act(async () => changes.confirm())
+  assert.equal(savedRequests.length, 1)
+  assert.equal(savedRequests[0].url, '/api/proposal-templates/t1')
+  assert.equal(savedRequests[0].method, 'PATCH')
+  assert.deepEqual(savedRequests[0].payload.blocks.filter(block => ['header', 'packagesIntro', 'closing'].includes(block.type)).map(block => block.type), ['header', 'packagesIntro', 'closing'])
 })

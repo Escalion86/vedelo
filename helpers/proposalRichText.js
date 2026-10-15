@@ -1,10 +1,14 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { sanitizeProposalTextStyle } from './proposalTextStyles.js'
 
 export const PROPOSAL_RICH_TEXT_BLOCK_TYPES = Object.freeze([
   'intro',
   'benefits',
   'terms',
   'cta',
+  'header',
+  'packagesIntro',
+  'closing',
 ])
 
 export const PROPOSAL_VARIABLE_OPTIONS = Object.freeze([
@@ -19,7 +23,8 @@ export const PROPOSAL_VARIABLE_OPTIONS = Object.freeze([
   { key: 'artist.telegram', label: 'Telegram артиста' },
 ])
 
-const MAX_RICH_TEXT_LENGTH = 30000
+// Объединённый раздел может содержать несколько прежних блоков по 30 000.
+const MAX_RICH_TEXT_LENGTH = 160000
 const ALLOWED_TAGS = [
   'p',
   'br',
@@ -53,22 +58,10 @@ const ALLOWED_ATTR = [
   'poster',
   'width',
   'height',
+  'style',
 ]
-// Медиа в текстовых блоках хранится в cloud.escalion.ru. DOMPurify по умолчанию
-// разрешает data:-источники для img/video, поэтому после очистки удаляем медиа
-// без внешнего http(s)-источника целиком (data:, blob:, javascript:).
-const hasRemoteMediaSource = (tag) =>
-  /src\s*=\s*["']?(?:https?:|\/uploads\/)/i.test(tag)
-
-const stripNonRemoteMedia = (html) =>
-  String(html ?? '')
-    .replace(/<video\b[^>]*>[\s\S]*?<\/video>/gi, (tag) =>
-      hasRemoteMediaSource(tag) ? tag : ''
-    )
-    .replace(/<video\b[^>]*\/?>/gi, (tag) =>
-      hasRemoteMediaSource(tag) ? tag : ''
-    )
-    .replace(/<img\b[^>]*>/gi, (tag) => (hasRemoteMediaSource(tag) ? tag : ''))
+const hasRemoteMediaSource = (value) =>
+  /^(?:https?:\/\/|\/uploads\/)/i.test(value || '')
 
 export const escapeProposalHtml = (value) =>
   String(value ?? '')
@@ -97,17 +90,39 @@ export const proposalItemsToHtml = (items) => {
   return `<ul>${normalized.map((item) => `<li>${escapeProposalHtml(item)}</li>`).join('')}</ul>`
 }
 
-export const sanitizeProposalRichText = (value) =>
-  stripNonRemoteMedia(
-    DOMPurify.sanitize(String(value ?? '').slice(0, MAX_RICH_TEXT_LENGTH), {
+export const sanitizeProposalRichText = (value) => {
+  const fragment = DOMPurify.sanitize(
+    String(value ?? '').slice(0, MAX_RICH_TEXT_LENGTH),
+    {
       ALLOWED_TAGS,
       ALLOWED_ATTR,
-      ALLOW_DATA_ATTR: true,
-    })
-  ).trim()
+      ALLOW_DATA_ATTR: false,
+      RETURN_DOM_FRAGMENT: true,
+    }
+  )
+  fragment.querySelectorAll('[style]').forEach((element) => {
+    const style = sanitizeProposalTextStyle(element.getAttribute('style'))
+    if (style) element.setAttribute('style', style)
+    else element.removeAttribute('style')
+  })
+  // Проверяем настоящий src узла: текст alt/title не должен обходить фильтр.
+  fragment.querySelectorAll('img,video').forEach((element) => {
+    if (!hasRemoteMediaSource(element.getAttribute('src'))) element.remove()
+    if (
+      element.hasAttribute('poster') &&
+      !hasRemoteMediaSource(element.getAttribute('poster'))
+    )
+      element.removeAttribute('poster')
+  })
+  const container = fragment.ownerDocument.createElement('div')
+  container.append(fragment)
+  return container.innerHTML.trim()
+}
 
 export const getProposalBlockContentHtml = (block) => {
   if (!block || !PROPOSAL_RICH_TEXT_BLOCK_TYPES.includes(block.type)) return ''
+  if (['header', 'packagesIntro', 'closing'].includes(block.type))
+    return sanitizeProposalRichText(block.contentHtml)
   const richText = String(block.contentHtml ?? '').trim()
   if (richText) return sanitizeProposalRichText(richText)
   if (block.type === 'benefits') return proposalItemsToHtml(block.items)
