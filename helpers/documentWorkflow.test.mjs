@@ -6,6 +6,7 @@ import {
 } from './documentWorkflow.js'
 import {
   isProposalSelectionApplied,
+  isProposalSelectionLocked,
   calculatePackageTotal,
   reconcileProposalServices,
 } from './proposalWorkflow.js'
@@ -35,7 +36,7 @@ test('receipt is optional and independent; prompts only for real unlinked income
   )
 })
 
-test('changed selection can be applied again, including changing away and back', () => {
+test('historical selection mismatch remains detectable but never unlocks an applied version', () => {
   const proposal = {
     appliedAt: '2026-09-24',
     appliedPackageId: 'a',
@@ -44,6 +45,13 @@ test('changed selection can be applied again, including changing away and back',
     appliedSelectionAt: '2026-09-23',
   }
   assert.equal(isProposalSelectionApplied(proposal), true)
+  assert.equal(isProposalSelectionLocked(proposal), true)
+  assert.equal(isProposalSelectionLocked({ ...proposal, selectedPackageId: 'b' }), true)
+  assert.equal(isProposalSelectionLocked({ ...proposal, selectedAt: '2026-09-25' }), true)
+  assert.equal(isProposalSelectionLocked({ appliedPackageId: 'a' }), true)
+  assert.equal(isProposalSelectionLocked({ appliedAt: '2026-09-24' }), true)
+  assert.equal(isProposalSelectionLocked({ appliedSelectionAt: '2026-09-23' }), true)
+  assert.equal(isProposalSelectionLocked({ selectedPackageId: 'a' }), false)
   assert.equal(
     isProposalSelectionApplied({ ...proposal, selectedPackageId: 'b' }),
     false

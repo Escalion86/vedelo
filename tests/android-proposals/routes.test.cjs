@@ -69,6 +69,7 @@ function fixture(file, bearer = true, tenant = 'a') {
       : { tenantId: null, user: null }
   const mocks = {
     'node:crypto': require('node:crypto'),
+    'node:util': require('node:util'),
     'next/server': {
       NextResponse: {
         json: (body, opts = {}) => ({ body, status: opts.status || 200 }),

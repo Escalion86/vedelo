@@ -10,6 +10,7 @@ import {
   hasProposalEditorSections,
 } from '@helpers/proposalContent'
 import { formatMoney } from '@helpers/formatMoney'
+import { isProposalSelectionLocked, isProposalApplicationPending } from '@helpers/proposalWorkflow'
 
 const proposalImageLoader = ({ src }) => src
 
@@ -21,6 +22,8 @@ export default function ProposalPageView({
   preview = false,
 }) {
   const appearance = normalizeProposalAppearance(proposal.appearance)
+  const selectionLocked = Boolean(proposal.selectionLocked || isProposalSelectionLocked(proposal))
+  const applicationPending = Boolean(proposal.applicationPending || isProposalApplicationPending(proposal))
   const isSectionLayout = hasProposalEditorSections(proposal.blocks || [])
   const blocks = new Map(
     getVisibleProposalBlocks(proposal.blocks || []).map((item) => [
@@ -92,6 +95,13 @@ export default function ProposalPageView({
         </header>
 
         <div className="tablet:px-10 tablet:py-10 space-y-9 px-4 py-7">
+          {selectionLocked ? (
+            <Notice tone={applicationPending ? "info" : "success"} role="status" className={styles.approvalNotice}>
+              {applicationPending
+                ? 'Применение выбранного варианта ожидает завершения или сверки владельцем. Пока изменить вариант нельзя.'
+                : 'Выбор по этому предложению уже утверждён. Изменить вариант нельзя. Для новых условий нужна новая версия предложения.'}
+            </Notice>
+          ) : null}
           {intro ? (
             <section>
               <h2 className="text-2xl font-semibold">{intro.title}</h2>
@@ -110,7 +120,10 @@ export default function ProposalPageView({
               <h2 className="text-2xl font-semibold">{packagesBlock.title}</h2>
               <div className="mt-4 grid gap-4">
                 {proposal.packages.map((item) => {
-                  const selected = proposal.selectedPackageId === item.id
+                  const approved = !applicationPending && selectionLocked && proposal.appliedPackageId === item.id
+                  const selected = (selectionLocked && proposal.appliedPackageId
+                    ? proposal.appliedPackageId
+                    : proposal.selectedPackageId) === item.id
                   return (
                     <div
                       key={item.id}
@@ -180,12 +193,18 @@ export default function ProposalPageView({
                       <button
                         type="button"
                         disabled={
-                          preview || proposal.expired || Boolean(sending)
+                          preview || selectionLocked || proposal.expired || Boolean(sending)
                         }
                         onClick={() => selectPackage(item.id)}
                         className={`${styles.button} mt-5 h-12 w-full cursor-pointer rounded-xl px-4 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50`}
                       >
-                        {selected
+                        {applicationPending && selected
+                          ? 'Ожидает сверки'
+                          : approved
+                          ? 'Вариант утверждён'
+                          : selectionLocked
+                            ? 'Выбор закрыт'
+                            : selected
                           ? 'Вы выбрали этот вариант'
                           : sending === item.id
                             ? 'Сохраняем…'

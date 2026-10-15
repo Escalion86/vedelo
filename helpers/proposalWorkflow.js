@@ -13,8 +13,16 @@ export const calculatePackageTotal = (lines) =>
     ) * 100
   ) / 100
 
+// A historical mismatch is not a new agreement and must never unlock a version.
+export const isProposalSelectionLocked = (proposal) =>
+  Boolean(proposal.applyOperation || proposal.appliedAt || proposal.appliedPackageId || proposal.appliedSelectionAt)
+
+export const isProposalApplicationPending = (proposal) =>
+  Boolean(proposal.applyOperation && proposal.applyOperation.state !== 'confirmed')
+
 export const isProposalSelectionApplied = (proposal) =>
   Boolean(
+    !isProposalApplicationPending(proposal) &&
     proposal.appliedAt &&
     proposal.selectedPackageId &&
     (proposal.appliedPackageId

@@ -86,6 +86,11 @@
   border-color: var(--proposal-selected-border);
   background: var(--proposal-selected);
 }
+.page[data-theme] .approvalNotice {
+  border-color: var(--proposal-selected-border);
+  background-color: var(--proposal-selected);
+  color: var(--proposal-text);
+}
 .page .badge {
   background: var(--proposal-badge);
   color: var(--proposal-accent);

@@ -9,6 +9,7 @@ import {
   renderProposalRichTextVariables,
 } from '../helpers/proposalRichText.js'
 import { normalizeProposalAppearance } from '../helpers/proposalAppearance.mjs'
+import { isProposalSelectionLocked, isProposalApplicationPending } from '../helpers/proposalWorkflow.js'
 
 // The same rendered snapshot/variable pipeline as the public proposal route.
 // No credentials or persistence side effects belong to a private preview.
@@ -59,6 +60,9 @@ export function buildProposalPreview(proposal, input = {}) {
     artist: proposal.artistSnapshot,
     selectedPackageId: proposal.selectedPackageId || '',
     selectedAt: proposal.selectedAt,
+    selectionLocked: isProposalSelectionLocked(proposal),
+    applicationPending: isProposalApplicationPending(proposal),
+    appliedPackageId: proposal.appliedPackageId || '',
     expired: Boolean(validUntil && new Date(validUntil).getTime() < Date.now()),
   }
 }

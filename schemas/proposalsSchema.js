@@ -35,6 +35,38 @@ const proposalsSchema = {
   selectedAt: { type: Date, default: null },
   selectionHistory: { type: [Schema.Types.Mixed], default: [] },
   selectionTaskCreatedAt: { type: Date, default: null },
+  // Only new applies use this reservation. Historical applied* remain untouched.
+  applyOperation: {
+    type: new Schema({
+      id: { type: String, required: true },
+      state: { type: String, enum: ['pending', 'confirmed'], required: true },
+      eventId: { type: String, required: true },
+      packageId: { type: String, required: true },
+      selectedAt: { type: Date, default: null },
+      startedAt: { type: Date, required: true },
+      servicesIds: { type: [String], required: true },
+      eventGuard: {
+        syncVersion: { type: Number, default: null },
+        updatedAt: { type: Date, default: null },
+        status: { type: String, required: true },
+        contractSum: { type: Number, default: null },
+        servicesIds: { type: [String], required: true },
+        // Existing order snapshot is Mixed; retain all legacy fields verbatim.
+        agreedProposal: { type: Schema.Types.Mixed, default: null },
+      },
+      agreement: {
+        proposalId: { type: String, required: true },
+        version: { type: Number, required: true },
+        packageId: { type: String, required: true },
+        title: { type: String, default: '' },
+        total: { type: Number, required: true },
+        lines: { type: [Schema.Types.Mixed], required: true },
+        servicesIds: { type: [String], required: true },
+        selectedAt: { type: Date, default: null },
+      },
+    }, { _id: false, minimize: false }),
+    default: null,
+  },
   appliedAt: { type: Date, default: null },
   appliedPackageId: { type: String, default: '' },
   appliedSelectionAt: { type: Date, default: null },

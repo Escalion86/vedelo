@@ -28,6 +28,7 @@ const ProposalPublicClient = ({ publicId, token }) => {
 
 
   const selectPackage = async (packageId) => {
+    if (sending || proposal?.selectionLocked || proposal?.expired) return
     setSending(packageId)
     setError('')
     try {
@@ -40,8 +41,21 @@ const ProposalPublicClient = ({ publicId, token }) => {
         }
       )
       const body = await response.json().catch(() => ({}))
-      if (!response.ok)
+      if (!response.ok) {
+        if (body?.error?.code === 'selection_locked')
+          setProposal((current) => ({ ...current, selectionLocked: true, applicationPending: true }))
+        if (['selection_locked', 'selection_conflict'].includes(body?.error?.code)) {
+          // An old tab learns the current agreement instead of offering another
+          // POST. The server remains authoritative if this refresh also fails.
+          const refreshed = await fetch(`/api/public/proposals/${publicId}/${token}`, { cache: 'no-store' })
+            .catch(() => null)
+          if (refreshed?.ok) {
+            const current = await refreshed.json().catch(() => ({}))
+            if (current.data) setProposal(current.data)
+          }
+        }
         throw new Error(body?.error?.message || 'Не удалось сохранить выбор')
+      }
       setProposal(body.data)
     } catch (requestError) {
       setError(requestError.message)

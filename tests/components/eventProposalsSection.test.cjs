@@ -154,6 +154,7 @@ const mount = async (t, Component, props) => {
 }
 
 // Редактор КП использует общий редактор вариантов — грузим его настоящим.
+mocks['@helpers/proposalWorkflow'] = load('helpers/proposalWorkflow.js')
 mocks['@components/ProposalPackagesEditor'] = load(
   'components/ProposalPackagesEditor.js'
 )
@@ -558,6 +559,57 @@ test('accepted proposal can be deleted only after confirmation', async (t) => {
   assert.deepEqual(cached, [])
 })
 
+
+
+
+test('применение скрыто и при историческом расхождении; новая несогласованная версия допускает применение', async (t) => {
+  const previousHook = mocks['@helpers/useEventProposalsQuery']
+  t.after(() => { mocks['@helpers/useEventProposalsQuery'] = previousHook })
+  const proposal = {
+    _id: 'lock-ui', title: 'КП', version: 1, status: 'published',
+    selectedPackageId: 'extended', appliedPackageId: 'basic', appliedAt: '2026-10-01',
+    packages: [{ id: 'basic', title: 'Основной' }, { id: 'extended', title: 'Полный' }],
+  }
+  for (const applied of [true, false]) {
+    mocks['@helpers/useEventProposalsQuery'] = {
+      useEventProposalsQuery: () => ({ data: [{ ...proposal, appliedAt: applied ? proposal.appliedAt : null, appliedPackageId: applied ? 'basic' : '' }] }),
+    }
+    const Section = load('components/EventProposalsSection.js').default
+    const element = await mount(t, Section, { eventId: `lock-ui-${applied}` })
+    const applyButtons = [...element.querySelectorAll('button')].filter((button) => button.textContent.includes('Применить'))
+    assert.equal(applyButtons.length, applied ? 0 : 1)
+    if (applied) assert.match(element.textContent, /выбор изменён после применения/)
+  }
+})
+
+test('pending предлагает только завершение/сверку, confirmed больше не предлагает применение', async (t) => {
+  const previousHook = mocks['@helpers/useEventProposalsQuery']
+  t.after(() => { mocks['@helpers/useEventProposalsQuery'] = previousHook })
+  for (const state of ['pending', 'confirmed']) {
+    mocks['@helpers/useEventProposalsQuery'] = {
+      useEventProposalsQuery: () => ({ data: [{
+        _id: `operation-${state}`, title: 'КП', version: 1, status: 'published',
+        selectedPackageId: 'main', selectedAt: '2026-10-01',
+        applyOperation: { id: 'op', state },
+        appliedAt: state === 'confirmed' ? '2026-10-02' : null,
+        appliedPackageId: state === 'confirmed' ? 'main' : '',
+        appliedSelectionAt: state === 'confirmed' ? '2026-10-01' : null,
+        packages: [{ id: 'main', title: 'Основной' }],
+      }] }),
+    }
+    const Section = load('components/EventProposalsSection.js').default
+    const element = await mount(t, Section, { eventId: `operation-${state}` })
+    const retries = [...element.querySelectorAll('button')].filter((button) => button.textContent.includes('Завершить / сверить'))
+    assert.equal(retries.length, state === 'pending' ? 1 : 0)
+    if (state === 'pending') {
+      assert.match(element.textContent, /применение ожидает сверки/)
+      assert.doesNotMatch(element.textContent, /применено к заказу/)
+    } else {
+      assert.match(element.textContent, /применено к заказу/)
+      assert.doesNotMatch(element.textContent, /применение ожидает сверки/)
+    }
+  }
+})
 
 test('modal save appears only for changed drafts, persists after failure, and hides after success', async (t) => {
   const previousInput = mocks['@components/Input']

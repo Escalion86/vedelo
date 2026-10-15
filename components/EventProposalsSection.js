@@ -31,7 +31,7 @@ import ProposalPackagesEditor from '@components/ProposalPackagesEditor'
 import ProposalAppearanceEditor from '@components/ProposalAppearanceEditor'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import { useServicesQuery } from '@helpers/useEntityQueries'
-import { isProposalSelectionApplied } from '@helpers/proposalWorkflow'
+import { isProposalSelectionApplied, isProposalSelectionLocked, isProposalApplicationPending } from '@helpers/proposalWorkflow'
 import { sendFile } from '@helpers/cloudinary'
 import {
   renderProposalVariables,
@@ -838,6 +838,7 @@ const EventProposalsSection = ({
                       {isProposalSelectionApplied(proposal)
                         ? ' · применено к заказу'
                         : ''}
+                      {isProposalApplicationPending(proposal) ? ' · применение ожидает сверки' : ''}
                       {proposal.sentAt ? ' · отправлено' : ''}
                       {proposal.viewedAt ? ' · ссылка открывалась' : ''}
                     </div>
@@ -936,7 +937,7 @@ const EventProposalsSection = ({
                       Отправить
                     </AppButton>
                     {proposal.selectedPackageId &&
-                    !isProposalSelectionApplied(proposal) ? (
+                    (!isProposalSelectionLocked(proposal) || isProposalApplicationPending(proposal)) ? (
                       <div className="flex items-center gap-1">
                         <AppButton
                           variant="primary"
@@ -944,7 +945,7 @@ const EventProposalsSection = ({
                           disabled={busy}
                           onClick={() => action(proposal, 'apply')}
                         >
-                          Применить
+                          {isProposalApplicationPending(proposal) ? 'Завершить / сверить' : 'Применить'}
                         </AppButton>
                         <FieldHelp
                           text={fieldHelp['proposal.apply']}

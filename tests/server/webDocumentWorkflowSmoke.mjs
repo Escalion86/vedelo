@@ -622,11 +622,37 @@ export const runWebDocumentWorkflowSmoke = async ({
     ['Индивидуальная работа', 'Доставка']
   )
   assert.equal(agreed.isByContract, false)
-  assert.equal((await post(publicPath, { packageId: 'extended' })).status, 200)
-  const newSelection = (await (await request(proposalPath)).json()).data
-  assert.equal(newSelection.appliedPackageId, 'basic')
-  assert.equal(newSelection.selectedPackageId, 'extended')
+  const approvedSelection = (await (await request(proposalPath)).json()).data
+  for (const packageId of ['extended', 'basic']) {
+    const rejected = await post(publicPath, { packageId })
+    assert.equal(rejected.status, 409)
+    assert.equal(rejected.body.error.code, 'selection_locked')
+    const unchanged = (await (await request(proposalPath)).json()).data
+    assert.equal(unchanged.appliedPackageId, 'basic')
+    assert.equal(unchanged.selectedPackageId, 'basic')
+    assert.equal(unchanged.selectedAt, approvedSelection.selectedAt)
+    assert.equal(unchanged.appliedAt, approvedSelection.appliedAt)
+    assert.deepEqual(unchanged.selectionHistory, approvedSelection.selectionHistory)
+    assert.deepEqual(await db.collection('events').findOne({ _id: draftEventId }), agreed)
+  }
   assert.equal((await patch(proposalPath, { action: 'apply' })).status, 200)
+  const afterRepeatedApply = await db.collection('events').findOne({ _id: draftEventId })
+  assert.deepEqual(afterRepeatedApply.agreedProposal, agreed.agreedProposal)
+  assert.equal(afterRepeatedApply.contractSum, agreed.contractSum)
+  assert.deepEqual(afterRepeatedApply.servicesIds, agreed.servicesIds)
+  assert.equal(afterRepeatedApply.syncVersion, agreed.syncVersion)
+  assert.deepEqual(afterRepeatedApply, agreed)
+  const repeatedSelection = (await (await request(proposalPath)).json()).data
+  assert.equal(repeatedSelection.selectedAt, approvedSelection.selectedAt)
+  assert.equal(repeatedSelection.selectedPackageId, approvedSelection.selectedPackageId)
+  assert.equal(repeatedSelection.appliedAt, approvedSelection.appliedAt)
+  assert.equal(repeatedSelection.appliedPackageId, approvedSelection.appliedPackageId)
+  assert.equal(repeatedSelection.appliedSelectionAt, approvedSelection.appliedSelectionAt)
+  assert.deepEqual(repeatedSelection.selectionHistory, approvedSelection.selectionHistory)
+  assert.deepEqual(repeatedSelection, approvedSelection)
+  const approvedPublic = (await (await request(publicPath)).json()).data
+  assert.equal(approvedPublic.selectionLocked, true)
+  assert.equal(approvedPublic.appliedPackageId, 'basic')
   const selectedPreview = await post(endpoint, {
     ...payload,
     action: 'preview',
@@ -634,7 +660,7 @@ export const runWebDocumentWorkflowSmoke = async ({
   })
   assert.ok(
     selectedPreview.body.data.preview.fields.some(
-      (item) => item.name === 'СУММА_ДОКУМЕНТА' && item.value === '4000'
+      (item) => item.name === 'СУММА_ДОКУМЕНТА' && item.value === '3500'
     )
   )
   await db

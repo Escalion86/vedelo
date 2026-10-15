@@ -97,6 +97,27 @@ test('unsafe draft block does not introduce JS/data/blob in preview', () => {
   assert.match(result.blocks[0].contentHtml, /После/)
   assert.doesNotMatch(result.blocks[0].contentHtml, /data:|blob:|<img|<video/)
 })
+test('preview сохраняет блокировку реального КП, не принимает её из клиентского input', () => {
+  const applied = render({ ...source, selectedPackageId: 'other', appliedPackageId: 'main', appliedAt: '2026-10-01' }, { appliedAt: null, appliedPackageId: '', selectionLocked: false })
+  assert.equal(applied.selectionLocked, true)
+  assert.equal(applied.appliedPackageId, 'main')
+  assert.equal(applied.selectedPackageId, 'other')
+  assert.equal(render(source, { selectionLocked: true, appliedPackageId: 'main' }).selectionLocked, false)
+})
+
+test('pending из сохранённого КП передаётся без ложного утверждения и без деталей операции', () => {
+  const pending = render({ ...source, applyOperation: { id: 'internal' } }, { applicationPending: false })
+  assert.equal(pending.applicationPending, true)
+  assert.equal(pending.selectionLocked, true)
+  assert.equal(pending.appliedPackageId, '')
+  assert.equal('applyOperation' in pending, false)
+  assert.equal(render(source, { applicationPending: true }).applicationPending, false)
+  const confirmed = render({ ...source, applyOperation: { state: 'confirmed' }, appliedAt: '2026-10-01', appliedPackageId: 'main' })
+  assert.equal(confirmed.applicationPending, false)
+  assert.equal(confirmed.selectionLocked, true)
+  assert.equal(confirmed.appliedPackageId, 'main')
+})
+
 test('unsaved clear expiry overrides the saved expiry', () => {
   const result = render(
     { ...source, validUntil: '2020-01-01' },

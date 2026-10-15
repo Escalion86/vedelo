@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
 import Events from '@models/Events'
 import { renderProposalVariables } from '@helpers/proposalContent'
+import { isProposalSelectionLocked, isProposalApplicationPending } from '@helpers/proposalWorkflow'
 import dbConnect from '@server/dbConnect'
 import { isValidProposalToken } from '@server/proposals'
 import { sendPushToTenant } from '@server/pushNotifications'
@@ -44,6 +45,9 @@ const publicData = (proposal) => {
     artist: proposal.artistSnapshot,
     selectedPackageId: proposal.selectedPackageId || '',
     selectedAt: proposal.selectedAt,
+    selectionLocked: isProposalSelectionLocked(proposal),
+    applicationPending: isProposalApplicationPending(proposal),
+    appliedPackageId: proposal.appliedPackageId || '',
     expired: Boolean(
       proposal.validUntil &&
       new Date(proposal.validUntil).getTime() < Date.now()
@@ -91,6 +95,8 @@ export const POST = async (req, { params }) => {
   if (!proposal) return error('Предложение не найдено', 404, 'not_found')
   if (proposal.status !== 'published')
     return error('Выбор недоступен', 410, 'selection_closed')
+  if (isProposalSelectionLocked(proposal))
+    return error('Выбор закрыт: применение подтверждено или ожидает сверки. Обновите предложение.', 409, 'selection_locked')
   if (
     proposal.validUntil &&
     new Date(proposal.validUntil).getTime() < Date.now()
@@ -104,6 +110,7 @@ export const POST = async (req, { params }) => {
   const selected = proposal.packages.find((item) => item.id === packageId)
   if (!selected) return error('Вариант не найден', 404, 'package_not_found')
   const previous = proposal.selectedPackageId || ''
+  const previousSelectedAt = proposal.selectedAt || null
   const changed = previous !== packageId
   proposal.selectedPackageId = packageId
   proposal.selectedAt = changed ? new Date() : proposal.selectedAt || new Date()
@@ -114,8 +121,20 @@ export const POST = async (req, { params }) => {
       selectedAt: proposal.selectedAt,
     })
   }
-  // Selection and revocation must not both succeed from stale reads.
-  proposal.$where = { status: 'published', tenantId: proposal.tenantId }
+  // Compare-and-set against apply, revocation, token rotation and another selection.
+  proposal.$where = {
+    status: 'published',
+    tenantId: proposal.tenantId,
+    publicTokenHash: proposal.publicTokenHash,
+    publicTokenNonce: proposal.publicTokenNonce,
+    applyOperation: null,
+    appliedAt: null,
+    appliedPackageId: { $in: ['', null] },
+    appliedSelectionAt: null,
+    selectedPackageId: { $in: previous ? [previous] : ['', null] },
+    selectedAt: previousSelectedAt,
+    $or: [{ validUntil: null }, { validUntil: { $gte: new Date() } }],
+  }
   try {
     await proposal.save()
   } catch (saveError) {
@@ -138,9 +157,14 @@ export const POST = async (req, { params }) => {
       event.syncVersion = Number(event.syncVersion || 1) + 1
       await event.save()
       proposal.selectionTaskCreatedAt = new Date()
+      // Only persist the task marker: apply may have locked the selection since
+      // its successful save. Never save a stale selection document a second time.
+      await Proposals.updateOne(
+        { _id: proposal._id, tenantId: proposal.tenantId, selectionTaskCreatedAt: null },
+        { $set: { selectionTaskCreatedAt: proposal.selectionTaskCreatedAt } }
+      )
     }
   }
-  await proposal.save()
   if (changed) {
     await sendPushToTenant({
       tenantId: proposal.tenantId,
