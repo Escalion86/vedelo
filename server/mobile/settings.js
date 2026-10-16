@@ -1,9 +1,13 @@
+import { resolveClientTypes } from '../../helpers/clientTypes.mjs'
+
 const sanitizeMobileSettings = (settings) => {
   if (!settings) return null
   const custom = settings.custom || {}
   return {
     _id: String(settings._id),
     syncVersion: settings.syncVersion || 1,
+    clientTypes: resolveClientTypes(settings),
+    clientTypesVersion: settings.clientTypesVersion || 0,
     towns: settings.towns || [],
     addresses: settings.addresses || [],
     defaultTown: settings.defaultTown || '',

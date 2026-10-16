@@ -1,6 +1,12 @@
 import { Schema } from 'mongoose'
+import { DEFAULT_CLIENT_TYPES } from '../helpers/clientTypes.mjs'
 
 const siteSettingsSchema = {
+  clientTypes: {
+    type: [new Schema({ value: String, name: String, hidden: Boolean }, { _id: false })],
+    default: () => DEFAULT_CLIENT_TYPES.map((item) => ({ ...item })),
+  },
+  clientTypesVersion: { type: Number, default: 0 },
   syncVersion: {
     type: Number,
     default: 1,

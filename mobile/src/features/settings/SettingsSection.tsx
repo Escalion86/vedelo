@@ -1,4 +1,5 @@
 import { typography } from '../../shared/ui/theme'
+import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { resolveMobileWorkItemTerminology, type PrimaryEntityTerminology } from '../../shared/domain/workItemTerminology'
@@ -8,6 +9,7 @@ import type { Palette } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { useSettingsEditor, type SettingsConfig } from './settingsEditor'
 import { ThemePreferenceSection } from './ThemePreferenceSection'
+import { ClientTypesSection } from './ClientTypesSection'
 
 export const terminologyConfig: SettingsConfig<PrimaryEntityTerminology> = {
   scope: 'terminology', endpoint: '/mobile/v1/settings/terminology',
@@ -19,12 +21,15 @@ const options = [
   ['auto', 'Авто — по сфере работы'], ['events', 'Мероприятия'], ['orders', 'Заказы'],
 ] as const
 export const SettingsSection = () => {
+  const [typesOpen, setTypesOpen] = useState(false)
   const editor = useSettingsEditor(terminologyConfig)
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const terms = resolveMobileWorkItemTerminology(editor.settings)
   return <>
     <ThemePreferenceSection />
+    <Button title={typesOpen ? 'Закрыть типы клиентов' : 'Типы клиентов'} variant="secondary" onPress={() => setTypesOpen(!typesOpen)} />
+    {typesOpen ? <ClientTypesSection /> : null}
     {editor.reading ? <Notice message="Загружаем настройки…" /> : null}
     {editor.readError ? <><Notice tone="warning" message={editor.readError} /><Button title="Повторить загрузку" variant="secondary" onPress={editor.retry} disabled={editor.saving || editor.reading} /></> : null}
     {editor.offline ? <Notice message="Показана последняя офлайн-копия. Для сохранения требуется сеть." /> : null}

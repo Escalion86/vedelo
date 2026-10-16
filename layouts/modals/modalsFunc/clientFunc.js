@@ -11,7 +11,8 @@ import LabeledContainer from '@components/LabeledContainer'
 import Notice from '@components/Notice'
 import PhoneInput from '@components/PhoneInput'
 import Textarea from '@components/Textarea'
-import { CLIENT_TYPES, DEFAULT_CLIENT } from '@helpers/constants'
+import { DEFAULT_CLIENT } from '@helpers/constants'
+import ClientTypeField from '@components/ClientTypeField'
 import { getCustomValue } from '@helpers/customSettings'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
@@ -617,24 +618,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             maxLength={500}
           />
         </div>
-        <InputWrapper label="Тип клиента" help={fieldHelp['client.type']} paddingY fitWidth>
-          <div className="flex flex-wrap gap-2">
-            {CLIENT_TYPES.map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                className={`rounded border px-3 py-2 text-sm font-semibold transition ${
-                  clientType === item.value
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-                onClick={() => setClientType(item.value)}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
-        </InputWrapper>
+        <ClientTypeField value={clientType} onChange={setClientType} />
         <InputWrapper label="Приоритетный канал связи" help={fieldHelp['client.preferredChannel']} paddingY fitWidth>
           <div className="flex flex-wrap gap-2">
             {CONTACT_CHANNELS.map((item) => (

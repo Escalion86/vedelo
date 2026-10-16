@@ -303,12 +303,8 @@ export const DEFAULT_CLIENT = Object.freeze({
   documents: [],
 })
 
-export const CLIENT_TYPES = Object.freeze([
-  { value: 'none', name: 'Без типа' },
-  { value: 'host', name: 'Ведущий' },
-  { value: 'organizer', name: 'Организатор' },
-  { value: 'colleague', name: 'Коллега' },
-])
+// Compatibility export; forms resolve the organisation's editable catalogue.
+export { LEGACY_CLIENT_TYPES as CLIENT_TYPES } from './clientTypes.mjs'
 
 export const DEFAULT_TRANSACTION = Object.freeze({
   eventId: null,

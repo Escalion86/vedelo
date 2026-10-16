@@ -617,13 +617,12 @@ const eventFunc = (
     const missingFields = useMemo(() => {
       const fields = []
       if (!clientId) fields.push('Клиент')
-      if (!(useCompactForm && isDraft) && !eventDate) fields.push('Дата начала')
+      if (!isDraft && !eventDate) fields.push('Дата начала')
       if (showColleagueTransferControls && isTransferred && !colleagueId) {
         fields.push('Коллега')
       }
       return fields
     }, [
-      useCompactForm,
       isDraft,
       clientId,
       eventDate,
@@ -647,7 +646,7 @@ const eventFunc = (
     // UX-13: счётчики незаполненных/ошибочных полей по вкладкам формы
     const tabErrorCounts = useMemo(() => {
       const generalCount =
-        (eventDate ? 0 : 1) +
+        (isDraft || eventDate ? 0 : 1) +
         (showColleagueTransferControls && isTransferred && !colleagueId
           ? 1
           : 0) +
@@ -659,6 +658,7 @@ const eventFunc = (
       colleagueId,
       dateRangeError,
       eventDate,
+      isDraft,
       isTransferred,
       showColleagueTransferControls,
     ])
@@ -1065,7 +1065,7 @@ const eventFunc = (
           addErrorRef.current({ clientId: 'Выберите клиента' })
           hasError = true
         }
-        if (!(useCompactForm && targetStatus === 'draft') && !eventDate) {
+        if (targetStatus !== 'draft' && !eventDate) {
           addErrorRef.current({
             eventDate: `Укажите дату ${workItemTerms.genitive}`,
           })
@@ -1083,7 +1083,6 @@ const eventFunc = (
         return !hasError
       },
       [
-        useCompactForm,
         status,
         clientId,
         colleagueId,

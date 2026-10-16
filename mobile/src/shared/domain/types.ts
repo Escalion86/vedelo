@@ -188,6 +188,8 @@ export type ServiceGroup = {
 
 export type MobileSettings = {
   _id: string
+  clientTypes?: Array<{ value: string; name: string; hidden: boolean }>
+  clientTypesVersion?: number
   syncVersion?: number
   towns?: string[]
   defaultTown?: string

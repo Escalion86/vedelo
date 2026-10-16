@@ -8,7 +8,7 @@ import type { MobileSettings } from '../../shared/domain/types'
 import { listCachedEntities, upsertEntities } from '../../shared/storage/cache'
 import { MOBILE_SETTINGS_QUERY_KEY } from '../../shared/hooks/useWorkItemTerminology'
 
-export type SettingsScope = 'lists' | 'terminology'
+export type SettingsScope = 'lists' | 'terminology' | 'clientTypes'
 type Response = { success: boolean; data: MobileSettings | null }
 export const mergeSettings = (current: MobileSettings | undefined, patch: MobileSettings) => ({
   ...current, ...patch, custom: { ...current?.custom, ...patch.custom },
@@ -17,7 +17,7 @@ export const scopedSettings = (settings: MobileSettings, scope: SettingsScope): 
   _id: settings._id,
   ...(settings.syncVersion !== undefined ? { syncVersion: settings.syncVersion } : {}),
   ...(settings.updatedAt !== undefined ? { updatedAt: settings.updatedAt } : {}),
-  ...(scope === 'lists' ? {
+  ...(scope === 'clientTypes' ? { clientTypes: settings.clientTypes, clientTypesVersion: settings.clientTypesVersion } : scope === 'lists' ? {
     towns: settings.towns || [], defaultTown: settings.defaultTown || '', custom: { eventTypes: settings.custom?.eventTypes || [] },
   } : { custom: { primaryEntityTerminology: settings.custom?.primaryEntityTerminology || 'auto' } }),
 })

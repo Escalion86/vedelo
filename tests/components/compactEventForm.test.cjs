@@ -167,6 +167,27 @@ test('classic form follows the saved organization setting', async (t) => {
   )
   settings.custom = {}
 })
+test('classic draft saves without dates while other required fields and statuses stay protected', async (t) => {
+  user = { role: 'user' }; saved = []
+  settings.custom = { eventFormVariant: 'classic' }
+  t.after(() => { settings.custom = {} })
+  for (const [status, initialEvent, shouldSave] of [
+    ['draft', { clientId: 'client' }, true],
+    ['active', { clientId: 'client' }, false],
+    ['draft', { description: 'Без клиента' }, false],
+    ['draft', { clientId: 'client', eventDate: '2026-10-03T12:00:00Z', dateEnd: '2026-10-02T12:00:00Z' }, false],
+    ['active', { clientId: 'client', eventDate: '2026-10-03T12:00:00Z' }, true],
+  ]) {
+    const before = saved.length
+    const { el } = await mount(t, modalHarness(eventFunc(null, false, status, { initialEvent }).Children))
+    await React.act(async () => el.querySelector('[data-save]').click())
+    assert.equal(saved.length, before + Number(shouldSave))
+  }
+  assert.equal(saved[0].status, 'draft')
+  assert.equal(saved[0].eventDate, null)
+  assert.equal(saved[0].dateEnd, null)
+})
+
 test('services are optional for every status while confirmed work still requires a date', async (t) => {
   user = { role: 'user' }; saved = []
   for (const status of ['draft', 'active']) {

@@ -2,6 +2,7 @@
 'use client'
 
 import fieldHelp from '@helpers/fieldHelp.json'
+import ClientTypesEditor from '@components/ClientTypesEditor'
 
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -302,6 +303,12 @@ const SettingsContent = () => {
           onChange={setDefaultEventDuration}
           noMargin
         />
+        <LabeledContainer label="Типы клиентов" noMargin>
+          <details>
+            <summary className="min-h-10 cursor-pointer py-2">Настроить типы клиентов</summary>
+            <ClientTypesEditor />
+          </details>
+        </LabeledContainer>
         <LabeledContainer label="Передача заказов коллеге" noMargin>
           <div className="flex flex-col gap-2">
             <IconCheckBox

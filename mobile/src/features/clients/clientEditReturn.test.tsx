@@ -16,6 +16,12 @@ let mockOnRemove: (event: any) => void
 const mockGet = jest.fn(async () => null as any)
 
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
+jest.mock('../../shared/hooks/useClientTypes', () => ({ useClientTypes: () => ({ items: [
+  { value: 'none', name: 'Без типа', hidden: false },
+  { value: 'client', name: 'Клиент', hidden: false },
+  { value: 'partner', name: 'Партнёр', hidden: false },
+  { value: 'custom_supplier', name: 'Поставщик', hidden: false },
+] }) }))
 jest.mock('expo-router', () => ({
   router: { replace: (path: unknown) => mockReplace(path), back: () => mockBack() },
   useLocalSearchParams: () => mockParams,
@@ -38,6 +44,14 @@ beforeEach(() => {
   mockGet.mockResolvedValue(null)
   mockParams = { id: 'new', returnTo: 'event' }
   mockSave.mockResolvedValue({ _id: 'local-new-client' })
+})
+
+it('custom type is included in the offline client payload', async () => {
+  const screen = renderScreen()
+  fireEvent.changeText(screen.getByTestId('client-first-name'), 'Галина')
+  fireEvent.press(screen.getByText('Поставщик'))
+  fireEvent.press(screen.getByTestId('save-client'))
+  await waitFor(() => expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ values: expect.objectContaining({ clientType: 'custom_supplier' }) })))
 })
 
 it('P: созданный из редактора работы клиент возвращается назад и передаётся через handoff', async () => {

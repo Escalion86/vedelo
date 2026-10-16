@@ -30,13 +30,9 @@ import { radius, spacing, type Palette } from '../../../src/shared/ui/theme'
 import { useTheme, useThemeStyles } from '../../../src/shared/ui/ThemeProvider'
 import { getFieldHelp } from '../../../src/shared/domain/fieldHelp'
 import { FieldHelp } from '../../../src/shared/ui/FieldHelp'
-
-const CLIENT_TYPES = [
-  ['none', 'Без типа'],
-  ['host', 'Ведущий'],
-  ['organizer', 'Организатор'],
-  ['colleague', 'Коллега'],
-] as const
+import { useClientTypes } from '../../../src/shared/hooks/useClientTypes'
+import { clientTypeOptions } from '../../../src/shared/domain/clientTypes'
+import { ClientTypesSection } from '../../../src/features/settings/ClientTypesSection'
 
 const CONTACT_CHANNELS = [
   ['phone', 'Телефон'],
@@ -63,6 +59,8 @@ const phoneNumber = (value: string) => {
 }
 
 export default function ClientEditScreen() {
+  const clientTypes = useClientTypes()
+  const [typesOpen, setTypesOpen] = useState(false)
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const navigation = useNavigation()
@@ -221,7 +219,9 @@ export default function ClientEditScreen() {
         <Field label="VK" value={values.vk} onChangeText={(value) => set('vk', value)} autoCapitalize="none" />
         <Field label="MAX" value={values.max} onChangeText={(value) => set('max', value)} placeholder="Ссылка max.ru или +7 999 123-45-67" maxLength={500} />
         <SectionTitle help={getFieldHelp('client.type')}>Тип клиента</SectionTitle>
-        <View style={styles.options}>{CLIENT_TYPES.map(([value, label]) => <Choice key={value} active={values.clientType === value} label={label} onPress={() => set('clientType', value)} />)}</View>
+        <View style={styles.options}>{clientTypeOptions(clientTypes.items, values.clientType).map(({ value, name }) => <Choice key={value} active={values.clientType === value} label={name} onPress={() => set('clientType', value)} />)}</View>
+        <Button title={typesOpen ? 'Закрыть настройку типов' : 'Добавить или настроить типы'} variant="secondary" onPress={() => setTypesOpen(!typesOpen)} />
+        {typesOpen ? <ClientTypesSection onAdded={(value) => set('clientType', value)} /> : null}
         <SectionTitle help={getFieldHelp('client.preferredChannel')}>Приоритетный канал связи</SectionTitle>
         <View style={styles.options}>{CONTACT_CHANNELS.map(([value, label]) => <Choice key={value} active={values.preferredContactChannel === value} label={label} onPress={() => set('preferredContactChannel', value)} />)}</View>
         {values.preferredContactChannel === 'other' ? <Field label="Другой канал" value={values.preferredContactChannelOther} onChangeText={(value) => set('preferredContactChannelOther', value)} maxLength={100} /> : null}
