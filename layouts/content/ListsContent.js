@@ -42,8 +42,8 @@ const ListsContent = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-        <div className="flex flex-col w-full gap-3">
-          <div className="flex items-center justify-between w-full gap-3 p-3 border border-gray-200 rounded">
+        <div className="flex w-full flex-col gap-3">
+          <div className="flex w-full items-center justify-between gap-3 rounded border border-gray-200 p-3">
             <div className="flex flex-col gap-1">
               <div className="text-sm font-semibold text-gray-900">Города</div>
               <MutedText>
@@ -58,17 +58,17 @@ const ListsContent = () => {
             </div>
             <button
               type="button"
-              className="flex items-center justify-center w-10 h-10 rounded cursor-pointer action-icon-button action-icon-button--warning"
+              className="action-icon-button action-icon-button--warning flex h-10 w-10 cursor-pointer items-center justify-center rounded"
               onClick={() => modalsFunc.settings?.towns?.()}
               title="Редактировать города"
             >
-              <FontAwesomeIcon className="w-5 h-5" icon={faPencilAlt} />
+              <FontAwesomeIcon className="h-5 w-5" icon={faPencilAlt} />
             </button>
           </div>
-          <div className="flex items-center justify-between w-full gap-3 p-3 border border-gray-200 rounded">
+          <div className="flex w-full items-center justify-between gap-3 rounded border border-gray-200 p-3">
             <div className="flex flex-col gap-1">
               <div className="text-sm font-semibold text-gray-900">
-                Что за мероприятие?
+                Типы события
               </div>
               <MutedText className="text-gray-500">
                 Элементов: {eventTypes.length}
@@ -76,11 +76,11 @@ const ListsContent = () => {
             </div>
             <button
               type="button"
-              className="flex items-center justify-center w-10 h-10 rounded cursor-pointer action-icon-button action-icon-button--warning"
+              className="action-icon-button action-icon-button--warning flex h-10 w-10 cursor-pointer items-center justify-center rounded"
               onClick={() => modalsFunc.settings?.eventTypes?.()}
               title="Редактировать список мероприятий"
             >
-              <FontAwesomeIcon className="w-5 h-5" icon={faPencilAlt} />
+              <FontAwesomeIcon className="h-5 w-5" icon={faPencilAlt} />
             </button>
           </div>
         </div>

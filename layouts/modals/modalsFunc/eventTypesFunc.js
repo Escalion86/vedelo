@@ -59,7 +59,9 @@ const eventTypesFunc = () => {
     }
 
     const handleDeleteEventType = (value) => {
-      setEventTypes((prev) => normalizeEventTypes(prev.filter((item) => item !== value)))
+      setEventTypes((prev) =>
+        normalizeEventTypes(prev.filter((item) => item !== value))
+      )
     }
 
     const handleSave = useCallback(async () => {
@@ -120,9 +122,7 @@ const eventTypesFunc = () => {
     return (
       <FormWrapper className="flex h-full flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-gray-700">
-            Что за мероприятие
-          </div>
+          <div className="text-sm font-semibold text-gray-700">Тип события</div>
           <Button
             name=""
             onClick={handleAddEventType}
@@ -152,7 +152,7 @@ const eventTypesFunc = () => {
   }
 
   return {
-    title: 'Список: Что за мероприятие',
+    title: 'Список: Типы события',
     confirmButtonName: 'Сохранить',
     Children: EventTypesModal,
   }
