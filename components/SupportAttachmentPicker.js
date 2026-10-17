@@ -39,7 +39,6 @@ const SupportAttachmentPicker = ({ files, onChange, disabled, onError }) => {
           <input ref={inputRef} className="hidden" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { addFiles(event.target.files); event.target.value = '' }} />
         </>
       ) : null}
-      <p className="text-xs text-gray-500">JPEG, PNG или WebP · до 5 файлов по 10 МБ</p>
     </div>
   )
 }

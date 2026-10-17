@@ -1,7 +1,7 @@
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { lightPalette, darkPalette } from '../../shared/ui/theme'
 import React from 'react'
-import { Linking } from 'react-native'
+import { Linking, ScrollView } from 'react-native'
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
 import SupportTicketsScreen from '../../../app/support'
 import SupportTicketScreen from '../../../app/support/[id]'
@@ -98,6 +98,12 @@ it('читает переписку, располагает developer-сообщ
   const screen = render(<SupportTicketScreen />)
   await screen.findByText('Ответ поддержки', undefined, { timeout: 20000 })
   expect(api.markSupportTicketRead).toHaveBeenCalledWith('ticket-1')
+  expect(screen.getByText('Вопрос')).toBeTruthy()
+  expect(screen.getByText('В работе')).toBeTruthy()
+  expect(screen.getByPlaceholderText('Напишите сообщение…')).toHaveStyle({ minHeight: 96 })
+  expect(screen.UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled')
+  fireEvent.press(screen.getByText('← К списку'))
+  expect(mockReplace).toHaveBeenCalledWith('/support')
   expect(screen.getByTestId('support-message-incoming')).toHaveStyle({ justifyContent: 'flex-start' })
   expect(screen.getByTestId('support-message-outgoing')).toHaveStyle({ justifyContent: 'flex-end' })
   expect(screen.queryByText(/Автор:/)).toBeNull()

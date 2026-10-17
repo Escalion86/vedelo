@@ -1578,7 +1578,7 @@ export const runWebDocumentWorkflowSmoke = async ({
           assert.equal(templateResult.status, 201)
           await page.goto('/cabinet/documents?section=proposals')
           const sectionHelp = page.getByRole('button', {
-            name: 'Подсказка: Коммерческие предложения',
+            name: 'Подсказка: Шаблоны коммерческих предложений',
             exact: true,
           })
           await sectionHelp.click()
@@ -1629,9 +1629,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Удалить', exact: true })
             .click()
           await templateCard.waitFor({ state: 'hidden' })
-          await page
-            .getByRole('button', { name: 'Документы', exact: true })
-            .click()
+          await page.goto('/cabinet/documents')
           const documentCard = page.locator('.document-template-card').first()
           await documentCard.waitFor()
           await documentCard.scrollIntoViewIfNeeded()
@@ -1649,8 +1647,9 @@ export const runWebDocumentWorkflowSmoke = async ({
             .waitFor()
           await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowProposals: false } })
           await page.goto('/cabinet/documents?section=proposals')
-          await page.getByText('Работа с документами', { exact: true }).waitFor()
-          assert.equal(await page.getByRole('button', { name: 'Предложения', exact: true }).count(), 0)
+          await page.waitForURL('**/cabinet/proposals')
+          await page.getByText('Коммерческие предложения недоступны на текущем тарифе', { exact: true }).waitFor()
+          assert.equal(await page.getByRole('button', { name: 'Добавить шаблон', exact: true }).count(), 0)
           await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowProposals: true } })
         }
         assert.deepEqual(errors, [])

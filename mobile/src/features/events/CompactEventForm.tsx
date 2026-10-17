@@ -12,7 +12,7 @@ import { EventContactsSection, type EventContactsSectionProps } from './EventCon
 import { EventFinanceSection, type EventFinanceSectionProps } from './EventFinanceSection'
 import { CompactEventSection } from './CompactEventSection'
 import { EventAiHighlight } from './EventAiHighlight'
-import { clientSummary, compactFieldGroups, transferSummary, type CompactSectionId } from './compactEventForm'
+import { clientSummary, compactFieldGroups, transferSummary, type CompactSectionId } from './compactEventFormHelpers'
 
 export type CompactEventFormProps = {
   draft: EventDraft; onChange: (draft: EventDraft) => void; clients: Client[]; services: Service[]

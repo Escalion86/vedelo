@@ -8,6 +8,7 @@ import SettingsContent from './SettingsContent'
 import IntegrationsContent from './IntegrationsContent'
 import ImportExportContent from './ImportExportContent'
 import DocumentsContent from './DocumentsContent'
+import ProposalsContent from './ProposalsContent'
 import ListsContent from './ListsContent'
 import NotificationsContent from './NotificationsContent'
 import ReferralsContent from './ReferralsContent'
@@ -106,6 +107,10 @@ export const CONTENTS = Object.freeze({
   documents: {
     Component: DocumentsContent,
     name: 'Документы',
+  },
+  proposals: {
+    Component: ProposalsContent,
+    name: 'Коммерческие предложения (beta)',
   },
   lists: {
     Component: ListsContent,

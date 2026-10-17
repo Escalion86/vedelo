@@ -87,7 +87,7 @@ const MenuItem = ({
     >
       <div className={cn('flex w-full items-center gap-x-2 px-3 py-1')}>
         <FontAwesomeIcon icon={item.icon} className="h-5 w-5 min-w-5" />
-        <span className={'text-sm font-medium whitespace-nowrap'}>
+        <span className={cn('text-sm font-medium', item.href === 'proposals' ? 'whitespace-normal' : 'whitespace-nowrap')}>
           {item.name}
         </span>
         {item.num !== null && (

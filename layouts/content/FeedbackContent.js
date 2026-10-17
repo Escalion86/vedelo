@@ -8,6 +8,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { modalsFuncAtom } from '@state/atoms'
 import Notice from '@components/Notice'
+import AppButton from '@components/AppButton'
+import Textarea from '@components/Textarea'
 import SupportAttachmentPicker from '@components/SupportAttachmentPicker'
 import SupportTicketCard from '@components/SupportTicketCard'
 import {
@@ -75,9 +77,9 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
     )
 
   return (
-    <section className="support-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
-      <header className="border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between gap-3">
+    <section className="support-surface flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border">
+      <header className="shrink-0 border-b border-gray-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -85,6 +87,9 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
           >
             ← К списку
           </button>
+          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">
+            {CATEGORY_LABELS[ticket.category]}
+          </span>
           {developer ? (
             <select
               aria-label="Статус тикета"
@@ -106,9 +111,6 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
         </div>
         <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">
-              {CATEGORY_LABELS[ticket.category]}
-            </span>
             <span className="text-xs text-gray-500">
               {STATUS_LABELS[ticket.status]}
             </span>
@@ -128,7 +130,7 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
           ) : null}
         </div>
       </header>
-      <div className="min-h-64 flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="min-h-32 flex-1 space-y-3 overflow-y-auto p-4">
         {query.hasNextPage ? (
           <button
             type="button"
@@ -193,20 +195,24 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
       </div>
       <form
         onSubmit={sendReply}
-        className="space-y-3 border-t border-gray-200 p-4"
+        className="shrink-0 space-y-3 border-t border-gray-200 p-4"
       >
         {error ? (
           <Notice tone="error" role="alert">
             {error}
           </Notice>
         ) : null}
-        <textarea
+        <Textarea
+          label="Сообщение"
+          ariaLabel="Сообщение"
           value={message}
           maxLength={5000}
           disabled={replyMutation.isPending}
-          onChange={(event) => setMessage(event.target.value)}
-          className="min-h-24 w-full rounded-lg border border-gray-300 bg-white p-3"
-          placeholder="Напишите сообщение…"
+          onChange={setMessage}
+          rows={3}
+          noMargin
+          fullWidth
+          inputClassName="min-w-0 resize-y"
         />
         <SupportAttachmentPicker
           files={files}
@@ -214,13 +220,14 @@ const TicketDetail = ({ ticketId, developer, onClose }) => {
           disabled={replyMutation.isPending}
           onError={setError}
         />
-        <button
+        <AppButton
           type="submit"
+          className="min-h-10"
           disabled={replyMutation.isPending}
-          className="filter-control filter-control--primary cursor-pointer disabled:opacity-50"
+          aria-busy={replyMutation.isPending}
         >
           {replyMutation.isPending ? 'Отправляем…' : 'Отправить'}
-        </button>
+        </AppButton>
       </form>
     </section>
   )

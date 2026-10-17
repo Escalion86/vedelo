@@ -310,7 +310,7 @@ const MobileBottomNav = () => {
           {createOpen ? (
             <div
               key="create-menu"
-              className="mobile-bottomnav-create-menu absolute bottom-[calc(100%+12px)] left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
+              className="mobile-bottomnav-create-menu no-scrollbar absolute bottom-[calc(100%+12px)] left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
             >
               <motion.p
                 initial={{ opacity: 0, y: 12, scale: 0.9 }}

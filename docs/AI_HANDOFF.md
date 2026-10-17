@@ -743,6 +743,21 @@ Payments идемпотентно после сбоя, без нового сп�
 
 UI: `PersonalTariffSettings` в модалке смены тарифа администратора;
 `TariffSelectContent` для пользователя; Android `app/billing/index.tsx`.
-Проверки и границы: `docs/PERSONAL_TARIFFS.md`. Общий Android typecheck остаётся
-заблокирован прежними ошибками форм/зависимостей вне billing. Production и APK
-не обновлялись.
+Проверки и границы: `docs/PERSONAL_TARIFFS.md`. При локальной подготовке APK
+17.10.2026 восстановлены зависимости и устранён Windows-конфликт разрешения
+`CompactEventForm.tsx` / `compactEventForm.ts`: helper переименован в
+`compactEventFormHelpers.ts`. Общий Android typecheck и 11 тестов helper прошли.
+Локально на Windows собран `vedelo-1.1.3-29-local.apk` (ARM64/ARMv7,
+Android 10+, API `https://vedelo.ru/api`), подписан новым локальным ключом.
+Gradle release и проверка подписи прошли; на телефоне APK не проверен.
+Ключ и credentials хранятся в `.local-android-signing/`, исключены из Git.
+Этот APK не обновляет установку с прежней подписью. Production не обновлялся.
+
+### Отдельная страница КП (1.37.4)
+
+Web/PWA: редактор шаблонов вынесен из DocumentsContent в ProposalsContent
+(`/cabinet/proposals`), пункт «Коммерческие предложения (beta)» в настройках.
+Старая ссылка `/cabinet/documents?section=proposals` перенаправляется сервером.
+Тарифная политика прежняя: allowProposals с legacy fallback на allowDocuments;
+роль и trial не обходят запрет. Без доступа панель не монтируется.
+Группа отзывов в общем меню помечена «Отзывы (beta)».

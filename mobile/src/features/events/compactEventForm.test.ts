@@ -1,6 +1,6 @@
 import { createEventDraft } from '../../shared/domain/eventForm'
 import type { Client } from '../../shared/domain/types'
-import { clientSummary, compactFieldGroups, transferSummary, validationSection } from './compactEventForm'
+import { clientSummary, compactFieldGroups, transferSummary, validationSection } from './compactEventFormHelpers'
 
 const colleague = { _id: 'colleague-a', firstName: '', secondName: ' ', thirdName: '' } as Client
 

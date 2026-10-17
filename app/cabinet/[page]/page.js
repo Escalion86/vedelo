@@ -53,7 +53,7 @@ const normalizeCabinetProps = (input, sessionUser, page) => {
   }
 }
 
-export default async function Cabinet({ params }) {
+export default async function Cabinet({ params, searchParams }) {
   let session = null
 
   try {
@@ -73,6 +73,8 @@ export default async function Cabinet({ params }) {
   if (page === 'clientEvents') return redirect('/cabinet/attention')
 
   if (!session) return redirect('/login')
+  if (page === 'documents' && (await searchParams)?.section === 'proposals')
+    return redirect('/cabinet/proposals')
   if (page === 'export') return redirect('/cabinet/import?tab=export')
 
   let fetchedProps = null

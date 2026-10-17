@@ -689,6 +689,13 @@ export const pages = [
     icon: faFileLines,
   },
   {
+    id: 44,
+    group: 6,
+    name: 'Коммерческие предложения (beta)',
+    href: 'proposals',
+    icon: faFileLines,
+  },
+  {
     id: 24,
     group: 6,
     name: 'Списки',
@@ -840,7 +847,7 @@ export const pagesGroups = [
   },
   {
     id: 13,
-    name: 'Отзывы',
+    name: 'Отзывы (beta)',
     icon: faStar,
   },
   {

@@ -13,7 +13,6 @@ import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import Input from '@components/Input'
 import ReactMarkdown from 'react-markdown'
-import ProposalTemplatesPanel from '@components/ProposalTemplatesPanel'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 import tariffsAtom from '@state/atoms/tariffsAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
@@ -29,7 +28,6 @@ import {
   normalizeDocumentTemplatesFromSettings,
   validateDocxTemplateFileMeta,
 } from '@helpers/documentTemplates'
-import { canUseProposalBuilder } from '@helpers/proposalAccess'
 
 const DEFAULT_CONTRACT_TEMPLATE_DOWNLOAD_URL =
   '/templates/default-contract-template.docx'
@@ -125,7 +123,6 @@ const DocxDocumentsGuide = () => {
 }
 
 const DocumentsContent = () => {
-  const [section, setSection] = useState('documents')
   const [siteSettings, setSiteSettings] = useAtom(siteSettingsAtom)
   const tariffs = useAtomValue(tariffsAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
@@ -140,21 +137,10 @@ const DocumentsContent = () => {
     [loggedUser, tariffs]
   )
   const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
-  const canUseProposals = canUseProposalBuilder(tariffAccess)
   const documentTemplates = useMemo(
     () => normalizeDocumentTemplatesFromSettings(customSettings),
     [customSettings]
   )
-
-  useEffect(() => {
-    const requestedSection = new URLSearchParams(window.location.search).get(
-      'section'
-    )
-    if (requestedSection === 'proposals' && canUseProposals)
-      // URL читается после гидратации, когда известны права пользователя.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSection('proposals')
-  }, [canUseProposals])
 
   const readFileAsBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -324,33 +310,7 @@ const DocumentsContent = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-        {canUseProposals ? (
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
-            <button
-              type="button"
-              className={`h-10 cursor-pointer rounded-md text-sm font-semibold transition ${section === 'documents' ? 'bg-white shadow-sm' : 'text-gray-600'}`}
-              onClick={() => setSection('documents')}
-            >
-              Документы
-            </button>
-            <button
-              type="button"
-              className={`h-10 cursor-pointer rounded-md text-sm font-semibold transition ${section === 'proposals' ? 'bg-white shadow-sm' : 'text-gray-600'}`}
-              onClick={() => setSection('proposals')}
-            >
-              Предложения
-            </button>
-          </div>
-        ) : null}
-        {canUseProposals && section === 'proposals' ? (
-          <LabeledContainer
-            label="Коммерческие предложения"
-            help="Создайте шаблон с текстом, блоками, фото и видео. Затем в редакторе мероприятия или заказа создайте КП на его основе, настройте варианты и цены, опубликуйте и отправьте клиенту ссылку. Сам шаблон клиенту не отправляется."
-            noMargin
-          >
-            <ProposalTemplatesPanel enabled={canUseProposals} />
-          </LabeledContainer>
-        ) : !canUseDocuments ? (
+        {!canUseDocuments ? (
           <Notice tone="warning" className="rounded p-3">
             Работа с документами недоступна на текущем тарифе.
           </Notice>

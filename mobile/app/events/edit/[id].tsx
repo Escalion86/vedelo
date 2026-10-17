@@ -18,7 +18,7 @@ import { EventGeneralSection } from '../../../src/features/events/EventGeneralSe
 import { api } from '../../../src/shared/api/client'
 import { PhotoDraftSection, type PhotoDraftMetadata, type PhotoDraftFields } from '../../../src/features/events/PhotoDraftSection'
 import { CompactEventForm } from '../../../src/features/events/CompactEventForm'
-import { validationSection, type CompactSectionId } from '../../../src/features/events/compactEventForm'
+import { validationSection, type CompactSectionId } from '../../../src/features/events/compactEventFormHelpers'
 import { applyPhotoDraft, photoDraftHighlights } from '../../../src/features/events/applyPhotoDraft'
 import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
 import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
