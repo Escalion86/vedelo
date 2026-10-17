@@ -148,6 +148,19 @@ function UserBillingScreen() {
     if (current()) setMessage('Проверьте статус платежа после оплаты')
   })
 
+  const changeSchedule = (tariff?: MobileTariff) => {
+    Alert.alert(tariff ? `Запланировать «${tariff.title}»?` : 'Отменить переход?', tariff
+      ? `Текущий тариф действует до ${formatBillingDate(billing?.account.tariffActiveUntil)}. Затем применится цена на день перехода (сейчас ${formatRubles(tariff.price)}/мес). При недостатке средств переход будет ожидать пополнения, прежний тариф не продлится.`
+      : 'Текущий тариф сохранится и будет продлеваться по обычным условиям.', [
+      { text: 'Назад', style: 'cancel' },
+      { text: tariff ? 'Запланировать' : 'Отменить переход', onPress: () => void run(async (current) => {
+        await api.post('/billing/preferences', tariff ? { action: 'schedule', tariffId: tariff._id } : { action: 'cancel' }, { skipRefresh: true })
+        await readBilling(current)
+        if (current()) setMessage(tariff ? 'Переход запланирован' : 'Переход отменён')
+      }) },
+    ])
+  }
+
   const selectTariff = (tariff: MobileTariff) => {
     if (lock.current) return
     const quote = tariff.change
@@ -236,6 +249,10 @@ function UserBillingScreen() {
             {billing.currentTariff ? <TariffFeatures tariff={billing.currentTariff} rates={billing.aiIncludedRates} context="current" /> : null}
           </Surface>
 
+          {billing.pendingTariffChange ? <Surface>
+            <Notice message={`Переход на «${billing.pendingTariffChange.title}» после ${formatBillingDate(billing.pendingTariffChange.startsAt)}. Если срок уже наступил, пополните баланс и дождитесь следующей проверки продления.`} />
+            <Button title="Отменить переход" variant="secondary" disabled={busy || loading} onPress={() => changeSchedule()} />
+          </Surface> : null}
           <View style={styles.tariffsSection}>
             <SectionTitle>Сменить тариф</SectionTitle>
             {billing.tariffs.map((tariff) => {
@@ -250,9 +267,13 @@ function UserBillingScreen() {
                 <Surface key={tariff._id} style={quote?.current ? styles.currentCard : undefined}>
                   <View style={styles.titleRow}><View style={styles.grow}><Text style={styles.tariffTitle}>{tariff.title}</Text><Text style={styles.tariffPrice}>{tariff.price > 0 ? `${formatRubles(tariff.price)}/мес` : 'Бесплатно'}</Text></View>{quote?.current ? <StatusChip label="Текущий" tone="success" /> : null}</View>
                   <Text style={styles.muted}>{tariff.eventsPerMonth > 0 ? `До ${tariff.eventsPerMonth} ${terms.pluralGenitive} в месяц` : `Без ограничений по ${terms.pluralDative}`}</Text>
+                  {tariff.personalOffer ? <Text style={styles.muted}>Персональное предложение</Text> : null}
                   <TariffFeatures tariff={tariff} rates={billing.aiIncludedRates} />
                   {quote?.creditAmount ? <Text style={styles.credit}>Компенсация за текущий тариф: {formatRubles(quote.creditAmount)}</Text> : null}
                   {quote?.blockedReason ? <Text style={styles.warning}>{quote.blockedReason}</Text> : null}
+                  {!quote?.current && billing.account.tariffActiveUntil && new Date(billing.account.tariffActiveUntil) > new Date() ? <Button
+                    title="Перейти после окончания текущего тарифа" variant="secondary"
+                    disabled={busy || loading || billing.pendingTariffChange?.tariffId === tariff._id} onPress={() => changeSchedule(tariff)} /> : null}
                   <Button title={buttonTitle} variant={quote?.current ? 'secondary' : 'primary'} disabled={disabled} onPress={() => selectTariff(tariff)} />
                 </Surface>
               )

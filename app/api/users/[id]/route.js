@@ -6,21 +6,11 @@ import getTenantContext from '@server/getTenantContext'
 import bcrypt from 'bcryptjs'
 import { isValidMaxContact, normalizeMaxContactInput } from '@helpers/maxContact'
 import Tariffs from '@models/Tariffs'
-import Payments from '@models/Payments'
+import personalTariffs from '@server/personalTariffs'
+import { billingIdentity } from '@helpers/personalTariffs.mjs'
+import mongoose from 'mongoose'
 import Events from '@models/Events'
 import { applyUserEventStats } from '@helpers/userEventStats'
-import { isRegistrationOfferTariff } from '@helpers/tariffAccess'
-
-const addMonths = (date, count) => {
-  const next = new Date(date)
-  const day = next.getDate()
-  next.setMonth(next.getMonth() + count)
-  if (next.getDate() < day) {
-    next.setDate(0)
-  }
-  return next
-}
-
 const normalizePhone = (phone) => {
   if (!phone) return ''
   return String(phone).replace(/[^\d]/g, '')
@@ -88,8 +78,9 @@ export const PUT = async (req, { params }) => {
   await dbConnect()
 
   const canManageAllUsers = isAdmin
-  const query =
-    canManageAllUsers || isSelf ? { _id: id } : { _id: id, tenantId }
+  const query = canManageAllUsers ? { _id: id } : {
+    _id: id, $or: [{ tenantId }, { tenantId: null, _id: tenantId }],
+  }
   const existing = await Users.findOne(query)
   if (!existing) {
     console.log('[users][PUT] not found', { query })
@@ -99,6 +90,10 @@ export const PUT = async (req, { params }) => {
     )
   }
 
+  const protectedKeys = ['allowedTariffIds', 'pendingTariffChange', 'pendingBillingReceipt', 'billingRevision']
+  if (Object.keys(body).some((key) => key.startsWith('$') || key.includes('.') || protectedKeys.includes(key))) {
+    return NextResponse.json({ success: false, error: 'Используйте управление доступом к тарифам' }, { status: 400 })
+  }
   const update = {}
   const allowedTariffKeys = ['_id', 'tariffId']
   const bodyKeys = Object.keys(body ?? {})
@@ -107,111 +102,12 @@ export const PUT = async (req, { params }) => {
     bodyKeys.every((key) => allowedTariffKeys.includes(key))
 
   const applyTariffSelection = async (tariffId, options = {}) => {
-    if (!tariffId) {
-      return {
-        error: NextResponse.json(
-          { success: false, error: 'Тариф не найден' },
-          { status: 400 }
-        ),
-      }
+    if (typeof tariffId !== 'string' || !mongoose.isValidObjectId(tariffId)) {
+      return { error: NextResponse.json({ success: false, error: 'Тариф не найден' }, { status: 400 }) }
     }
-    const now = new Date()
     const tariff = await Tariffs.findById(tariffId).lean()
-    if (!tariff) {
-      return {
-        error: NextResponse.json(
-          { success: false, error: 'Тариф не найден' },
-          { status: 404 }
-        ),
-      }
-    }
-    const currentTariff =
-      existing.tariffId &&
-      existing.tariffActiveUntil &&
-      !isRegistrationOfferTariff(existing)
-        ? await Tariffs.findById(existing.tariffId).lean()
-        : null
-    let creditAmount = 0
-    const skipCompensation = options?.skipCompensation === true
-    if (
-      !skipCompensation &&
-      currentTariff &&
-      Number(currentTariff.price ?? 0) > 0
-    ) {
-      const activeUntil = new Date(existing.tariffActiveUntil)
-      if (!Number.isNaN(activeUntil.getTime()) && activeUntil > now) {
-        const periodStart = addMonths(activeUntil, -1)
-        const periodMs = activeUntil.getTime() - periodStart.getTime()
-        const remainingMs = activeUntil.getTime() - now.getTime()
-        if (periodMs > 0 && remainingMs > 0) {
-          creditAmount = Math.floor(
-            (Number(currentTariff.price ?? 0) * remainingMs) / periodMs
-          )
-        }
-      }
-    }
-    const price = Number(tariff.price ?? 0)
-    const balance = Number(existing.balance ?? 0)
-    const availableBalance = balance + creditAmount
-    if (price > 0) {
-      if (!Number.isFinite(availableBalance) || availableBalance < price) {
-        const missing = Math.max(price - (Number.isFinite(availableBalance) ? availableBalance : 0), 0)
-        return {
-          error: NextResponse.json(
-            {
-              success: false,
-              error: `Недостаточно средств. Не хватает ${missing} руб.`,
-            },
-            { status: 402 }
-          ),
-        }
-      }
-      const nextChargeAt = addMonths(now, 1)
-      update.tariffId = tariff._id
-      update.balance = availableBalance - price
-      update.billingStatus = 'active'
-      update.tariffActiveUntil = nextChargeAt
-      update.nextChargeAt = nextChargeAt
-      if (creditAmount > 0 && currentTariff) {
-        await Payments.create({
-          userId: existing._id,
-          tenantId: existing.tenantId ?? existing._id,
-          tariffId: currentTariff._id,
-          amount: creditAmount,
-          type: 'refund',
-          source: 'system',
-          comment: `Компенсация за неиспользованный период тарифа "${currentTariff.title}"`,
-        })
-      }
-      const chargeComment = `Оплата тарифа "${tariff.title}"`
-      await Payments.create({
-        userId: existing._id,
-        tenantId: existing.tenantId ?? existing._id,
-        tariffId: tariff._id,
-        amount: price,
-        type: 'charge',
-        source: 'system',
-        comment: chargeComment,
-      })
-      return { ok: true }
-    }
-    update.tariffId = tariff._id
-    update.billingStatus = 'active'
-    update.tariffActiveUntil = null
-    update.nextChargeAt = null
-    if (creditAmount > 0 && currentTariff) {
-      update.balance = availableBalance
-      await Payments.create({
-        userId: existing._id,
-        tenantId: existing.tenantId ?? existing._id,
-        tariffId: currentTariff._id,
-        amount: creditAmount,
-        type: 'refund',
-        source: 'system',
-        comment: `Компенсация за неиспользованный период тарифа "${currentTariff.title}"`,
-      })
-    }
-    return { ok: true }
+    const result = await personalTariffs.change({ user: existing.toObject(), tariff, admin: isAdmin, ...options })
+    return result.ok ? {} : { error: NextResponse.json({ success: false, error: result.error }, { status: result.status || 409 }) }
   }
 
   const allowedSelfKeys = [
@@ -228,7 +124,6 @@ export const PUT = async (req, { params }) => {
     'vk',
     'instagram',
     'images',
-    'tariffId',
   ]
 
   if (isTariffSelection && isSelf) {
@@ -309,6 +204,9 @@ export const PUT = async (req, { params }) => {
     Object.assign(update, body)
     delete update._id
     delete update.skipCompensation
+    if (shouldApplyTariff) {
+      for (const key of ['tariffId', 'balance', 'tariffActiveUntil', 'nextChargeAt', 'billingStatus']) delete update[key]
+    }
     if (normalizedPhone !== null) update.phone = normalizedPhone
     if (update.password) {
       update.password = await bcrypt.hash(update.password, 10)
@@ -325,7 +223,7 @@ export const PUT = async (req, { params }) => {
   }
 
   console.log('[users][PUT] update', { query, updateKeys: Object.keys(update) })
-  const updated = await Users.findOneAndUpdate(query, update, {
+  const updated = await Users.findOneAndUpdate(billingIdentity(existing), update, {
     returnDocument: 'after',
   })
   if (!updated) {

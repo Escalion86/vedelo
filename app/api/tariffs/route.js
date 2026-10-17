@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Tariffs from '@models/Tariffs'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
+import { withAiIncludedEstimates } from '@server/aiIncludedEstimate'
 
 const canManageTariffs = (user) => ['admin', 'dev'].includes(user?.role)
 

@@ -1,3 +1,4 @@
+import { canSelectTariff } from '@helpers/personalTariffs.mjs'
 import Events from '@models/Events'
 import SiteSettings from '@models/SiteSettings'
 import Clients from '@models/Clients'
@@ -393,7 +394,7 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
       news: JSON.parse(JSON.stringify(newsList)),
       services: JSON.parse(JSON.stringify(services)),
       tariffs: JSON.parse(
-        JSON.stringify(await withAiIncludedEstimates(tariffs))
+        JSON.stringify(await withAiIncludedEstimates(tariffs.filter((tariff) => canManageAllUsers || canSelectTariff(loggedUser, tariff))))
       ),
       users: JSON.parse(JSON.stringify(usersWithEventStats)),
       serverSettings: JSON.parse(

@@ -1738,11 +1738,20 @@ const eventFunc = (
                 className="min-w-38 flex-1"
                 error={errors.eventType}
                 postfix={
-                  <AddIconButton
-                    onClick={handleCreateEventType}
-                    title="Добавить тип события"
-                    size="sm"
-                  />
+                  <div className="flex shrink-0 items-center gap-1">
+                    <IconActionButton
+                      icon={faPencilAlt}
+                      variant="warning"
+                      size="sm"
+                      title="Редактировать типы событий"
+                      onClick={() => modalsFunc.settings.eventTypes()}
+                    />
+                    <AddIconButton
+                      onClick={handleCreateEventType}
+                      title="Добавить тип события"
+                      size="sm"
+                    />
+                  </div>
                 }
               />
             </div>

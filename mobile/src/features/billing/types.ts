@@ -8,6 +8,7 @@ export type TariffChangeQuote = {
 }
 
 export type MobileTariff = {
+  personalOffer?: boolean
   _id: string
   title: string
   price: number
@@ -28,6 +29,7 @@ export type MobileTariff = {
 }
 
 export type MobileBilling = {
+  pendingTariffChange?: { tariffId: string; startsAt: string; title: string } | null
   aiIncludedRates?: AiIncludedRates
   account: {
     balance: number

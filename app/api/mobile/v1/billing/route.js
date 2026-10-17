@@ -1,3 +1,4 @@
+import { canSelectTariff } from '@helpers/personalTariffs.mjs'
 import mongoose from 'mongoose'
 import Tariffs from '@models/Tariffs'
 import Users from '@models/Users'
@@ -55,10 +56,10 @@ export const POST = async (req) => {
         tenantId: context.tenantId,
       })
     ),
-    Tariffs.findOne({ _id: tariffId, hidden: { $ne: true } }).lean(),
+    Tariffs.findOne({ _id: tariffId }).lean(),
   ])
   if (!user) return mobileError('USER_NOT_FOUND', 'Пользователь не найден', 404)
-  if (!tariff) return mobileError('TARIFF_NOT_FOUND', 'Тариф не найден', 404)
+  if (!canSelectTariff(user, tariff)) return mobileError('TARIFF_NOT_FOUND', 'Тариф не найден', 404)
   if (String(user.tariffId || '') === tariffId) {
     return mobileError('TARIFF_CURRENT', 'Этот тариф уже подключён', 409)
   }
@@ -83,6 +84,7 @@ export const POST = async (req) => {
   }
   const result = await applyTariffPurchase({
     userId: user._id,
+    tenantId: user.tenantId,
     tariffId: tariff._id,
   })
   if (!result.ok) {

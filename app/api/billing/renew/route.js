@@ -1,3 +1,5 @@
+import personalTariffs from '@server/personalTariffs'
+import { billingSnapshot } from '@helpers/personalTariffs.mjs'
 import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import Users from '@models/Users'
@@ -23,10 +25,7 @@ const addMonths = (date, count) => {
   return next
 }
 
-const getUserIdentityFilter = (user) => ({
-  _id: user._id,
-  tenantId: user.tenantId ?? null,
-})
+const getUserIdentityFilter = (user) => ({ ...billingSnapshot(user), pendingTariffChange: null, pendingBillingReceipt: null })
 
 const canRun = async (req) => {
   const secret = process.env.BILLING_CRON_SECRET || ''
@@ -66,13 +65,16 @@ export const POST = async (req) => {
   })
 
   const now = new Date()
+  const scheduledChanges = await personalTariffs.renewScheduled(now)
   const [dueUsers, expiredOfferCandidates, tariffs] = await Promise.all([
     Users.find({
+      pendingTariffChange: null,
       tariffId: { $ne: null },
       nextChargeAt: { $lte: now },
       billingStatus: { $ne: 'cancelled' },
     }).lean(),
     Users.find({
+      pendingTariffChange: null,
       tariffId: { $ne: null },
       nextChargeAt: null,
       'registrationOffer.endsAt': { $lte: now },
@@ -212,6 +214,7 @@ export const POST = async (req) => {
     {
       success: true,
       data: {
+        scheduledChanges,
         processed,
         renewed,
         movedToFree,

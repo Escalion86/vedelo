@@ -49,3 +49,25 @@ it('смена пользователя игнорирует поздний bill
  const screen=render(<BillingScreen />);mockUser={_id:'u2',tenantId:'t2',role:'dev'};screen.rerender(<BillingScreen />);await screen.findByText('DEV')
  await act(async()=>finish({success:true,data:{...billing,currentTariff:{...tariff,title:'OLD'}}}));expect(screen.queryByText('OLD')).toBeNull()
 })
+
+it('персональный BRO: планирование без немедленной оплаты и отмена перехода',async()=>{
+ const proposal={...next,_id:'bro',title:'BRO',personalOffer:true}
+ const active={...billing,account:{...billing.account,tariffActiveUntil:'2099-10-20T12:00:00Z'},tariffs:[proposal]}
+ ;(api.get as jest.Mock).mockResolvedValue({success:true,data:active})
+ const alert=jest.spyOn(Alert,'alert')
+ const screen=render(<BillingScreen />)
+ await screen.findByText('Персональное предложение')
+ fireEvent.press(screen.getByText('Перейти после окончания текущего тарифа'))
+ expect(api.post).not.toHaveBeenCalled()
+ const pending={...active,pendingTariffChange:{tariffId:'bro',title:'BRO',startsAt:active.account.tariffActiveUntil}}
+ ;(api.post as jest.Mock).mockResolvedValue({success:true})
+ ;(api.get as jest.Mock).mockResolvedValue({success:true,data:pending})
+ await act(async()=>{await alert.mock.calls.at(-1)?.[2]?.[1]?.onPress?.()})
+ expect(api.post).toHaveBeenCalledWith('/billing/preferences',{action:'schedule',tariffId:'bro'},{skipRefresh:true})
+ await screen.findByText('Отменить переход')
+ fireEvent.press(screen.getByText('Отменить переход'))
+ ;(api.get as jest.Mock).mockResolvedValue({success:true,data:active})
+ await act(async()=>{await alert.mock.calls.at(-1)?.[2]?.[1]?.onPress?.()})
+ expect(api.post).toHaveBeenLastCalledWith('/billing/preferences',{action:'cancel'},{skipRefresh:true})
+ alert.mockRestore()
+})

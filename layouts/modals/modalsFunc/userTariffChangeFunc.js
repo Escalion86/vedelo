@@ -1,3 +1,4 @@
+import PersonalTariffSettings from '@components/PersonalTariffSettings'
 import FormWrapper from '@components/FormWrapper'
 import ComboBox from '@components/ComboBox'
 import Button from '@components/Button'
@@ -191,6 +192,7 @@ const userTariffChangeFunc = (userId, onSuccess) => {
             loading={isSaving}
           />
         </div>
+        <PersonalTariffSettings userId={user._id} />
       </FormWrapper>
     )
   }

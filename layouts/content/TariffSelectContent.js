@@ -1,6 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import AppButton from '@components/AppButton'
+import Notice from '@components/Notice'
+import { PendingTariffNotice } from '@components/PersonalTariffSettings'
+import usePersonalTariffs from '@helpers/usePersonalTariffs'
+import { canSelectTariff, hasRemainingTariffPeriod } from '@helpers/personalTariffs.mjs'
 import ContentHeader from '@components/ContentHeader'
 import Button from '@components/Button'
 import EmptyState from '@components/EmptyState'
@@ -40,7 +45,10 @@ const TariffSelectContent = () => {
   const snackbar = useSnackbar()
   const [loggedUser, setLoggedUser] = useAtom(loggedUserAtom)
   const itemsFunc = useAtomValue(itemsFuncAtom)
-  const tariffs = useAtomValue(tariffsAtom)
+  const initialTariffs = useAtomValue(tariffsAtom)
+  const preferences = usePersonalTariffs()
+  const tariffs = preferences.data?.tariffs ?? initialTariffs
+  const tariffUser = preferences.data ?? loggedUser
   const loggedUserActiveRole = useAtomValue(loggedUserActiveRoleSelector)
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const [isSaving, setIsSaving] = useState(false)
@@ -64,13 +72,13 @@ const TariffSelectContent = () => {
   const publicTariffs = useMemo(
     () =>
       tariffs
-        .filter((tariff) => !tariff?.hidden)
+        .filter((tariff) => canSelectTariff(tariffUser, tariff))
         .sort((a, b) => {
           const priceDiff = (a.price ?? 0) - (b.price ?? 0)
           if (priceDiff !== 0) return priceDiff
           return (a.title || '').localeCompare(b.title || '', 'ru')
         }),
-    [tariffs]
+    [tariffs, tariffUser]
   )
 
   const handleSelectConfirmed = async (tariffId) => {
@@ -260,6 +268,9 @@ const TariffSelectContent = () => {
         />
       </ContentHeader>
       <SectionCard className="min-h-0 flex-1 overflow-auto p-4">
+        {preferences.error ? <Notice tone="error" role="alert">{preferences.error}</Notice> : null}
+        <PendingTariffNotice pending={preferences.data?.pendingTariffChange} busy={preferences.busy}
+          onCancel={() => preferences.mutate({ action: 'cancel' })} />
         {publicTariffs.length > 0 ? (
           <TariffConditions tariffs={publicTariffs} className="mb-4" />
         ) : null}
@@ -274,6 +285,7 @@ const TariffSelectContent = () => {
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
                       {tariff.title || 'Тариф'}
+                      {tariff.hidden ? <div className="text-sm font-normal">Персональное предложение</div> : null}
                     </div>
                     <div className="mt-1 text-sm text-gray-600">
                       {formatEventsLimit(tariff.eventsPerMonth, terms)}
@@ -363,7 +375,7 @@ const TariffSelectContent = () => {
                     noMargin
                   />
                 </div>
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                   {loggedUser?.tariffId === tariff._id && (
                     <span className="text-xs font-semibold text-general">
                       Текущий тариф
@@ -373,11 +385,20 @@ const TariffSelectContent = () => {
                     <Button
                       name="Выбрать тариф"
                       className="h-9 px-4 text-sm"
-                      disabled={isSaving}
+                      disabled={isSaving || preferences.busy}
                       loading={isSaving}
                       onClick={() => handleSelect(tariff._id)}
                     />
                   )}
+                  {loggedUser?.tariffId !== tariff._id && hasRemainingTariffPeriod(tariffUser) ? (
+                    <AppButton variant="secondary" disabled={isSaving || preferences.busy || preferences.data?.pendingTariffChange?.tariffId === tariff._id}
+                      onClick={() => modalsFunc.add({
+                        title: 'Переход после окончания периода',
+                        text: `Текущий тариф продолжит действовать до ${new Date(tariffUser.tariffActiveUntil).toLocaleString('ru-RU')}. Затем подключится «${tariff.title}» по действующей на день перехода цене (сейчас ${tariff.price} ₽/мес). При недостатке средств переход будет ожидать пополнения, прежний тариф не продлится.`,
+                        confirmButtonName: 'Запланировать', showDecline: true,
+                        onConfirm: () => preferences.mutate({ action: 'schedule', tariffId: tariff._id }),
+                      })}>Перейти после окончания текущего тарифа</AppButton>
+                  ) : null}
                 </div>
               </div>
             ))}

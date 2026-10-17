@@ -13,6 +13,17 @@ const DEFAULT_GOOGLE_CALENDAR_STATUS_COLORS = Object.freeze({
 })
 
 const usersSchema = {
+  allowedTariffIds: { type: [Schema.Types.ObjectId], ref: 'Tariffs', default: [] },
+  billingRevision: { type: Number, default: 0 },
+  pendingTariffChange: {
+    type: new Schema({
+      tariffId: { type: Schema.Types.ObjectId, ref: 'Tariffs', required: true },
+      startsAt: { type: Date, required: true },
+    }, { _id: false }),
+    default: null,
+  },
+  // Durable receipt written in the same atomic update as the balance.
+  pendingBillingReceipt: { type: Schema.Types.Mixed, default: null, select: false },
   manualBalanceCharges: { type: Schema.Types.Mixed, default: {}, select: false },
   paymentReversals: { type: Schema.Types.Mixed, default: {}, select: false },
   aiFileImportBudgets: { type: Schema.Types.Mixed, default: {}, select: false },

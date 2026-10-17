@@ -1,3 +1,5 @@
+import { canSelectTariff } from '@helpers/personalTariffs.mjs'
+import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
@@ -56,8 +58,9 @@ export const POST = async (req) => {
   let description = 'Пополнение баланса Ведело'
 
   if (purpose === 'tariff') {
-    tariff = await Tariffs.findById(body?.tariffId).lean()
-    if (!tariff || tariff.hidden) {
+    if (typeof body?.tariffId !== 'string' || !mongoose.isValidObjectId(body.tariffId)) return NextResponse.json({ success: false, error: 'Тариф не найден' }, { status: 400 })
+    tariff = await Tariffs.findById(body.tariffId).lean()
+    if (!canSelectTariff(dbUser, tariff)) {
       return NextResponse.json(
         { success: false, error: 'Тариф не найден' },
         { status: 404 }

@@ -7,6 +7,7 @@ import { isProposalTariffEnabled } from '../../helpers/tariffAccess.js'
 const serializeTariff = (tariff, quote = null) => ({
   _id: String(tariff._id),
   title: String(tariff.title || 'Тариф'),
+  personalOffer: Boolean(tariff.hidden),
   price: Math.max(Number(tariff.price ?? 0), 0),
   eventsPerMonth: Math.max(Number(tariff.eventsPerMonth ?? 0), 0),
   allowCalendarSync: Boolean(tariff.allowCalendarSync),
@@ -40,6 +41,11 @@ export const serializeMobileBilling = ({
   })
   return {
     ...(aiIncludedRates ? { aiIncludedRates: serializeMobileAiIncludedRates(aiIncludedRates) } : {}),
+    pendingTariffChange: user?.pendingTariffChange ? {
+      tariffId: String(user.pendingTariffChange.tariffId),
+      startsAt: user.pendingTariffChange.startsAt,
+      title: tariffs.find((tariff) => String(tariff._id) === String(user.pendingTariffChange.tariffId))?.title || 'Тариф недоступен',
+    } : null,
     account: {
       balance,
       billingStatus: user?.billingStatus || 'active',
