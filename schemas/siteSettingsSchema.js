@@ -7,6 +7,7 @@ const siteSettingsSchema = {
     default: () => DEFAULT_CLIENT_TYPES.map((item) => ({ ...item })),
   },
   clientTypesVersion: { type: Number, default: 0 },
+  eventTypesEdit: { type: Schema.Types.Mixed, default: undefined },
   syncVersion: {
     type: Number,
     default: 1,

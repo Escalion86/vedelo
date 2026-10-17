@@ -217,11 +217,19 @@ export const POST = async (req) => {
     }
   }
 
-  const siteSettings = await SiteSettings.findOneAndUpdate(
-    { tenantId },
-    { $set: { ...update, tenantId } },
-    { returnDocument: 'after', upsert: true }
-  )
+  let siteSettings
+  try {
+    siteSettings = await SiteSettings.findOneAndUpdate(
+      { tenantId, ...(body.custom !== undefined ? { eventTypesEdit: null } : {}) },
+      { $set: { ...update, tenantId } },
+      { returnDocument: 'after', upsert: true }
+    )
+  } catch (error) {
+    if (error.code === 11000 && body.custom !== undefined) {
+      return NextResponse.json({ success: false, error: 'Сначала завершите изменение типов событий в разделе «Списки»' }, { status: 409 })
+    }
+    throw error
+  }
   clearTenantWorkItemTerminologyCache(tenantId)
 
   return NextResponse.json(

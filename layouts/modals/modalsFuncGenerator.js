@@ -18,6 +18,7 @@ import whatsNewFunc from './modalsFunc/whatsNewFunc'
 import newsFunc from './modalsFunc/newsFunc'
 import proposalTemplateFunc from './modalsFunc/proposalTemplateFunc'
 import eventTypesFunc from './modalsFunc/eventTypesFunc'
+import clientTypesFunc from './modalsFunc/clientTypesFunc'
 import artistRequisitesEditorFunc from './modalsFunc/artistRequisitesEditorFunc'
 import jsonFunc from './modalsFunc/jsonFunc'
 // import questionnaireConstructorFunc from './modalsFunc/questionnaireConstructorFunc'
@@ -186,6 +187,7 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
     settings: {
       towns: () => addModal(townsFunc()),
       eventTypes: () => addModal(eventTypesFunc()),
+      clientTypes: () => addModal(clientTypesFunc()),
       artistRequisitesEditor: () => addModal(artistRequisitesEditorFunc()),
     },
     whatsNew: {

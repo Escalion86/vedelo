@@ -30,7 +30,7 @@ const buildApiLeadPushPayload = ({ event, normalizedData }) => {
     title: 'Новая заявка',
     body: bodyParts.join(' | ') || 'Откройте кабинет для просмотра',
     icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
-    badge: '/icons/notification-badge.svg',
+    badge: '/icons/vedelo-v1/notification-badge.svg',
     tag: `api-lead-${event?._id || Date.now()}`,
     data: {
       url: `/cabinet/eventsUpcoming?openEvent=${event?._id}`,

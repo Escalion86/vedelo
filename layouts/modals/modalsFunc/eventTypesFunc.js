@@ -1,161 +1,99 @@
-import { List } from 'react-window'
-import { useMemo, useEffect, useState, useCallback } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
-import FormWrapper from '@components/FormWrapper'
-import Button from '@components/Button'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { modalsFuncAtom } from '@state/atoms'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
-import loggedUserAtom from '@state/atoms/loggedUserAtom'
-import { postData } from '@helpers/CRUD'
-import compareObjects from '@helpers/compareObjects'
+import eventsAtom from '@state/atoms/eventsAtom'
+import IconActionButton from '@components/IconActionButton'
+import AddIconButton from '@components/AddIconButton'
+import MutedText from '@components/MutedText'
+import Notice from '@components/Notice'
+import { faPencilAlt, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
+import { prepareEventTypeEdit } from '@helpers/eventTypeList.mjs'
+import { queryKeys } from '@helpers/queryKeys'
+import useSnackbar from '@helpers/useSnackbar'
+import listItemNameFunc from './listItemNameFunc'
 
-const ITEM_HEIGHT = 46
-
-const normalizeEventTypes = (items = []) =>
-  Array.from(
-    new Set(
-      items
-        .map((item) => (typeof item === 'string' ? item.trim() : ''))
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b, 'ru'))
-
-const eventTypesFunc = () => {
-  const EventTypesModal = ({
-    closeModal,
-    setOnConfirmFunc,
-    setOnShowOnCloseConfirmDialog,
-    setDisableConfirm,
-  }) => {
-    const loggedUser = useAtomValue(loggedUserAtom)
-    const [siteSettings, setSiteSettings] = useAtom(siteSettingsAtom)
-    const [eventTypes, setEventTypes] = useState(() =>
-      normalizeEventTypes(siteSettings?.custom?.eventTypes ?? [])
-    )
-
-    const normalizedEventTypes = useMemo(
-      () => normalizeEventTypes(eventTypes),
-      [eventTypes]
-    )
-
-    const isChanged = useMemo(() => {
-      const settingsTypes = normalizeEventTypes(
-        siteSettings?.custom?.eventTypes ?? []
-      )
-      return !compareObjects(settingsTypes, normalizedEventTypes)
-    }, [normalizedEventTypes, siteSettings?.custom?.eventTypes])
-
-    useEffect(() => {
-      if (isChanged) return
-      setEventTypes(normalizeEventTypes(siteSettings?.custom?.eventTypes ?? []))
-    }, [isChanged, siteSettings?.custom?.eventTypes])
-
-    const handleAddEventType = () => {
-      const newValue = window.prompt('Новый тип мероприятия')
-      const trimmed = newValue?.trim()
-      if (!trimmed) return
-      setEventTypes((prev) => normalizeEventTypes([...prev, trimmed]))
-    }
-
-    const handleDeleteEventType = (value) => {
-      setEventTypes((prev) =>
-        normalizeEventTypes(prev.filter((item) => item !== value))
-      )
-    }
-
-    const handleSave = useCallback(async () => {
-      await postData(
-        '/api/site',
-        {
-          custom: {
-            ...(siteSettings?.custom ?? {}),
-            eventTypes: normalizedEventTypes,
-          },
-        },
-        (data) => setSiteSettings(data),
-        null,
-        false,
-        loggedUser?._id
-      )
-      closeModal()
-    }, [
-      closeModal,
-      loggedUser?._id,
-      normalizedEventTypes,
-      setSiteSettings,
-      siteSettings?.custom,
-    ])
-
-    useEffect(() => {
-      setDisableConfirm(!isChanged)
-      setOnShowOnCloseConfirmDialog(isChanged)
-      setOnConfirmFunc(isChanged ? handleSave : undefined)
-    }, [
-      handleSave,
-      isChanged,
-      setDisableConfirm,
-      setOnConfirmFunc,
-      setOnShowOnCloseConfirmDialog,
-    ])
-
-    const Row = ({ index, style }) => {
-      const value = normalizedEventTypes[index]
-      return (
-        <div
-          style={style}
-          className="flex items-center justify-between gap-3 border-b border-gray-100 px-3 py-2"
-        >
-          <div className="text-sm font-medium text-gray-800">{value}</div>
-          <button
-            type="button"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded border border-red-200 text-red-500 transition hover:bg-red-50"
-            onClick={() => handleDeleteEventType(value)}
-            title="Удалить тип"
-          >
-            <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
-          </button>
-        </div>
-      )
-    }
-
-    return (
-      <FormWrapper className="flex h-full flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-gray-700">Тип события</div>
-          <Button
-            name=""
-            onClick={handleAddEventType}
-            icon={faPlus}
-            className="h-9 w-9 rounded-full text-base"
-            title="Добавить тип"
-          />
-        </div>
-
-        <div className="flex-1 overflow-hidden rounded-lg border border-gray-200">
-          {normalizedEventTypes.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-gray-500">
-              Типов пока нет
-            </div>
-          ) : (
-            <List
-              rowCount={normalizedEventTypes.length}
-              rowHeight={ITEM_HEIGHT}
-              rowComponent={Row}
-              rowProps={{}}
-              style={{ height: '100%', width: '100%' }}
-            />
-          )}
-        </div>
-      </FormWrapper>
-    )
-  }
-
-  return {
-    title: 'Список: Типы события',
-    confirmButtonName: 'Сохранить',
-    Children: EventTypesModal,
-  }
+const request = async (body) => {
+  const response = await fetch('/api/event-types', body ? { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error || 'Не удалось сохранить список')
+  return result
 }
 
-export default eventTypesFunc
+export const EventTypesModal = ({ closeModal, setOnConfirmFunc, setOnShowOnCloseConfirmDialog, setDisableConfirm }) => {
+  const modals = useAtomValue(modalsFuncAtom)
+  const setSettings = useSetAtom(siteSettingsAtom)
+  const setEvents = useSetAtom(eventsAtom)
+  const cache = useQueryClient()
+  const snackbar = useSnackbar()
+  const query = useQuery({ queryKey: ['event-type-list'], queryFn: () => request(), staleTime: 0, refetchOnWindowFocus: false })
+  const [draft, setDraft] = useState(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const locked = useRef(false)
+  const source = query.data
+  const base = source?.pending?.plan.base || source?.items
+  const rows = useMemo(() => draft || (source?.pending
+    ? source.pending.plan.next.map(name => ({ name, original: source.pending.plan.renames.find(x => x.to === name)?.from || (base.includes(name) ? name : null) }))
+    : (source?.items || []).map(name => ({ original: name, name }))), [draft, source, base])
+  const changed = Boolean(source?.pending) || (draft !== null && JSON.stringify(rows.map(x => x.name)) !== JSON.stringify(source?.items))
+  const handleSave = useCallback(async () => {
+    if (locked.current || !source) return
+    locked.current = true; setBusy(true); setError('')
+    try {
+      const plan = prepareEventTypeEdit(base, rows)
+      const result = await request({ base, rows })
+      await cache.cancelQueries({ queryKey: queryKeys.siteSettings })
+      const patch = current => ({ ...current, custom: { ...current?.custom, eventTypes: result.items } })
+      setSettings(patch)
+      cache.setQueryData(queryKeys.siteSettings, current => current ? patch(current) : undefined)
+      cache.setQueryData(['event-type-list'], result)
+      if (plan.renames.length) {
+        const rename = value => plan.renames.find(x => x.from === value)?.to || value
+        setEvents(current => Array.isArray(current) ? current.map(event => ({ ...event, eventType: rename(event.eventType) })) : current)
+        window.dispatchEvent(new CustomEvent('vedelo:event-types-renamed', { detail: plan.renames }))
+      }
+      await Promise.all(['events', 'event', 'clientRelations', 'statistics', 'type-usage'].map(key => cache.invalidateQueries({ queryKey: [key] })))
+      snackbar.success('Типы событий сохранены')
+      closeModal()
+    } catch (cause) { setError(cause.message || 'Не удалось сохранить список') }
+    finally { locked.current = false; setBusy(false) }
+  }, [source, base, rows, cache, setSettings, setEvents, snackbar, closeModal])
+  useEffect(() => {
+    setDisableConfirm(!source || !changed || busy)
+    setOnShowOnCloseConfirmDialog(changed)
+    setOnConfirmFunc(handleSave)
+  }, [source, changed, busy, handleSave, setDisableConfirm, setOnConfirmFunc, setOnShowOnCloseConfirmDialog])
+  const edit = (index = -1) => modals.add(listItemNameFunc({
+    title: index < 0 ? 'Добавить тип события' : 'Изменить название типа события',
+    initialName: rows[index]?.name || '',
+    maxLength: 200,
+    onSave: name => {
+      const next = index < 0 ? [...rows, { original: null, name }] : rows.map((row, i) => i === index ? { ...row, name } : row)
+      prepareEventTypeEdit(base, next)
+      setDraft(next)
+    },
+  }))
+  const disabled = busy || !source || Boolean(source.pending)
+  return <div className="flex min-w-0 flex-col gap-3 p-3">
+    <div className="flex items-center justify-between gap-3"><MutedText>Переименование применяется к сохранённым карточкам после нажатия «Сохранить».</MutedText><AddIconButton title="Добавить тип события" disabled={disabled} onClick={() => edit()} /></div>
+    {source?.pending ? <Notice tone="warning">Предыдущее изменение не завершено. Нажмите «Сохранить», чтобы продолжить.</Notice> : null}
+    {error || query.error ? <Notice tone="error" role="alert">{error || query.error.message}{query.error ? <button className="ml-2 cursor-pointer underline" onClick={() => query.refetch()}>Повторить загрузку</button> : null}</Notice> : null}
+    {query.isPending ? <Notice>Загрузка типов событий…</Notice> : null}
+    <div className="divide-y divide-gray-200 rounded border border-gray-200">
+      {rows.map((row, index) => <div key={row.original || row.name} className="flex min-w-0 items-center justify-between gap-3 p-3">
+        <div className="min-w-0 flex-1"><div className="break-words text-sm font-medium text-gray-800">{row.name}</div><MutedText>Использований: {row.original ? (source?.usage[row.original] || 0) + (source?.pending && row.original !== row.name ? (source?.usage[row.name] || 0) : 0) : 0}</MutedText></div>
+        <div className="flex shrink-0 gap-1">
+          <IconActionButton icon={faPencilAlt} variant="warning" title={`Переименовать: ${row.name}`} disabled={disabled} onClick={() => edit(index)} />
+          <IconActionButton icon={faTrashAlt} variant="danger" title={`Удалить из списка: ${row.name}`} disabled={disabled} onClick={() => modals.confirm({ title: 'Удалить тип из списка?', text: `«${row.name}». Сохранённые карточки (${source?.usage[row.original] || 0}) останутся без изменений.`, onConfirm: () => setDraft(rows.filter((_, i) => i !== index)) })} />
+        </div>
+      </div>)}
+      {source && !rows.length ? <div className="p-3"><MutedText>Типов пока нет</MutedText></div> : null}
+    </div>
+  </div>
+}
+
+export default function eventTypesFunc() {
+  return { title: 'Список: Типы события', confirmButtonName: 'Сохранить', Children: EventTypesModal }
+}

@@ -37,10 +37,17 @@ export const PUT = async (req) => {
   if (body.eventTypes !== undefined) {
     update.$set['custom.eventTypes'] = normalizeMobileStringList(body.eventTypes)
   }
-  const settings = await SiteSettings.findOneAndUpdate(
-    { tenantId },
-    update,
-    { upsert: true, returnDocument: 'after', runValidators: true }
-  ).lean()
+  let settings
+  try {
+    settings = await SiteSettings.findOneAndUpdate(
+      { tenantId, ...(body.eventTypes !== undefined ? { eventTypesEdit: null } : {}) },
+      update,
+      { upsert: true, returnDocument: 'after', runValidators: true }
+    ).lean()
+  } catch (error) {
+    if (error.code === 11000 && body.eventTypes !== undefined)
+      return mobileError('LISTS_BUSY', 'Сначала завершите изменение типов событий в веб-разделе «Списки»', 409)
+    throw error
+  }
   return mobileSuccess(sanitizeMobileSettings(settings))
 }

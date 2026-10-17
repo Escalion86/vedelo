@@ -1,6 +1,6 @@
 import { shouldSuppressIncomingMessagePush } from './swPushSuppression.js'
 
-const SERVICE_WORKER_VERSION = 'vedelo-custom-sw-v5'
+const SERVICE_WORKER_VERSION = 'vedelo-custom-sw-v6'
 const MIGRATION_STARTED_AT = String(process.env.BRAND_MIGRATION_STARTED_AT || '')
 
 const SERVICE_WORKER_SCRIPT = `
@@ -11,8 +11,8 @@ const MIGRATION_DAY = MIGRATION_STARTED_AT
   ? Math.floor(Math.max(0, Date.now() - new Date(MIGRATION_STARTED_AT).getTime()) / 86400000) + 1
   : 0
 const MIGRATION_LOCKED = IS_LEGACY_ORIGIN && MIGRATION_DAY >= 30
-const APP_SHELL_CACHE = MIGRATION_LOCKED ? 'vedelo-migration-shell-v2' : 'vedelo-app-shell-v5'
-const RUNTIME_CACHE = MIGRATION_LOCKED ? 'vedelo-migration-runtime-v2' : 'vedelo-runtime-v5'
+const APP_SHELL_CACHE = MIGRATION_LOCKED ? 'vedelo-migration-shell-v3' : 'vedelo-app-shell-v6'
+const RUNTIME_CACHE = MIGRATION_LOCKED ? 'vedelo-migration-runtime-v3' : 'vedelo-runtime-v6'
 const ACTIVE_CONVERSATIONS = {}
 // Логика живёт в server/swPushSuppression.js (там же тесты);
 // сюда функция инжектируется исходником, чтобы SW был самодостаточным.
@@ -22,7 +22,7 @@ const APP_SHELL_URLS = [
   '/manifest.json',
   '/icons/vedelo-v1/android/android-launchericon-192-192.png',
   '/icons/vedelo-v1/android/android-launchericon-512-512.png',
-  '/icons/notification-badge.svg',
+  '/icons/vedelo-v1/notification-badge.svg',
 ]
 
 const isSameOrigin = (requestUrl) => requestUrl.origin === self.location.origin
@@ -221,7 +221,7 @@ self.addEventListener('push', (event) => {
     icon:
       payload?.icon ||
       '/icons/vedelo-v1/android/android-launchericon-192-192.png',
-    badge: payload?.badge || '/icons/notification-badge.svg',
+    badge: payload?.badge || '/icons/vedelo-v1/notification-badge.svg',
     tag: payload?.tag || undefined,
     data: payload?.data || {},
     actions: Array.isArray(payload?.actions) ? payload.actions : [],

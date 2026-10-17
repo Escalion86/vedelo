@@ -3,6 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@helpers/apiClient'
 import { queryKeys } from '@helpers/queryKeys'
+import { sendSupportMessage } from '@helpers/supportTicketRequest.mjs'
 
 const toQueryString = (params = {}) => {
   const query = new URLSearchParams()
@@ -10,15 +11,6 @@ const toQueryString = (params = {}) => {
     if (value) query.set(key, String(value))
   })
   return query.toString()
-}
-
-const multipartRequest = async (url, formData) => {
-  const response = await fetch(url, { method: 'POST', body: formData, headers: { Accept: 'application/json' } })
-  const json = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new Error(json?.error?.message || json?.error || `HTTP ${response.status}`)
-  }
-  return json
 }
 
 export const useSupportTicketsQuery = (filters = {}) =>
@@ -65,11 +57,11 @@ export const useSupportTicketMutations = () => {
     ])
   }
   const createMutation = useMutation({
-    mutationFn: (formData) => multipartRequest('/api/support-tickets', formData),
+    mutationFn: (formData) => sendSupportMessage('/api/support-tickets', formData),
     onSuccess: (result) => refresh(result?.data?.ticket?.id),
   })
   const replyMutation = useMutation({
-    mutationFn: ({ ticketId, formData }) => multipartRequest(`/api/support-tickets/${ticketId}/messages`, formData),
+    mutationFn: ({ ticketId, formData }) => sendSupportMessage(`/api/support-tickets/${ticketId}/messages`, formData),
     onSuccess: (result) => refresh(result?.data?.ticket?.id),
   })
   const statusMutation = useMutation({

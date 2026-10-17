@@ -332,6 +332,12 @@ const eventFunc = (
     const [eventType, setEventType] = useState(
       event?.eventType ?? DEFAULT_EVENT.eventType ?? ''
     )
+    useEffect(() => {
+      const renameType = ({ detail }) => setEventType(current =>
+        detail.find(item => item.from === current)?.to || current)
+      window.addEventListener('vedelo:event-types-renamed', renameType)
+      return () => window.removeEventListener('vedelo:event-types-renamed', renameType)
+    }, [])
     const [financeComment, setFinanceComment] = useState(
       event?.financeComment ?? DEFAULT_EVENT.financeComment ?? ''
     )

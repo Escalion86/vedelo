@@ -374,7 +374,7 @@ const sendLegacyMigrationNoticeAndDeactivate = async ({ limit = 500 } = {}) => {
     title: 'ArtistCRM переехал в Ведело',
     body: 'Откройте приложение, чтобы безопасно перенести вход и установить Ведело.',
     icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
-    badge: '/icons/notification-badge.svg',
+    badge: '/icons/vedelo-v1/notification-badge.svg',
     tag: 'vedelo-domain-migration',
     requireInteraction: true,
     data: {

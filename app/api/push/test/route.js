@@ -20,7 +20,7 @@ export const POST = async () => {
       title: 'Тест push-уведомления',
       body: 'Проверка канала уведомлений для API-заявок',
       icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
-      badge: '/icons/notification-badge.svg',
+      badge: '/icons/vedelo-v1/notification-badge.svg',
       tag: `push-test-${Date.now()}`,
       data: {
         url: '/cabinet/eventsUpcoming',

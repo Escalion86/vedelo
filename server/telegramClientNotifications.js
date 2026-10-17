@@ -15,7 +15,7 @@ export const notifyTelegramClientCreated = async ({ tenantId, client }) => {
       title: 'Создан клиент из Telegram',
       body: `${getClientName(client)} написал вам. Карточка создана автоматически.`,
       icon: '/icons/vedelo-v1/android/android-launchericon-192-192.png',
-      badge: '/icons/notification-badge.svg',
+      badge: '/icons/vedelo-v1/notification-badge.svg',
       tag: `telegram-client-${client._id}`,
       data: {
         url: '/cabinet/clients',

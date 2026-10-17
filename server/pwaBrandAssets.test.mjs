@@ -33,7 +33,7 @@ test('PWA manifest references only versioned Vedelo icons that exist', () => {
 test('service worker precaches the versioned primary Vedelo icons', () => {
   const serviceWorkerSource = readProjectFile('server/serviceWorkerScript.js')
 
-  assert.match(serviceWorkerSource, /vedelo-custom-sw-v5/)
+  assert.match(serviceWorkerSource, /vedelo-custom-sw-v6/)
   assert.match(
     serviceWorkerSource,
     /\/icons\/vedelo-v1\/android\/android-launchericon-192-192\.png/

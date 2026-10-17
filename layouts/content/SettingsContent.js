@@ -2,7 +2,8 @@
 'use client'
 
 import fieldHelp from '@helpers/fieldHelp.json'
-import ClientTypesEditor from '@components/ClientTypesEditor'
+import IconActionButton from '@components/IconActionButton'
+import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -304,10 +305,10 @@ const SettingsContent = () => {
           noMargin
         />
         <LabeledContainer label="Типы клиентов" noMargin>
-          <details>
-            <summary className="min-h-10 cursor-pointer py-2">Настроить типы клиентов</summary>
-            <ClientTypesEditor />
-          </details>
+          <div className="flex items-center justify-between gap-3">
+            <MutedText>Общий список типов клиентов организации</MutedText>
+            <IconActionButton icon={faPencilAlt} variant="warning" title="Редактировать типы клиентов" onClick={() => modals.settings.clientTypes()} />
+          </div>
         </LabeledContainer>
         <LabeledContainer label="Передача заказов коллеге" noMargin>
           <div className="flex flex-col gap-2">

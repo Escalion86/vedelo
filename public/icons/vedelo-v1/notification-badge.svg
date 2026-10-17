@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <mask id="glyph" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#000"/>
+      <path d="M112 80h158c74 0 118 34 118 92 0 30-15 53-46 68l-100 82-130-115V80Zm0 122 133 113 54-52c64 9 105 47 105 95 0 50-52 74-140 74H112V202Z" fill="#fff"/>
+      <path d="m151 260 59 58 105-116" fill="none" stroke="#000" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+    <rect width="512" height="512" fill="#fff" mask="url(#glyph)"/>
+  </svg>
