@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { List } from 'react-window'
 import AddIconButton from '@components/AddIconButton'
+import ClipboardActionButton from '@components/ClipboardActionButton'
 import EmptyState from '@components/EmptyState'
 import Input from '@components/Input'
 import SectionCard from '@components/SectionCard'
@@ -11,6 +12,7 @@ import ClientCard from '@layouts/cards/ClientCard'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import useUiDensity from '@helpers/useUiDensity'
+import useSnackbar from '@helpers/useSnackbar'
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 import DropDown from '@components/DropDown'
@@ -33,6 +35,7 @@ const CLIENT_FILTER_OPTIONS = [
 ]
 
 const ClientsContent = ({ onHeaderCountChange }) => {
+  const snackbar = useSnackbar()
   const { isCompact } = useUiDensity()
   const { data: clients = [] } = useClientsQuery()
   const { data: eventsPayload } = useEventsQuery({
@@ -76,6 +79,14 @@ const ClientsContent = ({ onHeaderCountChange }) => {
     }
   }
   const [clientFilter, setClientFilter] = useState('all')
+  const handlePasteSearch = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      setSearch(String(text ?? '').trim())
+    } catch {
+      snackbar.error('Не удалось прочитать буфер обмена — вставьте текст вручную')
+    }
+  }
   const itemHeight = isCompact ? 178 : 190
 
   useEffect(() => {
@@ -230,11 +241,17 @@ const ClientsContent = ({ onHeaderCountChange }) => {
               noMargin
             />
           </div>
+          <ClipboardActionButton
+            action="paste"
+            large
+            onClick={handlePasteSearch}
+            title="Вставить в поиск из буфера обмена"
+          />
           <AddIconButton
             onClick={() => modalsFunc.client?.add()}
             disabled={!modalsFunc.client?.add}
             title="Добавить клиента"
-            size="sm"
+            size="base"
             variant="neutral"
             className="mb-0.5 shrink-0"
           />
