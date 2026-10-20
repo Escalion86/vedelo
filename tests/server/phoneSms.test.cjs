@@ -343,6 +343,8 @@ test('billing renewal checks Telefon-IP only after authorization', async () => {
   await loadBindings()
   let checks = 0
   const route = load('app/api/billing/renew/route.js', {
+    '@server/personalTariffs': { renewScheduled: async () => ({}) },
+    '@helpers/personalTariffs.mjs': { billingSnapshot: () => ({}) },
     'next/server': { NextResponse: { json: (body, options = {}) => ({ body, status: options.status || 200 }) } },
     '@server/getTenantContext': async () => ({ user: { role: 'user' } }),
     '@server/dbConnect': async () => {},
@@ -369,6 +371,9 @@ test('developer-only global phone authentication settings', async () => {
   let saved = 'call'
   let writes = 0
   const route = load('app/api/site/phone-auth/route.js', {
+    '@server/socialAuthSettings': {
+      getSocialAuthSettings: async () => ({ vkEnabled: false, yandexEnabled: false, vkConfigured: false, yandexConfigured: false }),
+    },
     '@server/telefonipBalance': {
       getTelefonipBalance: async () => ({ status: 'ok', balance: 200 }),
     },
@@ -391,6 +396,8 @@ test('developer-only global phone authentication settings', async () => {
         assert.deepEqual(query, { tenantId: null })
         assert.deepEqual(Object.keys(update.$set), [
           'phoneVerification.primaryMethod',
+          'socialAuth.vkEnabled',
+          'socialAuth.yandexEnabled',
         ])
         saved = update.$set['phoneVerification.primaryMethod']
         writes++

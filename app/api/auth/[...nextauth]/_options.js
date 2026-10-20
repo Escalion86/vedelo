@@ -7,6 +7,8 @@ import getAuthSecret from '@server/getAuthSecret'
 import { verifyImpersonationTicket } from '@server/impersonationTicket'
 import { consumeDomainMigrationCode } from '@server/domainMigration'
 import { BRAND } from '@helpers/brand.mjs'
+import { getSocialAuthSettings } from '@server/socialAuthSettings'
+import { consumeYandexTicket } from '@server/yandexAuth'
 
 const normalizePhone = (phone) => {
   if (!phone) return ''
@@ -31,6 +33,14 @@ const authOptions = {
   pages: { signIn: '/login' },
   secret: authSecret,
   providers: [
+    CredentialsProvider({
+      id: 'yandex', name: 'Яндекс ID',
+      credentials: { token: { label: 'Одноразовый код входа', type: 'password' } },
+      async authorize(credentials) {
+        try { return await consumeYandexTicket(credentials?.token) }
+        catch { return null }
+      },
+    }),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -191,6 +201,7 @@ const authOptions = {
       async authorize(credentials) {
         try {
           const token = credentials?.token ?? ''
+          if (!(await getSocialAuthSettings()).allowVkAuth) return null
           const payload = verifyVkIdAuthToken(token, authSecret)
           if (!payload?.uid) return null
 

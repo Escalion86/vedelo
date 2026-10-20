@@ -5,7 +5,7 @@ import userSelector from '@state/selectors/userSelector'
 import { useEffect } from 'react'
 import { useAtomValue } from 'jotai'
 
-const userPaymentHistoryFunc = (userId) => {
+const userPaymentHistoryFunc = (userId, historyOnly = false) => {
   const UserPaymentHistoryModal = ({ closeModal }) => {
     const user = useAtomValue(userSelector(userId))
 
@@ -22,13 +22,14 @@ const userPaymentHistoryFunc = (userId) => {
           userId={user._id}
           accountUser={user}
           embedded
+          historyOnly={historyOnly}
         />
       </FormWrapper>
     )
   }
 
   return {
-    title: 'Баланс и платежи',
+    title: historyOnly ? 'История операций' : 'Баланс и платежи',
     declineButtonName: 'Закрыть',
     closeButtonShow: true,
     Children: UserPaymentHistoryModal,

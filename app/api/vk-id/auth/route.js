@@ -7,6 +7,7 @@ import { createVkIdAuthToken } from '@server/vkidAuthToken'
 import getAuthSecret from '@server/getAuthSecret'
 import { findUserByPhone } from '@server/phoneVerification'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
+import { getSocialAuthSettings } from '@server/socialAuthSettings'
 import {
   ACQUISITION_COOKIE,
   REGISTRATION_SOURCE_COOKIE,
@@ -35,6 +36,8 @@ const normalizeReferrerId = (value) => {
 }
 
 export const POST = async (req) => {
+  if (!(await getSocialAuthSettings()).allowVkAuth)
+    return buildError('VK_AUTH_DISABLED', 403, 'Вход через VK ID отключён')
   const body = await req.json().catch(() => ({}))
   const code = String(body?.code || '').trim()
   const deviceId = String(body?.device_id || body?.deviceId || '').trim()

@@ -1,5 +1,7 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
+
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import AddIcon from '@mui/icons-material/Add'
@@ -78,6 +80,7 @@ const CreateEventFab = ({ items = [], title }) => {
                     {item.icon}
                   </span>
                   {item.label}
+                  {item.usesAi ? <AiBadge /> : null}
                 </motion.button>
               ))
             : null}

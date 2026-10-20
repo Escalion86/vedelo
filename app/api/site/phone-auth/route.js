@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import SiteSettings from '@models/SiteSettings'
 import getTenantContext from '@server/getTenantContext'
 import { getTelefonipBalance } from '@server/telefonipBalance'
+import { getSocialAuthSettings } from '@server/socialAuthSettings'
 import {
   getPhoneAuthSettings,
   getPhoneProviderStatus,
@@ -21,6 +22,7 @@ export const GET = async () => {
     data: {
       ...(await getPhoneAuthSettings()),
       ...getPhoneProviderStatus(),
+      ...(await getSocialAuthSettings()),
       telefonipBalance: await getTelefonipBalance(),
     },
   })
@@ -32,7 +34,18 @@ export const POST = async (req) => {
   if (!['call', 'sms'].includes(body.primaryMethod))
     return error('Выберите звонок или СМС', 400)
   const status = getPhoneProviderStatus()
+  const currentSocial = await getSocialAuthSettings()
+  for (const key of ['vkEnabled', 'yandexEnabled']) {
+    if (body[key] !== undefined && typeof body[key] !== 'boolean')
+      return error('Некорректная настройка входа', 400)
+  }
+  const vkEnabled = body.vkEnabled ?? currentSocial.vkEnabled
+  const yandexEnabled = body.yandexEnabled ?? currentSocial.yandexEnabled
+  if ((vkEnabled && !currentSocial.vkConfigured) || (yandexEnabled && !currentSocial.yandexConfigured))
+    return error('Сначала настройте ключи и адрес возврата выбранного провайдера на сервере', 400)
+  const currentPhone = await getPhoneAuthSettings()
   if (
+    body.primaryMethod !== currentPhone.primaryMethod &&
     !(body.primaryMethod === 'sms'
       ? status.smsConfigured
       : status.callConfigured)
@@ -42,11 +55,15 @@ export const POST = async (req) => {
   await getPhoneAuthSettings()
   await SiteSettings.findOneAndUpdate(
     { tenantId: null },
-    { $set: { 'phoneVerification.primaryMethod': body.primaryMethod } },
+    { $set: {
+      'phoneVerification.primaryMethod': body.primaryMethod,
+      'socialAuth.vkEnabled': vkEnabled,
+      'socialAuth.yandexEnabled': yandexEnabled,
+    } },
     { upsert: true, returnDocument: 'after', runValidators: true }
   )
   return NextResponse.json({
     success: true,
-    data: { primaryMethod: body.primaryMethod, ...status },
+    data: { primaryMethod: body.primaryMethod, ...status, ...(await getSocialAuthSettings()) },
   })
 }

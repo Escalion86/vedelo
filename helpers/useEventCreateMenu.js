@@ -13,6 +13,8 @@ import VoiceDraftOverlay from '@components/VoiceDraftOverlay'
 import { modalsFuncAtom } from '@state/atoms'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import tariffsAtom from '@state/atoms/tariffsAtom'
+import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
+import { resolveServerSyncDisabled } from '@helpers/serverSyncMode'
 import { getUserTariffAccess } from '@helpers/tariffAccess'
 import { queryKeys } from '@helpers/queryKeys'
 
@@ -25,6 +27,7 @@ const useEventCreateMenu = () => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const tariffs = useAtomValue(tariffsAtom)
+  const siteSettings = useAtomValue(siteSettingsAtom)
   const queryClient = useQueryClient()
   const [voiceDraftOpen, setVoiceDraftOpen] = useState(false)
   const [photoDraftOpen, setPhotoDraftOpen] = useState(false)
@@ -122,14 +125,14 @@ const useEventCreateMenu = () => {
     if (allowVoiceDraft) {
       result.push({
         key: 'voice',
-        label: 'Голосом',
+        label: 'Голосом', usesAi: true,
         icon: <MicIcon fontSize="small" />,
         onClick: handleCreateByVoice,
       })
-      if (loggedUser?.role === 'dev') result.push({ key: 'photo', label: 'Из фотографии', icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
+      if (loggedUser?.role === 'dev') result.push({ key: 'photo', label: 'Из фотографии', usesAi: true, icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
       result.push({
         key: 'text',
-        label: 'Свободным текстом',
+        label: 'Свободным текстом', usesAi: true,
         icon: <TextSnippetIcon fontSize="small" />,
         onClick: handleCreateByText,
       })
@@ -162,7 +165,11 @@ const useEventCreateMenu = () => {
     </>
   )
 
-  return { items, draftModals, createDisabled, createRequest: handleCreateRequest }
+  const editItems = allowVoiceDraft && !resolveServerSyncDisabled(siteSettings) ? [
+    { key: 'edit-voice', label: 'Голосом', usesAi: true, icon: <MicIcon fontSize="small" />, onClick: () => modalsFunc.event?.aiEdit?.(null, 'voice') },
+    { key: 'edit-text', label: 'Свободным текстом', usesAi: true, icon: <TextSnippetIcon fontSize="small" />, onClick: () => modalsFunc.event?.aiEdit?.(null, 'text') },
+  ] : []
+  return { items, editItems, draftModals, createDisabled, createRequest: handleCreateRequest }
 }
 
 export default useEventCreateMenu

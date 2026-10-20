@@ -1,7 +1,7 @@
 import PersonalTariffSettings from '@components/PersonalTariffSettings'
 import FormWrapper from '@components/FormWrapper'
 import ComboBox from '@components/ComboBox'
-import Button from '@components/Button'
+import AppButton from '@components/AppButton'
 import Notice from '@components/Notice'
 import tariffsAtom from '@state/atoms/tariffsAtom'
 import userSelector from '@state/selectors/userSelector'
@@ -173,24 +173,24 @@ const userTariffChangeFunc = (userId, onSuccess) => {
             {error}
           </Notice>
         )}
-        <div className="flex justify-end gap-2">
-          <Button
-            name="Пополнить баланс"
-            className="px-4 text-sm h-9"
-            classBgColor="bg-gray-200 text-gray-700"
+        <div className="flex flex-wrap justify-end gap-2">
+          <AppButton
+            variant="secondary"
             onClick={() => modalsFunc.user?.topup(user?._id)}
-          />
-          <Button
-            name="Сохранить"
-            className="px-4 text-sm h-9"
+          >
+            Пополнить баланс
+          </AppButton>
+          <AppButton
             onClick={handleSave}
             disabled={
               isSaving ||
               !tariffId ||
               String(user?.tariffId ?? '') === String(tariffId ?? '')
             }
-            loading={isSaving}
-          />
+            aria-busy={isSaving}
+          >
+            {isSaving ? 'Сохранение…' : 'Сохранить'}
+          </AppButton>
         </div>
         <PersonalTariffSettings userId={user._id} />
       </FormWrapper>

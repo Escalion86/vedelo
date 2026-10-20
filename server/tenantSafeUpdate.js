@@ -4,6 +4,8 @@ const IMMUTABLE_FIELDS = new Set([
   'tenantId',
   'createdAt',
   'updatedAt',
+  'aiEditReceipts',
+  'aiEditPaymentFingerprint',
 ])
 
 const getTenantSafeUpdateFields = (payload) => {

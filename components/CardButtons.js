@@ -18,6 +18,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { EVENT_STATUSES, SERVICE_USER_STATUSES } from '@helpers/constants'
 import { modalsFuncAtom } from '@state/atoms'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
+import tariffsAtom from '@state/atoms/tariffsAtom'
+import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
+import { resolveServerSyncDisabled } from '@helpers/serverSyncMode'
+import { getUserTariffAccess } from '@helpers/tariffAccess'
 import windowDimensionsTailwindSelector from '@state/selectors/windowDimensionsTailwindSelector'
 import cn from 'classnames'
 import { useAtomValue } from 'jotai'
@@ -138,6 +142,8 @@ const CardButtons = ({
   const terms = useWorkItemTerminology()
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
+  const tariffs = useAtomValue(tariffsAtom)
+  const siteSettings = useAtomValue(siteSettingsAtom)
   const device = useAtomValue(windowDimensionsTailwindSelector)
   const snackbar = useSnackbar()
   const impersonationPendingRef = useRef(false)
@@ -288,6 +294,11 @@ const CardButtons = ({
 
   const items = (
     <>
+      {typeOfItem === 'event' && !resolveServerSyncDisabled(siteSettings) && ['draft', 'active'].includes(item.status) && getUserTariffAccess(loggedUser, tariffs)?.allowAi && (
+        <ItemComponent icon={faPencilAlt}
+          onClick={() => modalsFunc.event?.aiEdit?.(item._id)}
+          color="purple" tooltipText="Изменить с ИИ" />
+      )}
       {isEventEditTabsMenu && show.editBtn && (
         <ItemComponent
           icon={faPencilAlt}

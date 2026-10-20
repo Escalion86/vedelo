@@ -1,5 +1,7 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -26,7 +28,7 @@ const getAudioFileName = (mimeType) => {
   return 'voice-draft.webm'
 }
 
-const VoiceDraftOverlay = ({ onClose, onDraft }) => {
+const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
   const [status, setStatus] = useState('starting')
   const [errorMessage, setErrorMessage] = useState('')
   const [level, setLevel] = useState(0)
@@ -103,6 +105,10 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
 
         const transcript = String(transcriptPayload?.transcript || '').trim()
         if (!transcript) throw new Error('Не удалось распознать речь')
+        if (onTranscript) {
+          onTranscript(transcript)
+          return
+        }
 
         const draftResponse = await fetch('/api/events/ai-draft', {
           method: 'POST',
@@ -129,7 +135,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
         setErrorMessage(error?.message || 'Не удалось обработать голосовой ввод')
       }
     },
-    [cleanupAudio, onDraft]
+    [cleanupAudio, onDraft, onTranscript]
   )
 
   const startRecording = useCallback(async () => {
@@ -218,7 +224,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
       <div className="relative flex max-w-sm flex-col items-center text-center">
         <button
           type="button"
-          className="flex h-36 w-36 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-2xl transition-transform duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="relative flex h-36 w-36 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-2xl transition-transform duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           style={{
             transform: `scale(${scale})`,
             boxShadow: `0 0 ${shadowSize}px rgba(255,255,255,0.35)`,
@@ -226,6 +232,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
           onClick={status === 'listening' ? stopRecording : undefined}
           disabled={status === 'starting' || status === 'processing'}
           aria-label="Завершить запись"
+          title="Распознать речь с помощью ИИ"
         >
           {status === 'processing' || status === 'starting' ? (
             <FontAwesomeIcon icon={faSpinner} className="h-16 w-16 animate-spin" />
@@ -237,6 +244,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
           ) : (
             <FontAwesomeIcon icon={faMicrophone} className="h-16 w-16" />
           )}
+          <span className="absolute bottom-3"><AiBadge /></span>
         </button>
 
         <div className="mt-8 text-3xl font-semibold">
@@ -252,7 +260,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
           {status === 'listening'
             ? 'Нажмите на микрофон для завершения записи'
             : status === 'processing'
-              ? 'Распознаю речь и готовлю черновик'
+              ? onTranscript ? 'Распознаю речь' : 'Распознаю речь и готовлю черновик'
               : errorMessage}
         </div>
         {status === 'error' ? (
@@ -271,7 +279,8 @@ const VoiceDraftOverlay = ({ onClose, onDraft }) => {
 
 VoiceDraftOverlay.propTypes = {
   onClose: PropTypes.func.isRequired,
-  onDraft: PropTypes.func.isRequired,
+  onDraft: PropTypes.func,
+  onTranscript: PropTypes.func,
 }
 
 export default VoiceDraftOverlay

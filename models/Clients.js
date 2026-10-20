@@ -3,6 +3,7 @@ import clientsSchema from '@schemas/clientsSchema'
 
 const ClientsSchema = new mongoose.Schema(clientsSchema, { timestamps: true })
 ClientsSchema.add({
+  aiEditReceipts: { type: [String], select: false, default: undefined },
   webCreateFingerprint: { type: String, select: false, immutable: true },
 })
 ClientsSchema.index({ tenantId: 1, phone: 1 })

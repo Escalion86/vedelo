@@ -62,8 +62,12 @@ export const GET = async () => {
   )
 }
 
+import { hasProtectedAuthFields } from '@helpers/protectedAuthFields.mjs'
+
 export const POST = async (req) => {
   const body = await req.json()
+  if (hasProtectedAuthFields(body))
+    return NextResponse.json({ success: false, error: 'Яндекс ID подключается только через авторизацию' }, { status: 400 })
   const { user } = await getTenantContext()
   if (!user) {
     return NextResponse.json(

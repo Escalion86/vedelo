@@ -56,6 +56,13 @@ const siteSettingsSchema = {
     },
     default: undefined,
   },
+  socialAuth: {
+    type: {
+      vkEnabled: { type: Boolean, default: undefined },
+      yandexEnabled: { type: Boolean, default: false },
+    },
+    default: undefined,
+  },
   telefonipBalance: {
     type: { lastAlertAt: Date },
     default: undefined,

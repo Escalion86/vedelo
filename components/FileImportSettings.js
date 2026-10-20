@@ -1,5 +1,6 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
 import fieldHelp from '@helpers/fieldHelp.json'
 import FieldHelp from './FieldHelp'
 
@@ -365,7 +366,7 @@ const FileImportSettings = () => {
                 disabled={busy || !canPay}
                 onClick={() => action('analyze')}
               >
-                Проанализировать файл
+                Проанализировать файл<AiBadge />
               </button>
               <button
                 type="button"
@@ -594,7 +595,7 @@ const FileImportSettings = () => {
                   disabled={busy || !canPay}
                   onClick={() => action('start')}
                 >
-                  Импортировать: {job.quote.count}
+                  Импортировать: {job.quote.count}<AiBadge />
                 </button>
                 <button
                   type="button"

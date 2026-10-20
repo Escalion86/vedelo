@@ -1,5 +1,7 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
+
 import { useCallback, useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@components/Modal'
@@ -90,7 +92,7 @@ const TextDraftModal = ({ open, onClose, onDraft }) => {
             onClick={handleSubmit}
             disabled={processing || !text.trim()}
           >
-            {processing ? 'ИИ разбирает текст…' : 'Распознать и заполнить'}
+            {processing ? 'ИИ разбирает текст…' : 'Распознать и заполнить'}<AiBadge />
           </AppButton>
         </>
       }

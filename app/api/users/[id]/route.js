@@ -48,9 +48,13 @@ const appendEventStats = async (user) => {
   return applyUserEventStats([sanitized], eventStats)[0] ?? sanitized
 }
 
+import { hasProtectedAuthFields } from '@helpers/protectedAuthFields.mjs'
+
 export const PUT = async (req, { params }) => {
   const { id } = await params
   const body = await req.json()
+  if (hasProtectedAuthFields(body))
+    return NextResponse.json({ success: false, error: 'Яндекс ID подключается только через авторизацию' }, { status: 400 })
   const { user, tenantId } = await getTenantContext()
   console.log('[users][PUT] start', {
     id,

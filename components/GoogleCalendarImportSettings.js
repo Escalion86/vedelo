@@ -1,5 +1,6 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
 import fieldHelp from '@helpers/fieldHelp.json'
 import FieldHelp from './FieldHelp'
 
@@ -560,7 +561,12 @@ const GoogleCalendarImportSettings = () => {
               Импорт создаёт заявки для проверки и не создаёт транзакции.
             </div>
             <Button
-              name={`Импортировать ${selectedIds.size || ''}`.trim()}
+              name={
+                <>
+                  {`Импортировать ${selectedIds.size || ''}`.trim()}
+                  {aiCount > 0 ? <AiBadge /> : null}
+                </>
+              }
               onClick={importEvents}
               loading={importing}
               disabled={

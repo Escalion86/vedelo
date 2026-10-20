@@ -1,5 +1,7 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAtomValue } from 'jotai'
@@ -153,7 +155,7 @@ const MobileBottomNav = () => {
   const loggedUser = useAtomValue(loggedUserAtom)
   const overdueCount = useAtomValue(additionalEventsOverdueCountAtom)
   const supportSummary = useSupportSummaryQuery()
-  const { items: createItems, draftModals } = useEventCreateMenu()
+  const { items: createItems, editItems, draftModals } = useEventCreateMenu()
   const workItemTerms = useWorkItemTerminology()
   const [openPanel, setOpenPanel] = useState(null)
   const [expandedGroups, setExpandedGroups] = useState({})
@@ -343,8 +345,25 @@ const MobileBottomNav = () => {
                     {item.icon}
                   </span>
                   {item.label}
+                  {item.usesAi ? <AiBadge /> : null}
                 </motion.button>
               ))}
+              {editItems.length ? (
+                <>
+                  <p className="mobile-bottomnav-create-title mt-2 text-sm font-semibold whitespace-nowrap">
+                    {`Редактировать ${workItemTerms.accusative}`}
+                  </p>
+                  {editItems.map((item) => (
+                    <button key={item.key} type="button"
+                      className="ui-surface-card mobile-bottomnav-create-item flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full py-2.5 pr-5 pl-4 text-sm font-semibold whitespace-nowrap"
+                      onClick={() => { setOpenPanel(null); item.onClick() }}>
+                      <span className="flex h-5 w-5 items-center justify-center text-[var(--ui-primary)]">{item.icon}</span>
+                      {item.label}
+                  {item.usesAi ? <AiBadge /> : null}
+                    </button>
+                  ))}
+                </>
+              ) : null}
             </div>
           ) : null}
         </AnimatePresence>

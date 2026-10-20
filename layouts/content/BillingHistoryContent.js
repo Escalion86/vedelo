@@ -19,6 +19,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import cn from 'classnames'
 import AppButton from '@components/AppButton'
+import ComboBox from '@components/ComboBox'
+import DropDown from '@components/DropDown'
+import FilterAltIcon from '@mui/icons-material/FilterAlt'
 import EmptyState from '@components/EmptyState'
 import LoadingSpinner from '@components/LoadingSpinner'
 import Notice from '@components/Notice'
@@ -183,6 +186,7 @@ const BillingHistoryContent = ({
   userId = '',
   accountUser = null,
   embedded = false,
+  historyOnly = false,
 }) => {
   const router = useRouter()
   const loggedUser = useAtomValue(loggedUserAtom)
@@ -279,180 +283,252 @@ const BillingHistoryContent = ({
         )}
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-          <h2 className="flex items-center gap-1 font-semibold">Баланс и платежи <FieldHelp text={fieldHelp['billing.history']} label="Баланс и платежи" /></h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SectionCard className="flex items-center gap-3 p-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[var(--ui-primary)]">
-                <FontAwesomeIcon icon={faWallet} className="h-5 w-5" />
+          {!historyOnly && (
+            <>
+              <h2 className="flex items-center gap-1 font-semibold">
+                Баланс и платежи{' '}
+                <FieldHelp
+                  text={fieldHelp['billing.history']}
+                  label="Баланс и платежи"
+                />
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SectionCard className="flex items-center gap-3 p-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[var(--ui-primary)]">
+                    <FontAwesomeIcon icon={faWallet} className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 uppercase">
+                      Текущий баланс
+                    </div>
+                    <div className="mt-0.5 text-2xl font-semibold text-gray-900 tabular-nums">
+                      {formatMoney(balance)}
+                    </div>
+                  </div>
+                </SectionCard>
+                <SectionCard className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-gray-500 uppercase">
+                      Текущий тариф
+                    </div>
+                    <div className="mt-0.5 truncate text-lg font-semibold text-gray-900">
+                      {currentTariff?.title || 'Не выбран'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {tariffActiveUntil
+                        ? `Активен до ${formatDate(tariffActiveUntil, dateFormatter)}`
+                        : 'Без установленной даты окончания'}
+                    </div>
+                  </div>
+                  {!userId ? (
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0 rounded-md"
+                      onClick={() => router.push('/cabinet/tariff-select')}
+                    >
+                      Тарифы
+                    </AppButton>
+                  ) : null}
+                </SectionCard>
               </div>
-              <div>
-                <div className="text-xs font-medium text-gray-500 uppercase">
-                  Текущий баланс
+
+              {canManage ? (
+                <div className="flex flex-wrap gap-2">
+                  <AppButton
+                    disabled={busy || showCharge}
+                    onClick={() =>
+                      modalsFunc.user?.topup(userId, refreshHistory)
+                    }
+                  >
+                    Пополнить баланс
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    disabled={busy || showCharge}
+                    onClick={() => setShowCharge(true)}
+                  >
+                    Списать с баланса
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    disabled={busy || showCharge}
+                    onClick={() =>
+                      modalsFunc.user?.tariffChange(userId, refreshHistory)
+                    }
+                  >
+                    Сменить тариф
+                  </AppButton>
                 </div>
-                <div className="mt-0.5 text-2xl font-semibold text-gray-900 tabular-nums">
-                  {formatMoney(balance)}
-                </div>
-              </div>
-            </SectionCard>
-            <SectionCard className="flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-gray-500 uppercase">
-                  Текущий тариф
-                </div>
-                <div className="mt-0.5 truncate text-lg font-semibold text-gray-900">
-                  {currentTariff?.title || 'Не выбран'}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {tariffActiveUntil
-                    ? `Активен до ${formatDate(tariffActiveUntil, dateFormatter)}`
-                    : 'Без установленной даты окончания'}
-                </div>
-              </div>
-              {!userId ? (
+              ) : null}
+              {canManage && showCharge ? (
+                <ManualBalanceChargeForm
+                  userId={userId}
+                  balance={balance}
+                  onSuccess={handleChargeSuccess}
+                  onCancel={() => setShowCharge(false)}
+                />
+              ) : null}
+
+              {embedded && canManage ? (
                 <AppButton
                   variant="secondary"
-                  size="sm"
-                  className="shrink-0 rounded-md"
-                  onClick={() => router.push('/cabinet/tariff-select')}
+                  onClick={() => modalsFunc.user?.operationsHistory(userId)}
                 >
-                  Тарифы
+                  История операций
                 </AppButton>
               ) : null}
-            </SectionCard>
-          </div>
-
-          {canManage ? (
-            <div className="flex flex-wrap gap-2">
-              <AppButton
-                disabled={busy || showCharge}
-                onClick={() => modalsFunc.user?.topup(userId, refreshHistory)}
-              >
-                Пополнить баланс
-              </AppButton>
-              <AppButton
-                variant="secondary"
-                disabled={busy || showCharge}
-                onClick={() => setShowCharge(true)}
-              >
-                Списать с баланса
-              </AppButton>
-              <AppButton
-                variant="secondary"
-                disabled={busy || showCharge}
-                onClick={() =>
-                  modalsFunc.user?.tariffChange(userId, refreshHistory)
-                }
-              >
-                Сменить тариф
-              </AppButton>
-            </div>
-          ) : null}
-          {canManage && showCharge ? (
-            <ManualBalanceChargeForm
-              userId={userId}
-              balance={balance}
-              onSuccess={handleChargeSuccess}
-              onCancel={() => setShowCharge(false)}
-            />
-          ) : null}
-
-          <SectionCard className="p-3">
-            <div className="mb-3">
-              <div className="font-semibold text-gray-900">
-                История операций
-              </div>
-              <div className="mt-0.5 text-sm text-gray-500">
-                Оплаты тарифов, пополнения, возвраты и бонусы. Банковское
-                зачисление и списание за тариф отображаются отдельно.
-              </div>
-            </div>
-            <div
-              className="flex gap-2 overflow-x-auto pb-1"
-              role="group"
-              aria-label="Фильтр истории операций"
-            >
-              {CATEGORY_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={category === option.value}
-                  className={cn(
-                    'min-h-11 shrink-0 cursor-pointer rounded-full border px-4 text-sm font-semibold transition-colors',
-                    category === option.value
-                      ? 'border-general bg-general text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                  )}
-                  onClick={() => setCategory(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </SectionCard>
-
-          {query.isLoading ? (
-            <div className="flex min-h-48 items-center justify-center">
-              <LoadingSpinner size="sm" text="Загружаем операции..." />
-            </div>
-          ) : query.isError ? (
-            <Notice
-              tone="error"
-              role="alert"
-              className="flex flex-wrap items-center justify-between gap-3"
-            >
-              <span>
-                {query.error?.message ||
-                  'Не удалось загрузить историю операций'}
-              </span>
-              <AppButton
-                variant="secondary"
-                size="sm"
-                onClick={() => query.refetch()}
-              >
-                Повторить
-              </AppButton>
-            </Notice>
-          ) : items.length === 0 ? (
-            <EmptyState
-              className="min-h-48"
-              icon={<FontAwesomeIcon icon={faClock} className="h-5 w-5" />}
-              title="Операций пока нет"
-              hint={
-                category === 'all'
-                  ? 'Здесь появятся оплаты тарифов, пополнения и бонусы.'
-                  : 'В выбранной категории операций пока нет.'
-              }
-            />
-          ) : (
-            <ul className="grid gap-2">
-              {items.map((item) => (
-                <PaymentRow
-                  key={item.id}
-                  item={item}
-                  userId={userId}
-                  canManage={canManage}
-                  canEditReceipt={loggedUser?.role === 'dev' && Boolean(userId)}
-                  busy={busy || showCharge}
-                  onDelete={deletePayment}
-                  onSync={syncPayment}
-                />
-              ))}
-            </ul>
+            </>
           )}
 
-          {query.hasNextPage ? (
-            <div className="flex justify-center pb-2">
-              <AppButton
-                variant="secondary"
-                disabled={query.isFetchingNextPage}
-                onClick={() => query.fetchNextPage()}
-              >
-                {query.isFetchingNextPage
-                  ? 'Загрузка...'
-                  : 'Показать более ранние'}
-              </AppButton>
-            </div>
-          ) : null}
+          {(!embedded || historyOnly) && (
+            <>
+              <SectionCard className="p-3">
+                <div className="mb-3">
+                  {!historyOnly && (
+                    <div className="font-semibold text-gray-900">
+                      История операций
+                    </div>
+                  )}
+                  <div className="mt-0.5 text-sm text-gray-500">
+                    Оплаты тарифов, пополнения, возвраты и бонусы. Банковское
+                    зачисление и списание за тариф отображаются отдельно.
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DropDown
+                    renderInPortal
+                    turnOffAutoClose="inside"
+                    placement="left"
+                    menuPadding={false}
+                    menuClassName="filter-menu w-[min(340px,calc(100vw-24px))] flex-col items-stretch p-3"
+                    trigger={
+                      <button
+                        type="button"
+                        className={cn(
+                          'filter-control min-w-[118px] gap-1 px-3 text-xs',
+                          category !== 'all'
+                            ? 'filter-control--primary'
+                            : 'filter-control--outline'
+                        )}
+                        aria-label={
+                          category !== 'all'
+                            ? 'Фильтры истории операций, есть активные фильтры'
+                            : 'Фильтры истории операций'
+                        }
+                      >
+                        <FilterAltIcon fontSize="small" />
+                        Фильтры
+                      </button>
+                    }
+                  >
+                    <div className="flex w-full flex-col gap-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-gray-800">
+                          Фильтры
+                        </div>
+                        {category !== 'all' && (
+                          <button
+                            type="button"
+                            className="text-general cursor-pointer text-xs font-semibold hover:underline"
+                            onClick={() => setCategory('all')}
+                          >
+                            Сбросить
+                          </button>
+                        )}
+                      </div>
+                      <ComboBox
+                        label="Категория операции"
+                        items={CATEGORY_OPTIONS.map(({ value, label }) => ({
+                          value,
+                          name: label,
+                        }))}
+                        value={category}
+                        onChange={(value) => setCategory(value || 'all')}
+                        fullWidth
+                        noMargin
+                      />
+                    </div>
+                  </DropDown>
+                  {category !== 'all' && (
+                    <span className="text-sm text-gray-600">
+                      {
+                        CATEGORY_OPTIONS.find(
+                          (option) => option.value === category
+                        )?.label
+                      }
+                    </span>
+                  )}
+                </div>
+              </SectionCard>
+
+              {query.isLoading ? (
+                <div className="flex min-h-48 items-center justify-center">
+                  <LoadingSpinner size="sm" text="Загружаем операции..." />
+                </div>
+              ) : query.isError ? (
+                <Notice
+                  tone="error"
+                  role="alert"
+                  className="flex flex-wrap items-center justify-between gap-3"
+                >
+                  <span>
+                    {query.error?.message ||
+                      'Не удалось загрузить историю операций'}
+                  </span>
+                  <AppButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => query.refetch()}
+                  >
+                    Повторить
+                  </AppButton>
+                </Notice>
+              ) : items.length === 0 ? (
+                <EmptyState
+                  className="min-h-48"
+                  icon={<FontAwesomeIcon icon={faClock} className="h-5 w-5" />}
+                  title="Операций пока нет"
+                  hint={
+                    category === 'all'
+                      ? 'Здесь появятся оплаты тарифов, пополнения и бонусы.'
+                      : 'В выбранной категории операций пока нет.'
+                  }
+                />
+              ) : (
+                <ul className="grid gap-2">
+                  {items.map((item) => (
+                    <PaymentRow
+                      key={item.id}
+                      item={item}
+                      userId={userId}
+                      canManage={canManage}
+                      canEditReceipt={
+                        loggedUser?.role === 'dev' && Boolean(userId)
+                      }
+                      busy={busy || showCharge}
+                      onDelete={deletePayment}
+                      onSync={syncPayment}
+                    />
+                  ))}
+                </ul>
+              )}
+
+              {query.hasNextPage ? (
+                <div className="flex justify-center pb-2">
+                  <AppButton
+                    variant="secondary"
+                    disabled={query.isFetchingNextPage}
+                    onClick={() => query.fetchNextPage()}
+                  >
+                    {query.isFetchingNextPage
+                      ? 'Загрузка...'
+                      : 'Показать более ранние'}
+                  </AppButton>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     </div>

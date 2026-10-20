@@ -1,5 +1,7 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
+
 import { useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@components/Modal'
@@ -72,6 +74,7 @@ const PhotoDraftModal = ({ open, onClose, onDraft }) => {
       <AppButton variant="secondary" onClick={close} disabled={processing}>Отмена</AppButton>
       <AppButton onClick={result ? apply : recognize} disabled={busy || !image} aria-busy={processing}>
         {processing ? 'Распознаём фото…' : result ? 'Открыть заполненную форму' : 'Распознать и заполнить'}
+        {!result ? <AiBadge /> : null}
       </AppButton>
     </div>}>
     <div className="photo-draft-content flex flex-col gap-3">

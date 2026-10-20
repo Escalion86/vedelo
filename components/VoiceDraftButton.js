@@ -1,5 +1,7 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
+
 import { useState, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -251,7 +253,7 @@ const VoiceDraftButton = ({ onDraft, disabled, className }) => {
           icon={config.icon}
           className={`w-4 h-4 mr-1.5 ${status === 'processing' ? 'animate-spin' : ''}`}
         />
-        {config.label}
+        {config.label}<AiBadge />
       </button>
       {status === 'error' && errorMessage && (
         <span className="text-xs text-red-600 max-w-[200px] truncate">{errorMessage}</span>

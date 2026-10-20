@@ -3,6 +3,8 @@ import LoginInputs from './loginInputs'
 import { redirect } from 'next/navigation'
 import authOptions from '../api/auth/[...nextauth]/_options'
 import { getPhoneAuthSettings } from '@server/phoneAuthSettings'
+import { cookies } from 'next/headers'
+import { enabled, readFlow, validPhone, YANDEX_COOKIE } from '@server/yandexAuth'
 // import { signIn } from 'next-auth/react'
 
 export const dynamic = 'force-dynamic'
@@ -47,6 +49,11 @@ export default async function Login({ searchParams }) {
   if (session) return redirect(callbackUrl)
 
   const { primaryMethod } = await getPhoneAuthSettings()
+  let initialPhone = ''
+  if (callbackUrl === '/auth/yandex/complete' && await enabled()) {
+    const flow = await readFlow((await cookies()).get(YANDEX_COOKIE)?.value, 'pending')
+    if (flow && validPhone(flow.phone)) initialPhone = flow.phone
+  }
 
   return (
     <LoginInputs
@@ -54,6 +61,7 @@ export default async function Login({ searchParams }) {
       initialMode={initialMode}
       initialReferrerId={initialReferrerId}
       primaryMethod={primaryMethod}
+      initialPhone={initialPhone}
     />
   )
 }

@@ -845,6 +845,7 @@ test(
             PHONE_SMS_SEND_WEBHOOK: `http://127.0.0.1:${cloudPort}/sms`,
             VK_ID_BASE_URL: `http://127.0.0.1:${cloudPort}/vk-id`,
             VK_ID_APP_ID: 'mock-vk-app-id',
+            VK_AUTH_ENABLED: 'true',
             VK_ID_CLIENT_SECRET: 'mock-vk-client-secret',
             VK_ID_REDIRECT_URI: 'vedelo://auth/vk',
             GOOGLE_OAUTH_CLIENT_ID: 'mock-google-client-id',

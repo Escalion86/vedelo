@@ -181,6 +181,7 @@ const usersSchema = {
     type: String,
     default: undefined,
   },
+  yandexId: { type: String, default: undefined },
   tariffId: {
     type: Schema.Types.ObjectId,
     ref: 'Tariffs',

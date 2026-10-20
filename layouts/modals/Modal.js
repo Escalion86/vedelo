@@ -41,6 +41,7 @@ const Modal = ({
   declineButtonShow = true,
   onlyCloseButtonShow,
   TopLeftComponent,
+  headerActionsPlacement = 'left',
   bottomLeftButtonProps,
   bottomLeftComponent,
   declineButtonBgClassName,
@@ -321,7 +322,12 @@ const Modal = ({
           </div>
         )}
         {TopLeftComponentState && (
-          <div className="absolute top-2 left-2 [&_.card-buttons-compact-trigger]:rounded-full">
+          <div
+            className={cn(
+              'absolute top-2 [&_.card-buttons-compact-trigger]:rounded-full',
+              headerActionsPlacement === 'right' ? 'right-12' : 'left-2'
+            )}
+          >
             {TopLeftComponentState}
           </div>
         )}
@@ -343,7 +349,12 @@ const Modal = ({
           </Tooltip>
         )}
         {titleState && (
-          <div className="mx-12 mb-3 text-center text-lg leading-6 font-bold whitespace-pre-line">
+          <div
+            className={cn(
+              'mx-12 mb-3 text-center text-lg leading-6 font-bold whitespace-pre-line',
+              headerActionsPlacement === 'right' && 'mr-24'
+            )}
+          >
             {titleState}
           </div>
         )}

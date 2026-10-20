@@ -16,6 +16,8 @@ export default function PhoneAuthSettingsContent() {
   const snackbar = useSnackbar()
   const [settings, setSettings] = useState(null)
   const [method, setMethod] = useState('call')
+  const [vkEnabled, setVkEnabled] = useState(false)
+  const [yandexEnabled, setYandexEnabled] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -49,6 +51,8 @@ export default function PhoneAuthSettingsContent() {
         if (active) {
           setSettings(result.data)
           setMethod(result.data.primaryMethod)
+          setVkEnabled(result.data.vkEnabled)
+          setYandexEnabled(result.data.yandexEnabled)
         }
       })
       .catch((cause) => {
@@ -65,7 +69,7 @@ export default function PhoneAuthSettingsContent() {
       const response = await fetch('/api/site/phone-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primaryMethod: method }),
+        body: JSON.stringify({ primaryMethod: method, vkEnabled, yandexEnabled }),
       })
       const result = await response.json()
       if (!response.ok)
@@ -73,7 +77,7 @@ export default function PhoneAuthSettingsContent() {
           result?.error?.message || 'Не удалось сохранить настройки'
         )
       setSettings((previous) => ({ ...previous, ...result.data }))
-      snackbar.success('Способ подтверждения сохранён')
+      snackbar.success('Настройки авторизации сохранены')
     } catch (cause) {
       setError(cause.message)
     } finally {
@@ -93,8 +97,7 @@ export default function PhoneAuthSettingsContent() {
           <>
             <p>
               Основной способ подтверждения телефона при регистрации и
-              восстановлении пароля в Web/PWA. Вход с паролем и VK ID остаётся
-              доступен.
+              восстановлении пароля в Web/PWA. Вход с паролем остаётся доступен.
             </p>
             <ComboBox
               label="Подтверждение телефона"
@@ -161,10 +164,29 @@ export default function PhoneAuthSettingsContent() {
             >
               {refreshing ? 'Проверка…' : 'Обновить баланс'}
             </AppButton>
+            <h2 className="text-lg font-semibold">Вход через внешние сервисы</h2>
+            <AppButton variant="secondary" role="switch" aria-label="Разрешить вход через VK ID"
+              aria-checked={vkEnabled} onClick={() => setVkEnabled((value) => !value)}
+              disabled={saving || (!settings.vkConfigured && !vkEnabled)}>
+              VK ID: {vkEnabled ? 'включён' : 'отключён'}
+            </AppButton>
+            <p className="text-sm">VK ID: {settings.vkConfigured ? 'ключи на сервере настроены' : 'сначала задайте VK_ID_APP_ID, VK_ID_CLIENT_SECRET и VK_ID_REDIRECT_URI на сервере'}.</p>
+            <AppButton variant="secondary" role="switch" aria-label="Разрешить вход через Яндекс ID"
+              aria-checked={yandexEnabled} onClick={() => setYandexEnabled((value) => !value)}
+              disabled={saving || (!settings.yandexConfigured && !yandexEnabled)}>
+              Яндекс ID: {yandexEnabled ? 'включён' : 'отключён'}
+            </AppButton>
+            <p className="text-sm">Яндекс ID: {settings.yandexConfigured ? 'ключи на сервере настроены' : 'сначала задайте YANDEX_ID_CLIENT_ID, YANDEX_ID_CLIENT_SECRET и YANDEX_ID_REDIRECT_URI на сервере'}.</p>
+            <Notice tone="info">
+              Переключатели скрывают способы входа и запрещают новые входы через их API.
+              Уже открытые сессии сохраняются. Яндекс подключается к существующему
+              аккаунту после входа или регистрации с проверкой телефона.
+              Секреты хранятся только в окружении сервера.
+            </Notice>
             <AppButton
               className="self-start"
               onClick={save}
-              disabled={saving || method === settings.primaryMethod}
+              disabled={saving || (method === settings.primaryMethod && vkEnabled === settings.vkEnabled && yandexEnabled === settings.yandexEnabled)}
               aria-busy={saving}
             >
               {saving ? 'Сохранение…' : 'Сохранить'}

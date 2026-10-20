@@ -10,6 +10,8 @@ export const createClientOnce = async ({
   const {
     _id: ignoredId,
     webCreateFingerprint: ignoredFingerprint,
+    aiEditReceipts: ignoredAiReceipts,
+    aiEditPaymentFingerprint: ignoredAiPaymentFingerprint,
     ...fields
   } = body
   if (key && !/^[a-zA-Z0-9_-]{8,128}$/.test(key)) {

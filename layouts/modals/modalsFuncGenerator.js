@@ -6,6 +6,7 @@ import { setAtomValue } from '@state/storeHelpers'
 import cropImageFunc from './modalsFunc/cropImageFunc'
 import errorFunc from './modalsFunc/errorFunc'
 import eventFunc from './modalsFunc/eventFunc'
+import aiEditFunc from './modalsFunc/aiEditFunc'
 // import eventSignUpFunc from './modalsFunc/eventSignUpFunc2'
 import eventStatusEditFunc from './modalsFunc/eventStatusEditFunc'
 import eventViewFunc from './modalsFunc/eventViewFunc'
@@ -239,6 +240,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
         ),
       edit: (eventId, options) =>
         addModal(eventFunc(eventId, false, null, options)),
+      aiEdit: (eventId = null, mode = 'text') =>
+        !disableServerSync ? addModal(aiEditFunc(eventId, mode, workItemTerms)) : null,
       history: (eventId) =>
         addModal(historyFunc('event', eventId, workItemTerms)),
       statusEdit: (eventId, options) =>
@@ -349,6 +352,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
         canManageUsers ? addModal(userBillingFunc(userId)) : null,
       paymentHistory: (userId) =>
         canManageUsers ? addModal(userPaymentHistoryFunc(userId)) : null,
+      operationsHistory: (userId) =>
+        canManageUsers ? addModal(userPaymentHistoryFunc(userId, true)) : null,
       topup: (userId, onSuccess) =>
         canManageUsers ? addModal(userTopupFunc(userId, onSuccess)) : null,
       topupInfo: (userId) => addModal(userTopupInfoFunc(userId)),

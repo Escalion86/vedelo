@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getSocialAuthSettings } from '@server/socialAuthSettings'
 
 export const GET = async () => {
   const appId = process.env.VK_ID_APP_ID || ''
@@ -6,19 +7,14 @@ export const GET = async () => {
   const debug =
     process.env.VK_DEBUG_LOGS === 'true' ||
     process.env.NEXT_PUBLIC_VK_DEBUG_LOGS === 'true'
-  const allowVkAuth =
-    process.env.VK_AUTH_ENABLED === 'true' &&
-    Boolean(appId) &&
-    Boolean(redirectUri) &&
-    Boolean(process.env.VK_ID_APP_ID) &&
-    Boolean(process.env.VK_ID_CLIENT_SECRET) &&
-    Boolean(process.env.VK_ID_REDIRECT_URI)
+  const { allowVkAuth, allowYandexAuth } = await getSocialAuthSettings()
 
   return NextResponse.json(
     {
       success: true,
       data: {
         allowVkAuth,
+        allowYandexAuth,
         appId: allowVkAuth ? appId : '',
         redirectUri: allowVkAuth ? redirectUri : '',
         scope: process.env.NEXT_PUBLIC_VK_ID_SCOPE || 'phone email',

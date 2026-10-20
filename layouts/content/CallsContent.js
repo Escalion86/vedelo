@@ -1,5 +1,6 @@
 'use client'
 
+import AiBadge from '@components/AiBadge'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import {
@@ -364,6 +365,7 @@ const CallDetailsModalContent = ({
               isLoading={analyzeState.isLoading}
             >
               {analyzeState.label}
+              <AiBadge />
             </CallActionButtonContent>
           </AppButton>
         ) : null}
@@ -383,6 +385,7 @@ const CallDetailsModalContent = ({
               isLoading={processRecordingState.isLoading}
             >
               {processRecordingState.label}
+              <AiBadge />
             </CallActionButtonContent>
           </AppButton>
         ) : null}

@@ -237,9 +237,10 @@ const userFunc = (userId, clone = false) => {
             item={user}
             typeOfItem="user"
             forForm
+            alwaysCompact
             noEditButton
             onDelete={closeModal}
-            dropDownPlacement="left"
+            dropDownPlacement="right"
           />
         ))
     }, [setTopLeftComponent])
@@ -355,6 +356,7 @@ const userFunc = (userId, clone = false) => {
   }
 
   return {
+    headerActionsPlacement: 'right',
     title: `${userId && !clone ? 'Редактирование' : 'Создание'} пользователя`,
     confirmButtonName: userId && !clone ? 'Применить' : 'Создать',
     Children: UserModal,

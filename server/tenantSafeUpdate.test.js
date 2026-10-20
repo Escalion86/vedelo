@@ -13,6 +13,8 @@ test('tenant update strips ownership and immutable fields', () => {
       createdAt: 'yesterday',
       updatedAt: 'today',
       __v: 42,
+      aiEditReceipts: ['forged'],
+      aiEditPaymentFingerprint: 'forged',
       firstName: 'Иван',
     }),
     { firstName: 'Иван' }

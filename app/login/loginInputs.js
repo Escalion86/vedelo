@@ -316,6 +316,7 @@ const LoginInputs = ({
   callbackUrl = '/cabinet',
   initialMode = 'login',
   initialReferrerId = '',
+  initialPhone = '',
   primaryMethod = 'call',
 }) => {
   const vkOneTapContainerRef = useRef(null)
@@ -333,16 +334,18 @@ const LoginInputs = ({
     initialMode === 'register' ? 'register' : 'login'
   )
   const vkAuthEnabled = vkConfig.loaded && vkConfig.allowVkAuth
-  const [loginPhone, setLoginPhone] = useState(null)
+  const yandexAuthEnabled = vkConfig.loaded && vkConfig.allowYandexAuth && callbackUrl !== '/auth/yandex/complete'
+  const yandexStartUrl = `/api/yandex-id/start${initialReferrerId ? `?ref=${encodeURIComponent(initialReferrerId)}` : ''}`
+  const [loginPhone, setLoginPhone] = useState(initialPhone || null)
   const [loginPassword, setLoginPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [resetPhone, setResetPhone] = useState(null)
+  const [resetPhone, setResetPhone] = useState(initialPhone || null)
   const [resetPassword, setResetPassword] = useState('')
   const [isResetLoading, setIsResetLoading] = useState(false)
   const [resetVerify, setResetVerify] = useState(createVerifyState)
 
-  const [registerPhone, setRegisterPhone] = useState(null)
+  const [registerPhone, setRegisterPhone] = useState(initialPhone || null)
   const [registerPassword, setRegisterPassword] = useState('')
   const [registerPasswordRepeat, setRegisterPasswordRepeat] = useState('')
   const [isRegisterLoading, setIsRegisterLoading] = useState(false)
@@ -668,7 +671,7 @@ const LoginInputs = ({
       if (signInResult?.error) {
         reachGoalOnce('registration_success', { method: 'phone' })
         alert('Регистрация успешна. Войдите в кабинет.')
-        setRegisterPhone(null)
+        setRegisterPhone(initialPhone || null)
         setRegisterPassword('')
         setRegisterPasswordRepeat('')
         setRegisterTermsAccepted(false)
@@ -765,6 +768,7 @@ const LoginInputs = ({
         setVkConfig({
           loaded: true,
           allowVkAuth: Boolean(json?.data?.allowVkAuth),
+          allowYandexAuth: Boolean(json?.data?.allowYandexAuth),
           appId: json?.data?.appId || '',
           redirectUri: json?.data?.redirectUri || '',
           scope: json?.data?.scope || 'phone email',
@@ -999,12 +1003,12 @@ const LoginInputs = ({
           <p className="mt-2 text-sm text-gray-500">
             {mode === 'login'
               ? vkAuthEnabled
-                ? 'Войдите через VK ID или используйте телефон и пароль.'
+                ? 'Выберите способ входа или используйте телефон и пароль.'
                 : 'Введите телефон и пароль, чтобы продолжить работу.'
               : mode === 'reset'
                 ? 'Подтвердите номер и задайте новый пароль.'
                 : vkAuthEnabled
-                  ? 'Зарегистрируйтесь через VK ID или подтвердите телефон вручную.'
+                  ? 'Выберите способ регистрации или подтвердите телефон вручную.'
                   : 'Подтвердите номер телефона и создайте аккаунт.'}
           </p>
         </div>
@@ -1025,6 +1029,7 @@ const LoginInputs = ({
             className="flex flex-col gap-4"
           >
             <VkAuthBlock label="Войти через VK ID" />
+            {yandexAuthEnabled && <a className="ui-btn ui-btn-secondary w-full px-4 py-2 text-center text-sm" href={yandexStartUrl}>Войти через Яндекс ID</a>}
 
             {vkAuthEnabled ? (
               <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -1144,6 +1149,7 @@ const LoginInputs = ({
             />
 
             <VkAuthBlock label="Зарегистрироваться через VK ID" />
+            {yandexAuthEnabled && <a className="ui-btn ui-btn-secondary w-full px-4 py-2 text-center text-sm" href={yandexStartUrl}>Продолжить с Яндекс ID</a>}
 
             {vkAuthEnabled ? (
               <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -1156,6 +1162,7 @@ const LoginInputs = ({
             <PhoneInput
               label="Телефон"
               value={registerPhone}
+              disabled={Boolean(initialPhone)}
               onChange={(nextValue) => {
                 setRegisterPhone(nextValue)
                 setRegisterPhoneHint(false)
