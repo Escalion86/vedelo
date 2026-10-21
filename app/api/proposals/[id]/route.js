@@ -1,5 +1,5 @@
 import getUserTariffAccess from '@server/getUserTariffAccess'
-import { isProposalTheme, isProposalLogoUrl, normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
+import { applyProposalDraftChanges } from '@server/proposalDraftChanges'
 import mongoose from 'mongoose'
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
@@ -15,9 +15,6 @@ import {
   PROPOSAL_BUILDER_ACCESS_ERROR,
 } from '@helpers/proposalAccess'
 import {
-  normalizeProposalBlocks,
-  normalizeProposalMedia,
-  normalizeProposalPackages,
   getProposalUnknownVariables,
 } from '@helpers/proposalContent'
 import {
@@ -280,35 +277,8 @@ export const PATCH = async (req, { params }) => {
         409,
         'immutable_snapshot'
       )
-    if (body.appearance !== undefined) {
-      if (!isProposalTheme(body.appearance?.theme)) return error('Выберите тему оформления', 400, 'invalid_theme')
-      if (body.appearance.logoUrl && !isProposalLogoUrl(body.appearance.logoUrl, auth.context.tenantId)) return error('Недопустимый логотип', 400, 'invalid_logo')
-      auth.proposal.appearance = normalizeProposalAppearance(body.appearance, auth.context.tenantId)
-    }
-    if (body.title !== undefined) {
-      const title = String(body.title || '')
-        .trim()
-        .slice(0, 200)
-      if (!title)
-        return error('Укажите название предложения', 400, 'title_required')
-      auth.proposal.title = title
-    }
-    if (body.validUntil !== undefined) {
-      const date = body.validUntil === null || body.validUntil === '' ? null : new Date(body.validUntil)
-      if (date && Number.isNaN(date.getTime()))
-        return error('Некорректный срок действия', 400, 'bad_valid_until')
-      auth.proposal.validUntil = date
-    }
-    if (body.blocks !== undefined)
-      auth.proposal.blocksSnapshot = normalizeProposalBlocks(body.blocks)
-    if (body.packages !== undefined)
-      auth.proposal.packages = normalizeProposalPackages(body.packages)
-    if (body.media !== undefined)
-      auth.proposal.mediaSnapshot = normalizeProposalMedia(body.media)
-    if (body.messageText !== undefined)
-      auth.proposal.messageText = String(body.messageText || '')
-        .trim()
-        .slice(0, 4000)
+    const invalid = applyProposalDraftChanges(auth.proposal, body, auth.context.tenantId)
+    if (invalid) return error(invalid.message, invalid.status, invalid.code)
   }
   await auth.proposal.save()
   return NextResponse.json({

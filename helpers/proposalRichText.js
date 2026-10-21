@@ -1,3 +1,4 @@
+import { proposalPhoneNumber } from './proposalArtistContacts.mjs'
 import DOMPurify from 'isomorphic-dompurify'
 import { sanitizeProposalTextStyle } from './proposalTextStyles.js'
 
@@ -90,7 +91,7 @@ export const proposalItemsToHtml = (items) => {
   return `<ul>${normalized.map((item) => `<li>${escapeProposalHtml(item)}</li>`).join('')}</ul>`
 }
 
-export const sanitizeProposalRichText = (value) => {
+export const sanitizeProposalRichText = (value, { phone } = {}) => {
   const fragment = DOMPurify.sanitize(
     String(value ?? '').slice(0, MAX_RICH_TEXT_LENGTH),
     {
@@ -114,6 +115,31 @@ export const sanitizeProposalRichText = (value) => {
     )
       element.removeAttribute('poster')
   })
+  const number = proposalPhoneNumber(phone)
+  if (number) {
+    const doc = fragment.ownerDocument
+    const walker = doc.createTreeWalker(fragment, 4)
+    const nodes = []
+    while (walker.nextNode()) nodes.push(walker.currentNode)
+    for (const node of nodes) {
+      if (node.parentElement?.closest('a')) continue
+      const pattern = /\+?\d[\d\s()–-]{5,}\d/g
+      const matches = [...node.textContent.matchAll(pattern)].filter(match => proposalPhoneNumber(match[0]) === number)
+      if (!matches.length) continue
+      const replacement = doc.createDocumentFragment()
+      let offset = 0
+      for (const match of matches) {
+        replacement.append(doc.createTextNode(node.textContent.slice(offset, match.index)))
+        const link = doc.createElement('a')
+        link.setAttribute('href', `tel:+${number}`)
+        link.textContent = match[0]
+        replacement.append(link)
+        offset = match.index + match[0].length
+      }
+      replacement.append(doc.createTextNode(node.textContent.slice(offset)))
+      node.replaceWith(replacement)
+    }
+  }
   const container = fragment.ownerDocument.createElement('div')
   container.append(fragment)
   return container.innerHTML.trim()

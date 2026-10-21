@@ -913,3 +913,22 @@ MongoDB, не транзакция двух документов. При сбо�
 С 1.41.1 подпись «Название варианта» в ProposalPackagesEditor находится над общей строкой поля и корзины; кнопка центрируется относительно поля. Доступное имя сохраняется через Input.ariaLabel. Проверено Playwright/Edge: КП и шаблон, 390/1365 px, обе темы.
 
 С 1.41.2 ProposalMediaEditor позволяет менять порядок медиа стрелками вверх/вниз. Меняется только порядок элементов media/mediaSnapshot, ID и содержимое сохраняются; API и ProposalPageView уже сохраняют/показывают порядок массива.
+
+
+С 1.41.3 `ProposalVideoEmbed` в общем ProposalPageView отображает iframe
+для YouTube/Vimeo/Rutube/VK. `helpers/proposalVideoEmbed.mjs` строит HTTPS URL
+из проверенных ID и разрешённых access-параметров; произвольный iframe/src
+из payload не принимается. Referrer-Policy strict-origin передаёт только origin,
+без секретного пути КП. Autoplay не включается, iframe загружается лениво.
+Ссылка на исходный ролик остаётся под плеером; неизвестные форматы — link fallback.
+Rich-text sanitizer, tenant API и сохранённые снимки не менялись.
+Проверки 1.41.3: 16 unit-тестов URL/медиа, ESLint и Playwright/Edge на 390/1365 px в обеих темах прошли. Проверены оба редактора и клиентский View со всеми четырьмя iframe, размерами 16:9, ссылкой fallback, порядком и сохранением. Внешние проигрыватели в браузерном стенде подменены HTML-ответами: реальное воспроизведение и ограничения конкретных роликов не проверялись. Production не менялся.
+Production Webpack build 1.41.3 (.next-proposal-video-qa) завершился успешно.
+
+С 1.41.4 `proposalArtistContacts.mjs` задаёт whitelist контактов и безопасные адреса, `ProposalContactLinks` показывает только заполненные соцсети/мессенджеры. getProposalArtistProfile проверяет аккаунт/tenant до копирования; buildProposalSnapshot сохраняет контакты в artistSnapshot. Старые КП используют имеющийся снимок, текущий профиль к публичному просмотру не подмешивается. ProposalRichTextView для closing превращает текстовое совпадение телефона профиля в tel-ссылку через DOM после санитайзера, не меняя атрибуты и существующие ссылки.
+
+Проверки 1.41.4: unit/component/API тесты контактов, санитайзера и tenant isolation прошли; Playwright/Edge проверил оба редактора и клиентский вид на 390/1365 px в светлой и тёмной темах. ESLint изменённых файлов без ошибок; production Webpack build (.next-proposal-contacts-qa) успешен. Production не обновлялся.
+
+С 1.41.5 EventProposalsSection открывает опубликованный снимок локально с sourceProposalId; POST новой версии выполняется только при сохранении изменённых полей. После успешного ответа источник сбрасывается и используется PATCH нового ID. Одновременные открытия/сохранения заблокированы refs. POST копирования принимает редактируемые поля через общий с PATCH applyProposalDraftChanges; вся валидация проходит до Proposals.create. Tenant/event source проверяются сервером; статус, публичные credentials и applied-поля не копируются. Logo upload с forNewVersion=1 проверяет исходное КП/событие/тариф и пишет файл в новый каталог, не создавая КП и не изменяя исходник.
+
+Проверки 1.41.5: 20 component/server тестов, ESLint и git diff --check прошли. Playwright/Edge проверил открытие/закрытие опубликованного КП и черновика без записи, отмену правок, ошибку сохранения, создание новой версии и последующий PATCH того же ID на 390/1365 px в обеих темах. Production Webpack build (.next-proposal-save-qa) успешен. API/БД в тестах изолированы; выкладка не выполнялась.

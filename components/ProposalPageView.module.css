@@ -131,3 +131,16 @@
 .page .header :global(.proposal-rich-text-content) a {
   color: var(--proposal-highlight);
 }
+
+.page .contactLink {
+  color: var(--proposal-accent);
+  border-color: var(--proposal-border);
+  background: var(--proposal-paper);
+}
+.page .contactLink:hover {
+  background: var(--proposal-tint);
+}
+.page .contactLink:focus-visible {
+  outline: 2px solid var(--proposal-accent);
+  outline-offset: 3px;
+}

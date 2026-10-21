@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider, createStore } from 'jotai'
@@ -27,6 +27,7 @@ store.set(loggedUserAtom, {
   _id: 'u',
   firstName: 'Иван',
   phone: '+7 900 000 00 00',
+  telegram: 'ivan', vk: 'id123', whatsapp: 79000000000,
 })
 store.set(modalsFuncAtom, {
   add(config) {
@@ -64,7 +65,10 @@ if (['proposal', 'template'].includes(kind)) {
 }
 function App() {
   const [proposal, setProposal] = useState(window.fixtureProposal)
-  window.showPublicProposal = (value) => setProposal(value)
+  useEffect(() => {
+    window.showPublicProposal = (value) => setProposal(value)
+    return () => { delete window.showPublicProposal }
+  }, [])
   const publicProposal = {
     ...proposal,
     blocks: normalizeProposalBlocks(proposal.blocksSnapshot),

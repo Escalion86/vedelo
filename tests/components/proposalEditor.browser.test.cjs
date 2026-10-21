@@ -54,7 +54,7 @@ const proposal = {
     },
   ]),
   clientSnapshot: { firstName: 'Анна' },
-  artistSnapshot: { fullName: 'Иван', phone: '+7 900 000 00 00' },
+  artistSnapshot: { fullName: 'Иван', phone: '+7 900 000 00 00', telegram: 'ivan', vk: 'id123', whatsapp: 79000000000 },
   eventSnapshot: {},
 }
 const template = {
@@ -140,6 +140,7 @@ test(
             })
             let saved,
               stored = structuredClone(proposal)
+            await page.route('https://player.vimeo.com/**', route => route.fulfill({ contentType: 'text/html', body: '<html><body>Vimeo test player</body></html>' }))
             await page.route('https://cloud.escalion.ru/**', (route) =>
               route.fulfill({
                 contentType: route.request().url().endsWith('.mp4')
@@ -236,7 +237,7 @@ test(
               .getByLabel('Выравнивание текста', { exact: true })
               .selectOption('center')
             await intro.fill('Вступление перед вариантами')
-            await closing.fill('Общие условия и контакты')
+            await closing.fill('Общие условия и контакты +7 900 000 00 00')
             const introSection = page.getByRole('region', {
               name: 'Варианты и цены',
               exact: true,
@@ -342,8 +343,12 @@ test(
               1
             )
             await preview
-              .getByText('Общие условия и контакты', { exact: true })
+              .getByText('Общие условия и контакты +7 900 000 00 00', { exact: true })
               .waitFor()
+            assert.equal(await preview.locator('a[href="tel:+79000000000"]').count(), 1)
+            const socials = preview.getByRole('navigation', { name: 'Соцсети и мессенджеры' })
+            assert.equal(await socials.getByRole('link').count(), 3)
+            assert.equal(await socials.getByRole('link', { name: 'Telegram', exact: true }).getAttribute('href'), 'https://t.me/ivan')
             const formatted = preview.getByText('Новая шапка', { exact: true })
             const computed = await formatted.evaluate((element) => ({
               color: getComputedStyle(element).color,
@@ -394,8 +399,10 @@ test(
             assert.equal(await uploadButton.getAttribute('class'), await linkButton.getAttribute('class'))
             await page.getByLabel('Фото или видео', { exact: true }).setInputFiles({ name: 'gallery.png', mimeType: 'image/png', buffer: alphaPng })
             await page.locator('summary').filter({ hasText: 'Фото и видео (1/10)' }).waitFor()
-            page.once('dialog', dialog => dialog.accept('https://vimeo.com/123456789/abc'))
-            await linkButton.click()
+            await Promise.all([
+              page.waitForEvent('dialog').then(dialog => dialog.accept('https://vimeo.com/123456789/abc')),
+              linkButton.click(),
+            ])
             await page.locator('summary').filter({ hasText: 'Фото и видео (2/10)' }).waitFor()
             const photo = preview.getByAltText('gallery.png', { exact: true })
             await photo.waitFor()
@@ -408,13 +415,28 @@ test(
             assert.ok(Math.abs(geometry.ratio - geometry.natural) < 0.02)
             assert.equal(geometry.fit, 'contain')
             assert.equal(await preview.locator('a[href="https://vimeo.com/123456789/abc"]').count(), 1)
-            page.once('dialog', dialog => dialog.accept('https://vimeo.com.evil.test/123'))
-            await linkButton.click()
+            const player = preview.locator('iframe[title="Vimeo: Видео"]')
+            assert.equal(await player.getAttribute('src'), 'https://player.vimeo.com/video/123456789?h=abc')
+            assert.equal(await player.getAttribute('referrerpolicy'), 'strict-origin')
+            await player.scrollIntoViewIfNeeded()
+            await player.contentFrame().getByText('Vimeo test player').waitFor()
+            const playerBox = await player.boundingBox()
+            assert.ok(Math.abs(playerBox.width / playerBox.height - 16 / 9) < 0.02)
+
+            await Promise.all([
+
+              page.waitForEvent('dialog').then(dialog => dialog.accept('https://vimeo.com.evil.test/123')),
+
+              linkButton.click(),
+
+            ])
             await page.getByText('Укажите корректную http(s)-ссылку на VK Video, Rutube, YouTube или Vimeo').waitFor()
             assert.equal(await page.locator('summary').filter({ hasText: 'Фото и видео (2/10)' }).count(), 1)
             for (let index = 2; index < 10; index++) {
-              page.once('dialog', dialog => dialog.accept(`https://vimeo.com/${123456789 + index}`))
-              await linkButton.click()
+              await Promise.all([
+                page.waitForEvent('dialog').then(dialog => dialog.accept(`https://vimeo.com/${123456789 + index}`)),
+                linkButton.click(),
+              ])
             }
             assert.equal(await uploadButton.isDisabled(), true)
             assert.equal(await linkButton.isDisabled(), true)
@@ -434,13 +456,13 @@ test(
             assert.equal(await downPhoto.isDisabled(), true)
             assert.equal(await upPhoto.isDisabled(), false)
             const mediaOrder = () => preview.locator('a[href="https://vimeo.com/123456789/abc"]').evaluate(link =>
-              Array.from(link.parentElement.children).map(item => item.tagName))
-            assert.deepEqual(await mediaOrder(), ['A', 'IMG'])
+              Array.from(link.parentElement.parentElement.children).map(item => item.tagName))
+            assert.deepEqual(await mediaOrder(), ['DIV', 'IMG'])
             await upPhoto.focus()
             await upPhoto.press('Enter')
-            assert.deepEqual(await mediaOrder(), ['IMG', 'A'])
+            assert.deepEqual(await mediaOrder(), ['IMG', 'DIV'])
             await page.getByRole('button', { name: 'Переместить вверх «Видео»', exact: true }).click()
-            assert.deepEqual(await mediaOrder(), ['A', 'IMG'])
+            assert.deepEqual(await mediaOrder(), ['DIV', 'IMG'])
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
             const suffix = `${kind}-${width}-${dark ? 'dark' : 'light'}`
             await photo.scrollIntoViewIfNeeded()
@@ -593,6 +615,37 @@ test(
             ),
             true
           )
+          const publicErrors = []
+          page.on('pageerror', error => publicErrors.push(error.message))
+          page.on('console', message => { if (message.type() === 'error') publicErrors.push(message.text()) })
+          const providerMedia = [
+            { id: 'yt', kind: 'video_link', title: 'YouTube', url: 'https://youtu.be/M7lc1UVf-VE' },
+            { id: 'vm', kind: 'video_link', title: 'Vimeo', url: 'https://vimeo.com/123456789/abc' },
+            { id: 'rt', kind: 'video_link', title: 'Rutube', url: 'https://rutube.ru/video/' + 'a'.repeat(32) + '/' },
+            { id: 'vk', kind: 'video_link', title: 'VK', url: 'https://vkvideo.ru/video-123_456' },
+            { id: 'fallback', kind: 'video_link', title: 'Канал', url: 'https://vimeo.com/channels/staffpicks' },
+          ]
+          for (const host of ['www.youtube.com', 'player.vimeo.com', 'rutube.ru', 'vk.com']) {
+            await page.route(`https://${host}/**`, route => route.fulfill({ contentType: 'text/html', body: '<html><body>Provider test player</body></html>' }))
+          }
+          await page.evaluate(media => window.showPublicProposal({ ...window.fixtureProposal, mediaSnapshot: media }), providerMedia)
+          const frames = page.locator('main.proposal-page-view iframe')
+          await frames.first().waitFor()
+          assert.equal(await frames.count(), 4)
+          for (let index = 0; index < 4; index++) {
+            const frame = frames.nth(index)
+            await frame.scrollIntoViewIfNeeded()
+            await frame.contentFrame().getByText('Provider test player').waitFor()
+            assert.equal(await frame.getAttribute('referrerpolicy'), 'strict-origin')
+            assert.equal(await frame.getAttribute('allowfullscreen'), '')
+            const box = await frame.boundingBox()
+            assert.ok(Math.abs(box.width / box.height - 16 / 9) < 0.02)
+          }
+          assert.equal(await page.getByRole('link', { name: 'Открыть видео на сайте', exact: true }).count(), 1)
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+          assert.deepEqual(publicErrors, [])
+          await frames.first().scrollIntoViewIfNeeded()
+          await page.screenshot({ path: path.join(artifactDir, 'screenshots', `players-${width}-${dark ? 'dark' : 'light'}.png`) })
           await page.screenshot({
             path: path.join(
               artifactDir,
@@ -604,6 +657,83 @@ test(
           await page.close()
         }
       // Сводка из общего кэша: реальные observers и настоящие мутации списка.
+      // Regression: opening an existing published offer must never persist a copy.
+      for (const width of [390, 1365]) for (const dark of [false, true]) {
+        const page = await browser.newPage({ viewport: { width, height: 900 } })
+        const source = { ...structuredClone(proposal), status: 'published' }
+        let rows = [source], writes = [], rejectSave = false
+        const errors = []
+        page.on('pageerror', error => errors.push(error.message))
+        await page.route('**/api/**', async route => {
+          const req = route.request(), url = new URL(req.url()).pathname
+          if (req.method() === 'POST' && url === '/api/events/event/proposals') {
+            const body = req.postDataJSON()
+            writes.push({ method: 'POST', body })
+            if (rejectSave) return route.fulfill({ status: 400, json: { success: false, error: { message: 'Проверка ошибки сохранения' } } })
+            const created = { ...source, ...body, _id: 'new-version', status: 'draft', version: 2, blocksSnapshot: body.blocks, mediaSnapshot: body.media }
+            rows = [created, source]
+            return route.fulfill({ status: 201, json: { success: true, data: created } })
+          }
+          if (req.method() === 'PATCH') {
+            const body = req.postDataJSON()
+            writes.push({ method: 'PATCH', url, body })
+            rows[0] = { ...rows[0], ...body, blocksSnapshot: body.blocks, mediaSnapshot: body.media }
+            return route.fulfill({ json: { success: true, data: rows[0] } })
+          }
+          const data = url === '/api/events/event/proposals' ? rows : url === `/api/proposals/${proposalId}` ? source : url === '/api/proposals/new-version' ? rows[0] : []
+          return route.fulfill({ json: { success: true, data } })
+        })
+        await page.goto(`${origin}/?kind=list`)
+        await page.evaluate(dark => document.body.classList.toggle('theme-dark', dark), dark)
+        await page.getByText('Опубликовано: 1', { exact: true }).waitFor()
+        await page.locator('summary').filter({ hasText: 'Коммерческие предложения' }).click()
+        const edit = () => page.getByRole('button', { name: 'Редактировать в новой версии', exact: true }).click()
+        const close = async () => {
+          await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
+          await page.getByRole('region', { name: 'Редактор КП', exact: true }).waitFor({ state: 'hidden' })
+        }
+        await edit()
+        await page.getByText('Новая версия · не сохранена', { exact: true }).waitFor()
+        assert.equal(await page.getByRole('button', { name: 'Сохранить', exact: true }).count(), 0)
+        await close()
+        assert.equal(writes.length, 0)
+        assert.equal(await page.locator('.proposal-list-item').count(), 1)
+        // Discard actual local edits as well.
+        await edit()
+        await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().fill('Не сохранять')
+        await close()
+        assert.equal(writes.length, 0)
+        assert.equal(rows.length, 1)
+        assert.equal(await page.evaluate(() => window.confirmations), 1)
+        await edit()
+        await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().fill('Новые условия')
+        rejectSave = true
+        await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
+        await page.getByText('Проверка ошибки сохранения', { exact: true }).waitFor()
+        assert.equal(rows.length, 1)
+        assert.equal(await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().inputValue(), 'Новые условия')
+        rejectSave = false
+        await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
+        await page.getByText('Черновик версии 2', { exact: true }).waitFor()
+        assert.equal(rows.length, 2)
+        assert.equal(rows[1].title, proposal.title)
+        assert.equal(writes.at(-1).body.sourceProposalId, proposalId)
+        await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().fill('Уточнённые условия')
+        await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
+        await page.getByRole('button', { name: 'Сохранить', exact: true }).waitFor({ state: 'hidden' })
+        assert.equal(writes.at(-1).method, 'PATCH')
+        assert.equal(writes.at(-1).url, '/api/proposals/new-version')
+        await close()
+        assert.equal(await page.locator('.proposal-list-item').count(), 2)
+        await page.getByRole('button', { name: 'Редактировать', exact: true }).click()
+        await page.getByText('Черновик версии 2', { exact: true }).waitFor()
+        const before = writes.length
+        await close()
+        assert.equal(writes.length, before)
+        assert.deepEqual(errors, [])
+        await page.screenshot({ path: path.join(artifactDir, 'screenshots', `no-duplicate-${width}-${dark ? 'dark' : 'light'}.png`) })
+        await page.close()
+      }
       const page = await browser.newPage({
         viewport: { width: 390, height: 900 },
       })

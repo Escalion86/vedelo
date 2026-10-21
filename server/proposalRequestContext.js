@@ -1,3 +1,4 @@
+import { PROPOSAL_CONTACT_FIELDS } from '@helpers/proposalArtistContacts.mjs'
 import getRequestContext from '@server/getRequestContext'
 
 // A supplied but malformed Authorization must never become a cookie request.
@@ -25,8 +26,8 @@ export function getProposalArtistProfile(context, access) {
     String(profile.tenantId || profile._id) !== String(context.tenantId)
   ) return null
   return Object.fromEntries(
-    ['firstName', 'secondName', 'thirdName', 'phone', 'telegram'].map((key) => [
-      key, typeof profile[key] === 'string' ? profile[key] : '',
+    ['firstName', 'secondName', 'thirdName', ...PROPOSAL_CONTACT_FIELDS].map((key) => [
+      key, ['string', 'number'].includes(typeof profile[key]) ? String(profile[key]) : '',
     ])
   )
 }

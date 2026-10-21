@@ -83,6 +83,7 @@ const isSupportedVideoLink = (value) => {
     const host = new URL(value).hostname.toLowerCase()
     return [
       'youtube.com',
+      'youtube-nocookie.com',
       'youtu.be',
       'rutube.ru',
       'vk.com',
@@ -180,7 +181,7 @@ export const toProposalEditorBlocks = (blocks, artist = {}) => {
           : ''
         const contacts =
           block.type === 'contacts'
-            ? ['fullName', 'phone', 'telegram']
+            ? ['fullName', 'phone']
                 .filter((key) => artist[key])
                 .map((key) => `<p>{{artist.${key}}}</p>`)
                 .join('')

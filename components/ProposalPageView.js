@@ -1,6 +1,9 @@
 'use client'
 
+import ProposalContactLinks from '@components/ProposalContactLinks'
+import { proposalPhoneNumber } from '@helpers/proposalArtistContacts.mjs'
 import Image from 'next/image'
+import ProposalVideoEmbed from '@components/ProposalVideoEmbed'
 import styles from './ProposalPageView.module.css'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import Notice from '@components/Notice'
@@ -252,15 +255,7 @@ export default function ProposalPageView({
                       className="aspect-video w-full rounded-2xl bg-black"
                     />
                   ) : (
-                    <a
-                      key={item.id}
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`${styles.videoLink} flex aspect-video items-center justify-center rounded-2xl border p-5 text-center font-semibold`}
-                    >
-                      {item.title || 'Открыть видео'}
-                    </a>
+                    <ProposalVideoEmbed key={item.id} item={item} />
                   )
                 )}
               </div>
@@ -271,8 +266,12 @@ export default function ProposalPageView({
             <section aria-label="Условия и контакты">
               <ProposalRichTextView
                 html={closing.contentHtml}
+                phone={proposal.artist?.phone}
                 className="leading-7"
               />
+              {proposal.blocks?.find(block => block.type === 'contacts')?.enabled !== false ? (
+                <ProposalContactLinks artist={proposal.artist} />
+              ) : null}
             </section>
           ) : null}
           {benefits?.contentHtml || benefits?.items?.length ? (
@@ -310,11 +309,13 @@ export default function ProposalPageView({
                 {proposal.artist?.fullName || contacts.title}
               </div>
               {proposal.artist?.phone ? (
-                <div className="mt-1">{proposal.artist.phone}</div>
+                <div className="mt-1">
+                  {proposalPhoneNumber(proposal.artist.phone) ? (
+                    <a className="underline" href={`tel:+${proposalPhoneNumber(proposal.artist.phone)}`}>{proposal.artist.phone}</a>
+                  ) : proposal.artist.phone}
+                </div>
               ) : null}
-              {proposal.artist?.telegram ? (
-                <div className="mt-1">Telegram: {proposal.artist.telegram}</div>
-              ) : null}
+              <ProposalContactLinks artist={proposal.artist} />
               <div className={`${styles.muted} mt-5 text-xs`}>
                 Предложение подготовлено в Ведело
               </div>

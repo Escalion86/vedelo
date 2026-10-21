@@ -1,3 +1,4 @@
+import { pickProposalArtistContacts } from '@helpers/proposalArtistContacts.mjs'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import crypto from 'crypto'
 import { formatMoney } from '@helpers/formatMoney'
@@ -105,7 +106,7 @@ export const buildProposalSnapshot = ({ template, event, client, services, artis
       servicesData: services.map((item) => ({ id: String(item._id), title: item.title, price: Number(item.price) || 0 })),
     },
     clientSnapshot: { firstName: client?.firstName || '', fullName: getPersonFullName(client) || '' },
-    artistSnapshot: { fullName: getPersonFullName(artist) || '', phone: artist?.phone || '', telegram: artist?.telegram || '' },
+    artistSnapshot: { fullName: getPersonFullName(artist) || '', ...pickProposalArtistContacts(artist) },
   }
 }
 

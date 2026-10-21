@@ -1,5 +1,6 @@
 'use client'
 
+import { pickProposalArtistContacts } from '@helpers/proposalArtistContacts.mjs'
 import fieldHelp from '@helpers/fieldHelp.json'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -130,6 +131,7 @@ const ProposalTemplateEditor = ({
         sum: formatMoney(total),
       },
       artist: {
+        ...pickProposalArtistContacts(loggedUser),
         firstName: loggedUser?.firstName || '',
         fullName: getPersonFullName(loggedUser) || loggedUser?.firstName || '',
         phone: loggedUser?.phone || '',

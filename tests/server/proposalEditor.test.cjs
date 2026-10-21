@@ -36,7 +36,8 @@ function fixture() {
               : null
       if (
         (!filter.publicId && filter.tenantId !== tenant) ||
-        (filter._id && value && filter._id !== value._id)
+        (filter._id && value && filter._id !== value._id) ||
+        (filter.eventId && value && filter.eventId !== value.eventId)
       )
         value = null
       return chain(value)
@@ -60,7 +61,7 @@ function fixture() {
         proposal.save = async () => {}
         proposal.toJSON = () =>
           Object.fromEntries(
-            Object.entries(proposal).filter(
+            Object.entries(stored).filter(
               ([, value]) => typeof value !== 'function'
             )
           )
@@ -91,6 +92,8 @@ function fixture() {
         tenantId: currentTenant,
         firstName: 'Иван',
         phone: '+7 900 000 00 00',
+        telegram: 'ivan', vk: 'id123', whatsapp: 79000000000,
+        password: 'must-not-be-copied',
       },
     }),
     '@server/escalionCloud': {
@@ -212,6 +215,9 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
     .load('app/api/events/[id]/proposals/route.js')
     .POST(f.req({ templateId }), { params: { id: eventId } })
   assert.equal(result.status, 201)
+  assert.equal(result.body.data.artistSnapshot.vk, 'id123')
+  assert.equal(result.body.data.artistSnapshot.whatsapp, '79000000000')
+  assert.equal(result.body.data.artistSnapshot.password, undefined)
   assert.deepEqual(result.body.data.blocksSnapshot, savedBlocks)
   assert.deepEqual(result.body.data.packages, packages)
   assert.equal(result.body.data.mediaSnapshot[0].id, 'gallery')
@@ -247,6 +253,9 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
     params: { publicId, token },
   })
   assert.equal(publicResult.status, 200)
+  assert.equal(publicResult.body.data.artist.vk, 'id123')
+  assert.equal(publicResult.body.data.artist.whatsapp, '79000000000')
+  assert.equal(publicResult.body.data.artist.password, undefined)
   const visible = getVisibleProposalBlocks(publicResult.body.data.blocks)
   assert.match(visible[0].contentHtml, /Иван/)
   assert.match(visible[0].contentHtml, /font-family: Georgia/)
@@ -358,6 +367,17 @@ test('настоящий logo POST + sharp сохраняет альфа-кан�
     409
   )
   assert.equal(f.uploads.length, 1)
+  const versionReq = { ...req, nextUrl: new URL('https://example.test/logo?forNewVersion=1') }
+  const source = JSON.stringify(f.proposal)
+  assert.equal((await route.POST(versionReq, { params: { id: proposalId } })).status, 200)
+  assert.equal(JSON.stringify(f.proposal), source)
+  assert.equal(f.uploads.length, 2)
+  f.setTenant(foreign)
+  assert.equal((await route.POST(versionReq, { params: { id: proposalId } })).status, 404)
+  f.setTenant(tenant)
+  f.setAllowed(false)
+  assert.equal((await route.POST(versionReq, { params: { id: proposalId } })).status, 403)
+  assert.equal(f.uploads.length, 2)
 })
 
 
@@ -398,4 +418,70 @@ test('template logo upload checks tenant and tariff before reading file, support
   f.setAllowed(false)
   assert.equal((await route.POST(req, { params: { id: 'new' } })).status, 403)
   assert.equal(f.uploads.length, 2)
+})
+
+
+test('контакты профиля не извлекаются из чужого tenant или аккаунта', () => {
+  const { getProposalArtistProfile } = fixture().load('server/proposalRequestContext.js')
+  const context = { user: { _id: tenant }, tenantId: tenant }
+  assert.equal(getProposalArtistProfile(context, { user: { _id: foreign, tenantId: tenant, vk: 'secret' } }), null)
+  assert.equal(getProposalArtistProfile(context, { user: { _id: tenant, tenantId: foreign, vk: 'secret' } }), null)
+  assert.equal(getProposalArtistProfile(context, { user: { _id: tenant, tenantId: tenant, archive: true, vk: 'secret' } }), null)
+})
+
+
+test('новая версия сохраняется одним POST с правками, исходный снимок и служебные поля не перезаписываются', async () => {
+  const f = fixture()
+  const route = f.load('app/api/events/[id]/proposals/route.js')
+  await route.POST(f.req({}), { params: { id: eventId } })
+  const source = f.proposal
+  source.status = 'published'
+  source.publicId = 'original-public-id'
+  source.appliedAt = new Date()
+  const before = JSON.stringify(source)
+  for (const payload of [{ title: '' }, { validUntil: 'bad-date' }, { appearance: { theme: 'bad' } }, { appearance: { theme: 'dark', logoUrl: `https://cloud.escalion.ru/uploads/vedelo/${foreign}/proposals/${proposalId}/logos/a/logo.webp` } }]) {
+    const result = await route.POST(f.req({ sourceProposalId: proposalId, ...payload }), { params: { id: eventId } })
+    assert.equal(result.status, 400)
+    assert.equal(f.proposal, source, 'валидация до создания записи')
+  }
+  const result = await route.POST(f.req({
+    sourceProposalId: proposalId, title: 'Новые условия', validUntil: '2030-12-31',
+    blocks: [{ type: 'closing', enabled: true, contentHtml: '<p>Новый текст</p><script>bad()</script>' }],
+    packages: [{ id: 'new', title: 'Новый вариант', manualTotal: true, total: 1234, lines: [] }],
+    media: [{ id: 'vimeo', kind: 'video', url: 'https://vimeo.com/12345678' }],
+    messageText: 'Новое сообщение', appearance: { theme: 'blue' },
+    status: 'published', publicId: 'injected', tenantId: foreign, artistSnapshot: { phone: 'foreign' }, appliedAt: new Date(),
+  }), { params: { id: eventId } })
+  assert.equal(result.status, 201)
+  assert.equal(result.body.data.status, 'draft')
+  assert.equal(result.body.data.version, 2)
+  assert.equal(result.body.data.title, 'Новые условия')
+  assert.equal(result.body.data.packages[0].total, 1234)
+  assert.equal(result.body.data.mediaSnapshot[0].id, 'vimeo')
+  assert.equal(result.body.data.messageText, 'Новое сообщение')
+  assert.equal(result.body.data.appearance.theme, 'blue')
+  assert.equal(result.body.data.tenantId, tenant)
+  assert.equal(result.body.data.publicId, undefined)
+  assert.equal(result.body.data.appliedAt, undefined)
+  assert.deepEqual(result.body.data.artistSnapshot, source.artistSnapshot)
+  assert.doesNotMatch(JSON.stringify(result.body.data.blocksSnapshot), /script/)
+  assert.equal(JSON.stringify(source), before)
+})
+
+test('создание версии проверяет исходный tenant, событие, ID и тариф до записи', async () => {
+  const f = fixture()
+  const route = f.load('app/api/events/[id]/proposals/route.js')
+  await route.POST(f.req({}), { params: { id: eventId } })
+  const source = f.proposal
+  assert.equal((await route.POST(f.req({ sourceProposalId: 'invalid' }), { params: { id: eventId } })).status, 400)
+  assert.equal((await route.POST(f.req({ sourceProposalId: foreign }), { params: { id: eventId } })).status, 404)
+  source.eventId = foreign
+  assert.equal((await route.POST(f.req({ sourceProposalId: proposalId }), { params: { id: eventId } })).status, 404)
+  source.eventId = eventId
+  f.setTenant(foreign)
+  assert.equal((await route.POST(f.req({ sourceProposalId: proposalId }), { params: { id: eventId } })).status, 404)
+  f.setTenant(tenant)
+  f.setAllowed(false)
+  assert.equal((await route.POST(f.req({ sourceProposalId: proposalId }), { params: { id: eventId } })).status, 403)
+  assert.equal(f.proposal, source)
 })

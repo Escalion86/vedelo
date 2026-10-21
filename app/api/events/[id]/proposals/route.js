@@ -1,3 +1,4 @@
+import { applyProposalDraftChanges } from '@server/proposalDraftChanges'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import mongoose from 'mongoose'
@@ -56,13 +57,14 @@ export const POST = async (req, { params }) => {
   if (resolved.response) return resolved.response
   const body = await req.json().catch(() => ({}))
   const sourceProposalId = String(body?.sourceProposalId || '')
-  if (mongoose.Types.ObjectId.isValid(sourceProposalId)) {
+  if (sourceProposalId && !mongoose.Types.ObjectId.isValid(sourceProposalId)) return error('Некорректный ID исходного предложения', 400, 'bad_source_id')
+  if (sourceProposalId) {
     const [source, latest] = await Promise.all([
       Proposals.findOne({ _id: sourceProposalId, tenantId: resolved.context.tenantId, eventId: id }).lean(),
       Proposals.findOne({ tenantId: resolved.context.tenantId, eventId: id }).sort({ version: -1 }).select('version').lean(),
     ])
     if (!source) return error('Исходное предложение не найдено', 404, 'source_not_found')
-    const item = await Proposals.create({
+    const draft = {
       tenantId: resolved.context.tenantId,
       eventId: id,
       clientId: source.clientId || null,
@@ -78,7 +80,10 @@ export const POST = async (req, { params }) => {
       eventSnapshot: source.eventSnapshot,
       clientSnapshot: source.clientSnapshot,
       artistSnapshot: source.artistSnapshot,
-    })
+    }
+    const invalid = applyProposalDraftChanges(draft, body, resolved.context.tenantId)
+    if (invalid) return error(invalid.message, invalid.status, invalid.code)
+    const item = await Proposals.create(draft)
     return NextResponse.json({ success: true, data: item }, { status: 201 })
   }
   const templateId = String(body?.templateId || '')

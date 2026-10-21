@@ -18,12 +18,14 @@ export const POST = async (req, { params }) => {
   if (!mongoose.Types.ObjectId.isValid(id)) return error('Некорректный ID', 400)
   const proposal = await Proposals.findOne({ _id: id, tenantId }).lean()
   if (!proposal) return error('Предложение не найдено', 404)
-  if (proposal.status !== 'draft')
+  const forNewVersion = req.nextUrl?.searchParams?.get('forNewVersion') === '1'
+  if (proposal.status !== 'draft' && !forNewVersion)
     return error('Логотип опубликованного КП нельзя изменить', 409)
   if (!(await Events.exists({ _id: proposal.eventId, tenantId })))
     return error('Мероприятие не найдено', 404)
   const access = await getUserTariffAccess(user._id)
   if (!access?.allowProposals)
     return error('Тариф не поддерживает предложения', 403)
-  return uploadProposalLogo(req, tenantId, `vedelo/${tenantId}/proposals/${id}/logos/${randomUUID()}`)
+  const directoryId = forNewVersion ? new mongoose.Types.ObjectId().toString() : id
+  return uploadProposalLogo(req, tenantId, `vedelo/${tenantId}/proposals/${directoryId}/logos/${randomUUID()}`)
 }

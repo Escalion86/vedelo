@@ -2,8 +2,8 @@
 
 import { sanitizeProposalRichText } from '@helpers/proposalRichText'
 
-const ProposalRichTextView = ({ html, className = '' }) => {
-  const content = sanitizeProposalRichText(html)
+const ProposalRichTextView = ({ html, className = '', phone }) => {
+  const content = sanitizeProposalRichText(html, { phone })
   if (!content) return null
   return (
     <div

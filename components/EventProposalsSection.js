@@ -91,6 +91,7 @@ const EventProposalsSection = ({
   eventId,
   onApplied,
   initialProposal,
+  sourceProposalId = '',
   closeModal,
   setOnShowOnCloseConfirmDialog,
   setOnConfirmFunc,
@@ -142,6 +143,9 @@ const EventProposalsSection = ({
   useEffect(() => {
     setOnShowOnCloseConfirmDialog?.(JSON.stringify(editing) !== savedSnapshot)
   }, [editing, savedSnapshot, setOnShowOnCloseConfirmDialog])
+  const [pendingSourceId, setPendingSourceId] = useState(sourceProposalId)
+  const saveInFlight = useRef(false)
+  const openInFlight = useRef(false)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(() => !initialProposal)
   const listLoading = !initialProposal && (loading || proposalsFetching)
@@ -204,14 +208,14 @@ const EventProposalsSection = ({
     if (!initialProposal) load()
   }, [load, initialProposal])
 
-  const openEditor = (proposal) => {
+  const openEditor = (proposal, sourceId = '') => {
     modalsFunc.add({
       title: 'Редактор коммерческого предложения',
       declineButtonBgClassName: 'bg-general',
       closeButtonName: 'Закрыть',
       declineButtonName: 'Закрыть',
       Children: EventProposalsSection,
-      childrenProps: { eventId, initialProposal: proposal },
+      childrenProps: { eventId, initialProposal: proposal, sourceProposalId: sourceId },
     })
   }
 
@@ -260,12 +264,15 @@ const EventProposalsSection = ({
 
   const saveDraft = useCallback(
     async (notify = true) => {
+      if (saveInFlight.current) return null
+      saveInFlight.current = true
       setBusy(true)
       try {
-        const response = await fetch(`/api/proposals/${editing._id}`, {
-          method: 'PATCH',
+        const response = await fetch(pendingSourceId ? `/api/events/${eventId}/proposals` : `/api/proposals/${editing._id}`, {
+          method: pendingSourceId ? 'POST' : 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            ...(pendingSourceId ? { sourceProposalId: pendingSourceId } : {}),
             title: editing.title,
             validUntil: editing.validUntil,
             messageText: editing.messageText,
@@ -278,7 +285,7 @@ const EventProposalsSection = ({
         const body = await response.json().catch(() => ({}))
         if (!response.ok || body?.success === false)
           throw new Error(body?.error?.message || 'Не удалось сохранить')
-        await cacheEventProposal(queryClient, eventId, body.data)
+        setPendingSourceId('')
         setEditing({
           ...body.data,
           validUntil: dateInput(body.data.validUntil),
@@ -289,6 +296,7 @@ const EventProposalsSection = ({
             validUntil: dateInput(body.data.validUntil),
           })
         )
+        await cacheEventProposal(queryClient, eventId, body.data)
         if (notify)
           reportMessage({ tone: 'success', text: 'Черновик сохранён' })
         await load()
@@ -297,10 +305,11 @@ const EventProposalsSection = ({
         reportMessage({ tone: 'error', text: error.message })
         return null
       } finally {
+        saveInFlight.current = false
         setBusy(false)
       }
     },
-    [editing, eventId, queryClient, reportMessage, load]
+    [editing, eventId, pendingSourceId, queryClient, reportMessage, load]
   )
 
   const isDirty = Boolean(editing) && JSON.stringify(editing) !== savedSnapshot
@@ -419,7 +428,7 @@ const EventProposalsSection = ({
     })
   }
 
-  const loadDetails = async (proposal) => {
+  const loadDetails = async (proposal, edit = false) => {
     const response = await fetch(`/api/proposals/${proposal._id}`, {
       cache: 'no-store',
     })
@@ -429,8 +438,25 @@ const EventProposalsSection = ({
         tone: 'error',
         text: body?.error?.message || 'Не удалось открыть предложение',
       })
-    if (proposal.status === 'draft') openEditor(body.data)
+    if (edit || proposal.status === 'draft') {
+      const sourceId = body.data.status === 'draft' ? '' : body.data._id
+      openEditor(sourceId ? { ...body.data, validUntil: dateInput() } : body.data, sourceId)
+    }
     return body.data
+  }
+
+  const editProposal = async (proposal) => {
+    if (openInFlight.current || busy) return
+    openInFlight.current = true
+    setBusy(true)
+    try {
+      await loadDetails(proposal, true)
+    } catch {
+      reportMessage({ tone: 'error', text: 'Не удалось открыть предложение' })
+    } finally {
+      openInFlight.current = false
+      setBusy(false)
+    }
   }
 
   const shareProposal = async (proposal) => {
@@ -482,7 +508,7 @@ const EventProposalsSection = ({
     try {
       const form = new FormData()
       form.append('file', file)
-      const response = await fetch(`/api/proposals/${editing._id}/logo`, {
+      const response = await fetch(`/api/proposals/${editing._id}/logo${pendingSourceId ? '?forNewVersion=1' : ''}`, {
         method: 'POST',
         body: form,
       })
@@ -549,7 +575,7 @@ const EventProposalsSection = ({
         aria-label="Редактор КП"
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="font-semibold">Черновик версии {editing.version}</div>
+          <div className="font-semibold">{pendingSourceId ? 'Новая версия · не сохранена' : `Черновик версии ${editing.version}`}</div>
         </div>
         {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
         <Input
@@ -747,11 +773,7 @@ const EventProposalsSection = ({
                           : 'Редактировать в новой версии'
                       }
                       disabled={busy}
-                      onClick={() =>
-                        proposal.status === 'draft'
-                          ? loadDetails(proposal)
-                          : create(proposal._id)
-                      }
+                      onClick={() => editProposal(proposal)}
                     />
                     <IconActionButton
                       icon={faTrashAlt}

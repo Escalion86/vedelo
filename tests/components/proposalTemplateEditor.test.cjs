@@ -76,6 +76,7 @@ const TextareaStub = ({ label, value, onChange }) =>
   })
 
 const mocks = {
+  '@helpers/proposalArtistContacts.mjs': require('../../helpers/proposalArtistContacts.mjs'),
   '@components/ProposalAppearanceEditor': Box,
   '@helpers/proposalAppearance.mjs': require('../../helpers/proposalAppearance.mjs'),
   '@components/ProposalMediaEditor': Box,
