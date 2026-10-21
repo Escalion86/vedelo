@@ -99,7 +99,7 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       assert.equal((await settings.getSocialAuthSettings()).allowVkAuth, false)
     })
     let pending
-    await t.test('OAuth state + PKCE, replay and wrong browser blocked; no automatic phone linking', async () => {
+    await t.test('OAuth state + PKCE, replay and wrong browser blocked; account selected from server profile', async () => {
       const response = await start(new NextRequest('https://vedelo.test/api/yandex-id/start'))
       const url = new URL(response.headers.get('location'))
       assert.equal(url.searchParams.get('code_challenge_method'), 'S256')
@@ -126,8 +126,9 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       context = { user: { _id: aId }, tenantId: String(aId) }
       assert.equal((await complete.POST(request(pending, { action: 'link' }, 'https://evil.test'))).status, 403)
     })
-    await t.test('explicit linking ignores supplied owner, ticket usable once, same tenant retained', async () => {
-      const response = await complete.POST(request(pending, { action: 'link', userId: bId, tenantId: bId }))
+    await t.test('first login by Yandex phone needs no session/password and ignores supplied identity', async () => {
+      context = { user: null }
+      const response = await complete.POST(request(pending, { action: 'login', userId: bId, tenantId: bId, phone: b.phone }))
       assert.equal(response.status, 200)
       const { token } = await response.json()
       assert.equal((await Users.findById(aId)).yandexId, '123')
@@ -185,6 +186,23 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       const result = await complete.POST(request(secret, { action: 'link' }))
       assert.equal(result.status, 200)
       assert.equal((await service.consumeYandexTicket((await result.json()).token)).tenantId, String(id))
+    })
+    await t.test('legacy tenant restored; concurrent login and conflicting identities are safe', async () => {
+      const id = new mongoose.Types.ObjectId()
+      const phone = '79000000005'
+      await Users.create({ _id: id, phone, role: 'user' })
+      const secret = await service.createFlow('pending', { yandexId: '555', phone })
+      const responses = await Promise.all([complete.POST(request(secret, { action: 'login' })), complete.POST(request(secret, { action: 'login' }))])
+      assert.equal(responses.filter(r => r.status === 200).length, 1)
+      const success = responses.find(r => r.status === 200)
+      const session = await service.consumeYandexTicket((await success.json()).token)
+      assert.equal(session.tenantId, String(id))
+      const conflict = await service.createFlow('pending', { yandexId: '666', phone })
+      assert.equal((await complete.POST(request(conflict, { action: 'login' }))).status, 409)
+      assert.equal((await Users.findById(id)).yandexId, '555')
+      await Users.updateOne({ _id: id }, { $set: { archive: true } })
+      const archived = await service.createFlow('pending', { yandexId: '555', phone })
+      assert.equal((await complete.POST(request(archived, { action: 'login' }))).status, 409)
     })
     await t.test('repeat login uses saved ID, rejects archived account, expired state and disabled provider', async () => {
       const secret = await service.createFlow('pending', { yandexId: '123', phone: a.phone })

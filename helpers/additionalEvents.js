@@ -9,10 +9,22 @@ const hasDepositByTransactions = (eventId, transactions) => {
   return (Array.isArray(transactions) ? transactions : []).some((item) => {
     if (String(item?.eventId) !== String(eventId)) return false
     if (item?.type !== 'income') return false
+    if (item?.paymentMethod === 'obligation') return false
     if (!['deposit', 'advance'].includes(String(item?.category ?? ''))) return false
     return Number(item?.amount ?? 0) > 0
   })
 }
+
+export const isWaitingForDeposit = (event, transactions = []) =>
+  Boolean(event?.waitDeposit) &&
+  !['canceled', 'closed'].includes(event?.status) &&
+  // Keep an unfinished draft confirmation reachable after a partial server failure.
+  (event?.status === 'draft' || !hasDepositByTransactions(event?._id, transactions))
+
+export const getWaitingDepositEvents = (events, transactions = []) =>
+  (Array.isArray(events) ? events : []).filter((event) =>
+    isWaitingForDeposit(event, transactions)
+  )
 
 const hasNoDeposit = (event, transactions, now = new Date()) => {
   if (!event) return false
@@ -20,7 +32,7 @@ const hasNoDeposit = (event, transactions, now = new Date()) => {
   const dueAt = toDate(event?.depositDueAt)
   if (!dueAt) return false
   if (dueAt.getTime() > now.getTime()) return false
-  return !hasDepositByTransactions(event?._id, transactions)
+  return isWaitingForDeposit(event, transactions)
 }
 
 const startOfDay = (date) =>
@@ -275,7 +287,7 @@ export const getSoonNoDepositEvents = (
   return (Array.isArray(events) ? events : [])
     .filter((event) => {
       if (!event) return false
-      if (['draft', 'canceled', 'closed'].includes(String(event.status))) return false
+      if (['canceled', 'closed'].includes(String(event.status))) return false
       return hasNoDeposit(event, transactions, now)
     })
     .sort((a, b) => {

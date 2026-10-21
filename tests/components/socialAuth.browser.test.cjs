@@ -5,7 +5,7 @@ const path = require('node:path')
 const os = require('node:os')
 const http = require('node:http')
 
-test('social auth UI: admin save, login visibility, explicit link, mobile and dark theme', { timeout: 120000 }, async () => {
+test('social auth UI: admin save, login visibility, automatic phone login, mobile and dark theme', { timeout: 120000 }, async () => {
   const esbuild = require('../../mobile/node_modules/esbuild')
   const { chromium } = require('playwright')
   const mocks = {
@@ -13,7 +13,7 @@ test('social auth UI: admin save, login visibility, explicit link, mobile and da
     '@helpers/metrikaGoals': 'export const reachGoal=()=>{};export const reachGoalOnce=()=>{};',
     'next/link': 'export default function Link({children,...props}){return <a {...props}>{children}</a>}',
     'next/image': 'export default function Image({priority,fill,...props}){return <img {...props}/>}',
-    'next-auth/react': 'export const signIn=async()=>({error:"mock-error"}); export const signOut=async()=>{};',
+    'next-auth/react': 'export const signIn=async()=>{window.__signInCount=(window.__signInCount||0)+1;return location.search.includes("fail")?{error:"mock-error"}:{ok:true}}; export const signOut=async()=>{};',
   }
   const bundle = await esbuild.build({
     stdin: { contents: `
@@ -22,7 +22,7 @@ test('social auth UI: admin save, login visibility, explicit link, mobile and da
       import Login from './app/login/loginInputs';
       import Complete from './app/auth/yandex/complete/yandexComplete';
       const p=new URLSearchParams(location.search);
-      createRoot(document.getElementById('root')).render(location.pathname==='/login'?<Login initialMode={p.get('mode')} initialPhone={p.has('registerYandex')?'79000000001':''} callbackUrl={p.get('callback')||'/cabinet'}/>:location.pathname.includes('/complete')?<Complete signedIn={p.has('signed')} phone={p.has('wrong')?'79000000002':'79000000001'}/>:<Admin/>);
+      createRoot(document.getElementById('root')).render(<React.StrictMode>{location.pathname==='/login'?<Login initialMode={p.get('mode')} initialPhone={p.has('registerYandex')?'79000000001':''} callbackUrl={p.get('callback')||'/cabinet'}/>:location.pathname.includes('/complete')?<Complete signedIn={p.has('signed')} phone={p.has('wrong')?'79000000002':'79000000001'}/>:<Admin/>}</React.StrictMode>);
     `, resolveDir: process.cwd(), loader: 'jsx' },
     bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
     define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}' },
@@ -60,6 +60,8 @@ test('social auth UI: admin save, login visibility, explicit link, mobile and da
       let settings = { primaryMethod: 'call', vkEnabled: true, yandexEnabled: false, vkConfigured: true, yandexConfigured: true, callConfigured: true, smsConfigured: true, telefonipBalance: { status: 'unconfigured' } }
       let saved
       let linked = false
+      let accountExists = false
+      let postCount = 0
       let action
       await page.route('**/api/site/phone-auth', (route) => {
         if (route.request().method() === 'POST') {
@@ -72,9 +74,10 @@ test('social auth UI: admin save, login visibility, explicit link, mobile and da
       await page.route('**/api/yandex-id/complete', (route) => {
         if (route.request().method() === 'POST') {
           action = route.request().postDataJSON().action
+          postCount++
           return route.fulfill({ json: { token: 'test-token' } })
         }
-        return route.fulfill({ json: { linked, phone: "79000000001", accountExists: false } })
+        return route.fulfill({ json: { linked, phone: "79000000001", accountExists } })
       })
       const origin = `http://127.0.0.1:${server.address().port}`
       await page.goto(`${origin}/cabinet/phone-auth`)
@@ -96,20 +99,31 @@ test('social auth UI: admin save, login visibility, explicit link, mobile and da
       await page.screenshot({ path: path.join(screenshots, `admin-${width}-${dark}.png`), fullPage: true })
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       await page.goto(`${origin}/login`)
-      await page.getByRole('link', { name: 'Войти через Яндекс ID' }).waitFor()
+      await page.getByRole('link', { name: 'Войти с Яндекс ID' }).waitFor()
       assert.equal(await page.getByText('Войти через VK ID', { exact: true }).count(), 0)
+      const branded = page.getByRole('link', { name: 'Войти с Яндекс ID' })
+      await branded.focus()
+      assert.equal(await branded.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(26, 26, 26)')
+      assert.equal(await branded.evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)')
+      assert.ok((await branded.boundingBox()).height >= 56)
+      await page.screenshot({ path: path.join(screenshots, `login-${width}-${dark}.png`), fullPage: true })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+      await page.goto(`${origin}/login?mode=register`)
+      const registerProvider = page.getByRole('link', { name: 'Войти с Яндекс ID' })
+      await registerProvider.waitFor()
+      assert.equal(await registerProvider.getAttribute('href'), '/api/yandex-id/start')
+      await page.screenshot({ path: path.join(screenshots, `register-provider-${width}-${dark}.png`), fullPage: true })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       settings.yandexEnabled = false
-      await page.reload()
+      await page.goto(`${origin}/login`)
       await page.getByRole('heading', { name: 'Вход в кабинет' }).waitFor()
       await page.waitForTimeout(150)
-      assert.equal(await page.getByRole('link', { name: 'Войти через Яндекс ID' }).count(), 0)
+      assert.equal(await page.getByRole('link', { name: 'Войти с Яндекс ID' }).count(), 0)
       await page.goto(`${origin}/auth/yandex/complete`)
-      const login = page.getByRole('link', { name: 'Войти в существующий аккаунт' })
-      await login.waitFor()
-      assert.match(await login.getAttribute('href'), /callbackUrl=%2Fauth%2Fyandex%2Fcomplete/)
-      assert.equal(action, undefined)
       const register = page.getByRole('link', { name: 'Зарегистрироваться через Яндекс', exact: true })
+      await register.waitFor()
       assert.match(await register.getAttribute('href'), /mode=register/)
+      assert.equal(postCount, 0)
       await page.goto(`${origin}/login?mode=register&registerYandex=1&callback=/auth/yandex/complete`)
       const phoneInput = page.locator('input[type="tel"]').first()
       await phoneInput.waitFor()
@@ -117,20 +131,21 @@ test('social auth UI: admin save, login visibility, explicit link, mobile and da
       assert.match(await phoneInput.inputValue(), /900/)
       await page.screenshot({ path: path.join(screenshots, `register-${width}-${dark}.png`), fullPage: true })
       await page.goto(`${origin}/auth/yandex/complete?signed=1&wrong=1`)
-      await page.getByRole('button', { name: 'Войти с номером Яндекса' }).waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Подключить Яндекс ID', exact: true }).count(), 0)
-      await page.goto(`${origin}/auth/yandex/complete?signed=1`)
-      const connect = page.getByRole('button', { name: 'Подключить Яндекс ID', exact: true })
-      await connect.waitFor()
-      await page.screenshot({ path: path.join(screenshots, `link-${width}-${dark}.png`), fullPage: true })
-      await connect.click()
+      await page.getByRole('button', { name: 'Перейти к регистрации с номером Яндекса' }).waitFor()
+      accountExists = true
+      // Both first and repeat login redirect without any confirmation click.
+      for (const alreadyLinked of [false, true]) {
+        linked = alreadyLinked
+        const before = postCount
+        await page.goto(`${origin}/auth/yandex/complete`)
+        await page.waitForURL(`${origin}/cabinet`)
+        assert.equal(action, 'login')
+        assert.equal(postCount, before + 1)
+      }
+      await page.goto(`${origin}/auth/yandex/complete?fail=1`)
       await page.getByRole('alert').waitFor()
-      assert.equal(action, 'link')
-      linked = true
-      await page.reload()
-      await page.getByRole('button', { name: 'Войти в кабинет', exact: true }).click()
-      await page.getByRole('alert').waitFor()
-      assert.equal(action, 'login')
+      assert.equal(await page.evaluate(() => window.__signInCount), 1)
+      assert.equal(await page.getByRole('button', { name: 'Войти в кабинет', exact: true }).count(), 0)
       assert.deepEqual(errors, [])
       await page.close()
     }

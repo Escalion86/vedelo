@@ -1,3 +1,5 @@
+import DepositReminderCard from '@components/DepositReminderCard'
+import receiveDepositFunc from './receiveDepositFunc'
 import AppButton from '@components/AppButton'
 import LoadingSpinner from '@components/LoadingSpinner'
 import ModalSection from '@components/ModalSection'
@@ -11,7 +13,7 @@ import { PROVIDER_LABELS } from '@helpers/incomingMessageNotification'
 import {
   getAdditionalEventSegment,
   getAdditionalEventsListBySegments,
-  getSoonNoDepositEvents,
+  getWaitingDepositEvents,
   getUpcomingEventsByDays,
 } from '@helpers/additionalEvents'
 import {
@@ -164,9 +166,9 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
     () => getAdditionalEventsListBySegments(events, now),
     [events, now]
   )
-  const overdueNoDepositEvents = useMemo(
-    () => getSoonNoDepositEvents(events, transactions, now, 3),
-    [events, transactions, now]
+  const waitingDepositEvents = useMemo(
+    () => getWaitingDepositEvents(events, transactions),
+    [events, transactions]
   )
   const upcomingEvents = useMemo(
     () => getUpcomingEventsByDays(events, 3, now),
@@ -197,23 +199,19 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
         ...item,
         reminderType: 'additional',
       }))
-    const overdueNoDepositItems = overdueNoDepositEvents.map((event) => ({
-      eventId: event?._id,
-      eventDate: event?.eventDate ?? null,
-      eventType: event?.eventType ?? '',
-      eventStatus: event?.status ?? '',
-      eventAddress: event?.address ?? null,
-      eventTown: event?.address?.town ?? '',
-      eventDescription: event?.description ?? '',
-      title: 'Просрочен задаток',
-      description:
-        Number(event?.depositExpectedAmount ?? 0) > 0
-          ? `Ожидается: ${Number(event.depositExpectedAmount).toLocaleString('ru-RU')} ₽`
-          : '',
-      date: event?.depositDueAt ?? null,
-      index: -1,
-      reminderType: 'depositOverdue',
-    }))
+    const depositsBySegment = { overdue: [], today: [], tomorrow: [] }
+    waitingDepositEvents.forEach((event) => {
+      const segment = getAdditionalEventSegment(event.depositDueAt, now)
+      if (segment) {
+        depositsBySegment[segment].push({
+          eventId: event._id,
+          date: event.depositDueAt,
+          index: -1,
+          reminderType: 'deposit',
+          event,
+        })
+      }
+    })
 
     const parseTime = (value) => {
       const date = parseDateSafe(value)
@@ -221,7 +219,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
     }
 
     const overdue = withType(segmentedAdditional.overdue)
-      .concat(overdueNoDepositItems)
+      .concat(depositsBySegment.overdue)
       .sort((a, b) => parseTime(a?.date) - parseTime(b?.date))
 
     const doneBySegment = {
@@ -269,12 +267,16 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
 
     return {
       overdue: overdue.concat(doneBySegment.overdue),
-      today: withType(segmentedAdditional.today).concat(doneBySegment.today),
-      tomorrow: withType(segmentedAdditional.tomorrow).concat(
-        doneBySegment.tomorrow
-      ),
+      today: withType(segmentedAdditional.today)
+        .concat(depositsBySegment.today)
+        .sort((a, b) => parseTime(a.date) - parseTime(b.date))
+        .concat(doneBySegment.today),
+      tomorrow: withType(segmentedAdditional.tomorrow)
+        .concat(depositsBySegment.tomorrow)
+        .sort((a, b) => parseTime(a.date) - parseTime(b.date))
+        .concat(doneBySegment.tomorrow),
     }
-  }, [events, now, overdueNoDepositEvents, segmentedAdditional])
+  }, [events, now, waitingDepositEvents, segmentedAdditional])
 
   const getEventById = (eventId) =>
     (events ?? []).find((item) => String(item?._id) === String(eventId))
@@ -772,41 +774,21 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                   }
 
                   return (
-                    <div
+                    <DepositReminderCard
                       key={keyValue}
-                      className="rounded border border-gray-200 px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-gray-900">
-                        {normalizeText(item.title, 'Напоминание')}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {item.date
-                          ? formatDateTime(item.date, true, false, true, false)
-                          : 'Дата не указана'}
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {getEventTitle(item)}
-                        {item.eventDate
-                          ? ` • начало ${formatDateTime(
-                              item.eventDate,
-                              true,
-                              false,
-                              true,
-                              false
-                            )}`
-                          : ''}
-                      </div>
-                      {eventAddressLine ? (
-                        <div className="text-xs text-gray-500">
-                          {eventAddressLine}
-                        </div>
-                      ) : null}
-                      {item?.description ? (
-                        <div className="text-xs text-gray-600">
-                          {normalizeText(item.description)}
-                        </div>
-                      ) : null}
-                    </div>
+                      event={item.event}
+                      segment={key}
+                      onOpen={() => openEvent(item.eventId)}
+                      onReceive={() => modalsFunc.add(receiveDepositFunc(item.event))}
+                      onPostpone={async (offset) => {
+                        const date = moveDateToDayOffset(item.date, offset, new Date())
+                        await itemsFunc.event.set(
+                          { _id: item.eventId, depositDueAt: date.toISOString() },
+                          false,
+                          true
+                        )
+                      }}
+                    />
                   )
                 })}
               </div>

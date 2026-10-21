@@ -57,21 +57,23 @@ export const POST = async (req) => {
     if (owner) return reply({ error: 'Этот Яндекс ID уже подключён к другому аккаунту' }, 409)
   } else {
     user = account.user
-    if (!user?.tenantId || user.yandexId !== flow.yandexId) return reply({ error: 'Сначала подключите Яндекс к аккаунту' }, 409)
+    if (!user) return reply({ error: 'Зарегистрируйтесь с номером из Яндекс ID' }, 409)
   }
+  if (user.yandexId && user.yandexId !== flow.yandexId)
+    return reply({ error: 'К аккаунту уже подключён другой Яндекс ID' }, 409)
   if (!(await pendingFlow(req, true))) return reply({ error: 'Запрос уже использован' }, 409)
-  if (body.action === 'link') {
-    try {
-      await Users.init()
-      user = await Users.findOneAndUpdate({
-        _id: user._id, tenantId: user.tenantId, archive: { $ne: true },
-        phone: user.phone,
-        $or: [{ yandexId: { $exists: false } }, { yandexId: flow.yandexId }],
-      }, { $set: { yandexId: flow.yandexId } }, { returnDocument: 'after' })
-      if (!user) return reply({ error: 'Привязка изменилась. Начните заново.' }, 409)
-    } catch {
-      return reply({ error: 'Не удалось подключить Яндекс. Начните заново; существующие привязки сохранены.' }, 409)
-    }
+  // The server-side OAuth profile is the authority for phone login. Never use
+  // phone, userId or tenantId supplied by the browser to select the account.
+  try {
+    await Users.init()
+    user = await Users.findOneAndUpdate({
+      _id: user._id, tenantId: user.tenantId || null, archive: { $ne: true },
+      phone: user.phone,
+      $or: [{ yandexId: { $exists: false } }, { yandexId: flow.yandexId }],
+    }, { $set: { yandexId: flow.yandexId, tenantId: user.tenantId || user._id } }, { returnDocument: 'after' })
+    if (!user) return reply({ error: 'Привязка изменилась. Начните заново.' }, 409)
+  } catch {
+    return reply({ error: 'Не удалось подключить Яндекс. Начните заново; существующие привязки сохранены.' }, 409)
   }
   const token = await createFlow('ticket', {
     userId: user._id, tenantId: user.tenantId, yandexId: flow.yandexId, phone: flow.phone,

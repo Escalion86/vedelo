@@ -18,7 +18,7 @@ async function freePort() {
   return port
 }
 
-test('compiled HTTP: phone session -> explicit Yandex link -> NextAuth session -> administrator disables provider', {
+test('compiled HTTP: no session -> automatic Yandex phone login -> NextAuth session -> administrator disables provider', {
   skip: !process.env.YANDEX_TEST_MONGOD || !process.env.NEXT_DIST_DIR,
   timeout: 120000,
 }, async () => {
@@ -86,9 +86,8 @@ test('compiled HTTP: phone session -> explicit Yandex link -> NextAuth session -
       method: 'POST', headers: { 'Content-Type': 'application/json', origin: base },
       body: JSON.stringify({ primaryMethod: 'call', yandexEnabled: false }),
     })).status, 403)
-    assert.equal((await signIn('credentials', { phone: '79000000001', password: 'test-password-only' })).status, 200)
     const session = await (await request('/api/auth/session')).json()
-    assert.equal(session.user._id, String(id))
+    assert.equal(session.user, undefined)
     const pending = crypto.randomBytes(32).toString('base64url')
     await db.collection('yandexauthflows').insertOne({
       hash: crypto.createHash('sha256').update(pending).digest('hex'),
@@ -98,14 +97,14 @@ test('compiled HTTP: phone session -> explicit Yandex link -> NextAuth session -
     await db.collection('yandexauthflows').updateOne({ kind: 'pending' }, { $set: { phone: '79000000002' } })
     const rejected = await request('/api/yandex-id/complete', {
       method: 'POST', headers: { 'Content-Type': 'application/json', origin: base },
-      body: JSON.stringify({ action: 'link' }),
+      body: JSON.stringify({ action: 'login', phone: '79000000009', tenantId: new mongoose.Types.ObjectId().toString() }),
     })
     assert.equal(rejected.status, 409)
     assert.equal((await db.collection('users').findOne({ _id: id })).yandexId, undefined)
     await db.collection('yandexauthflows').updateOne({ kind: 'pending' }, { $set: { phone: '79000000001' } })
     const linked = await request('/api/yandex-id/complete', {
       method: 'POST', headers: { 'Content-Type': 'application/json', origin: base },
-      body: JSON.stringify({ action: 'link' }),
+      body: JSON.stringify({ action: 'login', phone: '79000000009', tenantId: new mongoose.Types.ObjectId().toString() }),
     })
     assert.equal(linked.status, 200, await linked.clone().text())
     const { token } = await linked.json()
@@ -114,6 +113,28 @@ test('compiled HTTP: phone session -> explicit Yandex link -> NextAuth session -
     assert.equal(yandexSession.user._id, String(id))
     assert.equal(yandexSession.user.tenantId, String(id))
     assert.equal((await db.collection('users').findOne({ _id: id })).yandexId, '98765')
+    // Exercise the actual completion page and NextAuth client without a CRM session.
+    await db.collection('users').updateOne({ _id: id }, { $unset: { yandexId: 1 } })
+    const browserPending = crypto.randomBytes(32).toString('base64url')
+    await db.collection('yandexauthflows').insertOne({
+      hash: crypto.createHash('sha256').update(browserPending).digest('hex'),
+      kind: 'pending', yandexId: '98765', phone: '79000000001', expiresAt: new Date(Date.now() + 600000),
+    })
+    const { chromium } = require('playwright')
+    const browser = await chromium.launch({ headless: true, channel: 'msedge' })
+    try {
+      const context = await browser.newContext()
+      await context.addCookies([{ name: 'vedelo_yandex_flow', value: browserPending, url: base, httpOnly: true, sameSite: 'Lax' }])
+      const page = await context.newPage()
+      await page.goto(`${base}/auth/yandex/complete`)
+      await page.waitForURL(url => url.pathname.startsWith('/cabinet'), { timeout: 30000 })
+      const actual = await (await context.request.get(`${base}/api/auth/session`)).json()
+      assert.equal(actual.user._id, String(id))
+      assert.equal(actual.user.tenantId, String(id))
+      assert.equal(actual.user.impersonation, null)
+    } finally {
+      await browser.close()
+    }
     const disable = await request('/api/site/phone-auth', {
       method: 'POST', headers: { 'Content-Type': 'application/json', origin: base },
       body: JSON.stringify({ primaryMethod: 'call', vkEnabled: false, yandexEnabled: false }),

@@ -8,74 +8,56 @@ import Notice from '@components/Notice'
 
 const returnUrl = encodeURIComponent('/auth/yandex/complete')
 
-export default function YandexComplete({ signedIn, phone, initialError = '' }) {
+export default function YandexComplete({ signedIn, initialError = '' }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(initialError)
-  const [busy, setBusy] = useState(false)
   useEffect(() => {
     if (initialError) return
     let active = true
-    fetch('/api/yandex-id/complete', { cache: 'no-store' })
-      .then(async (response) => {
+    const finishLogin = async () => {
+      try {
+        const response = await fetch('/api/yandex-id/complete', { cache: 'no-store' })
         const result = await response.json()
         if (!response.ok) throw new Error(result.error || 'Не удалось проверить подключение')
-        if (active) setData(result)
-      }).catch((cause) => { if (active) setError(cause.message) })
+        if (!active) return
+        setData(result)
+        if (!result.accountExists) return
+        // Only the live effect starts a mutation (including React Strict Mode).
+        // The browser never supplies the phone or target account to the server.
+        const completed = await fetch('/api/yandex-id/complete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login' }),
+        })
+        const ticket = await completed.json()
+        if (!completed.ok) throw new Error(ticket.error || 'Не удалось завершить вход')
+        const login = await signIn('yandex', { token: ticket.token, redirect: false })
+        if (!login || login.error) throw new Error('Не удалось войти. Начните вход через Яндекс заново.')
+        window.location.replace('/cabinet')
+      } catch (cause) {
+        if (active) setError(cause.message)
+      }
+    }
+    void finishLogin()
     return () => { active = false }
   }, [initialError])
-  const complete = async (action) => {
-    setBusy(true)
-    setError('')
-    try {
-      const response = await fetch('/api/yandex-id/complete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Не удалось завершить вход')
-      const login = await signIn('yandex', { token: result.token, redirect: false })
-      if (!login || login.error) throw new Error('Не удалось войти. Начните вход через Яндекс заново.')
-      window.location.replace('/cabinet')
-    } catch (cause) {
-      setError(cause.message)
-      setBusy(false)
-    }
-  }
+  const registerUrl = `/login?mode=register&callbackUrl=${returnUrl}${data?.referrerId ? `&ref=${encodeURIComponent(data.referrerId)}` : ''}`
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-4 p-6">
       <h1 className="text-2xl font-semibold">Вход через Яндекс ID</h1>
-      {error && <Notice tone="error" role="alert">{error}</Notice>}
-      {!data && !error && <p role="status">Проверяем подключение…</p>}
-      {data?.phone && <p>Номер из Яндекс ID: +{data.phone}</p>}
-      {data?.linked ? (
-        <>
-          <p>Аккаунт с этим номером уже подключён к Яндекс ID. Продолжите вход в кабинет.</p>
-          <AppButton disabled={busy} aria-busy={busy} onClick={() => complete('login')}>
-            {busy ? 'Входим…' : 'Войти в кабинет'}
-          </AppButton>
-        </>
-      ) : data ? signedIn ? (
-        String(phone) !== data.phone ? (
+      {error ? <Notice tone="error" role="alert">{error}</Notice> : (
+        !data || data.accountExists ? <p role="status">Входим в кабинет…</p> : (
           <>
-            <Notice tone="error">В текущем аккаунте другой номер: {phone}. Для подключения войдите или зарегистрируйтесь с номером +{data.phone}.</Notice>
-            <AppButton onClick={() => signOut({ callbackUrl: `/login?mode=${data.accountExists ? 'login' : 'register'}&callbackUrl=${returnUrl}` })}>Войти с номером Яндекса</AppButton>
+            <p>Номер из Яндекс ID: +{data.phone}</p>
+            <Notice tone="info">С этим номером ещё нет аккаунта. Подтвердите телефон, задайте пароль и примите соглашения. После регистрации вход через Яндекс завершится автоматически.</Notice>
+            {signedIn ? (
+              <AppButton onClick={() => signOut({ callbackUrl: registerUrl })}>Перейти к регистрации с номером Яндекса</AppButton>
+            ) : (
+              <Link className="ui-btn ui-btn-primary px-4 py-2 text-center" href={registerUrl}>Зарегистрироваться через Яндекс</Link>
+            )}
+            <p className="text-sm">На завершение регистрации есть 15 минут. Если время истекло, начните вход через Яндекс заново.</p>
           </>
-        ) : (
-        <>
-          <Notice tone="info">Подключить этот Яндекс ID к вашему аккаунту с телефоном {phone}? После подключения вы сможете входить через Яндекс.</Notice>
-          <AppButton disabled={busy} aria-busy={busy} onClick={() => complete('link')}>
-            {busy ? 'Подключаем…' : 'Подключить Яндекс ID'}
-          </AppButton>
-        </>
         )
-      ) : (
-        <>
-          <Notice tone="info">{data.accountExists ? 'Аккаунт с этим номером уже существует. Подтвердите доступ обычным входом.' : 'Зарегистрируйтесь с номером из Яндекс ID: подтвердите телефон, задайте пароль и примите соглашения.'} После этого вы вернётесь сюда для подключения Яндекса.</Notice>
-          <Link className="ui-btn ui-btn-primary px-4 py-2 text-center" href={`/login?callbackUrl=${returnUrl}`}>Войти в существующий аккаунт</Link>
-          {!data.accountExists && <Link className="ui-btn ui-btn-secondary px-4 py-2 text-center" href={`/login?mode=register&callbackUrl=${returnUrl}${data.referrerId ? `&ref=${encodeURIComponent(data.referrerId)}` : ''}`}>Зарегистрироваться через Яндекс</Link>}
-          <p className="text-sm">Если забыли пароль, воспользуйтесь восстановлением на странице входа. Подключение ожидает подтверждения 15 минут.</p>
-        </>
-      ) : null}
+      )}
       <Link className="underline" href="/login">Вернуться ко входу</Link>
     </main>
   )

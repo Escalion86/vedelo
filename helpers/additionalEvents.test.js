@@ -1,7 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { getAdditionalEventsDisplayGroups } from './additionalEvents.js'
+import { getAdditionalEventsDisplayGroups, isWaitingForDeposit, getWaitingDepositEvents, getSoonNoDepositEvents } from './additionalEvents.js'
+
+test('deposit reminders include future dates and drafts, exclude actual payments and closed work', () => {
+  const event = { _id: 'event', status: 'active', waitDeposit: true, depositDueAt: '2026-10-22T12:00:00Z' }
+  const payment = { eventId: 'event', type: 'income', category: 'deposit', amount: 15000, paymentMethod: 'transfer' }
+  assert.equal(isWaitingForDeposit(event), true)
+  assert.equal(isWaitingForDeposit(event, [payment]), false)
+  assert.equal(isWaitingForDeposit(event, [{ ...payment, paymentMethod: 'obligation' }]), true)
+  assert.equal(isWaitingForDeposit(event, [{ ...payment, category: 'advance' }]), false)
+  assert.equal(isWaitingForDeposit(event, [{ ...payment, eventId: 'other' }]), true)
+  assert.equal(isWaitingForDeposit({ ...event, status: 'closed' }), false)
+  assert.equal(isWaitingForDeposit({ ...event, status: 'canceled' }), false)
+  assert.equal(getWaitingDepositEvents([{ ...event, status: 'draft' }]).length, 1)
+  assert.equal(getSoonNoDepositEvents([event], [], new Date('2026-10-21')).length, 0)
+  assert.equal(getSoonNoDepositEvents([{ ...event, status: 'draft' }], [], new Date('2026-10-23')).length, 1)
+  assert.equal(isWaitingForDeposit({ ...event, status: 'draft' }, [payment]), true, 'partial draft confirmation remains reachable')
+})
 
 test('getAdditionalEventsDisplayGroups sorts events by date and keeps original indexes', () => {
   const now = new Date('2026-06-22T12:00:00+07:00')

@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Input from '@components/Input'
 import PhoneInput from '@components/PhoneInput'
+import YandexAuthButton from '@components/YandexAuthButton'
 import { reachGoal, reachGoalOnce } from '@helpers/metrikaGoals'
 
 const normalizePhone = (value) => {
@@ -1002,12 +1003,12 @@ const LoginInputs = ({
           </h1>
           <p className="mt-2 text-sm text-gray-500">
             {mode === 'login'
-              ? vkAuthEnabled
+              ? vkAuthEnabled || yandexAuthEnabled
                 ? 'Выберите способ входа или используйте телефон и пароль.'
                 : 'Введите телефон и пароль, чтобы продолжить работу.'
               : mode === 'reset'
                 ? 'Подтвердите номер и задайте новый пароль.'
-                : vkAuthEnabled
+                : vkAuthEnabled || yandexAuthEnabled
                   ? 'Выберите способ регистрации или подтвердите телефон вручную.'
                   : 'Подтвердите номер телефона и создайте аккаунт.'}
           </p>
@@ -1029,9 +1030,9 @@ const LoginInputs = ({
             className="flex flex-col gap-4"
           >
             <VkAuthBlock label="Войти через VK ID" />
-            {yandexAuthEnabled && <a className="ui-btn ui-btn-secondary w-full px-4 py-2 text-center text-sm" href={yandexStartUrl}>Войти через Яндекс ID</a>}
+            {yandexAuthEnabled && <YandexAuthButton href={yandexStartUrl} />}
 
-            {vkAuthEnabled ? (
+            {vkAuthEnabled || yandexAuthEnabled ? (
               <div className="flex items-center gap-3 text-xs text-gray-400">
                 <div className="h-px flex-1 bg-gray-200" />
                 <span>или по номеру телефона и паролю</span>
@@ -1149,9 +1150,9 @@ const LoginInputs = ({
             />
 
             <VkAuthBlock label="Зарегистрироваться через VK ID" />
-            {yandexAuthEnabled && <a className="ui-btn ui-btn-secondary w-full px-4 py-2 text-center text-sm" href={yandexStartUrl}>Продолжить с Яндекс ID</a>}
+            {yandexAuthEnabled && <YandexAuthButton href={yandexStartUrl} />}
 
-            {vkAuthEnabled ? (
+            {vkAuthEnabled || yandexAuthEnabled ? (
               <div className="flex items-center gap-3 text-xs text-gray-400">
                 <div className="h-px flex-1 bg-gray-200" />
                 <span>или по номеру телефона</span>

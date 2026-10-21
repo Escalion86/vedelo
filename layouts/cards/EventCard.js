@@ -36,7 +36,7 @@ import StatusChip from '@components/StatusChip'
 import { isPastRequest } from '@helpers/pastRequests'
 import EventProposalStatus from '@components/EventProposalStatus'
 import EventClientReviewStatus from '@components/EventClientReviewStatus'
-import { getSoonNoDepositEvents } from '@helpers/additionalEvents'
+import { isWaitingForDeposit } from '@helpers/additionalEvents'
 import getGoogleCalendarLinkFromText from '@helpers/getGoogleCalendarLinkFromText'
 import getPersonFullName from '@helpers/getPersonFullName'
 import {
@@ -260,11 +260,10 @@ const EventCard = ({
     return { ...address, town: '' }
   }, [event?.address, siteSettings?.defaultTown])
 
-  const hasSoonNoDepositWarning = useMemo(() => {
-    if (!event?._id) return false
-    const items = getSoonNoDepositEvents([event], transactions, new Date(), 3)
-    return items.length > 0
-  }, [event, transactions])
+  const waitingDeposit = isWaitingForDeposit(event, transactions)
+  const depositTone = event?.depositDueAt
+    ? getAdditionalEventTone(new Date(event.depositDueAt), now)
+    : 'neutral'
 
   const isCreatedViaApi = isEventCreatedViaPublicApi(event)
   const apiSourceLabel = getEventPublicApiSourceLabel(event)
@@ -324,14 +323,14 @@ const EventCard = ({
     }
   }, [event?.additionalEvents])
 
-  const hiddenAdditionalCount = hasSoonNoDepositWarning
+  const hiddenAdditionalCount = waitingDeposit
     ? (nearestAdditionalEventInfo?.totalCount ?? 0)
     : (nearestAdditionalEventInfo?.remainingCount ?? 0)
 
-  const additionalStatusTone = hasSoonNoDepositWarning
-    ? 'overdue'
+  const additionalStatusTone = waitingDeposit
+    ? depositTone
     : (nearestAdditionalEventInfo?.tone ?? 'neutral')
-  const hiddenAdditionalStatusTone = hasSoonNoDepositWarning
+  const hiddenAdditionalStatusTone = waitingDeposit
     ? (nearestAdditionalEventInfo?.tone ?? 'overdue')
     : (nearestAdditionalEventInfo?.nextTone ?? additionalStatusTone)
 
@@ -482,9 +481,10 @@ const EventCard = ({
             </div>
           ) : null}
           <div className="flex min-h-10 items-center gap-1 overflow-hidden">
-            {hasSoonNoDepositWarning ? (
-              <StatusChip tone="overdue">
-                <span className="truncate">Просрочен задаток</span>
+            {waitingDeposit ? (
+              <StatusChip tone={depositTone} className="event-additional-status-chip">
+                {event.depositDueAt ? <span className="event-additional-status-chip__date truncate">{formatDate(event.depositDueAt)}</span> : null}
+                <span className="event-additional-status-chip__title truncate">{depositTone === 'overdue' ? 'Просрочен задаток' : 'Жду задаток'}</span>
               </StatusChip>
             ) : nearestAdditionalEventInfo ? (
               <StatusChip
