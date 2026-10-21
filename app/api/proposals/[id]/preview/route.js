@@ -1,3 +1,4 @@
+import { getProposalSocialContacts } from '@server/proposalSocialContacts'
 import { NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import Proposals from '@models/Proposals'
@@ -33,6 +34,6 @@ export async function POST(req, { params }) {
   const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
   return NextResponse.json({
     success: true,
-    data: buildProposalPreview(proposal, input),
+    data: { ...buildProposalPreview(proposal, input), socialContacts: await getProposalSocialContacts(proposal) },
   })
 }

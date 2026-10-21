@@ -27,7 +27,7 @@ store.set(loggedUserAtom, {
   _id: 'u',
   firstName: 'Иван',
   phone: '+7 900 000 00 00',
-  telegram: 'ivan', vk: 'id123', whatsapp: 79000000000,
+  telegram: 'ivan', vk: 'id123', whatsapp: 79000000000, max: 'https://max.ru/u/ivan',
 })
 store.set(modalsFuncAtom, {
   add(config) {

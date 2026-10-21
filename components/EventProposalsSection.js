@@ -1,5 +1,7 @@
 'use client'
 
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
+import { pickProposalArtistContacts } from '@helpers/proposalArtistContacts.mjs'
 import fieldHelp from '@helpers/fieldHelp.json'
 import FieldHelp from '@components/FieldHelp'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -98,6 +100,7 @@ const EventProposalsSection = ({
   setConfirmButtonName,
   setDisableConfirm,
 }) => {
+  const loggedUser = useAtomValue(loggedUserAtom)
   const snackbar = useSnackbar()
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const queryClient = useQueryClient()
@@ -674,6 +677,7 @@ const EventProposalsSection = ({
               media: editing.mediaSnapshot || [],
               client: editing.clientSnapshot,
               artist: editing.artistSnapshot,
+              socialContacts: loggedUser?._id ? pickProposalArtistContacts(loggedUser) : editing.socialContacts,
             }}
           />
         ) : null}

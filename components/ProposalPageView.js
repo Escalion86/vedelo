@@ -270,7 +270,7 @@ export default function ProposalPageView({
                 className="leading-7"
               />
               {proposal.blocks?.find(block => block.type === 'contacts')?.enabled !== false ? (
-                <ProposalContactLinks artist={proposal.artist} />
+                <ProposalContactLinks artist={proposal.socialContacts ?? proposal.artist} />
               ) : null}
             </section>
           ) : null}
@@ -315,7 +315,7 @@ export default function ProposalPageView({
                   ) : proposal.artist.phone}
                 </div>
               ) : null}
-              <ProposalContactLinks artist={proposal.artist} />
+              <ProposalContactLinks artist={proposal.socialContacts ?? proposal.artist} />
               <div className={`${styles.muted} mt-5 text-xs`}>
                 Предложение подготовлено в Ведело
               </div>

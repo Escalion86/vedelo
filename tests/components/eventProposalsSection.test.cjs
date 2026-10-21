@@ -36,6 +36,8 @@ const response = (data, status = 200) => ({
 })
 
 const mocks = {
+  '@state/atoms/loggedUserAtom': 'loggedUser',
+  '@helpers/proposalArtistContacts.mjs': require('../../helpers/proposalArtistContacts.mjs'),
   '@components/ProposalMediaEditor': Box,
   '@helpers/fieldHelp.json': require('../../helpers/fieldHelp.json'),
   '@components/FieldHelp': () => null,

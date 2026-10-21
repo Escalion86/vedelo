@@ -19,6 +19,7 @@ test.before(() => loadBindings())
 function fixture() {
   let currentTenant = tenant,
     allowed = true,
+    profile = null,
     template,
     proposal
   const filters = [],
@@ -78,6 +79,7 @@ function fixture() {
     },
   })
   const mocks = {
+    '@models/Users': { findOne: (filter) => { filters.push(['Users', filter]); return chain(profile) } },
     'next/server': { NextResponse: json },
     '@server/dbConnect': async () => {},
     '@server/pushNotifications': { sendPushToTenant: async () => {} },
@@ -122,6 +124,7 @@ function fixture() {
     req,
     filters,
     uploads,
+    setProfile: (value) => { profile = value },
     setTenant: (value) => {
       currentTenant = value
     },
@@ -267,7 +270,7 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
       .includes('missing.hidden')
   )
   for (const [name, filter] of f.filters)
-    if (name !== 'Proposals' || !filter.publicId)
+    if (name !== 'Users' && (name !== 'Proposals' || !filter.publicId))
       assert.equal(filter.tenantId, tenant)
 })
 
@@ -484,4 +487,50 @@ test('создание версии проверяет исходный tenant, 
   f.setAllowed(false)
   assert.equal((await route.POST(f.req({ sourceProposalId: proposalId }), { params: { id: eventId } })).status, 403)
   assert.equal(f.proposal, source)
+})
+
+
+test('старое КП показывает актуальные соцсети профиля без изменения снимка, удалённые ссылки исчезают', async () => {
+  const f = fixture()
+  await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+  f.proposal.artistSnapshot = { fullName: 'Иван', phone: '+79000000000', telegram: 'obsolete' }
+  f.proposal.validUntil = new Date('2030-12-31')
+  f.proposal.blocksSnapshot = []
+  f.proposal.messageText = 'Предложение'
+  f.proposal.clientSnapshot = { firstName: 'Анна' }
+  const original = JSON.stringify(f.proposal.artistSnapshot)
+  f.setProfile({ _id: tenant, tenantId: tenant, telegram: 'new_name', max: 'https://max.ru/u/new', password: 'secret' })
+  const privateRoute = f.load('app/api/proposals/[id]/route.js')
+  const details = await privateRoute.GET(f.req({}), { params: { id: proposalId } })
+  assert.equal(details.body.data.socialContacts.telegram, 'new_name')
+  assert.equal(details.body.data.socialContacts.password, undefined)
+  const published = await privateRoute.PATCH(f.req({ action: 'publish' }), { params: { id: proposalId } })
+  const parts = new URL(published.body.data.publicUrl).pathname.split('/')
+  const params = { publicId: parts.at(-2), token: parts.at(-1) }
+  const publicRoute = f.load('app/api/public/proposals/[publicId]/[token]/route.js')
+  const read = () => publicRoute.GET(f.req({}), { params })
+  const readsBefore = f.filters.filter(([name]) => name === 'Users').length
+  assert.equal((await publicRoute.GET(f.req({}), { params: { ...params, token: 'invalid' } })).status, 404)
+  assert.equal(f.filters.filter(([name]) => name === 'Users').length, readsBefore)
+  const preview = await f.load('app/api/proposals/[id]/preview/route.js').POST(f.req({ socialContacts: { telegram: 'injected' } }), { params: { id: proposalId } })
+  assert.equal(preview.body.data.socialContacts.telegram, 'new_name')
+  const result = await read()
+  assert.equal(result.status, 200)
+  assert.equal(result.body.data.socialContacts.telegram, 'new_name')
+  assert.equal(result.body.data.socialContacts.max, 'https://max.ru/u/new')
+  assert.equal(result.body.data.socialContacts.phone, undefined)
+  assert.equal(JSON.stringify(f.proposal.artistSnapshot), original)
+  f.setProfile({ _id: tenant, tenantId: tenant, telegram: '', max: '' })
+  assert.equal((await read()).body.data.socialContacts.telegram, '')
+  for (const profile of [{ _id: foreign, tenantId: tenant }, { _id: tenant, tenantId: foreign }, { _id: tenant, archive: true }, null]) {
+    f.setProfile(profile)
+    assert.deepEqual((await read()).body.data.socialContacts, {})
+  }
+  f.setProfile({ _id: tenant, telegram: 'legacy_owner' })
+  assert.equal((await read()).body.data.socialContacts.telegram, 'legacy_owner')
+  for (const [, filter] of f.filters.filter(([name]) => name === 'Users')) {
+    assert.equal(filter._id, tenant)
+    assert.deepEqual(filter.$or, [{ tenantId: tenant }, { tenantId: null }])
+    assert.deepEqual(filter.archive, { $ne: true })
+  }
 })

@@ -40,6 +40,7 @@ function load(file, tenant = 'a', allowed = true) {
     updateOne: () => writes.push('update'),
   }
   const mocks = {
+    '@server/proposalSocialContacts': { getProposalSocialContacts: async () => ({ telegram: 'live' }) },
     'next/server': {
       NextResponse: {
         json: (body, options = {}) => ({ body, status: options.status || 200 }),

@@ -347,7 +347,8 @@ test(
               .waitFor()
             assert.equal(await preview.locator('a[href="tel:+79000000000"]').count(), 1)
             const socials = preview.getByRole('navigation', { name: 'Соцсети и мессенджеры' })
-            assert.equal(await socials.getByRole('link').count(), 3)
+            assert.equal(await socials.getByRole('link').count(), 4)
+            assert.equal(await socials.getByRole('link', { name: 'MAX', exact: true }).getAttribute('href'), 'https://max.ru/u/ivan')
             assert.equal(await socials.getByRole('link', { name: 'Telegram', exact: true }).getAttribute('href'), 'https://t.me/ivan')
             const formatted = preview.getByText('Новая шапка', { exact: true })
             const computed = await formatted.evaluate((element) => ({
@@ -399,10 +400,8 @@ test(
             assert.equal(await uploadButton.getAttribute('class'), await linkButton.getAttribute('class'))
             await page.getByLabel('Фото или видео', { exact: true }).setInputFiles({ name: 'gallery.png', mimeType: 'image/png', buffer: alphaPng })
             await page.locator('summary').filter({ hasText: 'Фото и видео (1/10)' }).waitFor()
-            await Promise.all([
-              page.waitForEvent('dialog').then(dialog => dialog.accept('https://vimeo.com/123456789/abc')),
-              linkButton.click(),
-            ])
+            await page.evaluate(value => { window.prompt = () => value }, 'https://vimeo.com/123456789/abc')
+            await linkButton.click()
             await page.locator('summary').filter({ hasText: 'Фото и видео (2/10)' }).waitFor()
             const photo = preview.getByAltText('gallery.png', { exact: true })
             await photo.waitFor()
@@ -423,20 +422,13 @@ test(
             const playerBox = await player.boundingBox()
             assert.ok(Math.abs(playerBox.width / playerBox.height - 16 / 9) < 0.02)
 
-            await Promise.all([
-
-              page.waitForEvent('dialog').then(dialog => dialog.accept('https://vimeo.com.evil.test/123')),
-
-              linkButton.click(),
-
-            ])
+            await page.evaluate(value => { window.prompt = () => value }, 'https://vimeo.com.evil.test/123')
+            await linkButton.click()
             await page.getByText('Укажите корректную http(s)-ссылку на VK Video, Rutube, YouTube или Vimeo').waitFor()
             assert.equal(await page.locator('summary').filter({ hasText: 'Фото и видео (2/10)' }).count(), 1)
             for (let index = 2; index < 10; index++) {
-              await Promise.all([
-                page.waitForEvent('dialog').then(dialog => dialog.accept(`https://vimeo.com/${123456789 + index}`)),
-                linkButton.click(),
-              ])
+              await page.evaluate(value => { window.prompt = () => value }, `https://vimeo.com/${123456789 + index}`)
+            await linkButton.click()
             }
             assert.equal(await uploadButton.isDisabled(), true)
             assert.equal(await linkButton.isDisabled(), true)
@@ -615,6 +607,17 @@ test(
             ),
             true
           )
+          // An old offer has no social fields; the API supplies current profile links separately.
+          await page.evaluate(() => window.showPublicProposal({ ...window.fixtureProposal,
+            artistSnapshot: { fullName: 'Иван', phone: '+7 900 000 00 00' },
+            socialContacts: { telegram: 'live_profile', max: 'https://max.ru/u/live' },
+          }))
+          const currentSocials = page.getByRole('navigation', { name: 'Соцсети и мессенджеры' })
+          await currentSocials.waitFor()
+          assert.equal(await currentSocials.getByRole('link', { name: 'Telegram', exact: true }).getAttribute('href'), 'https://t.me/live_profile')
+          assert.equal(await currentSocials.getByRole('link', { name: 'MAX', exact: true }).getAttribute('href'), 'https://max.ru/u/live')
+          await page.evaluate(() => window.showPublicProposal({ ...window.fixtureProposal, socialContacts: {} }))
+          await currentSocials.waitFor({ state: 'hidden' })
           const publicErrors = []
           page.on('pageerror', error => publicErrors.push(error.message))
           page.on('console', message => { if (message.type() === 'error') publicErrors.push(message.text()) })

@@ -1,3 +1,4 @@
+import { getProposalSocialContacts } from '@server/proposalSocialContacts'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
@@ -15,7 +16,7 @@ import {
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
 
-const publicData = (proposal) => {
+const publicData = async (proposal) => {
   const variables = {
     client: proposal.clientSnapshot || {},
     event: proposal.eventSnapshot || {},
@@ -43,6 +44,7 @@ const publicData = (proposal) => {
     event: proposal.eventSnapshot,
     client: { firstName: proposal.clientSnapshot?.firstName || '' },
     artist: proposal.artistSnapshot,
+    socialContacts: await getProposalSocialContacts(proposal),
     selectedPackageId: proposal.selectedPackageId || '',
     selectedAt: proposal.selectedAt,
     selectionLocked: isProposalSelectionLocked(proposal),
@@ -79,7 +81,7 @@ export const GET = async (_req, { params }) => {
   }
   await proposal.save()
   return NextResponse.json(
-    { success: true, data: publicData(proposal) },
+    { success: true, data: await publicData(proposal) },
     {
       headers: {
         'Cache-Control': 'no-store',
@@ -184,7 +186,7 @@ export const POST = async (req, { params }) => {
   }
   return NextResponse.json({
     success: true,
-    data: publicData(proposal),
+    data: await publicData(proposal),
     changed,
   })
 }

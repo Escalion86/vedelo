@@ -1,3 +1,4 @@
+import { getProposalSocialContacts } from '@server/proposalSocialContacts'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { applyProposalDraftChanges } from '@server/proposalDraftChanges'
 import mongoose from 'mongoose'
@@ -50,8 +51,8 @@ const authorize = async (req, id) => {
   return { context, proposal }
 }
 
-const serialize = (proposal, req) => {
-  const data = proposal.toJSON?.() ?? proposal
+const serialize = async (proposal, req) => {
+  const data = { ...(proposal.toJSON?.() ?? proposal), socialContacts: await getProposalSocialContacts(proposal) }
   if (
     !proposal.publicId ||
     !proposal.publicTokenNonce ||
@@ -73,7 +74,7 @@ export const GET = async (req, { params }) => {
   if (auth.response) return auth.response
   return NextResponse.json({
     success: true,
-    data: serialize(auth.proposal, req),
+    data: await serialize(auth.proposal, req),
   })
 }
 
@@ -121,7 +122,7 @@ export const PATCH = async (req, { params }) => {
     )
     if (!revoked)
       return error('Принятое клиентом или уже недоступное предложение нельзя отозвать', 409, 'revoke_unavailable')
-    return NextResponse.json({ success: true, data: serialize(revoked, req) })
+    return NextResponse.json({ success: true, data: await serialize(revoked, req) })
   } else if (action === 'apply') {
     // Confirmed historical markers are never auto-repaired. A pending operation
     // is different: the authenticated owner can reconcile only its frozen write.
@@ -269,7 +270,7 @@ export const PATCH = async (req, { params }) => {
         !same(confirmed.appliedAt || null, appliedAt) ||
         !same(confirmed.appliedSelectionAt || null, operation.selectedAt || null))
       return error('Не удалось подтвердить применение. Нужна сверка заказа.', 409, 'application_conflict')
-    return NextResponse.json({ success: true, data: serialize(confirmed, req), event })
+    return NextResponse.json({ success: true, data: await serialize(confirmed, req), event })
   } else {
     if (auth.proposal.status !== 'draft')
       return error(
@@ -283,7 +284,7 @@ export const PATCH = async (req, { params }) => {
   await auth.proposal.save()
   return NextResponse.json({
     success: true,
-    data: serialize(auth.proposal, req),
+    data: await serialize(auth.proposal, req),
   })
 }
 
