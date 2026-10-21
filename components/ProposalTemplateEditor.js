@@ -2,12 +2,13 @@
 
 import fieldHelp from '@helpers/fieldHelp.json'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import AppButton from '@components/AppButton'
 import FormWrapper from '@components/FormWrapper'
-import IconActionButton from '@components/IconActionButton'
+import ProposalAppearanceEditor from '@components/ProposalAppearanceEditor'
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
+import ProposalMediaEditor from '@components/ProposalMediaEditor'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
 import ProposalPackagesEditor from '@components/ProposalPackagesEditor'
@@ -15,8 +16,6 @@ import ProposalContentEditor from '@components/ProposalContentEditor'
 import ProposalPageView from '@components/ProposalPageView'
 import Textarea from '@components/Textarea'
 import { apiJson } from '@helpers/apiClient'
-import { sendFile } from '@helpers/cloudinary'
-import { resolveUploadedFileUrl } from '@helpers/escalionCloudUpload.mjs'
 import { formatMoney } from '@helpers/formatMoney'
 import getPersonFullName from '@helpers/getPersonFullName'
 import { useServicesQuery } from '@helpers/useEntityQueries'
@@ -33,9 +32,6 @@ import {
 } from '@helpers/proposalRichText'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 
-const MAX_TEMPLATE_MEDIA = 10
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const VIDEO_TYPES = ['video/mp4']
 // Примеры для предпросмотра считаются один раз при загрузке модуля.
 const PREVIEW_EVENT_DATE = new Date(
   Date.now() + 30 * 86400000
@@ -60,6 +56,7 @@ const buildDraft = (template, artist) => {
   return {
     _id: template?._id || null,
     name: template?.name || '',
+    appearance: normalizeProposalAppearance(template?.appearance),
     status: template?.status === 'archived' ? 'archived' : 'active',
     blocks: toProposalEditorBlocks(template?.blocks, {
       ...artist,
@@ -99,7 +96,6 @@ const ProposalTemplateEditor = ({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showPreview, setShowPreview] = useState(false)
-  const fileInputRef = useRef(null)
 
   const isChanged = JSON.stringify(draft) !== baseline
   const mediaDirectory = `proposal-templates/${
@@ -147,6 +143,7 @@ const ProposalTemplateEditor = ({
       draft.packages.find((item) => item.recommended) || draft.packages[0]
     return {
       title: draft.name || 'Персональное предложение',
+      appearance: draft.appearance,
       blocks: draft.blocks.map((block) => ({
         ...block,
         title: renderProposalVariables(block.title || '', previewVariables)
@@ -170,59 +167,40 @@ const ProposalTemplateEditor = ({
       expired: false,
       recommendedPackageId: recommended?.id || '',
     }
-  }, [draft.blocks, draft.media, draft.name, draft.packages, previewVariables])
+  }, [draft.appearance, draft.blocks, draft.media, draft.name, draft.packages, previewVariables])
 
   const hasLines = draft.packages.some((item) => item.lines.length > 0)
 
-  const uploadMedia = useCallback(
-    async (file) => {
-      if (!file || saving) return
-      const isImage = IMAGE_TYPES.includes(file.type)
-      const isVideo = VIDEO_TYPES.includes(file.type)
-      const limit = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024
-      if (!isImage && !isVideo) {
-        setError('Разрешены JPG, PNG, WebP до 10 МБ и MP4 до 50 МБ')
-        return
-      }
-      if (file.size > limit) {
-        setError('Разрешены JPG, PNG, WebP до 10 МБ и MP4 до 50 МБ')
-        return
-      }
-      setError('')
-      setSaving(true)
-      const uploadResult = await sendFile(file, null, mediaDirectory)
-      const url = resolveUploadedFileUrl(uploadResult, {
-        directory: mediaDirectory,
+  const uploadLogo = async (file) => {
+    if (!file || saving) return
+    setSaving(true)
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const response = await fetch(`/api/proposal-templates/${draft._id || 'new'}/logo`, {
+        method: 'POST', body: form,
       })
-      if (url) {
-        setDraft((current) => ({
-          ...current,
-          media: [
-            ...(current.media || []),
-            {
-              id: crypto.randomUUID(),
-              kind: isVideo ? 'video' : 'image',
-              url,
-              title: file.name,
-              fileName: file.name,
-              contentType: file.type,
-              size: file.size,
-            },
-          ].slice(0, MAX_TEMPLATE_MEDIA),
-        }))
-      } else {
-        setError('Не удалось загрузить файл')
-      }
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result.data?.url)
+        throw new Error(result?.error?.message || 'Не удалось загрузить логотип')
+      setDraft((current) => ({
+        ...current,
+        appearance: { ...current.appearance, logoUrl: result.data.url },
+      }))
+    } catch (error) {
+      setError(error?.message || 'Не удалось загрузить логотип')
+    } finally {
       setSaving(false)
-    },
-    [mediaDirectory, saving]
-  )
+    }
+  }
 
   const save = useCallback(async () => {
     setError('')
     setSaving(true)
     const payload = {
       name: draft.name.trim(),
+      appearance: draft.appearance,
       status: draft.status,
       blocks: draft.blocks,
       messageTemplate: draft.messageTemplate,
@@ -283,95 +261,28 @@ const ProposalTemplateEditor = ({
         required
         noMargin
       />
-      <Textarea
-        label="Сообщение для чата"
-        value={draft.messageTemplate}
-        onChange={(messageTemplate) =>
-          setDraft((current) => ({ ...current, messageTemplate }))
-        }
-        help={fieldHelp['proposal.templateMessage']}
-      />
       <ProposalContentEditor
         blocks={draft.blocks}
         onChange={(blocks) => setDraft((current) => ({ ...current, blocks }))}
         artist={loggedUser}
         directory={mediaDirectory}
+        appearanceEditor={
+          <ProposalAppearanceEditor
+            value={draft.appearance}
+            onChange={(appearance) => setDraft((current) => ({ ...current, appearance }))}
+            onUpload={uploadLogo}
+            busy={saving}
+          />
+        }
         mediaEditor={
-          <div className="rounded-lg border border-gray-200 p-3">
-            <div className="font-semibold">
-              Фото и видео ({draft.media?.length || 0}/{MAX_TEMPLATE_MEDIA})
-            </div>
-            {(draft.media || []).length ? (
-              <div className="tablet:grid-cols-2 mt-3 grid gap-2">
-                {(draft.media || []).map((item, index) => (
-                  <div
-                    key={item.id || item.url}
-                    className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {item.title || item.url}
-                    </span>
-                    <IconActionButton
-                      icon={faTrashAlt}
-                      variant="danger"
-                      size="xs"
-                      title={`Удалить «${item.title || item.url}»`}
-                      onClick={() =>
-                        setDraft((current) => ({
-                          ...current,
-                          media: current.media.filter(
-                            (_, mediaIndex) => mediaIndex !== index
-                          ),
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-3 text-xs text-gray-500">
-                Медиа пока не добавлено. Картинки и видео можно вставить и прямо
-                в текст блока.
-              </div>
-            )}
-            <div className="tablet:flex-row mt-3 flex flex-col items-start gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,video/mp4"
-                className="text-xs"
-                disabled={saving}
-                onChange={(event) => {
-                  void uploadMedia(event.target.files?.[0] ?? null)
-                  event.target.value = ''
-                }}
-              />
-              <AppButton
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const url = window.prompt(
-                    'Ссылка на VK Video, Rutube или YouTube'
-                  )
-                  if (url)
-                    setDraft((current) => ({
-                      ...current,
-                      media: [
-                        ...(current.media || []),
-                        {
-                          id: crypto.randomUUID(),
-                          kind: 'video_link',
-                          url,
-                          title: 'Видео',
-                        },
-                      ].slice(0, MAX_TEMPLATE_MEDIA),
-                    }))
-                }}
-              >
-                Добавить ссылку на видео
-              </AppButton>
-            </div>
-          </div>
+          <ProposalMediaEditor
+            media={draft.media}
+            onChange={(media) => setDraft((current) => ({ ...current, media }))}
+            directory={mediaDirectory}
+            busy={saving}
+            setBusy={setSaving}
+            onError={setError}
+          />
         }
       >
         <ProposalPackagesEditor
@@ -386,6 +297,18 @@ const ProposalTemplateEditor = ({
           hint="Варианты, позиции и цены шаблона попадают в каждое новое предложение по этому шаблону."
         />
       </ProposalContentEditor>
+      <details className="rounded-lg border border-gray-200 p-3">
+        <summary className="cursor-pointer font-semibold">Сообщение для чата</summary>
+      <Textarea
+        label="Текст сообщения"
+        rows={3}
+        value={draft.messageTemplate}
+        onChange={(messageTemplate) =>
+          setDraft((current) => ({ ...current, messageTemplate }))
+        }
+        help={fieldHelp['proposal.templateMessage']}
+      />
+      </details>
       <div>
         <AppButton
           size="sm"

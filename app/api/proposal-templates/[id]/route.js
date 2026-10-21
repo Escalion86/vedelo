@@ -1,3 +1,4 @@
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
@@ -66,6 +67,7 @@ export const PATCH = async (req, { params }) => {
   if (body.status !== undefined) update.status = body.status === 'archived' ? 'archived' : 'active'
   if (body.blocks !== undefined) update.blocks = normalizeProposalBlocks(body.blocks)
   if (body.messageTemplate !== undefined) update.messageTemplate = String(body.messageTemplate || '').trim().slice(0, 4000)
+  if (body.appearance !== undefined) update.appearance = normalizeProposalAppearance(body.appearance, auth.context.tenantId)
   if (body.media !== undefined) update.media = normalizeProposalMedia(body.media)
   if (body.defaults !== undefined) update.defaults = normalizeProposalTemplateDefaults(body.defaults)
   if (update.name === '') return error('Укажите название шаблона', 400, 'name_required')

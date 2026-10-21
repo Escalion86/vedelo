@@ -36,6 +36,7 @@ const response = (data, status = 200) => ({
 })
 
 const mocks = {
+  '@components/ProposalMediaEditor': Box,
   '@helpers/fieldHelp.json': require('../../helpers/fieldHelp.json'),
   '@components/FieldHelp': () => null,
   jotai: {

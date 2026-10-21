@@ -1,3 +1,4 @@
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { NextResponse } from 'next/server'
 import ProposalTemplates from '@models/ProposalTemplates'
@@ -51,6 +52,7 @@ export const POST = async (req) => {
     status: body?.status === 'archived' ? 'archived' : 'active',
     blocks: normalizeProposalBlocks(body?.blocks),
     messageTemplate: String(body?.messageTemplate || '').trim().slice(0, 4000),
+    appearance: normalizeProposalAppearance(body?.appearance, tenantId),
     media: normalizeProposalMedia(body?.media),
     defaults: normalizeProposalTemplateDefaults(body?.defaults),
   })

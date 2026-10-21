@@ -13,7 +13,7 @@ export const isProposalLogoUrl = (value, tenantId) => {
   try {
     const url = new URL(value)
     const match = url.pathname.match(
-      /^\/uploads\/vedelo\/([a-f0-9]{24})\/proposals\/[a-f0-9]{24}\/logos\/[a-f0-9-]+\/[^/]+\.webp$/i
+      /^\/uploads\/vedelo\/([a-f0-9]{24})\/(?:proposals|proposal-templates)\/[a-f0-9]{24}\/logos\/[a-f0-9-]+\/[^/]+\.webp$/i
     )
     return (
       url.origin === 'https://cloud.escalion.ru' &&

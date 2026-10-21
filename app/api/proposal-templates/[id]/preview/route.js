@@ -45,6 +45,7 @@ export async function POST(req, { params }) {
   const snapshot = buildProposalSnapshot({
     template: {
       ...template,
+      ...(input.appearance !== undefined ? { appearance: input.appearance } : {}),
       ...(input.blocks !== undefined ? { blocks: input.blocks } : {}),
       ...(input.media !== undefined ? { media: input.media } : {}),
       ...(input.defaults !== undefined ? { defaults: input.defaults } : {}),

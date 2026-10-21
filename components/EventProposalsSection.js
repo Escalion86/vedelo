@@ -32,7 +32,7 @@ import ProposalAppearanceEditor from '@components/ProposalAppearanceEditor'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import { useServicesQuery } from '@helpers/useEntityQueries'
 import { isProposalSelectionApplied, isProposalSelectionLocked, isProposalApplicationPending } from '@helpers/proposalWorkflow'
-import { sendFile } from '@helpers/cloudinary'
+import ProposalMediaEditor from '@components/ProposalMediaEditor'
 import {
   renderProposalVariables,
   toProposalEditorBlocks,
@@ -98,7 +98,6 @@ const EventProposalsSection = ({
   setDisableConfirm,
 }) => {
   const snackbar = useSnackbar()
-  const mediaInput = useRef(null)
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const queryClient = useQueryClient()
   const {
@@ -505,59 +504,6 @@ const EventProposalsSection = ({
     }
   }
 
-  const uploadProposalMedia = async (file) => {
-    if (!file || !editing) return
-    const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(
-      file.type
-    )
-    const isVideo = file.type === 'video/mp4'
-    const limit = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024
-    if ((!isImage && !isVideo) || file.size > limit) {
-      reportMessage({
-        tone: 'error',
-        text: 'Разрешены JPG, PNG, WebP до 10 МБ и MP4 до 50 МБ',
-      })
-      return
-    }
-    if ((editing.mediaSnapshot || []).length >= 10) {
-      reportMessage({
-        tone: 'error',
-        text: 'Можно добавить не больше 10 медиа',
-      })
-      return
-    }
-    setBusy(true)
-    const result = await sendFile(file, null, `proposals/${editing._id}`)
-    const uploaded = Array.isArray(result) ? result[0] : result
-    const rawUrl = uploaded?.url || uploaded?.fileUrl || ''
-    const path = uploaded?.path || uploaded?.filePath || ''
-    const url =
-      rawUrl ||
-      (path
-        ? `https://cloud.escalion.ru/uploads/${String(path).replace(/^\/+/, '')}`
-        : '')
-    if (url) {
-      setEditing((current) => ({
-        ...current,
-        mediaSnapshot: [
-          ...(current.mediaSnapshot || []),
-          {
-            id: crypto.randomUUID(),
-            kind: isVideo ? 'video' : 'image',
-            url,
-            title: file.name,
-            fileName: file.name,
-            contentType: file.type,
-            size: file.size,
-          },
-        ],
-      }))
-    } else {
-      reportMessage({ tone: 'error', text: 'Не удалось загрузить файл' })
-    }
-    setBusy(false)
-  }
-
   if (unavailable)
     return (
       <Notice tone="warning">
@@ -648,82 +594,14 @@ const EventProposalsSection = ({
             />
           }
           mediaEditor={
-            <details className="rounded-lg border border-gray-200 p-3">
-              <summary className="cursor-pointer font-semibold">
-                Фото и видео ({editing.mediaSnapshot?.length || 0}/10)
-              </summary>
-              <div className="mt-2 space-y-2">
-                {(editing.mediaSnapshot || []).map((item, index) => (
-                  <div
-                    key={item.id || item.url}
-                    className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
-                  >
-                    <span className="min-w-0 truncate">
-                      {item.title || item.url}
-                    </span>
-                    <IconActionButton
-                      icon={faTrashAlt}
-                      title="Удалить"
-                      variant="danger"
-                      size="sm"
-                      onClick={() =>
-                        setEditing((current) => ({
-                          ...current,
-                          mediaSnapshot: current.mediaSnapshot.filter(
-                            (_, mediaIndex) => mediaIndex !== index
-                          ),
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="tablet:flex-row mt-3 flex flex-col gap-2">
-                <AppButton
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => mediaInput.current?.click()}
-                >
-                  Загрузить фото или видео
-                </AppButton>
-                <input
-                  ref={mediaInput}
-                  className="hidden"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,video/mp4"
-                  disabled={busy}
-                  onChange={(event) => {
-                    uploadProposalMedia(event.target.files?.[0])
-                    event.target.value = ''
-                  }}
-                />
-                <AddIconButton
-                  title="Добавить видео-ссылку"
-                  label="Добавить видео-ссылку"
-                  size="sm"
-                  className="ml-auto self-end px-3"
-                  onClick={() => {
-                    const url = window.prompt(
-                      'Ссылка на VK Video, Rutube или YouTube'
-                    )
-                    if (url)
-                      setEditing((current) => ({
-                        ...current,
-                        mediaSnapshot: [
-                          ...(current.mediaSnapshot || []),
-                          {
-                            id: crypto.randomUUID(),
-                            kind: 'video_link',
-                            url,
-                            title: 'Видео',
-                          },
-                        ].slice(0, 10),
-                      }))
-                  }}
-                />
-              </div>
-            </details>
+            <ProposalMediaEditor
+              media={editing.mediaSnapshot || []}
+              onChange={(mediaSnapshot) => setEditing((current) => ({ ...current, mediaSnapshot }))}
+              directory={`proposals/${editing._id || 'draft'}`}
+              busy={busy}
+              setBusy={setBusy}
+              onError={(text) => reportMessage(text ? { tone: 'error', text } : null)}
+            />
           }
         >
           <ProposalPackagesEditor

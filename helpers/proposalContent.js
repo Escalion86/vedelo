@@ -87,6 +87,7 @@ const isSupportedVideoLink = (value) => {
       'rutube.ru',
       'vk.com',
       'vkvideo.ru',
+      'vimeo.com',
     ].some((domain) => host === domain || host.endsWith(`.${domain}`))
   } catch {
     return false

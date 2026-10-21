@@ -1,3 +1,4 @@
+import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import crypto from 'crypto'
 import { formatMoney } from '@helpers/formatMoney'
 import getPersonFullName from '@helpers/getPersonFullName'
@@ -92,6 +93,7 @@ export const buildProposalSnapshot = ({ template, event, client, services, artis
   )
   const rawMessage = normalizeProposalMessage(input.messageText || template?.messageTemplate || DEFAULT_PROPOSAL_MESSAGE)
   return {
+    appearance: normalizeProposalAppearance(template?.appearance, event?.tenantId || template?.tenantId),
     blocksSnapshot,
     packages,
     mediaSnapshot: normalizeProposalMedia(input.media || template?.media),

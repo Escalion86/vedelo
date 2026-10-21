@@ -269,3 +269,13 @@ test('варианты шаблона становятся вариантами 
   assert.equal(fromEvent[0].total, 7000)
   assert.equal(fromEvent[0].manualTotal, false)
 })
+
+
+test('Vimeo links survive normalization, unsafe and lookalike URLs do not', () => {
+  for (const url of ['https://vimeo.com/123456789', 'https://vimeo.com/123456789/abcdef', 'https://player.vimeo.com/video/123456789?h=abc']) {
+    assert.equal(normalizeProposalMedia([{ kind: 'video_link', url }])[0]?.url, url)
+  }
+  for (const url of ['https://vimeo.com.evil.test/123', 'https://evilvimeo.com/123', 'javascript:alert(1)', 'ftp://vimeo.com/123']) {
+    assert.deepEqual(normalizeProposalMedia([{ kind: 'video_link', url }]), [])
+  }
+})

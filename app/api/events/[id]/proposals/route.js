@@ -125,6 +125,7 @@ export const POST = async (req, { params }) => {
     version: Number(latest?.version || 0) + 1,
     title: String(body?.title || template.name || 'Коммерческое предложение').trim().slice(0, 200),
     validUntil,
+    appearance: normalizeProposalAppearance(snapshot.appearance, resolved.context.tenantId),
     blocksSnapshot: snapshot.blocksSnapshot,
     packages: snapshot.packages,
     mediaSnapshot: snapshot.mediaSnapshot,

@@ -241,7 +241,7 @@ export default function ProposalPageView({
                       width={800}
                       height={450}
                       loader={proposalImageLoader}
-                      className="aspect-video w-full rounded-2xl object-cover"
+                      className="h-auto w-full rounded-2xl object-contain"
                     />
                   ) : item.kind === 'video' ? (
                     <video

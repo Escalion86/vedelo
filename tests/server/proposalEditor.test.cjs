@@ -359,3 +359,43 @@ test('настоящий logo POST + sharp сохраняет альфа-кан�
   )
   assert.equal(f.uploads.length, 1)
 })
+
+
+test('template appearance and Vimeo persist through create, patch, preview and new proposal; foreign logos rejected', async () => {
+  const f = fixture()
+  const logoUrl = `https://cloud.escalion.ru/uploads/vedelo/${tenant}/proposal-templates/${templateId}/logos/a123/logo.webp`
+  const appearance = { theme: 'blue', logoUrl }
+  const media = [{ id: 'vimeo', kind: 'video_link', url: 'https://vimeo.com/123456789/abc' }]
+  const create = f.load('app/api/proposal-templates/route.js')
+  const templates = f.load('app/api/proposal-templates/[id]/route.js')
+  assert.equal((await create.POST(f.req({ name: 'Template', appearance, media }))).status, 201)
+  assert.deepEqual(f.template.appearance, appearance)
+  const patch = await templates.PATCH(f.req({ appearance: { ...appearance, theme: 'dark' } }), { params: { id: templateId } })
+  assert.equal(patch.body.data.appearance.theme, 'dark')
+  const created = await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({ templateId }), { params: { id: eventId } })
+  assert.deepEqual(created.body.data.appearance, { ...appearance, theme: 'dark' })
+  assert.equal(created.body.data.mediaSnapshot[0].url, media[0].url)
+  const preview = await f.load('app/api/proposal-templates/[id]/preview/route.js').POST(f.req({}), { params: { id: templateId } })
+  assert.equal(preview.body.data.appearance.logoUrl, logoUrl)
+  await templates.PATCH(f.req({ appearance: { ...appearance, logoUrl: logoUrl.replace(tenant, foreign) } }), { params: { id: templateId } })
+  assert.equal(f.template.appearance.logoUrl, '')
+})
+
+test('template logo upload checks tenant and tariff before reading file, supports unsaved template', async () => {
+  const f = fixture()
+  await f.load('app/api/proposal-templates/route.js').POST(f.req({ name: 'Template' }))
+  const route = f.load('app/api/proposal-templates/[id]/logo/route.js')
+  const bytes = await sharp({ create: { width: 10, height: 20, channels: 4, background: '#ffffff00' } }).png().toBuffer()
+  const req = { ...f.req({}), formData: async () => { const form = new FormData(); form.append('file', new File([bytes], 'logo.png', { type: 'image/png' })); return form } }
+  assert.equal((await route.POST(req, { params: { id: templateId } })).status, 200)
+  assert.equal((await route.POST(req, { params: { id: 'new' } })).status, 200)
+  assert.equal(f.uploads.length, 2)
+  f.setTenant(foreign)
+  assert.equal((await route.POST(req, { params: { id: templateId } })).status, 404)
+  f.setTenant(null)
+  assert.equal((await route.POST(req, { params: { id: 'new' } })).status, 401)
+  f.setTenant(tenant)
+  f.setAllowed(false)
+  assert.equal((await route.POST(req, { params: { id: 'new' } })).status, 403)
+  assert.equal(f.uploads.length, 2)
+})

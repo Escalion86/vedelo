@@ -61,9 +61,9 @@ const SectionStub = ({ title, summary, children }) =>
     React.createElement('div', null, summary),
     children
   )
-const InputStub = ({ label, value, onChange, disabled }) =>
+const InputStub = ({ ariaLabel, label, value, onChange, disabled }) =>
   React.createElement('input', {
-    'aria-label': label,
+    'aria-label': ariaLabel || label,
     value: value ?? '',
     disabled,
     onChange: (event) => onChange?.(event.target.value),
@@ -76,6 +76,9 @@ const TextareaStub = ({ label, value, onChange }) =>
   })
 
 const mocks = {
+  '@components/ProposalAppearanceEditor': Box,
+  '@helpers/proposalAppearance.mjs': require('../../helpers/proposalAppearance.mjs'),
+  '@components/ProposalMediaEditor': Box,
   jotai: {
     useAtomValue: (atom) => (atom === 'loggedUserAtom' ? loggedUser : modalsFunc),
   },

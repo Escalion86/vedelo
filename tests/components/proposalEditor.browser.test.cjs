@@ -94,6 +94,7 @@ test(
     })
       .png()
       .toBuffer()
+    const portraitPng = await sharp({ create: { width: 60, height: 100, channels: 3, background: '#ac7945' } }).png().toBuffer()
     const inlineVideo = await fs.readFile(
       'tests/android-proposals/fixtures.stageH/regular.mp4'
     )
@@ -147,12 +148,16 @@ test(
                 headers: { 'Access-Control-Allow-Origin': '*' },
                 body: route.request().url().endsWith('.mp4')
                   ? inlineVideo
-                  : alphaPng,
+                  : route.request().url().endsWith('gallery.png') ? portraitPng : alphaPng,
               })
             )
             await page.route('**/api/**', async (route) => {
               const req = route.request(),
                 url = new URL(req.url()).pathname
+              if (req.method() === 'POST' && url.endsWith('/logo')) {
+                assert.match(req.headers()['content-type'], /multipart\/form-data; boundary=/)
+                return route.fulfill({ json: { success: true, data: { url: logoUrl.replace('/proposals/', '/proposal-templates/') } } })
+              }
               if (
                 req.method() === 'PATCH' &&
                 url.startsWith('/api/proposals/')
@@ -279,6 +284,10 @@ test(
               'Корзина справа от названия'
             )
             assert.ok(
+              Math.abs(removeBox.y + removeBox.height / 2 - inputBox.y - inputBox.height / 2) < 2,
+              'Корзина выровнена по центру поля, без учёта подписи'
+            )
+            assert.ok(
               recommendBox.y >= inputBox.y + inputBox.height,
               'Рекомендация под названием'
             )
@@ -372,7 +381,73 @@ test(
               ),
               true
             )
+            if (kind === 'template') {
+              await page.locator('.proposal-appearance summary').click()
+              await page.getByLabel('Файл логотипа', { exact: true }).setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: alphaPng })
+              await preview.getByAltText('Логотип', { exact: true }).waitFor()
+              assert.equal(await preview.getByAltText('Логотип', { exact: true }).getAttribute('src'), logoUrl.replace('/proposals/', '/proposal-templates/'))
+            }
+            // Общая галерея: загрузка, Vimeo, одинаковые кнопки и исходные пропорции.
+            await page.locator('summary').filter({ hasText: 'Фото и видео (' }).click()
+            const uploadButton = page.getByRole('button', { name: 'Загрузить фото или видео', exact: true })
+            const linkButton = page.getByRole('button', { name: 'Добавить видео-ссылку', exact: true })
+            assert.equal(await uploadButton.getAttribute('class'), await linkButton.getAttribute('class'))
+            await page.getByLabel('Фото или видео', { exact: true }).setInputFiles({ name: 'gallery.png', mimeType: 'image/png', buffer: alphaPng })
+            await page.locator('summary').filter({ hasText: 'Фото и видео (1/10)' }).waitFor()
+            page.once('dialog', dialog => dialog.accept('https://vimeo.com/123456789/abc'))
+            await linkButton.click()
+            await page.locator('summary').filter({ hasText: 'Фото и видео (2/10)' }).waitFor()
+            const photo = preview.getByAltText('gallery.png', { exact: true })
+            await photo.waitFor()
+            await photo.evaluate(image => image.decode())
+            const geometry = await photo.evaluate(image => ({
+              ratio: image.getBoundingClientRect().width / image.getBoundingClientRect().height,
+              natural: image.naturalWidth / image.naturalHeight,
+              fit: getComputedStyle(image).objectFit,
+            }))
+            assert.ok(Math.abs(geometry.ratio - geometry.natural) < 0.02)
+            assert.equal(geometry.fit, 'contain')
+            assert.equal(await preview.locator('a[href="https://vimeo.com/123456789/abc"]').count(), 1)
+            page.once('dialog', dialog => dialog.accept('https://vimeo.com.evil.test/123'))
+            await linkButton.click()
+            await page.getByText('Укажите корректную http(s)-ссылку на VK Video, Rutube, YouTube или Vimeo').waitFor()
+            assert.equal(await page.locator('summary').filter({ hasText: 'Фото и видео (2/10)' }).count(), 1)
+            for (let index = 2; index < 10; index++) {
+              page.once('dialog', dialog => dialog.accept(`https://vimeo.com/${123456789 + index}`))
+              await linkButton.click()
+            }
+            assert.equal(await uploadButton.isDisabled(), true)
+            assert.equal(await linkButton.isDisabled(), true)
+            await page.getByRole('button', { name: 'Удалить «Видео»', exact: true }).last().click()
+            assert.equal(await uploadButton.isDisabled(), false)
+            assert.equal(await linkButton.isDisabled(), false)
+            // Оставляем только фото и первую ссылку для компактного снимка.
+            for (let index = 9; index > 2; index--) {
+              await page.getByRole('button', { name: 'Удалить «Видео»', exact: true }).last().click()
+            }
+            const upPhoto = page.getByRole('button', { name: 'Переместить вверх «gallery.png»', exact: true })
+            const downPhoto = page.getByRole('button', { name: 'Переместить вниз «gallery.png»', exact: true })
+            const downVideo = page.getByRole('button', { name: 'Переместить вниз «Видео»', exact: true })
+            assert.equal(await upPhoto.isDisabled(), true)
+            assert.equal(await downVideo.isDisabled(), true)
+            await downPhoto.click()
+            assert.equal(await downPhoto.isDisabled(), true)
+            assert.equal(await upPhoto.isDisabled(), false)
+            const mediaOrder = () => preview.locator('a[href="https://vimeo.com/123456789/abc"]').evaluate(link =>
+              Array.from(link.parentElement.children).map(item => item.tagName))
+            assert.deepEqual(await mediaOrder(), ['A', 'IMG'])
+            await upPhoto.focus()
+            await upPhoto.press('Enter')
+            assert.deepEqual(await mediaOrder(), ['IMG', 'A'])
+            await page.getByRole('button', { name: 'Переместить вверх «Видео»', exact: true }).click()
+            assert.deepEqual(await mediaOrder(), ['A', 'IMG'])
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
             const suffix = `${kind}-${width}-${dark ? 'dark' : 'light'}`
+            await photo.scrollIntoViewIfNeeded()
+            await page.screenshot({ path: path.join(artifactDir, 'screenshots', `${suffix}-photo.png`) })
+            await uploadButton.scrollIntoViewIfNeeded()
+            await page.screenshot({ path: path.join(artifactDir, 'screenshots', `${suffix}-media.png`) })
+
             await page.screenshot({
               path: path.join(artifactDir, 'screenshots', `${suffix}.png`),
               fullPage: true,
@@ -411,6 +486,8 @@ test(
               document.body.innerText.includes('Проверка редактора КП')
             )
             assert.ok(saved, 'Запрос сохранения выполнен')
+            assert.equal(saved.media[0].url, 'https://vimeo.com/123456789/abc')
+            assert.equal(saved.media[1].title, 'gallery.png')
             const savedBlocks = saved.blocks
             for (const value of [
               'inline.png',

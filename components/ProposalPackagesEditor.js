@@ -209,11 +209,17 @@ const ProposalPackagesEditor = ({
             noDivider
             wrapSummary
           >
+            <div className="input-label mb-1 flex items-center gap-1 px-1 text-xs font-semibold">
+              Название варианта
+              <FieldHelp
+                label="Название варианта"
+                text="Вариант — отдельный набор услуг и цены, который клиент сможет выбрать на странице предложения."
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Input
                 inputClassName="min-w-0"
-                label="Название варианта"
-                help="Вариант — отдельный набор услуг и цены, который клиент сможет выбрать на странице предложения."
+                ariaLabel="Название варианта"
                 noMargin
                 fullWidth
                 className="min-w-0 flex-1"
