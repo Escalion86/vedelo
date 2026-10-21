@@ -1,4 +1,5 @@
 import fieldHelp from '@helpers/fieldHelp.json'
+import scrollExpandedEventSection from '@helpers/scrollExpandedEventSection.mjs'
 import FieldHelp from './FieldHelp'
 import { useEffect, useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -104,7 +105,7 @@ export default function CompactEventForm({
   const hasAiHighlight = (...fieldNames) =>
     fieldNames.some((fieldName) => aiHighlightedFields.has(fieldName))
   return (
-    <div ref={ref} className="compact-event-form">
+    <div ref={ref} className="compact-event-form" onClick={scrollExpandedEventSection}>
       {isNew ? (
         <p className="mb-4 text-sm text-gray-500">
           Сохраните главное, детали — позже
@@ -191,10 +192,11 @@ export default function CompactEventForm({
                 : 'Добавить услугу и тип события'
             }
             summary={
-              selectedServices.length
-                ? eventType || `Выбрано услуг: ${selectedServices.length}`
-                : 'Не выбрано'
+              [eventType, selectedServices.map((service) => service.title).join(', ')]
+                .filter(Boolean)
+                .join(' · ') || 'Не выбрано'
             }
+            wrapSummary
             icon={faPlus}
             invalid={Boolean(errors.servicesIds || errors.eventType)}
             aiHighlighted={hasAiHighlight('servicesIds', 'eventType')}

@@ -5284,17 +5284,17 @@ body.theme-dark .photo-draft-source { background-color: var(--sidebar-bg); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  min-height: 56px;
-  padding: 12px 16px;
+  min-height: 44px;
+  padding: 7px 16px;
   border: 1px solid #555;
   border-radius: 8px;
   background: #1a1a1a;
   color: #fff;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
-  line-height: 28px;
+  line-height: 24px;
   text-decoration: none;
   cursor: pointer;
 }
@@ -5305,16 +5305,9 @@ body.theme-dark .photo-draft-source { background-color: var(--sidebar-bg); }
   outline-offset: 3px;
 }
 .yandex-auth-button-logo {
-  display: grid;
-  place-items: center;
+  display: block;
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  background: #f00;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  font-size: 23px;
-  font-weight: 400;
-  line-height: 1;
+  object-fit: contain;
 }

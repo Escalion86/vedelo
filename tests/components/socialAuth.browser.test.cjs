@@ -12,7 +12,7 @@ test('social auth UI: admin save, login visibility, automatic phone login, mobil
     '@helpers/useSnackbar': 'const s={success:()=>{},error:()=>{}};export default ()=>s;',
     '@helpers/metrikaGoals': 'export const reachGoal=()=>{};export const reachGoalOnce=()=>{};',
     'next/link': 'export default function Link({children,...props}){return <a {...props}>{children}</a>}',
-    'next/image': 'export default function Image({priority,fill,...props}){return <img {...props}/>}',
+    'next/image': 'export default function Image({priority,fill,unoptimized,...props}){return <img {...props}/>}',
     'next-auth/react': 'export const signIn=async()=>{window.__signInCount=(window.__signInCount||0)+1;return location.search.includes("fail")?{error:"mock-error"}:{ok:true}}; export const signOut=async()=>{};',
   }
   const bundle = await esbuild.build({
@@ -40,7 +40,13 @@ test('social auth UI: admin save, login visibility, automatic phone login, mobil
   const css = (await require('postcss')([require('@tailwindcss/postcss')()]).process(
     await fs.readFile('app/globals.css', 'utf8'), { from: path.resolve('app/globals.css') }
   )).css
+  const logo = await fs.readFile('public/icons/yandex-id-original.png')
   const server = http.createServer((req, res) => {
+    if (req.url === '/icons/yandex-id-original.png') {
+      res.writeHead(200, { 'Content-Type': 'image/png' })
+      res.end(logo)
+      return
+    }
     res.writeHead(200, { 'Content-Type': 'text/html' })
     res.end(`<!doctype html><html><head><title>Social auth QA</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div><script>${bundle.outputFiles[0].text.replaceAll('</script', '<\\/script')}</script></body></html>`)
   })
@@ -105,7 +111,8 @@ test('social auth UI: admin save, login visibility, automatic phone login, mobil
       await branded.focus()
       assert.equal(await branded.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(26, 26, 26)')
       assert.equal(await branded.evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)')
-      assert.ok((await branded.boundingBox()).height >= 56)
+      assert.equal((await branded.boundingBox()).height, 44)
+      await page.waitForFunction(() => document.querySelector('.yandex-auth-button-logo')?.naturalWidth === 1280)
       await page.screenshot({ path: path.join(screenshots, `login-${width}-${dark}.png`), fullPage: true })
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       await page.goto(`${origin}/login?mode=register`)
