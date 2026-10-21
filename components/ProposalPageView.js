@@ -36,6 +36,7 @@ export default function ProposalPageView({
   )
   const header = blocks.get('header')
   const packagesIntro = blocks.get('packagesIntro')
+  const packagesOutro = blocks.get('packagesOutro')
   const closing = blocks.get('closing')
   const cover = blocks.get('cover')
   const intro = blocks.get('intro')
@@ -231,6 +232,9 @@ export default function ProposalPageView({
             </section>
           ) : null}
 
+          {packagesOutro ? (
+            <ProposalRichTextView html={packagesOutro.contentHtml} />
+          ) : null}
           {mediaBlock && proposal.media?.length ? (
             <section>
               <h2 className="text-2xl font-semibold">{mediaBlock.title}</h2>

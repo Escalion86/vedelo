@@ -202,7 +202,10 @@ const template = {
   _id: 't1',
   name: 'Основной шаблон',
   status: 'active',
-  blocks: [{ type: 'cover', title: 'Обложка', enabled: true }],
+  blocks: [
+    { type: 'cover', title: 'Обложка', enabled: true },
+    { type: 'packages', title: 'Варианты программы', enabled: true },
+  ],
   messageTemplate: '{{client.firstName}}, добрый день!',
   media: [],
   defaults: {},
@@ -378,7 +381,9 @@ test('«Рекомендуем», ручная цена варианта и вт
     'false'
   )
 
-  const manualToggle = element.querySelector('label input[type="checkbox"]')
+  const manualToggle = [...element.querySelectorAll('label')]
+    .find(label => label.textContent.includes('Указать итоговую цену вручную'))
+    .querySelector('input[type="checkbox"]')
   assert.ok(manualToggle)
   await React.act(async () => manualToggle.click())
   const totalInput = element.querySelector('input[aria-label="Итого"]')

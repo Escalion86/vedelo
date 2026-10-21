@@ -5,6 +5,7 @@ const proposalsSchema = {
   eventId: { type: Schema.Types.ObjectId, ref: 'Events', required: true },
   clientId: { type: Schema.Types.ObjectId, ref: 'Clients', default: null },
   templateId: { type: Schema.Types.ObjectId, ref: 'ProposalTemplates', default: null },
+  contentRevision: { type: Number, default: 0 },
   version: { type: Number, default: 1, min: 1 },
   title: { type: String, required: true, trim: true, maxlength: 200 },
   appearance: {

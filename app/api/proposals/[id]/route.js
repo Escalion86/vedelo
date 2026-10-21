@@ -17,6 +17,8 @@ import {
 } from '@helpers/proposalAccess'
 import {
   getProposalUnknownVariables,
+  toProposalEditorBlocks,
+  normalizeProposalBlocks,
 } from '@helpers/proposalContent'
 import {
   buildProposalPublicUrl,
@@ -173,6 +175,7 @@ export const PATCH = async (req, { params }) => {
           _id: id,
           tenantId: auth.context.tenantId,
           status: auth.proposal.status,
+          contentRevision: auth.proposal.contentRevision || { $in: [0, null] },
           selectedPackageId: selected.id,
           selectedAt: auth.proposal.selectedAt || null,
           applyOperation: null,
@@ -272,14 +275,50 @@ export const PATCH = async (req, { params }) => {
       return error('Не удалось подтвердить применение. Нужна сверка заказа.', 409, 'application_conflict')
     return NextResponse.json({ success: true, data: await serialize(confirmed, req), event })
   } else {
-    if (auth.proposal.status !== 'draft')
-      return error(
-        'Опубликованный снимок нельзя редактировать',
-        409,
-        'immutable_snapshot'
-      )
-    const invalid = applyProposalDraftChanges(auth.proposal, body, auth.context.tenantId)
+    const current = auth.proposal.toObject?.() || auth.proposal.toJSON?.() || auth.proposal
+    const revision = Number(current.contentRevision || 0)
+    if (body.contentRevision !== undefined && body.contentRevision !== revision)
+      return error('Предложение изменилось. Откройте редактор заново.', 409, 'edit_conflict')
+    const draft = {}
+    const invalid = applyProposalDraftChanges(draft, body, auth.context.tenantId)
     if (invalid) return error(invalid.message, invalid.status, invalid.code)
+    const changed = (key) => Object.hasOwn(draft, key) && !isDeepStrictEqual(
+      JSON.parse(JSON.stringify(draft[key] ?? null)), JSON.parse(JSON.stringify(current[key] ?? null)))
+    const blocksChanged = changed('blocksSnapshot') && !isDeepStrictEqual(
+      draft.blocksSnapshot, normalizeProposalBlocks(toProposalEditorBlocks(current.blocksSnapshot, current.artistSnapshot)))
+    const day = value => value ? new Date(value).toISOString().slice(0, 10) : ''
+    const conditionsChanged = changed('packages') || blocksChanged ||
+      (changed('validUntil') && day(draft.validUntil) !== day(current.validUntil))
+    if (conditionsChanged && isProposalSelectionLocked(current))
+      return error('Условия уже применены к заказу. Можно изменить название, оформление, медиа и сообщение.', 409, 'selection_locked')
+    if (current.status === 'published') {
+      const candidate = { ...current, ...draft }
+      if (!candidate.packages?.length) return error('Добавьте хотя бы один вариант', 400, 'packages_required')
+      const unknown = getProposalUnknownVariables({
+        blocks: candidate.blocksSnapshot, messageText: candidate.messageText,
+        variables: { proposal: { url: buildProposalPublicUrl(auth.proposal, process.env.DOMAIN || req.nextUrl.origin) },
+          client: current.clientSnapshot, event: current.eventSnapshot, artist: current.artistSnapshot },
+      })
+      if (unknown.length) return error(`Заполните переменные: ${unknown.join(', ')}`, 400, 'unknown_variables')
+    }
+    if (conditionsChanged && current.selectedPackageId) {
+      draft.selectedPackageId = ''
+      draft.selectedAt = null
+      draft.selectionTaskCreatedAt = null
+    }
+    const updated = await Proposals.findOneAndUpdate({
+      _id: id, tenantId: auth.context.tenantId,
+      contentRevision: revision ? revision : { $in: [0, null] },
+      status: current.status,
+      selectedPackageId: current.selectedPackageId || { $in: ['', null] },
+      selectedAt: current.selectedAt || null,
+      applyOperation: current.applyOperation || null,
+      appliedAt: current.appliedAt || null,
+      appliedPackageId: current.appliedPackageId || { $in: ['', null] },
+      appliedSelectionAt: current.appliedSelectionAt || null,
+    }, { $set: { ...draft, contentRevision: revision + 1 } }, { returnDocument: 'after', runValidators: true })
+    if (!updated) return error('Предложение изменилось. Откройте редактор заново.', 409, 'edit_conflict')
+    return NextResponse.json({ success: true, data: await serialize(updated, req) })
   }
   await auth.proposal.save()
   return NextResponse.json({

@@ -36,6 +36,7 @@ const publicData = async (proposal) => {
     title: proposal.title,
     appearance: normalizeProposalAppearance(proposal.appearance, proposal.tenantId),
     version: proposal.version,
+    contentRevision: Number(proposal.contentRevision || 0),
     status: proposal.status,
     validUntil: proposal.validUntil,
     blocks,
@@ -108,6 +109,9 @@ export const POST = async (req, { params }) => {
     return error('Срок действия предложения истёк', 410, 'expired')
   }
   const body = await req.json().catch(() => ({}))
+  const contentRevision = Number(proposal.contentRevision || 0)
+  if ((body?.contentRevision ?? 0) !== contentRevision)
+    return error('Условия предложения изменились. Обновите страницу и выберите вариант заново.', 409, 'content_changed')
   const packageId = String(body?.packageId || '').trim()
   const selected = proposal.packages.find((item) => item.id === packageId)
   if (!selected) return error('Вариант не найден', 404, 'package_not_found')
@@ -126,6 +130,7 @@ export const POST = async (req, { params }) => {
   // Compare-and-set against apply, revocation, token rotation and another selection.
   proposal.$where = {
     status: 'published',
+    contentRevision: contentRevision || { $in: [0, null] },
     tenantId: proposal.tenantId,
     publicTokenHash: proposal.publicTokenHash,
     publicTokenNonce: proposal.publicTokenNonce,

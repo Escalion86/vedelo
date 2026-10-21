@@ -9,6 +9,7 @@ export const PROPOSAL_RICH_TEXT_BLOCK_TYPES = Object.freeze([
   'cta',
   'header',
   'packagesIntro',
+  'packagesOutro',
   'closing',
 ])
 
@@ -124,12 +125,16 @@ export const sanitizeProposalRichText = (value, { phone } = {}) => {
     for (const node of nodes) {
       if (node.parentElement?.closest('a')) continue
       const pattern = /\+?\d[\d\s()–-]{5,}\d/g
-      const matches = [...node.textContent.matchAll(pattern)].filter(match => proposalPhoneNumber(match[0]) === number)
+      const matches = [...node.textContent.matchAll(pattern)].filter(
+        (match) => proposalPhoneNumber(match[0]) === number
+      )
       if (!matches.length) continue
       const replacement = doc.createDocumentFragment()
       let offset = 0
       for (const match of matches) {
-        replacement.append(doc.createTextNode(node.textContent.slice(offset, match.index)))
+        replacement.append(
+          doc.createTextNode(node.textContent.slice(offset, match.index))
+        )
         const link = doc.createElement('a')
         link.setAttribute('href', `tel:+${number}`)
         link.textContent = match[0]
@@ -147,7 +152,9 @@ export const sanitizeProposalRichText = (value, { phone } = {}) => {
 
 export const getProposalBlockContentHtml = (block) => {
   if (!block || !PROPOSAL_RICH_TEXT_BLOCK_TYPES.includes(block.type)) return ''
-  if (['header', 'packagesIntro', 'closing'].includes(block.type))
+  if (
+    ['header', 'packagesIntro', 'packagesOutro', 'closing'].includes(block.type)
+  )
     return sanitizeProposalRichText(block.contentHtml)
   const richText = String(block.contentHtml ?? '').trim()
   if (richText) return sanitizeProposalRichText(richText)

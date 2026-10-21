@@ -147,3 +147,27 @@ test('старая вкладка: POST conflict перечитывает нас
   assert.equal(calls.length, 3)
   assert.match(element.textContent, /утверждён/)
 })
+
+
+test('после правки КП старая вкладка перечитывает условия и отправляет актуальную ревизию', async (t) => {
+  const Client = load('app/proposal/[publicId]/[token]/ProposalPublicClient.js').default
+  const original = global.fetch
+  const posts = []
+  let reads = 0
+  global.fetch = async (_url, options = {}) => {
+    if (options.method === 'POST') {
+      posts.push(JSON.parse(options.body))
+      return posts.length === 1
+        ? { ok: false, json: async () => ({ error: { code: 'content_changed', message: 'Условия изменились' } }) }
+        : { ok: true, json: async () => ({ data: { ...base, contentRevision: 1 } }) }
+    }
+    return { ok: true, json: async () => ({ data: { ...base, contentRevision: reads++ ? 1 : 0 } }) }
+  }
+  t.after(() => { global.fetch = original })
+  const element = await mount(t, Client, { publicId: 'test', token: 'test' })
+  await React.act(async () => element.querySelectorAll('button')[1].click())
+  assert.equal(reads, 2)
+  assert.match(element.textContent, /Условия изменились/)
+  await React.act(async () => element.querySelectorAll('button')[1].click())
+  assert.deepEqual(posts.map(item => item.contentRevision), [0, 1])
+})

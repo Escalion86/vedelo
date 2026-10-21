@@ -17,6 +17,7 @@ export const PROPOSAL_BLOCK_TYPES = Object.freeze([
   'cta',
   'header',
   'packagesIntro',
+  'packagesOutro',
   'closing',
 ])
 
@@ -211,12 +212,17 @@ export const toProposalEditorBlocks = (blocks, artist = {}) => {
 export const getVisibleProposalBlocks = (blocks = []) => {
   if (!hasProposalEditorSections(blocks))
     return blocks.filter((block) => block.enabled !== false)
-  return ['header', 'packagesIntro', 'packages', 'media', 'closing'].flatMap(
-    (type) => {
-      const block = blocks.find((item) => item.type === type)
-      return block && block.enabled !== false ? [block] : []
-    }
-  )
+  return [
+    'header',
+    'packagesIntro',
+    'packages',
+    'packagesOutro',
+    'media',
+    'closing',
+  ].flatMap((type) => {
+    const block = blocks.find((item) => item.type === type)
+    return block && block.enabled !== false ? [block] : []
+  })
 }
 
 export const normalizeProposalPackages = (packages) => {

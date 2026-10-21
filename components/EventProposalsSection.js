@@ -52,7 +52,8 @@ const ProposalPageView = dynamic(() => import('@components/ProposalPageView'), {
 })
 
 const dateInput = (value) => {
-  const date = value ? new Date(value) : new Date(Date.now() + 7 * 86400000)
+  if (!value) return ''
+  const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return date.toISOString().slice(0, 10)
 }
@@ -93,7 +94,6 @@ const EventProposalsSection = ({
   eventId,
   onApplied,
   initialProposal,
-  sourceProposalId = '',
   closeModal,
   setOnShowOnCloseConfirmDialog,
   setOnConfirmFunc,
@@ -146,7 +146,6 @@ const EventProposalsSection = ({
   useEffect(() => {
     setOnShowOnCloseConfirmDialog?.(JSON.stringify(editing) !== savedSnapshot)
   }, [editing, savedSnapshot, setOnShowOnCloseConfirmDialog])
-  const [pendingSourceId, setPendingSourceId] = useState(sourceProposalId)
   const saveInFlight = useRef(false)
   const openInFlight = useRef(false)
   const [busy, setBusy] = useState(false)
@@ -211,14 +210,14 @@ const EventProposalsSection = ({
     if (!initialProposal) load()
   }, [load, initialProposal])
 
-  const openEditor = (proposal, sourceId = '') => {
+  const openEditor = (proposal) => {
     modalsFunc.add({
       title: 'Редактор коммерческого предложения',
       declineButtonBgClassName: 'bg-general',
       closeButtonName: 'Закрыть',
       declineButtonName: 'Закрыть',
       Children: EventProposalsSection,
-      childrenProps: { eventId, initialProposal: proposal, sourceProposalId: sourceId },
+      childrenProps: { eventId, initialProposal: proposal },
     })
   }
 
@@ -271,11 +270,11 @@ const EventProposalsSection = ({
       saveInFlight.current = true
       setBusy(true)
       try {
-        const response = await fetch(pendingSourceId ? `/api/events/${eventId}/proposals` : `/api/proposals/${editing._id}`, {
-          method: pendingSourceId ? 'POST' : 'PATCH',
+        const response = await fetch(`/api/proposals/${editing._id}`, {
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...(pendingSourceId ? { sourceProposalId: pendingSourceId } : {}),
+            contentRevision: editing.contentRevision || 0,
             title: editing.title,
             validUntil: editing.validUntil,
             messageText: editing.messageText,
@@ -288,7 +287,6 @@ const EventProposalsSection = ({
         const body = await response.json().catch(() => ({}))
         if (!response.ok || body?.success === false)
           throw new Error(body?.error?.message || 'Не удалось сохранить')
-        setPendingSourceId('')
         setEditing({
           ...body.data,
           validUntil: dateInput(body.data.validUntil),
@@ -301,7 +299,7 @@ const EventProposalsSection = ({
         )
         await cacheEventProposal(queryClient, eventId, body.data)
         if (notify)
-          reportMessage({ tone: 'success', text: 'Черновик сохранён' })
+          reportMessage({ tone: 'success', text: 'Предложение сохранено' })
         await load()
         return body.data
       } catch (error) {
@@ -312,7 +310,7 @@ const EventProposalsSection = ({
         setBusy(false)
       }
     },
-    [editing, eventId, pendingSourceId, queryClient, reportMessage, load]
+    [editing, eventId, queryClient, reportMessage, load]
   )
 
   const isDirty = Boolean(editing) && JSON.stringify(editing) !== savedSnapshot
@@ -442,8 +440,7 @@ const EventProposalsSection = ({
         text: body?.error?.message || 'Не удалось открыть предложение',
       })
     if (edit || proposal.status === 'draft') {
-      const sourceId = body.data.status === 'draft' ? '' : body.data._id
-      openEditor(sourceId ? { ...body.data, validUntil: dateInput() } : body.data, sourceId)
+      openEditor(body.data)
     }
     return body.data
   }
@@ -511,7 +508,7 @@ const EventProposalsSection = ({
     try {
       const form = new FormData()
       form.append('file', file)
-      const response = await fetch(`/api/proposals/${editing._id}/logo${pendingSourceId ? '?forNewVersion=1' : ''}`, {
+      const response = await fetch(`/api/proposals/${editing._id}/logo`, {
         method: 'POST',
         body: form,
       })
@@ -578,8 +575,15 @@ const EventProposalsSection = ({
         aria-label="Редактор КП"
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="font-semibold">{pendingSourceId ? 'Новая версия · не сохранена' : `Черновик версии ${editing.version}`}</div>
+          <div className="font-semibold">{editing.status === 'draft' ? 'Черновик' : 'Редактирование предложения'}</div>
         </div>
+        {editing.selectedPackageId || isProposalSelectionLocked(editing) ? (
+          <Notice tone="info">
+            {isProposalSelectionLocked(editing)
+              ? 'Условия уже применены к заказу. Можно изменить название, оформление, медиа и сообщение.'
+              : 'При изменении условий или вариантов прежний выбор клиента будет сброшен. Клиент сможет выбрать вариант заново по той же ссылке.'}
+          </Notice>
+        ) : null}
         {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
         <Input
           inputClassName="min-w-0"
@@ -761,21 +765,11 @@ const EventProposalsSection = ({
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {proposal.status !== 'draft' ? (
-                      <FieldHelp
-                        text={fieldHelp['proposal.newVersion']}
-                        label="Редактировать в новой версии"
-                      />
-                    ) : null}
                     <IconActionButton
                       icon={faPencilAlt}
                       variant="warning"
                       size="sm"
-                      title={
-                        proposal.status === 'draft'
-                          ? 'Редактировать'
-                          : 'Редактировать в новой версии'
-                      }
+                      title="Редактировать"
                       disabled={busy}
                       onClick={() => editProposal(proposal)}
                     />

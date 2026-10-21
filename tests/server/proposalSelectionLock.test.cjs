@@ -100,6 +100,7 @@ function fixture() {
   })
   const load = loader({
     'next/server': { NextResponse: json },
+    '@models/Users': { findOne: () => chain(null) },
     '@models/Proposals': model('Proposals'),
     '@models/Events': model('Events'),
     '@models/Services': model('Services'),
@@ -119,6 +120,7 @@ function fixture() {
     records, hooks, writes, pushes, req, publicRoute, params,
     preview: (body = {}) => load('app/api/proposals/[id]/preview/route.js').POST(req(body), { params: { id: proposalId } }),
     select: (packageId) => publicRoute.POST(req({ packageId }), { params }),
+    edit: (body) => route.PATCH(req(body), { params: { id: proposalId } }),
     apply: () => route.PATCH(req({ action: 'apply' }), { params: { id: proposalId } }),
     read: () => route.GET(req(), { params: { id: proposalId } }),
     setTenant: (value) => { currentTenant = value },
@@ -268,6 +270,7 @@ test('настоящий Mongoose save передаёт atomic guards драйв
   }
   const realRoute = loader({
     'next/server': { NextResponse: json },
+    '@models/Users': { findOne: () => chain(null) },
     '@models/Proposals': { findOne: async () => doc },
     '@models/Events': { findOne: () => { throw new Error('Побочные действия при отказе запрещены') } },
     '@server/dbConnect': async () => {},
@@ -321,6 +324,7 @@ test('настоящие Mongoose query/schema сохраняют pending, CAS, 
   }
   const route = loader({
     'next/server': { NextResponse: json },
+    '@models/Users': { findOne: () => chain(null) },
     '@models/Proposals': Proposal,
     '@models/Events': Event,
     '@models/Services': { find: () => chain([]) },
@@ -447,6 +451,7 @@ for (const mixedField of ['eventGuard', 'lines']) {
       }
       const route = loader({
         'next/server': { NextResponse: json },
+    '@models/Users': { findOne: () => chain(null) },
         '@models/Proposals': Proposal,
         '@models/Events': Event,
         '@models/Services': { find: () => chain([]) },
@@ -805,4 +810,25 @@ test('изоляция tenant/token/publicId, published status и expiry сох�
   assert.equal(f.records.Proposals.selectionHistory.length, 0)
   assert.equal(f.pushes.length, 0)
   assert.equal(f.records.Events.additionalEvents.length, 0)
+})
+
+
+test('редактирование и клиентский выбор сверяют ревизию/выбор атомарно', async () => {
+  const f = fixture()
+  f.records.Proposals.clientSnapshot = { firstName: 'Анна' }
+  f.hooks.updateProposals = () => { f.records.Proposals.selectedAt = new Date('2026-10-21') }
+  const result = await f.edit({ title: 'Новый текст', messageText: 'Ок', contentRevision: 0 })
+  assert.equal(result.status, 409)
+  assert.equal(f.records.Proposals.title, 'КП')
+  assert.equal(f.writes.length, 0)
+  const g = fixture()
+  g.hooks.saveProposals = () => { g.records.Proposals.contentRevision = 1 }
+  const selection = await g.select('extended')
+  assert.equal(selection.status, 409)
+  assert.equal(g.records.Proposals.selectedPackageId, 'basic')
+  assert.equal(g.pushes.length, 0)
+  const h = fixture()
+  h.hooks.updateProposals = () => { h.records.Proposals.contentRevision = 1 }
+  assert.equal((await h.apply()).status, 409)
+  assert.equal(h.records.Events.contractSum, 0)
 })

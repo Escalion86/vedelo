@@ -197,3 +197,22 @@ test('merge legacy сохраняет заданный порядок загол
   assert.equal((html.match(/terms.png/g) || []).length, 1)
   assert.equal((html.match(/final.mp4/g) || []).length, 1)
 })
+
+test('описания независимы от вариантов, сохраняются выключенными и выводятся по порядку', () => {
+  const blocks = content.toProposalEditorBlocks()
+  blocks.find(block => block.type === 'packagesIntro').enabled = false
+  blocks.find(block => block.type === 'packages').enabled = false
+  blocks.push({ type: 'packagesOutro', enabled: true, contentHtml: '<p><strong>После {{missing.outro}}</strong></p><script>alert(1)</script>' })
+  const saved = content.normalizeProposalBlocks(JSON.parse(JSON.stringify(blocks)))
+  const outro = saved.find(block => block.type === 'packagesOutro')
+  assert.equal(outro.contentHtml, '<p><strong>После {{missing.outro}}</strong></p>')
+  assert.deepEqual(content.getVisibleProposalBlocks(saved).map(block => block.type), ['header', 'packagesOutro', 'media', 'closing'])
+  assert.deepEqual(content.getProposalUnknownVariables({ blocks: saved, messageText: '', variables: {} }).includes('missing.outro'), true)
+  outro.enabled = false
+  assert.ok(!content.getVisibleProposalBlocks(saved).some(block => block.type === 'packagesOutro'))
+  assert.ok(!content.getProposalUnknownVariables({ blocks: saved, messageText: '', variables: {} }).includes('missing.outro'))
+  const reopened = content.toProposalEditorBlocks(saved)
+  assert.deepEqual(reopened.find(block => block.type === 'packagesOutro'), outro)
+  for (const block of reopened) block.enabled = true
+  assert.deepEqual(content.getVisibleProposalBlocks(reopened).map(block => block.type), ['header', 'packagesIntro', 'packages', 'packagesOutro', 'media', 'closing'])
+})

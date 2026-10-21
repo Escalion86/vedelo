@@ -37,14 +37,14 @@ const ProposalPublicClient = ({ publicId, token }) => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ packageId }),
+          body: JSON.stringify({ packageId, contentRevision: proposal.contentRevision || 0 }),
         }
       )
       const body = await response.json().catch(() => ({}))
       if (!response.ok) {
         if (body?.error?.code === 'selection_locked')
           setProposal((current) => ({ ...current, selectionLocked: true, applicationPending: true }))
-        if (['selection_locked', 'selection_conflict'].includes(body?.error?.code)) {
+        if (['selection_locked', 'selection_conflict', 'content_changed'].includes(body?.error?.code)) {
           // An old tab learns the current agreement instead of offering another
           // POST. The server remains authoritative if this refresh also fails.
           const refreshed = await fetch(`/api/public/proposals/${publicId}/${token}`, { cache: 'no-store' })

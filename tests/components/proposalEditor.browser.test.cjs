@@ -213,7 +213,7 @@ test(
               await page
                 .locator('.proposal-content-editor > section > h3')
                 .allTextContents(),
-              ['Шапка', 'Варианты и цены', 'Условия и контакты']
+              ['Шапка', 'Описание под шапкой', 'Варианты и цены', 'Условия и контакты']
             )
             const first = editors.nth(0),
               intro = editors.nth(1),
@@ -238,8 +238,33 @@ test(
               .selectOption('center')
             await intro.fill('Вступление перед вариантами')
             await closing.fill('Общие условия и контакты +7 900 000 00 00')
+            const showPackages = page.getByLabel('Показывать варианты клиенту', { exact: true })
+            await showPackages.uncheck()
+            assert.equal(await page.getByRole('heading', { name: 'Варианты и цены', exact: true }).count(), 0)
+            assert.equal(await page.getByText('Название варианта', { exact: true }).count(), 0)
+            await showPackages.check()
+            const showIntro = page.getByLabel('Показывать описание под шапкой', { exact: true })
+            await showIntro.uncheck()
+            assert.equal(await page.getByRole('region', { name: 'Описание под шапкой', exact: true }).locator('[contenteditable="true"]').count(), 0)
+            await showIntro.check()
+            assert.match(await intro.innerText(), /Вступление перед вариантами/)
+            const showOutro = page.getByLabel('Показывать описание после вариантов', { exact: true })
+            await showOutro.check()
+            const outro = page.getByRole('region', { name: 'Описание после вариантов', exact: true }).locator('[contenteditable="true"]')
+            await outro.fill('Дополнительное описание после вариантов')
+            await showOutro.uncheck()
+            assert.equal(await outro.count(), 0)
+            await showOutro.check()
+            assert.equal(await outro.innerText(), 'Дополнительное описание после вариантов')
+            await showIntro.scrollIntoViewIfNeeded()
+            await page.screenshot({ path: path.join(artifactDir, 'screenshots', `${kind}-${width}-${dark ? 'dark' : 'light'}-intro.png`) })
+            await showOutro.scrollIntoViewIfNeeded()
+            await page.screenshot({ path: path.join(artifactDir, 'screenshots', `${kind}-${width}-${dark ? 'dark' : 'light'}-outro.png`) })
+            await intro.focus()
+            await intro.press('Control+End')
+            await intro.press('Enter')
             const introSection = page.getByRole('region', {
-              name: 'Варианты и цены',
+              name: 'Описание под шапкой',
               exact: true,
             })
             await introSection
@@ -319,6 +344,20 @@ test(
               .click()
             const preview = page.locator('main.proposal-page-view')
             await preview.getByText('Новая шапка', { exact: true }).waitFor()
+            await preview.getByText('Дополнительное описание после вариантов', { exact: true }).waitFor()
+            assert.ok(await preview.getByText('Дополнительное описание после вариантов', { exact: true }).evaluate(element => {
+              const lastVariant = element.closest('main').querySelectorAll('button')
+              return lastVariant.length && Boolean(lastVariant[lastVariant.length - 1].compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING)
+            }), 'Описание расположено после вариантов')
+            await showOutro.uncheck()
+            assert.equal(await preview.getByText('Дополнительное описание после вариантов', { exact: true }).count(), 0)
+            await showOutro.check()
+            await showIntro.uncheck()
+            assert.equal(await preview.getByText('Вступление перед вариантами', { exact: true }).count(), 0)
+            await showIntro.check()
+            await showPackages.uncheck()
+            assert.equal(await preview.getByRole('button', { name: 'Выбрать вариант', exact: true }).count(), 0)
+            await showPackages.check()
             await preview
               .getByText('Вступление перед вариантами', { exact: true })
               .waitFor()
@@ -503,6 +542,8 @@ test(
             assert.equal(saved.media[0].url, 'https://vimeo.com/123456789/abc')
             assert.equal(saved.media[1].title, 'gallery.png')
             const savedBlocks = saved.blocks
+            assert.match(savedBlocks.find((block) => block.type === 'packagesOutro').contentHtml, /Дополнительное описание после вариантов/)
+            assert.equal(savedBlocks.find((block) => block.type === 'packagesOutro').enabled, true)
             for (const value of [
               'inline.png',
               'inline.mp4',
@@ -663,40 +704,34 @@ test(
       // Regression: opening an existing published offer must never persist a copy.
       for (const width of [390, 1365]) for (const dark of [false, true]) {
         const page = await browser.newPage({ viewport: { width, height: 900 } })
-        const source = { ...structuredClone(proposal), status: 'published' }
+        const source = { ...structuredClone(proposal), status: 'published', validUntil: dark ? null : proposal.validUntil }
         let rows = [source], writes = [], rejectSave = false
         const errors = []
         page.on('pageerror', error => errors.push(error.message))
         await page.route('**/api/**', async route => {
           const req = route.request(), url = new URL(req.url()).pathname
-          if (req.method() === 'POST' && url === '/api/events/event/proposals') {
-            const body = req.postDataJSON()
-            writes.push({ method: 'POST', body })
-            if (rejectSave) return route.fulfill({ status: 400, json: { success: false, error: { message: 'Проверка ошибки сохранения' } } })
-            const created = { ...source, ...body, _id: 'new-version', status: 'draft', version: 2, blocksSnapshot: body.blocks, mediaSnapshot: body.media }
-            rows = [created, source]
-            return route.fulfill({ status: 201, json: { success: true, data: created } })
-          }
+          assert.notEqual(req.method(), 'POST', 'Карандаш не создаёт КП')
           if (req.method() === 'PATCH') {
             const body = req.postDataJSON()
             writes.push({ method: 'PATCH', url, body })
+            if (rejectSave) return route.fulfill({ status: 400, json: { success: false, error: { message: 'Проверка ошибки сохранения' } } })
             rows[0] = { ...rows[0], ...body, blocksSnapshot: body.blocks, mediaSnapshot: body.media }
             return route.fulfill({ json: { success: true, data: rows[0] } })
           }
-          const data = url === '/api/events/event/proposals' ? rows : url === `/api/proposals/${proposalId}` ? source : url === '/api/proposals/new-version' ? rows[0] : []
+          const data = url === '/api/events/event/proposals' ? rows : url === `/api/proposals/${proposalId}` ? rows[0] : []
           return route.fulfill({ json: { success: true, data } })
         })
         await page.goto(`${origin}/?kind=list`)
         await page.evaluate(dark => document.body.classList.toggle('theme-dark', dark), dark)
         await page.getByText('Опубликовано: 1', { exact: true }).waitFor()
         await page.locator('summary').filter({ hasText: 'Коммерческие предложения' }).click()
-        const edit = () => page.getByRole('button', { name: 'Редактировать в новой версии', exact: true }).click()
+        const edit = () => page.getByRole('button', { name: 'Редактировать', exact: true }).click()
         const close = async () => {
           await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
           await page.getByRole('region', { name: 'Редактор КП', exact: true }).waitFor({ state: 'hidden' })
         }
         await edit()
-        await page.getByText('Новая версия · не сохранена', { exact: true }).waitFor()
+        await page.getByText('Редактирование предложения', { exact: true }).waitFor()
         assert.equal(await page.getByRole('button', { name: 'Сохранить', exact: true }).count(), 0)
         await close()
         assert.equal(writes.length, 0)
@@ -717,19 +752,22 @@ test(
         assert.equal(await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().inputValue(), 'Новые условия')
         rejectSave = false
         await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
-        await page.getByText('Черновик версии 2', { exact: true }).waitFor()
-        assert.equal(rows.length, 2)
-        assert.equal(rows[1].title, proposal.title)
-        assert.equal(writes.at(-1).body.sourceProposalId, proposalId)
+        await page.getByText('Редактирование предложения', { exact: true }).waitFor()
+        await page.getByRole('button', { name: 'Сохранить', exact: true }).waitFor({ state: 'hidden' })
+        assert.equal(rows.length, 1)
+        assert.equal(rows[0]._id, proposalId)
+        assert.equal(rows[0].status, 'published')
+        assert.equal(rows[0].validUntil || null, source.validUntil || null)
+        assert.equal(rows[0].title, 'Новые условия')
         await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().fill('Уточнённые условия')
         await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
         await page.getByRole('button', { name: 'Сохранить', exact: true }).waitFor({ state: 'hidden' })
         assert.equal(writes.at(-1).method, 'PATCH')
-        assert.equal(writes.at(-1).url, '/api/proposals/new-version')
+        assert.equal(writes.at(-1).url, `/api/proposals/${proposalId}`)
         await close()
-        assert.equal(await page.locator('.proposal-list-item').count(), 2)
+        assert.equal(await page.locator('.proposal-list-item').count(), 1)
         await page.getByRole('button', { name: 'Редактировать', exact: true }).click()
-        await page.getByText('Черновик версии 2', { exact: true }).waitFor()
+        await page.getByText('Редактирование предложения', { exact: true }).waitFor()
         const before = writes.length
         await close()
         assert.equal(writes.length, before)

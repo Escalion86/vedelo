@@ -19,8 +19,6 @@ export const POST = async (req, { params }) => {
   const proposal = await Proposals.findOne({ _id: id, tenantId }).lean()
   if (!proposal) return error('Предложение не найдено', 404)
   const forNewVersion = req.nextUrl?.searchParams?.get('forNewVersion') === '1'
-  if (proposal.status !== 'draft' && !forNewVersion)
-    return error('Логотип опубликованного КП нельзя изменить', 409)
   if (!(await Events.exists({ _id: proposal.eventId, tenantId })))
     return error('Мероприятие не найдено', 404)
   const access = await getUserTariffAccess(user._id)

@@ -30,9 +30,14 @@ export default function ProposalContentEditor({
     : toProposalEditorBlocks(blocks, artist)
   const update = (type, patch) =>
     onChange(
-      current.map((block) =>
-        block.type === type ? { ...block, ...patch } : block
-      )
+      current.some((block) => block.type === type)
+        ? current.map((block) =>
+            block.type === type ? { ...block, ...patch } : block
+          )
+        : [
+            ...current,
+            { id: type, type, contentHtml: '', enabled: false, ...patch },
+          ]
     )
   const editor = (type, label) => {
     const block = current.find((item) => item.type === type)
@@ -45,7 +50,33 @@ export default function ProposalContentEditor({
       />
     )
   }
-  const packages = current.find((block) => block.type === 'packages')
+  const packages = current.find((block) => block.type === 'packages') || {
+    enabled: false,
+  }
+  const description = (type, label) => {
+    const block = current.find((item) => item.type === type)
+    const enabled = Boolean(block && block.enabled !== false)
+    return (
+      <section className="min-w-0 space-y-3" aria-label={label}>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) =>
+              update(type, { enabled: event.target.checked })
+            }
+          />
+          Показывать {label.toLowerCase()}
+        </label>
+        {enabled ? (
+          <>
+            <h3 className="font-semibold">{label}</h3>
+            {editor(type, label)}
+          </>
+        ) : null}
+      </section>
+    )
+  }
   return (
     <div className="proposal-content-editor min-w-0 space-y-5">
       <section className="min-w-0 space-y-3" aria-label="Шапка">
@@ -53,21 +84,21 @@ export default function ProposalContentEditor({
         {appearanceEditor}
         {editor('header', 'Текст шапки')}
       </section>
+      {description('packagesIntro', 'Описание под шапкой')}
       <section className="min-w-0 space-y-3" aria-label="Варианты и цены">
-        <h3 className="font-semibold">Варианты и цены</h3>
-        {editor('packagesIntro', 'Вступление к вариантам')}
-        {packages ? (
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={packages.enabled !== false}
+            onChange={(event) =>
+              update('packages', { enabled: event.target.checked })
+            }
+          />
+          Показывать варианты клиенту
+        </label>
+        {packages.enabled !== false ? (
           <>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={packages.enabled !== false}
-                onChange={(event) =>
-                  update('packages', { enabled: event.target.checked })
-                }
-              />
-              Показывать варианты клиенту
-            </label>
+            <h3 className="font-semibold">Варианты и цены</h3>
             <Input
               label="Заголовок вариантов"
               value={packages.title || ''}
@@ -75,10 +106,11 @@ export default function ProposalContentEditor({
               fullWidth
               noMargin
             />
+            {children}
           </>
         ) : null}
-        {children}
       </section>
+      {description('packagesOutro', 'Описание после вариантов')}
       <section className="min-w-0 space-y-3" aria-label="Условия и контакты">
         <h3 className="font-semibold">Условия и контакты</h3>
         {editor('closing', 'Условия и контакты')}

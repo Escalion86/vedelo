@@ -167,6 +167,9 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
     },
   ]
   const blocks = toProposalEditorBlocks(legacy)
+  blocks.find((block) => block.type === 'packagesIntro').enabled = false
+  blocks.find((block) => block.type === 'packagesIntro').contentHtml = '<p>{{missing.disabledDescription}}</p>'
+  blocks.push({ type: 'packagesOutro', enabled: true, contentHtml: '<p><strong>После вариантов: {{artist.fullName}}</strong></p><script>bad()</script>' })
   blocks.find((block) => block.type === 'header').contentHtml =
     '<p style="text-align: center"><span style="color: #123abc; font-family: Georgia; font-size: 24px; position: fixed">{{artist.fullName}}</span></p><img src="https://example.test/a.png">'
   const packages = normalizeProposalPackages([
@@ -204,6 +207,9 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
   assert.equal(createdTemplate.status, 201)
   assert.equal(createdTemplate.body.data.tenantId, tenant)
   const savedBlocks = createdTemplate.body.data.blocks
+  assert.equal(savedBlocks.find((block) => block.type === 'packagesIntro').enabled, false)
+  assert.match(savedBlocks.find((block) => block.type === 'packagesIntro').contentHtml, /missing.disabledDescription/)
+  assert.doesNotMatch(savedBlocks.find((block) => block.type === 'packagesOutro').contentHtml, /script/)
   assert.doesNotMatch(
     savedBlocks.find((block) => block.type === 'header').contentHtml,
     /position/
@@ -260,6 +266,8 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
   assert.equal(publicResult.body.data.artist.whatsapp, '79000000000')
   assert.equal(publicResult.body.data.artist.password, undefined)
   const visible = getVisibleProposalBlocks(publicResult.body.data.blocks)
+  assert.ok(!visible.some((block) => block.type === 'packagesIntro'))
+  assert.match(visible.find((block) => block.type === 'packagesOutro').contentHtml, /После вариантов: Иван/)
   assert.match(visible[0].contentHtml, /Иван/)
   assert.match(visible[0].contentHtml, /font-family: Georgia/)
   assert.match(visible.at(-1).contentHtml, /a.mp4/)
@@ -367,20 +375,20 @@ test('настоящий logo POST + sharp сохраняет альфа-кан�
   f.proposal.status = 'published'
   assert.equal(
     (await route.POST(req, { params: { id: proposalId } })).status,
-    409
+    200
   )
-  assert.equal(f.uploads.length, 1)
+  assert.equal(f.uploads.length, 2)
   const versionReq = { ...req, nextUrl: new URL('https://example.test/logo?forNewVersion=1') }
   const source = JSON.stringify(f.proposal)
   assert.equal((await route.POST(versionReq, { params: { id: proposalId } })).status, 200)
   assert.equal(JSON.stringify(f.proposal), source)
-  assert.equal(f.uploads.length, 2)
+  assert.equal(f.uploads.length, 3)
   f.setTenant(foreign)
   assert.equal((await route.POST(versionReq, { params: { id: proposalId } })).status, 404)
   f.setTenant(tenant)
   f.setAllowed(false)
   assert.equal((await route.POST(versionReq, { params: { id: proposalId } })).status, 403)
-  assert.equal(f.uploads.length, 2)
+  assert.equal(f.uploads.length, 3)
 })
 
 
@@ -533,4 +541,53 @@ test('старое КП показывает актуальные соцсети
     assert.deepEqual(filter.$or, [{ tenantId: tenant }, { tenantId: null }])
     assert.deepEqual(filter.archive, { $ne: true })
   }
+})
+
+
+test('карандаш обновляет опубликованное КП на месте, ссылка/ID/статус сохраняются; устаревшие редакторы и выбор отклоняются', async () => {
+  const f = fixture()
+  await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+  f.proposal.clientSnapshot = { firstName: 'Анна' }
+  f.proposal.validUntil = new Date('2030-12-31')
+  f.proposal.blocksSnapshot = []
+  f.proposal.messageText = 'Предложение'
+  const route = f.load('app/api/proposals/[id]/route.js')
+  const published = await route.PATCH(f.req({ action: 'publish' }), { params: { id: proposalId } })
+  const publicUrl = published.body.data.publicUrl
+  const before = f.proposal
+  const edited = await route.PATCH(f.req({ title: 'Правка', contentRevision: 0 }), { params: { id: proposalId } })
+  assert.equal(edited.status, 200)
+  assert.equal(f.proposal, before)
+  assert.equal(edited.body.data._id, proposalId)
+  assert.equal(edited.body.data.status, 'published')
+  assert.equal(edited.body.data.version, 1)
+  assert.equal(edited.body.data.publicUrl, publicUrl)
+  assert.equal(edited.body.data.title, 'Правка')
+  assert.equal(edited.body.data.contentRevision, 1)
+  const stale = await route.PATCH(f.req({ title: 'Старая правка', contentRevision: 0 }), { params: { id: proposalId } })
+  assert.equal(stale.status, 409)
+  assert.equal(f.proposal.title, 'Правка')
+  const parts = new URL(publicUrl).pathname.split('/')
+  const publicRoute = f.load('app/api/public/proposals/[publicId]/[token]/route.js')
+  const params = { publicId: parts.at(-2), token: parts.at(-1) }
+  assert.equal((await publicRoute.GET(f.req({}), { params })).body.data.title, 'Правка')
+  assert.equal((await publicRoute.POST(f.req({ packageId: 'main', contentRevision: 0 }), { params })).status, 409)
+  f.proposal.selectedPackageId = 'main'
+  f.proposal.selectedAt = new Date()
+  const packages = [{ id: 'main', title: 'Новая цена', total: 7000, manualTotal: true, lines: [] }]
+  const priceEdit = await route.PATCH(f.req({ packages, contentRevision: 1 }), { params: { id: proposalId } })
+  assert.equal(priceEdit.status, 200)
+  assert.equal(f.proposal.selectedPackageId, '')
+  assert.equal(f.proposal.selectedAt, null)
+  assert.equal(f.proposal.packages[0].total, 7000)
+  assert.equal(priceEdit.body.data.publicUrl, publicUrl)
+  f.proposal.appliedAt = new Date()
+  f.proposal.appliedPackageId = 'main'
+  const locked = await route.PATCH(f.req({ packages: [] }), { params: { id: proposalId } })
+  assert.equal(locked.status, 409)
+  assert.equal(f.proposal.packages[0].total, 7000)
+  assert.equal((await route.PATCH(f.req({ title: 'Новое название', media: [] }), { params: { id: proposalId } })).status, 200)
+  f.setTenant(foreign)
+  assert.equal((await route.PATCH(f.req({ title: 'Чужая правка' }), { params: { id: proposalId } })).status, 404)
+  assert.equal(f.proposal.title, 'Новое название')
 })
