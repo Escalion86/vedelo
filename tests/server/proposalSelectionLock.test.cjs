@@ -832,3 +832,48 @@ test('редактирование и клиентский выбор сверя
   assert.equal((await h.apply()).status, 409)
   assert.equal(h.records.Events.contractSum, 0)
 })
+
+test('отмена выбора очищает выбор, сохраняет историю и уведомляет без новой задачи; повтор идемпотентен', async () => {
+  const f = fixture()
+  const cancel = () => f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'basic' }), { params: f.params })
+  const result = await cancel()
+  assert.equal(result.status, 200)
+  assert.equal(result.body.data.selectedPackageId, '')
+  assert.equal(result.body.data.selectedAt, null)
+  assert.equal(f.records.Proposals.selectionHistory[0].previousPackageId, 'basic')
+  assert.equal(f.records.Proposals.selectionHistory[0].action, 'cancel')
+  assert.equal(f.records.Events.additionalEvents.length, 0)
+  assert.match(f.pushes[0].payload.title, /отменил/)
+  assert.equal((await cancel()).body.changed, false)
+  assert.equal(f.pushes.length, 1)
+  assert.equal(f.records.Proposals.selectionHistory.length, 1)
+  assert.equal((await f.select('extended')).status, 200)
+  assert.equal(f.records.Proposals.selectedPackageId, 'extended')
+})
+
+test('отмена запрещена после apply, для другого текущего выбора и при гонке apply', async () => {
+  for (const scenario of ['applied', 'different', 'race']) {
+    const f = fixture()
+    if (scenario === 'applied') await f.apply()
+    if (scenario === 'different') f.records.Proposals.selectedPackageId = 'extended'
+    if (scenario === 'race') f.hooks.saveProposals = () => { f.records.Proposals.applyOperation = { id: 'pending' } }
+    const result = await f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'basic' }), { params: f.params })
+    assert.equal(result.status, 409, scenario)
+    assert.equal(f.records.Proposals.selectedPackageId, scenario === 'different' ? 'extended' : 'basic')
+    assert.equal(f.pushes.length, 0)
+  }
+})
+
+test('отмена проверяет секрет ссылки, срок и ревизию; выбор другого tenant не меняется', async () => {
+  for (const scenario of ['token', 'expired', 'revision', 'publicId']) {
+    const f = fixture()
+    const params = { ...f.params }
+    if (scenario === 'token') params.token = 'foreign-token'
+    if (scenario === 'publicId') params.publicId = 'foreign-public-id'
+    if (scenario === 'expired') f.records.Proposals.validUntil = new Date(0)
+    const result = await f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'basic', contentRevision: scenario === 'revision' ? 5 : 0 }), { params })
+    assert.equal(result.status, scenario === 'expired' ? 410 : scenario === 'revision' ? 409 : 404)
+    assert.equal(f.records.Proposals.selectedPackageId, 'basic')
+    assert.equal(f.pushes.length, 0)
+  }
+})

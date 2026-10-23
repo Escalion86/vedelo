@@ -1,6 +1,8 @@
 'use client'
 
 import fieldHelp from '@helpers/fieldHelp.json'
+import TelegramPushAudience from '@components/TelegramPushAudience'
+import { normalizeTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
@@ -876,6 +878,10 @@ const IntegrationsContent = () => {
     return 'Настраивается'
   })()
   const telegramEnabled = Boolean(telegramStatusData?.enabled)
+  const telegramPushAudience = normalizeTelegramPushAudience(
+    telegramStatusData?.pushAudience ??
+      siteSettings?.custom?.telegramBusinessPushAudience
+  )
   const telegramAutoCreateClients =
     telegramStatusData?.autoCreateClients === true
   const telegramStatus = String(telegramStatusData?.status || 'disabled')
@@ -1015,6 +1021,20 @@ const IntegrationsContent = () => {
       setTelegramStatusData((current) => ({
         ...(current || {}),
         autoCreateClients: nextValue,
+      }))
+    }
+  }
+
+  const saveTelegramPushAudience = async (nextValue) => {
+    if (isSaving || telegramLoading || nextValue === telegramPushAudience) return
+    const saved = await saveCustom(
+      { telegramBusinessPushAudience: nextValue },
+      { successMessage: 'Настройка уведомлений Telegram сохранена' }
+    )
+    if (saved) {
+      setTelegramStatusData((current) => ({
+        ...(current || {}),
+        pushAudience: nextValue,
       }))
     }
   }
@@ -1810,6 +1830,12 @@ const IntegrationsContent = () => {
                 type="password"
                 noMargin
                 fullWidth
+              />
+
+              <TelegramPushAudience
+                value={telegramPushAudience}
+                onChange={saveTelegramPushAudience}
+                disabled={isSaving || telegramLoading}
               />
 
               <Notice tone="info" className="rounded text-xs leading-5">

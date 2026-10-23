@@ -1,5 +1,34 @@
 # AI Handoff: «Ведело»
 
+С 1.41.14 public proposal POST принимает `action: select | cancel` (default select).
+Cancel требует ID снимаемого варианта, очищает selectedPackageId/selectedAt,
+пишет selectionHistory с action=cancel и отправляет push владельцу. Повтор отмены
+без выбора — no-op; другой текущий вариант — 409. Прежние token/tenant/revision/
+expiry/apply CAS сохранены. Задача контакта не удаляется и не дублируется.
+ProposalPublicClient явно посылает cancel при повторном нажатии; синхронный ref
+блокирует двойную отправку. Утверждённый/pending выбор не отменяется.
+Проверки: 36 server и 8 component тестов прошли, точечный ESLint и diff-check;
+браузерный стенд настоящих PublicClient/View с mock API проверил выбор, отмену,
+перезагрузку, мобильную/desktop ширину и обе темы. Production не обновлялся.
+
+С 1.41.13 FieldHelp сохраняет кнопку 24×24 px, но выводит её абсолютным
+позиционированием внутри обёртки высотой 1em. Подсказка не увеличивает высоту
+подписи InputWrapper/LabeledContainer и не смещает соседние поля.
+
+### Аудитория Telegram push (1.41.12, 2026-10-23)
+
+`SiteSettings.custom.telegramBusinessPushAudience`: `all` (legacy default),
+`clients`, `non_clients`. Переключатель — IntegrationsContent / TelegramPushAudience;
+сохранение через tenant/tariff-защищённый POST /api/site с enum-валидацией,
+GET Telegram status возвращает pushAudience. Общий messengerPush перед доставкой
+Web/Expo проверяет настройку и наличие Clients по `_id + tenantId`; mute клиента
+остаётся приоритетным. Фильтр не меняет сохранение сообщений/непрочитанных и
+не затрагивает VK/Avito. Автосозданная карточка уже считается клиентом.
+Native UI остаётся просмотром статуса; настройка задаётся в Web/PWA.
+Проверки: 9 focused-тестов (включая mock API/tenant-negative), точечный ESLint;
+изолированный браузерный стенд реального переключателя и CSS, 390/1365 px,
+обе темы, выбор и disabled. Реальная доставка push и production не проверялись.
+
 ### Яндекс ID и переключатели авторизации (1.39.2, 2026-10-21)
 
 `/cabinet/phone-auth` управляет глобальными `SiteSettings.socialAuth.vkEnabled`

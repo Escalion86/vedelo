@@ -1,4 +1,6 @@
 import Clients from '@models/Clients'
+import SiteSettings from '@models/SiteSettings'
+import { allowsTelegramMessagePush } from '@helpers/telegramPushAudience.mjs'
 import Events from '@models/Events'
 import TelegramConversations from '@models/TelegramConversations'
 import VkConversations from '@models/VkConversations'
@@ -100,6 +102,22 @@ export const notifyIncomingClientMessage = async ({
   unreadCount = 0,
 }) => {
   if (!tenantId || !provider) return null
+  if (provider === 'telegram') {
+    const [settings, client] = await Promise.all([
+      SiteSettings.findOne({ tenantId })
+        .select('custom.telegramBusinessPushAudience')
+        .lean(),
+      clientId
+        ? Clients.findOne({ _id: clientId, tenantId }).select('_id').lean()
+        : null,
+    ])
+    if (!allowsTelegramMessagePush(
+      settings?.custom?.telegramBusinessPushAudience,
+      Boolean(client)
+    )) {
+      return { suppressed: true, reason: 'telegram_push_audience' }
+    }
+  }
   if (await isClientMessengerPushMuted({ tenantId, clientId })) {
     return { suppressed: true, reason: 'client_messenger_push_muted' }
   }

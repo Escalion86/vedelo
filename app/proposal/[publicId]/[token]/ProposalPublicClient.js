@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Notice from '@components/Notice'
 import ProposalPageView from '@components/ProposalPageView'
 
@@ -9,6 +9,7 @@ const ProposalPublicClient = ({ publicId, token }) => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState('')
+  const sendingRef = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -28,7 +29,8 @@ const ProposalPublicClient = ({ publicId, token }) => {
 
 
   const selectPackage = async (packageId) => {
-    if (sending || proposal?.selectionLocked || proposal?.expired) return
+    if (sendingRef.current || proposal?.selectionLocked || proposal?.expired) return
+    sendingRef.current = true
     setSending(packageId)
     setError('')
     try {
@@ -37,7 +39,11 @@ const ProposalPublicClient = ({ publicId, token }) => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ packageId, contentRevision: proposal.contentRevision || 0 }),
+          body: JSON.stringify({
+            packageId,
+            action: proposal.selectedPackageId === packageId ? 'cancel' : 'select',
+            contentRevision: proposal.contentRevision || 0,
+          }),
         }
       )
       const body = await response.json().catch(() => ({}))
@@ -60,6 +66,7 @@ const ProposalPublicClient = ({ publicId, token }) => {
     } catch (requestError) {
       setError(requestError.message)
     } finally {
+      sendingRef.current = false
       setSending('')
     }
   }

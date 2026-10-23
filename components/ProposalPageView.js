@@ -200,7 +200,8 @@ export default function ProposalPageView({
                           preview || selectionLocked || proposal.expired || Boolean(sending)
                         }
                         onClick={() => selectPackage(item.id)}
-                        className={`${styles.button} mt-5 h-12 w-full cursor-pointer rounded-xl px-4 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50`}
+                        aria-pressed={selected}
+                        className={`${styles.button} mt-5 min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50`}
                       >
                         {applicationPending && selected
                           ? 'Ожидает сверки'
@@ -208,10 +209,10 @@ export default function ProposalPageView({
                           ? 'Вариант утверждён'
                           : selectionLocked
                             ? 'Выбор закрыт'
-                            : selected
-                          ? 'Вы выбрали этот вариант'
-                          : sending === item.id
+                            : sending === item.id
                             ? 'Сохраняем…'
+                            : selected
+                              ? 'Выбрано · нажмите, чтобы отменить'
                             : 'Выбрать вариант'}
                       </button>
                     </div>

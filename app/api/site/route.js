@@ -6,6 +6,7 @@ import getUserTariffAccess from '@server/getUserTariffAccess'
 import { getProtectedCustomAccessFailures } from '@server/integrationAccess'
 import { sanitizeTelegramSiteSettings } from '@server/telegramBusiness'
 import { mergeSiteSettingsCustom } from '@helpers/siteSettingsCustom.mjs'
+import { isTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
 import { clearTenantWorkItemTerminologyCache } from '@server/tenantTerminology'
 
 const normalizeTowns = (towns = []) =>
@@ -74,6 +75,15 @@ export const POST = async (req) => {
   if (body.custom !== undefined) {
     body.custom =
       body.custom && typeof body.custom === 'object' ? body.custom : {}
+    if (
+      Object.hasOwn(body.custom, 'telegramBusinessPushAudience') &&
+      !isTelegramPushAudience(body.custom.telegramBusinessPushAudience)
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Некорректная аудитория уведомлений Telegram' },
+        { status: 400 }
+      )
+    }
     const existingCustom = existingSiteSettings?.custom ?? {}
     const normalizedExistingCustom =
       typeof existingCustom?.get === 'function'

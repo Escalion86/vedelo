@@ -109,6 +109,10 @@ export const POST = async (req, { params }) => {
     return error('Срок действия предложения истёк', 410, 'expired')
   }
   const body = await req.json().catch(() => ({}))
+  const action = body?.action ?? 'select'
+  if (!['select', 'cancel'].includes(action))
+    return error('Неизвестное действие', 400, 'invalid_action')
+  const cancel = action === 'cancel'
   const contentRevision = Number(proposal.contentRevision || 0)
   if ((body?.contentRevision ?? 0) !== contentRevision)
     return error('Условия предложения изменились. Обновите страницу и выберите вариант заново.', 409, 'content_changed')
@@ -117,14 +121,18 @@ export const POST = async (req, { params }) => {
   if (!selected) return error('Вариант не найден', 404, 'package_not_found')
   const previous = proposal.selectedPackageId || ''
   const previousSelectedAt = proposal.selectedAt || null
-  const changed = previous !== packageId
-  proposal.selectedPackageId = packageId
-  proposal.selectedAt = changed ? new Date() : proposal.selectedAt || new Date()
+  if (cancel && previous && previous !== packageId)
+    return error('Выбор изменился. Обновите предложение.', 409, 'selection_conflict')
+  const nextPackageId = cancel ? '' : packageId
+  const changed = previous !== nextPackageId
+  proposal.selectedPackageId = nextPackageId
+  proposal.selectedAt = cancel ? null : changed ? new Date() : proposal.selectedAt || new Date()
   if (changed) {
     proposal.selectionHistory.push({
-      packageId,
+      packageId: nextPackageId,
       previousPackageId: previous,
-      selectedAt: proposal.selectedAt,
+      selectedAt: cancel ? new Date() : proposal.selectedAt,
+      ...(cancel ? { action: 'cancel' } : {}),
     })
   }
   // Compare-and-set against apply, revocation, token rotation and another selection.
@@ -149,7 +157,7 @@ export const POST = async (req, { params }) => {
       return error('Предложение изменилось или больше недоступно. Обновите страницу.', 409, 'selection_conflict')
     throw saveError
   }
-  if (changed && !proposal.selectionTaskCreatedAt) {
+  if (changed && !cancel && !proposal.selectionTaskCreatedAt) {
     const event = await Events.findOne({
       _id: proposal.eventId,
       tenantId: proposal.tenantId,
@@ -177,8 +185,8 @@ export const POST = async (req, { params }) => {
       tenantId: proposal.tenantId,
       source: 'proposal-selection',
       payload: {
-        title: 'Клиент выбрал предложение',
-        body: `Выбран вариант «${selected.title}»`,
+        title: cancel ? 'Клиент отменил выбор предложения' : 'Клиент выбрал предложение',
+        body: cancel ? `Отменён выбор варианта «${selected.title}»` : `Выбран вариант «${selected.title}»`,
         tag: `proposal-${proposal._id}`,
         data: {
           type: 'proposal_selected',

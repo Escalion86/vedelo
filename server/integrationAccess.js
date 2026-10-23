@@ -49,6 +49,7 @@ const INTEGRATION_ACCESS = Object.freeze({
     error: 'Интеграция Telegram недоступна по тарифу',
     customKeys: [
       'telegramBusinessEnabled',
+      'telegramBusinessPushAudience',
       'telegramBusinessBotToken',
       'telegramBusinessBotId',
       'telegramBusinessBotUsername',

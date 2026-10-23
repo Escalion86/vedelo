@@ -1,3 +1,4 @@
+import { normalizeTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
 import crypto from 'crypto'
 import dns from 'dns'
 import {
@@ -178,6 +179,9 @@ export const normalizeTelegramSettings = (custom) => ({
   enabled: Boolean(readCustom(custom, 'telegramBusinessEnabled')),
   autoCreateClients:
     readCustom(custom, 'telegramBusinessAutoCreateClients') === true,
+  pushAudience: normalizeTelegramPushAudience(
+    readCustom(custom, 'telegramBusinessPushAudience')
+  ),
   botToken: String(readCustom(custom, 'telegramBusinessBotToken') || ''),
   botId: String(readCustom(custom, 'telegramBusinessBotId') || ''),
   botUsername: String(readCustom(custom, 'telegramBusinessBotUsername') || ''),

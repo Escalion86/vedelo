@@ -171,3 +171,28 @@ test('после правки КП старая вкладка перечиты�
   await React.act(async () => element.querySelectorAll('button')[1].click())
   assert.deepEqual(posts.map(item => item.contentRevision), [0, 1])
 })
+
+test('выбор → отмена → повторный выбор: подпись, payload и защита двойного нажатия', async (t) => {
+  const Client = load('app/proposal/[publicId]/[token]/ProposalPublicClient.js').default
+  const original = global.fetch
+  let state = { ...base, selectedPackageId: '' }
+  const posts = []
+  global.fetch = async (_url, options = {}) => {
+    if (options.method === 'POST') {
+      const body = JSON.parse(options.body)
+      posts.push(body)
+      state = { ...state, selectedPackageId: body.action === 'cancel' ? '' : body.packageId }
+    }
+    return { ok: true, json: async () => ({ data: state }) }
+  }
+  t.after(() => { global.fetch = original })
+  const element = await mount(t, Client, { publicId: 'test', token: 'test' })
+  const button = () => element.querySelector('button')
+  await React.act(async () => { button().click(); button().click() })
+  assert.equal(posts.length, 1)
+  assert.match(button().textContent, /Выбрано.*отменить/)
+  await React.act(async () => button().click())
+  assert.equal(button().textContent, 'Выбрать вариант')
+  await React.act(async () => button().click())
+  assert.deepEqual(posts.map(p => p.action), ['select', 'cancel', 'select'])
+})
