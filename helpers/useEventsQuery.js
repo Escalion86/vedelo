@@ -61,6 +61,7 @@ const setEventInQueries = (queryClient, event) => {
       data: replaceEventById(prev.data, event),
     }
   })
+  void queryClient.invalidateQueries({ queryKey: ['statistics'] })
 }
 
 const deleteEventFromQueries = (queryClient, eventId) => {
@@ -72,6 +73,7 @@ const deleteEventFromQueries = (queryClient, eventId) => {
       data: removeEventById(prev.data, eventId),
     }
   })
+  void queryClient.invalidateQueries({ queryKey: ['statistics'] })
 }
 
 export const useEventsQuery = ({

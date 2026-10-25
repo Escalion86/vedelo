@@ -1,5 +1,42 @@
 # AI Handoff: «Ведело»
 
+### Google Tasks beta (1.43.0, 2026-10-25)
+
+Opt-in только role=dev без impersonation: GoogleCalendarSettings →
+GoogleTasksBetaSettings, /api/google-calendar/tasks-beta (tenant + tariff).
+Новый Tasks OAuth scope запрашивается только кнопкой tasks=1; импорт отделён.
+Настройки googleCalendar.tasksBeta задают enabled/defaultMode/taskListId.
+Общий редактор additionalEvents поддерживает googleSyncMode event/task/none и
+googleDurationMinutes 5–1440; _id сохраняется при обновлении, внешние ID берутся
+из старого серверного снимка. Старые записи остаются event. Значение по умолчанию
+применяется в редакторе и POST/PUT событий; внутренние генераторы задач пока legacy.
+
+server/googleAdditionalSync + GoogleAdditionalLinks управляют связями независимо
+от основного заказа; CRUD включает этот путь только для beta dev. Выполнение
+event удаляет его, task выставляет completed; возврат в работу обратный. Google
+Tasks отдаёт только день, timezone берётся из SiteSettings. Обратная отметка
+выполнения проверяется GoogleTasksBetaPoller в видимом кабинете раз в минуту
+(20 связей за проход) или вручную; cron нет. CRM выигрывает одновременное изменение.
+Удалённые в Google записи требуют явного восстановления, задачи CRM сохраняются.
+Смена списка влияет на новые задачи. Непроверенный импорт не отправляется.
+
+Связи имеют tenant/user, lease и маркер восстановления потерянного ответа insert.
+Unknown insert не повторяется вслепую; подробности и разрешения Google —
+docs/GOOGLE_TASKS_BETA.md. Не удалять pending/marker до сверки внешней записи.
+Нативный интерфейс не добавлен; реальный OAuth/Tasks и production не изменялись.
+Проверка: tests/server/googleTasksBeta.test.cjs — отдельная MongoDB, mock Google,
+включая tenant-negative. Браузерный стенд реальных компонентов/модалок проверяет
+390/1365 px, обе темы, сохранение и скрытие функций у обычного пользователя.
+Итоговые 21 server/helper тест, точечный ESLint и изолированная production-сборка
+Next.js Webpack (.next-google-tasks-qa) успешны. Рабочие .env не загружались.
+
+С 1.42.2 useEventActions инвалидирует statistics после сохранения, смены статуса
+и удаления. useStatisticsQuery делает GET с cache: no-store и не создаёт пустой
+initialData без SSR-снимка. Окна месяца и списков оплат в StatisticsContent сами
+подписаны на Query-кэш; useFilteredStatistics сохраняет общие формулы и фильтры.
+Регрессия: tests/components/statisticsRefresh.browser.test.cjs (mock API и
+карточки/график, настоящие экран и query/mutation hooks, 390/1365 × обе темы).
+
 С 1.42.1 карточки промокодов показывают usageCount, список применивших код
 пользователей (50 на страницу) и удаление неиспользованного кода. Admin API GET
 принимает code/page либо userId; DELETE — code/revision. Все операции только

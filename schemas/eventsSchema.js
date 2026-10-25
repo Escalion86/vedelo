@@ -47,6 +47,8 @@ const eventsSchema = {
         done: { type: Boolean, default: false },
         doneAt: { type: Date, default: null },
         googleCalendarEventId: { type: String, default: '' },
+        googleSyncMode: { type: String, enum: ['event', 'task', 'none'], default: 'event' },
+        googleDurationMinutes: { type: Number, min: 5, max: 1440, default: 30 },
       },
     ],
     default: [],

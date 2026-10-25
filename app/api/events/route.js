@@ -433,7 +433,7 @@ export const POST = async (req) => {
     requestCreatedAt: body.requestCreatedAt
       ? new Date(body.requestCreatedAt)
       : new Date(),
-    additionalEvents: normalizeAdditionalEvents(body.additionalEvents),
+    additionalEvents: normalizeAdditionalEvents(body.additionalEvents, { user }),
     documentFiles: normalizeEventDocumentFiles(body.documentFiles),
     documents: normalizeEventDocuments(body.documents),
     eventType: eventTypeValue,

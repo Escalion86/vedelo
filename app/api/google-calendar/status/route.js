@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import getTenantContext from '@server/getTenantContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { normalizeCalendarSettings } from '@server/googleUserCalendarClient'
+import { isGoogleTasksDeveloper, hasGoogleTasksScope } from '@helpers/googleTasksBeta.mjs'
 
 export const runtime = 'nodejs'
 
@@ -26,6 +27,9 @@ export const GET = async () => {
         allowCalendarSync: Boolean(access?.allowCalendarSync),
         allowAi: Boolean(access?.allowAi),
         connected,
+        tasksBeta: isGoogleTasksDeveloper(user) ? {
+          ...settings.tasksBeta, available: true, authorized: hasGoogleTasksScope(user),
+        } : null,
         enabled: settings.enabled,
         calendarId: settings.calendarId,
         calendarName: settings.calendarName,

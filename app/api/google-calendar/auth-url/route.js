@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { GOOGLE_TASKS_SCOPE, isGoogleTasksDeveloper } from '@helpers/googleTasksBeta.mjs'
 
 import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
@@ -39,6 +40,10 @@ export const GET = async (req) => {
   const access = await getUserTariffAccess(user._id)
   const purpose =
     req.nextUrl.searchParams.get('purpose') === 'import' ? 'import' : 'sync'
+  const withTasks = req.nextUrl.searchParams.get('tasks') === '1'
+  if (withTasks && (!isGoogleTasksDeveloper(user) || purpose !== 'sync')) {
+    return NextResponse.json({ success: false, error: 'Только для разработчика' }, { status: 403 })
+  }
   if (
     !access?.allowCalendarSync ||
     (purpose === 'import' && !access?.allowAi)
@@ -78,9 +83,10 @@ export const GET = async (req) => {
   const state = encodeState({ nonce, redirect, purpose, origin: requestOrigin })
 
   const url = oauth.generateAuthUrl({
+    ...(withTasks ? { include_granted_scopes: true } : {}),
     access_type: 'offline',
     prompt: 'consent',
-    scope: [purpose === 'import' ? READ_SCOPE : WRITE_SCOPE],
+    scope: [purpose === 'import' ? READ_SCOPE : WRITE_SCOPE, ...(withTasks ? [GOOGLE_TASKS_SCOPE] : [])],
     state,
   })
 

@@ -1,4 +1,6 @@
 import { after, NextResponse } from 'next/server'
+import { isGoogleTasksBeta } from '@helpers/googleTasksBeta.mjs'
+import { syncGoogleAdditionalEvents } from '@server/googleAdditionalSync'
 import { validateDocumentPaymentLinks } from '@server/documentPaymentLinks'
 import mongoose from 'mongoose'
 import Events from '@models/Events'
@@ -230,7 +232,7 @@ export const PUT = async (req, { params }) => {
   if (body.dateEnd !== undefined)
     update.dateEnd = body.dateEnd ? new Date(body.dateEnd) : null
   if (body.additionalEvents !== undefined)
-    update.additionalEvents = normalizeAdditionalEvents(body.additionalEvents)
+    update.additionalEvents = normalizeAdditionalEvents(body.additionalEvents, { user, previous: oldEvent.additionalEvents || [] })
   if (body.clientId !== undefined)
     update.clientId = normalizeObjectId(body.clientId)
   if (body.address !== undefined) {
@@ -508,6 +510,7 @@ export const DELETE = async (req, { params }) => {
     ...additionalCalendarEventIds,
   ].filter(Boolean)
   if (
+    isGoogleTasksBeta(user) ||
     calendarEventIds.length > 0 ||
     deleted.calendarImportChecked ||
     deleted.importedFromCalendar
@@ -516,6 +519,7 @@ export const DELETE = async (req, { params }) => {
       try {
         const access = await getUserTariffAccess(user._id)
         if (access?.allowCalendarSync) {
+          if (isGoogleTasksBeta(user)) await syncGoogleAdditionalEvents(user, { eventId: deleted._id, previousEvent: deleted })
           const uniqueCalendarEventIds = Array.from(new Set(calendarEventIds))
           for (const googleCalendarId of uniqueCalendarEventIds) {
             try {

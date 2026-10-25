@@ -263,6 +263,11 @@ const usersSchema = {
   },
   googleCalendar: {
     type: {
+      tasksBeta: {
+        enabled: { type: Boolean, default: false },
+        defaultMode: { type: String, enum: ['event', 'task'], default: 'event' },
+        taskListId: { type: String, default: '' },
+      },
       enabled: { type: Boolean, default: false },
       calendarId: { type: String, default: '' },
       calendarName: { type: String, default: '' },

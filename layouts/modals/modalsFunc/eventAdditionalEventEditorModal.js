@@ -1,5 +1,10 @@
 import fieldHelp from '@helpers/fieldHelp.json'
 import { useEffect, useState } from 'react'
+import { useAtomValue } from 'jotai'
+import { useQuery } from '@tanstack/react-query'
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
+import { isGoogleTasksDeveloper } from '@helpers/googleTasksBeta.mjs'
+import GoogleAdditionalSyncFields from '@components/GoogleAdditionalSyncFields'
 import DateTimePicker from '@components/DateTimePicker'
 import QuickActionButtons from '@components/QuickActionButtons'
 import Input from '@components/Input'
@@ -35,16 +40,38 @@ const openEventAdditionalEventEditorModal = ({
     : buildDefaultAdditionalEvent()
   const stateRef = {
     current: {
+      _id: initialSource?._id,
+      googleSyncMode: initialSource?.googleSyncMode,
+      googleDurationMinutes: initialSource?.googleDurationMinutes ?? 30,
       title: initialSource?.title ?? '',
       description: initialSource?.description ?? '',
-      date: initialSource?.date ?? new Date().toISOString(),
+      date: initialSource?.date ?? null,
       done: Boolean(initialSource?.done),
       doneAt: initialSource?.doneAt ?? null,
       googleCalendarEventId: initialSource?.googleCalendarEventId ?? '',
     },
   }
 
-  const AdditionalEventModal = ({ setOnConfirmFunc, closeModal }) => {
+  const AdditionalEventModal = ({ setOnConfirmFunc, closeModal, setDisableConfirm }) => {
+    const user = useAtomValue(loggedUserAtom)
+    const developer = isGoogleTasksDeveloper(user)
+    const { data: google, isLoading: googleLoading } = useQuery({
+      queryKey: ['google-tasks-beta-status'], enabled: developer, staleTime: 30000,
+      queryFn: async () => {
+        const response = await fetch('/api/google-calendar/status')
+        const result = await response.json()
+        if (!result.success) throw new Error('Не удалось загрузить настройки Google')
+        return result.data
+      },
+    })
+    const showGoogle = developer && google?.connected && google?.tasksBeta?.enabled && google?.allowCalendarSync
+    const [syncMode, setSyncMode] = useState(stateRef.current.googleSyncMode)
+    const [duration, setDuration] = useState(stateRef.current.googleDurationMinutes)
+    const effectiveMode = syncMode || (index === null && !initialSource?._id && showGoogle ? google.tasksBeta.defaultMode : 'event')
+    useEffect(() => {
+      setDisableConfirm?.(Boolean(developer && googleLoading) || Boolean(showGoogle && effectiveMode === 'event' &&
+        (!Number.isInteger(Number(duration)) || Number(duration) < 5 || Number(duration) > 1440)))
+    }, [developer, googleLoading, showGoogle, effectiveMode, duration, setDisableConfirm])
     const [localTitle, setLocalTitle] = useState(stateRef.current.title)
     const [description, setDescription] = useState(stateRef.current.description)
     const [date, setDate] = useState(stateRef.current.date)
@@ -100,13 +127,15 @@ const openEventAdditionalEventEditorModal = ({
     useEffect(() => {
       stateRef.current = {
         ...stateRef.current,
+        googleSyncMode: effectiveMode,
+        googleDurationMinutes: Number(duration),
         title: localTitle,
         description,
         date,
         done,
         doneAt: done ? stateRef.current.doneAt ?? new Date().toISOString() : null,
       }
-    }, [date, description, done, localTitle])
+    }, [date, description, done, localTitle, effectiveMode, duration])
 
     return (
       <div className="mt-2 flex flex-col gap-y-2.5">
@@ -197,6 +226,8 @@ const openEventAdditionalEventEditorModal = ({
           rows={3}
           noMargin
         />
+        {showGoogle ? <GoogleAdditionalSyncFields mode={effectiveMode} onModeChange={setSyncMode}
+          duration={duration} onDurationChange={setDuration} paused={!google.enabled} authorized={google.tasksBeta.authorized} /> : null}
         <IconCheckBox
           checked={done}
           onClick={() => setDone((prev) => !prev)}
@@ -217,6 +248,9 @@ const openEventAdditionalEventEditorModal = ({
     showDecline: true,
     onConfirm: async () => {
       const nextItem = {
+        _id: stateRef.current._id,
+        googleSyncMode: stateRef.current.googleSyncMode,
+        googleDurationMinutes: stateRef.current.googleDurationMinutes,
         title: stateRef.current.title?.trim() ?? '',
         description: stateRef.current.description?.trim() ?? '',
         date: stateRef.current.date ?? null,

@@ -2,6 +2,7 @@ import {
   eventHasDocuments,
   normalizeEventDocuments,
 } from '../helpers/eventDocuments.js'
+import { additionalGoogleFields } from '../helpers/googleTasksBeta.mjs'
 
 const hasDocuments = (payload) => eventHasDocuments(payload)
 
@@ -23,7 +24,7 @@ const normalizeDepositExpectedAmount = (value) => {
   return Math.floor(number)
 }
 
-const normalizeAdditionalEvents = (items) => {
+const normalizeAdditionalEvents = (items, options = null) => {
   if (!Array.isArray(items)) return []
   return items
     .map((item) => {
@@ -46,6 +47,7 @@ const normalizeAdditionalEvents = (items) => {
         done,
         doneAt,
         googleCalendarEventId,
+        ...(options ? additionalGoogleFields(item, options.previous || [], options.user) : {}),
       }
     })
     .filter(Boolean)

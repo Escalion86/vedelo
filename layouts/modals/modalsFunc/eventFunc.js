@@ -122,6 +122,9 @@ const normalizeAdditionalEvents = (items) => {
     .map((item) => {
       if (!item || typeof item !== 'object') return null
       return {
+        _id: item._id,
+        googleSyncMode: item.googleSyncMode,
+        googleDurationMinutes: item.googleDurationMinutes,
         title: typeof item.title === 'string' ? item.title : '',
         description:
           typeof item.description === 'string' ? item.description : '',
@@ -766,6 +769,9 @@ const eventFunc = (
         additionalEvents
       )
         .map((item) => ({
+          _id: item._id,
+          googleSyncMode: item.googleSyncMode,
+          googleDurationMinutes: item.googleDurationMinutes,
           title: item.title?.trim() ?? '',
           description: item.description?.trim() ?? '',
           date: item.date ?? null,

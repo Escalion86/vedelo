@@ -2,6 +2,7 @@
 
 import fieldHelp from '@helpers/fieldHelp.json'
 import FieldHelp from './FieldHelp'
+import GoogleTasksBetaSettings from './GoogleTasksBetaSettings'
 
 import { useEffect, useState } from 'react'
 import IconCheckBox from '@components/IconCheckBox'
@@ -580,6 +581,7 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
 
   return (
     <>
+      {calendarStatus.connected && calendarStatus.tasksBeta?.available ? <GoogleTasksBetaSettings redirectPath={redirectPath} /> : null}
       <div className="bg-white">
         <div className="mt-2 text-sm text-gray-600">
           {calendarStatus.connected ? 'Подключен' : 'Не подключен'}

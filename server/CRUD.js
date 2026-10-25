@@ -1,4 +1,6 @@
 import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
+import { isGoogleTasksBeta } from '@helpers/googleTasksBeta.mjs'
+import { syncGoogleAdditionalEvents } from '@server/googleAdditionalSync'
 import formatAddress from '@helpers/formatAddress'
 import Events from '@models/Events'
 import Histories from '@models/Histories'
@@ -400,6 +402,10 @@ const updateEventInCalendar = async (
   previousEvent = null
 ) => {
   if (event?.importedFromFile && event.fileImportChecked !== true) return undefined
+  const tasksBeta = isGoogleTasksBeta(user)
+  if (tasksBeta && String(event?.tenantId) === String(user.tenantId || user._id)) {
+    await syncGoogleAdditionalEvents(user, { eventId: event._id, previousEvent })
+  }
   const context = await getCalendarContext(user)
   if (!context) return undefined
   const { calendar, calendarId } = context
@@ -926,6 +932,7 @@ const updateEventInCalendar = async (
     )
   }
 
+  if (tasksBeta) return updatedCalendarEvent
   const previousAdditionalByGoogleId = new Map(
     previousAdditionalEvents
       .map((item) => toAdditionalEventPayload(item))
@@ -965,6 +972,10 @@ const updateEventInCalendar = async (
   let additionalEventsChanged = false
   const nextAdditionalEvents = []
   for (const item of normalizedAdditionalEvents) {
+    if (item.googleSyncMode === 'task' || item.googleSyncMode === 'none') {
+      nextAdditionalEvents.push(item)
+      continue
+    }
     const hasContent = Boolean(item.title || item.description || item.date)
     if (!hasContent) continue
 
@@ -1071,6 +1082,9 @@ const updateEventInCalendar = async (
     }
     if (additionalEventsChanged) {
       updatePayload.additionalEvents = nextAdditionalEvents.map((item) => ({
+        _id: item._id,
+        googleSyncMode: item.googleSyncMode,
+        googleDurationMinutes: item.googleDurationMinutes,
         title: item.title || '',
         description: item.description || '',
         date: item.date || null,

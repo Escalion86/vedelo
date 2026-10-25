@@ -139,6 +139,11 @@ const normalizeCalendarSettings = (user) => {
     settings?.skipTransferredFromCalendar === true
   return {
     enabled: Boolean(settings.enabled),
+    tasksBeta: {
+      enabled: settings.tasksBeta?.enabled === true,
+      defaultMode: settings.tasksBeta?.defaultMode === 'task' ? 'task' : 'event',
+      taskListId: settings.tasksBeta?.taskListId || '',
+    },
     calendarId: settings.calendarId || '',
     calendarName: settings.calendarName || '',
     refreshToken: settings.refreshToken || '',

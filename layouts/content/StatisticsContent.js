@@ -232,129 +232,15 @@ const renderEventCountLabelsLayer = ({ bars }) => {
   )
 }
 
-const StatisticsContent = () => {
-  const tariffsRaw = useAtomValue(tariffsAtom)
-  const loggedUser = useAtomValue(loggedUserAtom)
-  const modalsFunc = useAtomValue(modalsFuncAtom)
-  const statisticsQuery = useStatisticsQuery()
-  const statisticsData = statisticsQuery.data ?? {}
-  const terms = useWorkItemTerminology()
+const EMPTY_ITEMS = []
 
-  const transactions = Array.isArray(statisticsData.transactions)
-    ? statisticsData.transactions
-    : []
-  const events = Array.isArray(statisticsData.events)
-    ? statisticsData.events
-    : []
-  const clients = Array.isArray(statisticsData.clients)
-    ? statisticsData.clients
-    : []
-  const services = Array.isArray(statisticsData.services)
-    ? statisticsData.services
-    : []
-  const tariffs = Array.isArray(tariffsRaw) ? tariffsRaw : []
-  const access = getUserTariffAccess(loggedUser, tariffs)
-  const router = useRouter()
-  const canShowStatistics = access.allowStatistics
-
-  const eventsMap = useMemo(() => {
-    const map = new Map()
-    events.forEach((event) => {
-      if (event?._id) map.set(event._id, event)
-    })
-    return map
-  }, [events])
-
-  const clientsMap = useMemo(() => {
-    const map = new Map()
-    clients.forEach((client) => {
-      if (client?._id) map.set(client._id, client)
-    })
-    return map
-  }, [clients])
-
-  const servicesMap = useMemo(() => {
-    const map = new Map()
-    services.forEach((service) => {
-      if (service?._id) map.set(service._id, service)
-    })
-    return map
-  }, [services])
-
-  const availableYears = useMemo(() => {
-    const years = new Set()
-    events.forEach((event) => {
-      if (!event?.eventDate) return
-      const date = new Date(event.eventDate)
-      if (Number.isNaN(date.getTime())) return
-      years.add(date.getFullYear())
-    })
-    transactions.forEach((transaction) => {
-      if (transaction?.eventId || !transaction?.date) return
-      const date = new Date(transaction.date)
-      if (Number.isNaN(date.getTime())) return
-      years.add(date.getFullYear())
-    })
-    return Array.from(years).sort((a, b) => b - a)
-  }, [events, transactions])
-
-  const [selectedYear, setSelectedYear] = useState(null)
-  const [selectedTown, setSelectedTown] = useState('')
-  const [includeRequests, setIncludeRequests] = useState(false)
-  const chartContainerRef = useRef(null)
-  const [chartWidth, setChartWidth] = useState(0)
-
-  useEffect(() => {
-    const element = chartContainerRef.current
-    if (!element) return
-
-    const updateWidth = () => {
-      const nextWidth = Math.max(0, Math.floor(element.clientWidth))
-      setChartWidth(nextWidth)
-    }
-
-    updateWidth()
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => updateWidth())
-      observer.observe(element)
-      return () => observer.disconnect()
-    }
-
-    window.addEventListener('resize', updateWidth)
-    return () => window.removeEventListener('resize', updateWidth)
-  }, [
-    selectedYear,
-    selectedTown,
-    includeRequests,
-    events.length,
-    transactions.length,
-  ])
-
-  const defaultYear = getDefaultStatisticsYear(availableYears)
-  if (selectedYear === null && defaultYear !== null) setSelectedYear(defaultYear)
-
-  const townsOptions = useMemo(() => {
-    const set = new Set()
-    events.forEach((event) => {
-      if (!event?.eventDate || !isValidDate(event.eventDate)) return
-      const date = new Date(event.eventDate)
-      if (selectedYear && date.getFullYear() !== selectedYear) return
-      const town = event?.address?.town
-      if (typeof town === 'string' && town.trim()) set.add(town.trim())
-    })
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'))
-  }, [events, selectedYear])
-
-  const townsOptionsWithAll = useMemo(
-    () => [ALL_TOWNS_OPTION, ...townsOptions],
-    [townsOptions]
-  )
-
-  if (selectedTown && !townsOptions.includes(selectedTown)) {
-    setSelectedTown('')
-  }
-
+// Одна выборка для страницы и открытых окон; данные приходят из общего Query-кэша.
+const useFilteredStatistics = (
+  data,
+  { selectedYear, selectedTown, includeRequests }
+) => {
+  const events = data.events ?? EMPTY_ITEMS
+  const transactions = data.transactions ?? EMPTY_ITEMS
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       if (!isValidDate(event?.eventDate)) return false
@@ -468,6 +354,308 @@ const StatisticsContent = () => {
       })
       .filter(({ event, depositPaid }) => event?._id && depositPaid > 0)
   }, [filteredEvents, filteredTransactions])
+
+  return {
+    filteredEvents,
+    chartCountEvents,
+    filteredTransactions,
+    eventFinanceMap,
+    paymentLeftEvents,
+    depositPaidEvents,
+  }
+}
+
+const StatisticsEventsDetails = ({ metric, filters }) => {
+  const { data = {} } = useStatisticsQuery()
+  const { paymentLeftEvents, depositPaidEvents, filteredTransactions } =
+    useFilteredStatistics(data, filters)
+  const items = metric === 'paymentLeft' ? paymentLeftEvents : depositPaidEvents
+  return (
+    <div className="pb-2 space-y-2">
+      {items.map(({ event }) => (
+        <EventCard
+          key={event._id}
+          eventId={event._id}
+          event={event}
+          transactions={filteredTransactions}
+        />
+      ))}
+    </div>
+  )
+}
+
+const StatisticsMonthDetails = ({ monthKey, filters }) => {
+  const { data = {} } = useStatisticsQuery()
+  const terms = useWorkItemTerminology()
+  const { filteredEvents, filteredTransactions, eventFinanceMap } =
+    useFilteredStatistics(data, filters)
+  const clientsMap = new Map(
+    (data.clients ?? []).map((client) => [client._id, client])
+  )
+  const eventsMap = new Map(
+    (data.events ?? []).map((event) => [event._id, event])
+  )
+  const details = getStatisticsMonthDetails({
+    monthKey,
+    filteredEvents,
+    filteredTransactions,
+    eventFinanceMap,
+  })
+
+  const isPastMonth = isPastMonthKey(monthKey)
+  const hasUnderpaidEvents = Boolean(details.summary.hasUnderpaidEvents)
+  const profitCardTitle =
+    isPastMonth || !hasUnderpaidEvents
+      ? 'Фактическая прибыль'
+      : 'Ожидаемая прибыль'
+  const eventStatusCounts = details.summary.eventStatusCounts || {}
+  const transferredEventStatusCounts =
+    details.summary.transferredEventStatusCounts || {}
+  const eventsTotal = getEventStatusCountsTotal(eventStatusCounts)
+  const transferredEventsTotal = getEventStatusCountsTotal(
+    transferredEventStatusCounts
+  )
+
+  return (
+    <div className="pb-2 space-y-4">
+      <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-3 lg:grid-cols-6">
+        <SurfaceCard className="rounded" paddingClassName="p-3">
+          <div className="text-xs text-gray-500">Выручка</div>
+          <div className="text-base font-semibold text-green-700">
+            {formatCurrency(details.summary.totalIncome)}
+          </div>
+        </SurfaceCard>
+        <SurfaceCard className="rounded" paddingClassName="p-3">
+          <div className="text-xs text-gray-500">Расход</div>
+          <div className="text-base font-semibold text-red-700">
+            {formatCurrency(details.summary.totalExpense)}
+          </div>
+        </SurfaceCard>
+        {hasUnderpaidEvents ? (
+          <>
+            <SurfaceCard className="rounded" paddingClassName="p-3">
+              <div className="text-xs text-gray-500">Текущая прибыль</div>
+              <div className="text-base font-semibold text-blue-700">
+                {formatCurrency(details.summary.profit)}
+              </div>
+            </SurfaceCard>
+            <SurfaceCard className="rounded" paddingClassName="p-3">
+              <div className="text-xs text-gray-500">Недооплачено</div>
+              <div className="text-base font-semibold text-amber-700">
+                {formatCurrency(details.summary.paymentLeft)}
+              </div>
+            </SurfaceCard>
+          </>
+        ) : null}
+        <SurfaceCard className="rounded" paddingClassName="p-3">
+          <div className="text-xs text-gray-500">
+            {profitCardTitle}{' '}
+            {profitCardTitle === 'Ожидаемая прибыль' ? (
+              <FieldHelp
+                text={fieldHelp['statistics.expectedProfit']}
+                label={profitCardTitle}
+              />
+            ) : null}
+          </div>
+          <div className="text-base font-semibold text-violet-700">
+            {formatCurrency(
+              details.summary.profit + details.summary.paymentLeft
+            )}
+          </div>
+        </SurfaceCard>
+        <MonthEventStatusCard
+          title={
+            terms.pluralGenitive[0].toUpperCase() +
+            terms.pluralGenitive.slice(1)
+          }
+          totalCount={eventsTotal}
+          statusCounts={eventStatusCounts}
+          emptyText={`Нет ${terms.pluralGenitive}`}
+        />
+        {transferredEventsTotal > 0 ? (
+          <MonthEventStatusCard
+            title={`Переданных ${terms.pluralGenitive}`}
+            totalCount={transferredEventsTotal}
+            statusCounts={transferredEventStatusCounts}
+            emptyText={`Нет переданных ${terms.pluralGenitive}`}
+          />
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-semibold text-gray-700">
+          {terms.pluralCapitalized} месяца
+        </div>
+        {details.events.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Нет {terms.pluralGenitive} за этот месяц
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {details.events.map((event) => (
+              <EventCard
+                key={event._id}
+                eventId={event._id}
+                event={event}
+                transactions={details.transactions}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-semibold text-gray-700">
+          Транзакции месяца
+        </div>
+        {details.transactions.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Нет транзакций за этот месяц
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {details.transactions.map((transaction) => (
+              <TransactionCard
+                key={transaction._id}
+                transaction={transaction}
+                client={clientsMap.get(transaction.clientId) || null}
+                event={eventsMap.get(transaction.eventId) || null}
+                onEdit={() => {}}
+                onDelete={() => {}}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const StatisticsContent = () => {
+  const tariffsRaw = useAtomValue(tariffsAtom)
+  const loggedUser = useAtomValue(loggedUserAtom)
+  const modalsFunc = useAtomValue(modalsFuncAtom)
+  const statisticsQuery = useStatisticsQuery()
+  const statisticsData = statisticsQuery.data ?? {}
+  const terms = useWorkItemTerminology()
+
+  const transactions = Array.isArray(statisticsData.transactions)
+    ? statisticsData.transactions
+    : []
+  const events = Array.isArray(statisticsData.events)
+    ? statisticsData.events
+    : []
+  const services = Array.isArray(statisticsData.services)
+    ? statisticsData.services
+    : []
+  const tariffs = Array.isArray(tariffsRaw) ? tariffsRaw : []
+  const access = getUserTariffAccess(loggedUser, tariffs)
+  const router = useRouter()
+  const canShowStatistics = access.allowStatistics
+
+  const eventsMap = useMemo(() => {
+    const map = new Map()
+    events.forEach((event) => {
+      if (event?._id) map.set(event._id, event)
+    })
+    return map
+  }, [events])
+
+  const servicesMap = useMemo(() => {
+    const map = new Map()
+    services.forEach((service) => {
+      if (service?._id) map.set(service._id, service)
+    })
+    return map
+  }, [services])
+
+  const availableYears = useMemo(() => {
+    const years = new Set()
+    events.forEach((event) => {
+      if (!event?.eventDate) return
+      const date = new Date(event.eventDate)
+      if (Number.isNaN(date.getTime())) return
+      years.add(date.getFullYear())
+    })
+    transactions.forEach((transaction) => {
+      if (transaction?.eventId || !transaction?.date) return
+      const date = new Date(transaction.date)
+      if (Number.isNaN(date.getTime())) return
+      years.add(date.getFullYear())
+    })
+    return Array.from(years).sort((a, b) => b - a)
+  }, [events, transactions])
+
+  const [selectedYear, setSelectedYear] = useState(null)
+  const [selectedTown, setSelectedTown] = useState('')
+  const [includeRequests, setIncludeRequests] = useState(false)
+  const chartContainerRef = useRef(null)
+  const [chartWidth, setChartWidth] = useState(0)
+
+  useEffect(() => {
+    const element = chartContainerRef.current
+    if (!element) return
+
+    const updateWidth = () => {
+      const nextWidth = Math.max(0, Math.floor(element.clientWidth))
+      setChartWidth(nextWidth)
+    }
+
+    updateWidth()
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => updateWidth())
+      observer.observe(element)
+      return () => observer.disconnect()
+    }
+
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [
+    selectedYear,
+    selectedTown,
+    includeRequests,
+    events.length,
+    transactions.length,
+  ])
+
+  const defaultYear = getDefaultStatisticsYear(availableYears)
+  if (selectedYear === null && defaultYear !== null)
+    setSelectedYear(defaultYear)
+
+  const townsOptions = useMemo(() => {
+    const set = new Set()
+    events.forEach((event) => {
+      if (!event?.eventDate || !isValidDate(event.eventDate)) return
+      const date = new Date(event.eventDate)
+      if (selectedYear && date.getFullYear() !== selectedYear) return
+      const town = event?.address?.town
+      if (typeof town === 'string' && town.trim()) set.add(town.trim())
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'))
+  }, [events, selectedYear])
+
+  const townsOptionsWithAll = useMemo(
+    () => [ALL_TOWNS_OPTION, ...townsOptions],
+    [townsOptions]
+  )
+
+  if (selectedTown && !townsOptions.includes(selectedTown)) {
+    setSelectedTown('')
+  }
+
+  const {
+    filteredEvents,
+    chartCountEvents,
+    filteredTransactions,
+    eventFinanceMap,
+    paymentLeftEvents,
+    depositPaidEvents,
+  } = useFilteredStatistics(statisticsData, {
+    selectedYear,
+    selectedTown,
+    includeRequests,
+  })
 
   const stats = useMemo(() => {
     return buildStatisticsChartData({
@@ -599,22 +787,13 @@ const StatisticsContent = () => {
     return [servicesTitle, addressLine].filter(Boolean).join(' • ')
   }
 
-  const openEventsDetailsModal = (title, items) => {
-    if (!Array.isArray(items) || items.length === 0) return
-
+  const openEventsDetailsModal = (title, metric) => {
     const EventsDetailsModal = () => (
-      <div className="pb-2 space-y-2">
-        {items.map(({ event }) => (
-          <EventCard
-            key={event._id}
-            eventId={event._id}
-            event={event}
-            transactions={filteredTransactions}
-          />
-        ))}
-      </div>
+      <StatisticsEventsDetails
+        metric={metric}
+        filters={{ selectedYear, selectedTown, includeRequests }}
+      />
     )
-
     modalsFunc.custom?.({
       title,
       Children: EventsDetailsModal,
@@ -627,130 +806,13 @@ const StatisticsContent = () => {
     const monthKey = monthStat?.data?.monthKey ?? monthStat?.monthKey
     if (!monthKey) return
 
-    const details = getStatisticsMonthDetails({
-      monthKey,
-      filteredEvents,
-      filteredTransactions,
-      eventFinanceMap,
-    })
-
     const [year] = monthKey.split('-')
     const monthTitle = `${monthStat?.data?.month ?? monthStat?.month ?? 'Месяц'} ${year}`
-    const isPastMonth = isPastMonthKey(monthKey)
-    const hasUnderpaidEvents = Boolean(details.summary.hasUnderpaidEvents)
-    const profitCardTitle =
-      isPastMonth || !hasUnderpaidEvents
-        ? 'Фактическая прибыль'
-        : 'Ожидаемая прибыль'
-    const eventStatusCounts = details.summary.eventStatusCounts || {}
-    const transferredEventStatusCounts =
-      details.summary.transferredEventStatusCounts || {}
-    const eventsTotal = getEventStatusCountsTotal(eventStatusCounts)
-    const transferredEventsTotal = getEventStatusCountsTotal(
-      transferredEventStatusCounts
-    )
-
     const MonthDetailsModal = () => (
-      <div className="pb-2 space-y-4">
-        <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-3 lg:grid-cols-6">
-          <SurfaceCard className="rounded" paddingClassName="p-3">
-            <div className="text-xs text-gray-500">Выручка</div>
-            <div className="text-base font-semibold text-green-700">
-              {formatCurrency(details.summary.totalIncome)}
-            </div>
-          </SurfaceCard>
-          <SurfaceCard className="rounded" paddingClassName="p-3">
-            <div className="text-xs text-gray-500">Расход</div>
-            <div className="text-base font-semibold text-red-700">
-              {formatCurrency(details.summary.totalExpense)}
-            </div>
-          </SurfaceCard>
-          {hasUnderpaidEvents ? (
-            <>
-              <SurfaceCard className="rounded" paddingClassName="p-3">
-                <div className="text-xs text-gray-500">Текущая прибыль</div>
-                <div className="text-base font-semibold text-blue-700">
-                  {formatCurrency(details.summary.profit)}
-                </div>
-              </SurfaceCard>
-              <SurfaceCard className="rounded" paddingClassName="p-3">
-                <div className="text-xs text-gray-500">Недооплачено</div>
-                <div className="text-base font-semibold text-amber-700">
-                  {formatCurrency(details.summary.paymentLeft)}
-                </div>
-              </SurfaceCard>
-            </>
-          ) : null}
-          <SurfaceCard className="rounded" paddingClassName="p-3">
-            <div className="text-xs text-gray-500">{profitCardTitle} {profitCardTitle === 'Ожидаемая прибыль' ? <FieldHelp text={fieldHelp['statistics.expectedProfit']} label={profitCardTitle} /> : null}</div>
-            <div className="text-base font-semibold text-violet-700">
-              {formatCurrency(
-                details.summary.profit + details.summary.paymentLeft
-              )}
-            </div>
-          </SurfaceCard>
-          <MonthEventStatusCard
-            title={terms.pluralGenitive[0].toUpperCase() + terms.pluralGenitive.slice(1)}
-            totalCount={eventsTotal}
-            statusCounts={eventStatusCounts}
-            emptyText={`Нет ${terms.pluralGenitive}`}
-          />
-          {transferredEventsTotal > 0 ? (
-            <MonthEventStatusCard
-              title={`Переданных ${terms.pluralGenitive}`}
-              totalCount={transferredEventsTotal}
-              statusCounts={transferredEventStatusCounts}
-              emptyText={`Нет переданных ${terms.pluralGenitive}`}
-            />
-          ) : null}
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-sm font-semibold text-gray-700">
-            {terms.pluralCapitalized} месяца
-          </div>
-          {details.events.length === 0 ? (
-            <div className="text-sm text-gray-500">
-              Нет {terms.pluralGenitive} за этот месяц
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {details.events.map((event) => (
-                <EventCard
-                  key={event._id}
-                  eventId={event._id}
-                  event={event}
-                  transactions={details.transactions}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-sm font-semibold text-gray-700">
-            Транзакции месяца
-          </div>
-          {details.transactions.length === 0 ? (
-            <div className="text-sm text-gray-500">
-              Нет транзакций за этот месяц
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {details.transactions.map((transaction) => (
-                <TransactionCard
-                  key={transaction._id}
-                  transaction={transaction}
-                  client={clientsMap.get(transaction.clientId) || null}
-                  event={eventsMap.get(transaction.eventId) || null}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <StatisticsMonthDetails
+        monthKey={monthKey}
+        filters={{ selectedYear, selectedTown, includeRequests }}
+      />
     )
 
     modalsFunc.custom?.({
@@ -895,7 +957,7 @@ const StatisticsContent = () => {
                     () =>
                       openEventsDetailsModal(
                         `${terms.pluralCapitalized} с остатком по оплате`,
-                        paymentLeftEvents
+                        'paymentLeft'
                       )
                   )}
                   <div className="text-lg font-semibold text-amber-700">
@@ -908,7 +970,7 @@ const StatisticsContent = () => {
                   {renderMetricTitle('Получено по предстоящим работам', depositPaidEvents.length, () =>
                     openEventsDetailsModal(
                       `Предстоящие ${terms.plural} с оплатами`,
-                      depositPaidEvents
+                      'depositPaid'
                     )
                   )}
                   <div className="text-lg font-semibold text-cyan-700">

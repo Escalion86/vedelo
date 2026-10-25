@@ -118,6 +118,7 @@ export const GET = async (req) => {
       prev?.skipTransferredFromCalendar === true
 
     existing.googleCalendar = {
+      tasksBeta: prev.tasksBeta,
       enabled: true,
       calendarId: prev.calendarId || 'primary',
       calendarName: prev.calendarName || '',

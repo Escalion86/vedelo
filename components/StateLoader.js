@@ -33,6 +33,8 @@ import useCabinetStateHydration from '@helpers/useCabinetStateHydration'
 import useServerSync from '@helpers/useServerSync'
 import { reachGoalOnce } from '@helpers/metrikaGoals'
 import LearningVisitTracker from '@components/LearningVisitTracker'
+import GoogleTasksBetaPoller from '@components/GoogleTasksBetaPoller'
+import { isGoogleTasksDeveloper } from '@helpers/googleTasksBeta.mjs'
 
 const StateLoader = (props) => {
   if (props.error && Object.keys(props.error).length > 0)
@@ -271,6 +273,7 @@ const StateLoader = (props) => {
       ) : (
         <div className="relative w-full bg-transparent">
           <LearningVisitTracker />
+          {!serverSyncDisabled && isGoogleTasksDeveloper(loggedUser) ? <GoogleTasksBetaPoller /> : null}
           {props.children}
         </div>
       )}
