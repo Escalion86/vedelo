@@ -42,7 +42,7 @@ export const createPromoCodeService = ({
     if (!Number.isSafeInteger(body.revision) || body.revision < 0)
       return fail('Некорректная версия промокода')
     const row = await PromoCodes.findOneAndUpdate(
-      { _id: key, revision: body.revision },
+      { _id: key, revision: body.revision, deleting: { $ne: true } },
       { $set: data, $inc: { revision: 1 } },
       { returnDocument: 'after', runValidators: true }
     ).lean()
@@ -98,48 +98,60 @@ export const createPromoCodeService = ({
     let receipt = user.promoRedemptions?.[key]
     let alreadyUsed = Boolean(receipt)
     if (!receipt) {
-      const promo = await PromoCodes.findOne({
-        _id: key,
-        enabled: true,
-        expiresAt: { $gt: new Date() },
-      }).lean()
+      const promo = await PromoCodes.findOneAndUpdate(
+        {
+          _id: key,
+          enabled: true,
+          deleting: { $ne: true },
+          expiresAt: { $gt: new Date() },
+        },
+        { $inc: { activeRedemptions: 1 } },
+        { returnDocument: 'after' }
+      ).lean()
       if (!promo)
         return fail('Промокод не найден, отключён или срок его действия истёк')
-      const tariff = promo.tariffId
-        ? await Tariffs.findOne({ _id: promo.tariffId, hidden: true }).lean()
-        : null
-      if (promo.tariffId && !tariff)
-        return fail('Тариф промокода недоступен. Обратитесь в поддержку', 409)
-      receipt = {
-        code,
-        amount: promo.amount,
-        tariffId: tariff?._id || null,
-        tariffTitle: tariff?.title || '',
-        appliedAt: new Date(),
-        revision: promo.revision,
-      }
-      const update = {
-        $set: { [path]: receipt },
-        $inc: { balance: promo.amount, billingRevision: 1 },
-      }
-      if (tariff) update.$addToSet = { allowedTariffIds: tariff._id }
-      // Balance, grant and receipt share one atomic document update on standalone MongoDB.
-      const changed = await Users.updateOne(
-        {
-          ...identity(user),
-          [path]: { $exists: false },
-          $expr: { $lt: ['$$NOW', promo.expiresAt] },
-        },
-        update
-      )
-      if (!changed.matchedCount) {
-        user = await Users.findOne(identity(user))
-          .select('+promoRedemptions')
-          .lean()
-        receipt = user?.promoRedemptions?.[key]
-        if (!receipt)
-          return fail('Срок действия истёк или аккаунт недоступен', 409)
-        alreadyUsed = true
+      try {
+        const tariff = promo.tariffId
+          ? await Tariffs.findOne({ _id: promo.tariffId, hidden: true }).lean()
+          : null
+        if (promo.tariffId && !tariff)
+          return fail('Тариф промокода недоступен. Обратитесь в поддержку', 409)
+        receipt = {
+          code,
+          amount: promo.amount,
+          tariffId: tariff?._id || null,
+          tariffTitle: tariff?.title || '',
+          appliedAt: new Date(),
+          revision: promo.revision,
+        }
+        const update = {
+          $set: { [path]: receipt },
+          $inc: { balance: promo.amount, billingRevision: 1 },
+        }
+        if (tariff) update.$addToSet = { allowedTariffIds: tariff._id }
+        // Balance, grant and receipt share one atomic document update on standalone MongoDB.
+        const changed = await Users.updateOne(
+          {
+            ...identity(user),
+            [path]: { $exists: false },
+            $expr: { $lt: ['$$NOW', promo.expiresAt] },
+          },
+          update
+        )
+        if (!changed.matchedCount) {
+          user = await Users.findOne(identity(user))
+            .select('+promoRedemptions')
+            .lean()
+          receipt = user?.promoRedemptions?.[key]
+          if (!receipt)
+            return fail('Срок действия истёк или аккаунт недоступен', 409)
+          alreadyUsed = true
+        }
+      } finally {
+        await PromoCodes.updateOne(
+          { _id: key },
+          { $inc: { activeRedemptions: -1 } }
+        )
       }
     }
     // A lost response/ledger failure is recoverable even after expiry or disabling.
@@ -155,5 +167,119 @@ export const createPromoCodeService = ({
       },
     }
   }
-  return { save, redeem }
+  // Global admin reporting deliberately spans tenants; never exposed by user CRUD.
+  const receiptDto = (receipt) => ({
+    code: receipt.code,
+    amount: receipt.amount,
+    tariffTitle: receipt.tariffTitle,
+    appliedAt: receipt.appliedAt,
+  })
+  const list = async () => {
+    const [rows, counts] = await Promise.all([
+      PromoCodes.find({}).sort({ createdAt: -1 }).lean(),
+      Users.aggregate([
+        {
+          $project: {
+            entries: { $objectToArray: { $ifNull: ['$promoRedemptions', {}] } },
+          },
+        },
+        { $unwind: '$entries' },
+        { $group: { _id: '$entries.k', count: { $sum: 1 } } },
+      ]),
+    ])
+    const byKey = new Map(counts.map((row) => [row._id, row.count]))
+    return rows.map(({ activeRedemptions, deleting, ...row }) => ({
+      ...row,
+      usageCount: byKey.get(row._id) || 0,
+      canDelete: !byKey.get(row._id) && !activeRedemptions && !deleting,
+    }))
+  }
+  const remove = async (body) => {
+    if (
+      !body ||
+      typeof body.code !== 'string' ||
+      !/^[A-Z0-9_-]{3,40}$/.test(body.code) ||
+      !Number.isSafeInteger(body.revision) ||
+      body.revision < 0
+    )
+      return fail('Некорректный промокод')
+    const key = promoCodeKey(body.code)
+    const locked = await PromoCodes.findOneAndUpdate(
+      {
+        _id: key,
+        revision: body.revision,
+        deleting: { $ne: true },
+        $or: [
+          { activeRedemptions: 0 },
+          { activeRedemptions: { $exists: false } },
+        ],
+      },
+      { $set: { deleting: true } }
+    ).lean()
+    if (!locked)
+      return fail('Промокод изменён или активируется. Обновите список', 409)
+    let deleted = false
+    try {
+      if (
+        await Users.exists({ [`promoRedemptions.${key}`]: { $exists: true } })
+      )
+        return fail('Использованный промокод нельзя удалить', 409)
+      await PromoCodes.deleteOne({ _id: key, deleting: true })
+      deleted = true
+      return { ok: true }
+    } finally {
+      if (!deleted)
+        await PromoCodes.updateOne(
+          { _id: key, deleting: true },
+          { $set: { deleting: false } }
+        )
+    }
+  }
+  const usages = async (code, page = 0) => {
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code)) return fail('Некорректный промокод')
+    const key = promoCodeKey(code)
+    const field = `promoRedemptions.${key}`
+    const rows = await Users.find({ [field]: { $exists: true } })
+      .select(
+        `_id firstName secondName thirdName phone archive +promoRedemptions`
+      )
+      .sort({ _id: 1 })
+      .skip(page * 50)
+      .limit(51)
+      .lean()
+    return {
+      ok: true,
+      data: {
+        hasMore: rows.length > 50,
+        users: rows.slice(0, 50).map((user) => ({
+          _id: user._id,
+          firstName: user.firstName,
+          secondName: user.secondName,
+          thirdName: user.thirdName,
+          phone: user.phone,
+          archive: Boolean(user.archive),
+          ...receiptDto(user.promoRedemptions[key]),
+        })),
+      },
+    }
+  }
+  const userHistory = async (id) => {
+    if (!/^[a-f0-9]{24}$/i.test(id)) return fail('Некорректный пользователь')
+    const owner = await Users.findById(id).select('_id tenantId').lean()
+    if (!owner) return fail('Пользователь не найден', 404)
+    const user = await Users.findOne({
+      _id: owner._id,
+      tenantId: owner.tenantId ?? null,
+    })
+      .select('+promoRedemptions')
+      .lean()
+    if (!user) return fail('Пользователь не найден', 404)
+    return {
+      ok: true,
+      data: Object.values(user.promoRedemptions || {})
+        .map(receiptDto)
+        .sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)),
+    }
+  }
+  return { save, redeem, list, remove, usages, userHistory }
 }

@@ -301,6 +301,165 @@ test(
         }
       )
       await t.test(
+        'usage reports, original history, and deletion of unused codes only',
+        async () => {
+          await service.save(offer('UNUSED'))
+          assert.equal(
+            (await service.list()).find((r) => r.code === 'UNUSED').canDelete,
+            true
+          )
+          assert.equal(
+            (await service.remove({ code: 'UNUSED', revision: 1 })).status,
+            409
+          )
+          assert.equal(
+            (await service.remove({ code: 'UNUSED', revision: 0 })).ok,
+            true
+          )
+          assert.equal(
+            await PromoCodes.exists({ _id: promoCodeKey('UNUSED') }),
+            null
+          )
+          assert.equal((await redeem(await fresh(), 'UNUSED')).ok, false)
+          const user = await fresh()
+          await service.save(offer('HISTORY'))
+          await redeem(user, 'HISTORY')
+          await redeem(user, 'HISTORY')
+          await Users.updateOne(
+            { _id: user._id, tenantId: user.tenantId },
+            { archive: true }
+          )
+          const row = (await service.list()).find((r) => r.code === 'HISTORY')
+          assert.equal(row.usageCount, 1)
+          assert.equal(row.canDelete, false)
+          assert.equal(
+            (await service.remove({ code: 'HISTORY', revision: 0 })).status,
+            409
+          )
+          assert.equal((await PromoCodes.findById(row._id)).deleting, false)
+          const usages = await service.usages('HISTORY')
+          assert.equal(usages.data.users.length, 1)
+          assert.equal(String(usages.data.users[0]._id), String(user._id))
+          assert.equal(usages.data.users[0].archive, true)
+          assert.equal(usages.data.users[0].promoRedemptions, undefined)
+          const history = await service.userHistory(String(user._id))
+          assert.equal(history.data[0].code, 'HISTORY')
+          assert.equal(history.data[0].amount, 25.5)
+          assert.equal(history.data[0].revision, undefined)
+          assert.equal((await service.userHistory('bad')).status, 400)
+          assert.equal(
+            (await service.userHistory(String(new mongoose.Types.ObjectId())))
+              .status,
+            404
+          )
+        }
+      )
+      await t.test(
+        'activation and deletion exclude each other atomically',
+        async () => {
+          await service.save(offer('RACING'))
+          const user = await fresh()
+          let started, resume
+          const reached = new Promise((resolve) => {
+            started = resolve
+          })
+          const wait = new Promise((resolve) => {
+            resume = resolve
+          })
+          const paused = createPromoCodeService({
+            Users: {
+              findOne: (...args) => Users.findOne(...args),
+              updateOne: async (...args) => {
+                started()
+                await wait
+                return Users.updateOne(...args)
+              },
+            },
+            PromoCodes,
+            Tariffs,
+            Payments,
+          })
+          const pending = paused.redeem({
+            user,
+            tenantId: user.tenantId,
+            code: 'RACING',
+          })
+          await reached
+          try {
+            assert.equal(
+              (await service.remove({ code: 'RACING', revision: 0 })).status,
+              409
+            )
+          } finally {
+            resume()
+          }
+          assert.equal((await pending).ok, true)
+          assert.equal(
+            (await PromoCodes.findById(promoCodeKey('RACING')))
+              .activeRedemptions,
+            0
+          )
+          assert.equal(
+            (await service.remove({ code: 'RACING', revision: 0 })).status,
+            409
+          )
+          await service.save(offer('DELETEFIRST'))
+          await PromoCodes.updateOne(
+            { _id: promoCodeKey('DELETEFIRST') },
+            { deleting: true }
+          )
+          assert.equal((await redeem(await fresh(), 'DELETEFIRST')).ok, false)
+        }
+      )
+      await t.test(
+        'pagination preserves unique users and legacy codes can be deleted',
+        async () => {
+          await service.save(offer('PAGED'))
+          const key = promoCodeKey('PAGED')
+          await Users.insertMany(
+            Array.from({ length: 51 }, () => {
+              const _id = new mongoose.Types.ObjectId()
+              return {
+                _id,
+                tenantId: _id,
+                promoRedemptions: {
+                  [key]: {
+                    code: 'PAGED',
+                    amount: 25.5,
+                    appliedAt: new Date(),
+                    tariffTitle: 'BRO',
+                  },
+                },
+              }
+            })
+          )
+          const first = (await service.usages('PAGED')).data
+          const second = (await service.usages('PAGED', 1)).data
+          assert.equal(first.users.length, 50)
+          assert.equal(first.hasMore, true)
+          assert.equal(second.users.length, 1)
+          assert.equal(second.hasMore, false)
+          assert.equal(
+            new Set([...first.users, ...second.users].map((u) => String(u._id)))
+              .size,
+            51
+          )
+          assert.equal(
+            (await service.list()).find((r) => r.code === 'PAGED').usageCount,
+            51
+          )
+          await service.save(offer('LEGACYDELETE'))
+          await PromoCodes.updateOne(
+            { _id: promoCodeKey('LEGACYDELETE') },
+            { $unset: { activeRedemptions: 1, deleting: 1 } }
+          )
+          assert.equal(
+            (await service.remove({ code: 'LEGACYDELETE', revision: 0 })).ok,
+            true
+          )
+        }
+      )
+      await t.test(
         'actual API routes: unauthenticated, roles, impersonation, payload substitution',
         async () => {
           let context = {}
@@ -334,6 +493,24 @@ test(
           const user = await fresh()
           context = { user, tenantId: user.tenantId }
           assert.equal((await admin.GET()).status, 403)
+          assert.equal(
+            (await admin.DELETE(request({ code: 'FOCUS', revision: 1 })))
+              .status,
+            403
+          )
+          assert.equal(
+            (await admin.GET(new Request(`http://localhost/api?code=FOCUS`)))
+              .status,
+            403
+          )
+          assert.equal(
+            (
+              await admin.GET(
+                new Request(`http://localhost/api?userId=${user._id}`)
+              )
+            ).status,
+            403
+          )
           assert.equal((await admin.POST(request(offer('FORGED')))).status, 403)
           assert.equal(
             (
@@ -345,8 +522,34 @@ test(
           )
           context.user = { ...user, role: 'admin' }
           assert.equal((await admin.GET()).status, 200)
+          assert.equal(
+            (await admin.GET(new Request(`http://localhost/api?code=FOCUS`)))
+              .status,
+            200
+          )
+          assert.equal(
+            (
+              await admin.GET(
+                new Request(`http://localhost/api?userId=${user._id}`)
+              )
+            ).status,
+            200
+          )
           context.user.impersonation = { active: true }
           assert.equal((await admin.GET()).status, 403)
+          assert.equal(
+            (await admin.DELETE(request({ code: 'FOCUS', revision: 1 })))
+              .status,
+            403
+          )
+          assert.equal(
+            (
+              await admin.GET(
+                new Request(`http://localhost/api?userId=${user._id}`)
+              )
+            ).status,
+            403
+          )
           delete context.user.impersonation
           assert.equal(
             (await route.POST(request({ code: 'FOCUS' }))).status,

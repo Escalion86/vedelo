@@ -15,6 +15,8 @@ const schema = new mongoose.Schema(
     enabled: { type: Boolean, default: true },
     comment: { type: String, maxlength: 2000, default: '' },
     revision: { type: Number, default: 0 },
+    activeRedemptions: { type: Number, default: 0 },
+    deleting: { type: Boolean, default: false },
   },
   { timestamps: true }
 )

@@ -20,6 +20,7 @@ import {
 } from '@helpers/registrationSource.mjs'
 import Button from '@components/Button'
 import Notice from '@components/Notice'
+import PromoCodeHistory from '@components/PromoCodeHistory'
 import switchImpersonation from '@helpers/switchImpersonation'
 import { faUserSecret } from '@fortawesome/free-solid-svg-icons'
 
@@ -172,6 +173,10 @@ const userViewFunc = (userId, params = {}) => {
           <TextLine label="Роль">{roleLabel}</TextLine>
           <TextLine label="Тариф">{tariffInfo}</TextLine>
           <TextLine label="Баланс">{formattedBalance} руб.</TextLine>
+          {['admin', 'dev'].includes(loggedUser?.role) &&
+            !loggedUser?.impersonation?.active && (
+              <PromoCodeHistory userId={String(user._id)} />
+            )}
           <TextLine label="Создано мероприятий">{eventsCount}</TextLine>
           <TextLine label="Создано заявок">{requestsCount}</TextLine>
           <ContactsIconsButtons

@@ -9,6 +9,10 @@ import ComboBox from '@components/ComboBox'
 import Notice from '@components/Notice'
 import IconActionButton from '@components/IconActionButton'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
+import { faTrashAlt } from '@fortawesome/free-solid-svg-icons/faTrashAlt'
+import { useAtomValue } from 'jotai'
+import modalsFuncAtom from '@state/atoms/modalsFuncAtom'
+import PromoCodeHistory, { PromoCodeDelete } from '@components/PromoCodeHistory'
 import useSnackbar from '@helpers/useSnackbar'
 import { validatePromoCode } from '@helpers/promoCodes.mjs'
 
@@ -36,6 +40,7 @@ const load = async () => {
 
 export default function PromoCodesContent({ tariffs = [] }) {
   const queryClient = useQueryClient()
+  const modalsFunc = useAtomValue(modalsFuncAtom)
   const query = useQuery({ queryKey: ['admin-promo-codes'], queryFn: load })
   const [form, setForm] = useState(null)
   const [original, setOriginal] = useState('')
@@ -44,6 +49,19 @@ export default function PromoCodesContent({ tariffs = [] }) {
   const lock = useRef(false)
   const snackbar = useSnackbar()
   const dirty = form !== null && JSON.stringify(form) !== original
+  const remove = async (row) => {
+    const response = await fetch('/api/admin/promo-codes', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: row.code, revision: row.revision }),
+    })
+    const body = await response.json()
+    await queryClient.invalidateQueries({ queryKey: ['admin-promo-codes'] })
+    if (!response.ok || !body.success)
+      throw new Error(body.error || 'Не удалось удалить промокод')
+    if (form?._id === row._id) setForm(null)
+    snackbar.success('Промокод удалён')
+  }
   useEffect(() => {
     if (!dirty) return
     const warn = (event) => {
@@ -248,6 +266,23 @@ export default function PromoCodesContent({ tariffs = [] }) {
             <div className="min-w-0 flex-1 break-words">
               <h2 className="font-semibold">{row.code}</h2>
               <p className="text-sm">
+                Пользователей, использовавших код: {row.usageCount ?? 0}
+              </p>
+              <AppButton
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  modalsFunc.add({
+                    title: `Пользователи промокода ${row.code}`,
+                    declineButtonName: 'Закрыть',
+                    closeButtonShow: true,
+                    Children: () => <PromoCodeHistory code={row.code} />,
+                  })
+                }
+              >
+                Кто воспользовался
+              </AppButton>
+              <p className="text-sm">
                 {!row.enabled
                   ? 'Отключён'
                   : new Date(row.expiresAt) <= new Date()
@@ -271,13 +306,38 @@ export default function PromoCodesContent({ tariffs = [] }) {
                 </p>
               )}
             </div>
-            <IconActionButton
-              icon={faPencilAlt}
-              variant="warning"
-              title={`Редактировать ${row.code}`}
-              disabled={busy}
-              onClick={() => edit(row)}
-            />
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <IconActionButton
+                icon={faPencilAlt}
+                variant="warning"
+                title={`Редактировать ${row.code}`}
+                disabled={busy}
+                onClick={() => edit(row)}
+              />
+              {row.canDelete && (
+                <IconActionButton
+                  icon={faTrashAlt}
+                  variant="danger"
+                  title={`Удалить ${row.code}`}
+                  disabled={busy || form?._id === row._id}
+                  onClick={() =>
+                    modalsFunc.add({
+                      title: `Удаление ${row.code}`,
+                      declineButtonName: 'Отмена',
+                      closeButtonName: 'Отмена',
+                      closeButtonShow: true,
+                      Children: (props) => (
+                        <PromoCodeDelete
+                          {...props}
+                          row={row}
+                          onDelete={remove}
+                        />
+                      ),
+                    })
+                  }
+                />
+              )}
+            </div>
           </article>
         ))}
       </div>

@@ -1,5 +1,15 @@
 # AI Handoff: «Ведело»
 
+С 1.42.1 карточки промокодов показывают usageCount, список применивших код
+пользователей (50 на страницу) и удаление неиспользованного кода. Admin API GET
+принимает code/page либо userId; DELETE — code/revision. Все операции только
+admin/dev без impersonation. Источник статистики — Users.promoRedemptions,
+включая архивных пользователей; наружу выдаётся ограниченный DTO. В userViewFunc
+блок истории загружается отдельно и скрывается при пустом списке.
+activeRedemptions/deleting в PromoCodes взаимно исключают активацию и удаление
+на standalone MongoDB; после захвата удаления повторно проверяются старые
+снимки. Аварийно оставшийся lock не снимается по таймеру (см. PROMO_CODES.md).
+
 ### Промокоды (1.42.0, 2026-10-25)
 
 `PromoCodes` — глобальный каталог admin/dev, `/api/admin/promo-codes` и
