@@ -94,7 +94,7 @@ export const PUT = async (req, { params }) => {
     )
   }
 
-  const protectedKeys = ['allowedTariffIds', 'pendingTariffChange', 'pendingBillingReceipt', 'billingRevision']
+  const protectedKeys = ['promoRedemptions', 'allowedTariffIds', 'pendingTariffChange', 'pendingBillingReceipt', 'billingRevision']
   if (Object.keys(body).some((key) => key.startsWith('$') || key.includes('.') || protectedKeys.includes(key))) {
     return NextResponse.json({ success: false, error: 'Используйте управление доступом к тарифам' }, { status: 400 })
   }

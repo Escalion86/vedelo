@@ -13,6 +13,8 @@ const DEFAULT_GOOGLE_CALENDAR_STATUS_COLORS = Object.freeze({
 })
 
 const usersSchema = {
+  // Durable promo snapshots: never expose or remove when editing a profile.
+  promoRedemptions: { type: Schema.Types.Mixed, default: {}, select: false },
   allowedTariffIds: { type: [Schema.Types.ObjectId], ref: 'Tariffs', default: [] },
   billingRevision: { type: Number, default: 0 },
   pendingTariffChange: {

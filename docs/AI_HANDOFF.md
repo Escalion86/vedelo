@@ -1,5 +1,22 @@
 # AI Handoff: «Ведело»
 
+### Промокоды (1.42.0, 2026-10-25)
+
+`PromoCodes` — глобальный каталог admin/dev, `/api/admin/promo-codes` и
+`/cabinet/promo-codes`. Пользователь вводит код в SettingsContent через
+`PromoCodeRedeem`; `/api/promo-codes/redeem` использует getRequestContext,
+tenant/owner и лимит попыток. Код выдаёт бонус на баланс и/или постоянный
+доступ к одному скрытому тарифу, без автоматической покупки подписки.
+`Users.promoRedemptions` скрыт и сохраняется атомарно с балансом/разрешением;
+удалять его нельзя. Payments дописывается идемпотентно; после сбоя истории
+нужно повторить тот же код. Срок и отключение не мешают сверке повтора.
+Редактор: последний день включительно в часовом поясе браузера, revision CAS,
+код не переименовывается, комментарий только для администратора.
+Тесты: `tests/server/promoCodes.test.cjs`, изолированный Playwright-стенд
+390/1365 px × две темы. Макеты A6 FOCUS в `public/marketing/comics/fokusniki`,
+пересборка `scripts/buildFocusFlyer.py`. BRO и FOCUS в реальной БД владелец
+настраивает после обновления; production не менялся. `docs/PROMO_CODES.md`.
+
 С 1.41.14 public proposal POST принимает `action: select | cancel` (default select).
 Cancel требует ID снимаемого варианта, очищает selectedPackageId/selectedAt,
 пишет selectionHistory с action=cancel и отправляет push владельцу. Повтор отмены

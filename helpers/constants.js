@@ -788,6 +788,14 @@ export const pages = [
     accessRoles: ['dev', 'admin'],
   },
   {
+    id: 45,
+    group: 10,
+    name: 'Промокоды',
+    href: 'promo-codes',
+    icon: faGift,
+    accessRoles: ['dev', 'admin'],
+  },
+  {
     id: 35,
     group: 10,
     name: 'Новости платформы',

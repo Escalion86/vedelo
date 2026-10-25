@@ -102,6 +102,10 @@ export const POST = async (req) => {
     ...body,
     phone: normalizedPhone || '',
   }
+  for (const key of Object.keys(payload)) {
+    if (key === 'promoRedemptions' || key.startsWith('promoRedemptions.'))
+      delete payload[key]
+  }
 
   if (!payload.tariffId) {
     Object.assign(payload, await buildRegistrationTrialUserFields())

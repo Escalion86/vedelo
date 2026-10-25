@@ -1,4 +1,5 @@
 import EventsContent from './EventsContent'
+import PromoCodesContent from './PromoCodesContent'
 import AttentionContent from './AttentionContent'
 import ClientsContent from './ClientsContent'
 import CallsContent from './CallsContent'
@@ -39,6 +40,7 @@ const UpcomingEventsContent = (props) => (
 const PastEventsContent = (props) => <EventsContent filter="past" {...props} />
 
 export const CONTENTS = Object.freeze({
+  'promo-codes': { Component: PromoCodesContent, name: 'Администрирование / Промокоды' },
   'service-analytics': {
     Component: ServiceAnalyticsContent,
     name: 'Аналитика сервиса',

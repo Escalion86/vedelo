@@ -2,6 +2,7 @@
 'use client'
 
 import fieldHelp from '@helpers/fieldHelp.json'
+import PromoCodeRedeem from '@components/PromoCodeRedeem'
 import IconActionButton from '@components/IconActionButton'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 
@@ -172,6 +173,7 @@ const SettingsContent = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+        <PromoCodeRedeem />
         <IconCheckBox
           label="Темная тема"
           checked={darkTheme}

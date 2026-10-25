@@ -170,6 +170,8 @@ const StateLoader = (props) => {
     const access = getUserTariffAccess(loggedUser, props.tariffs ?? [])
     const needsTariff = !access.trialActive && !access.hasTariff
     const allowedPages = [
+      'settings',
+      'promo-codes',
       'tariff-select',
       'tariffs',
       'billing-history',
