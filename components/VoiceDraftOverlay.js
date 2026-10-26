@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+import AppButton from '@components/AppButton'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faExclamationTriangle,
@@ -36,7 +37,9 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
   const chunksRef = useRef([])
   const audioContextRef = useRef(null)
   const animationFrameRef = useRef(null)
-  const startedRef = useRef(false)
+  const activeRef = useRef(false)
+  const generationRef = useRef(0)
+  const requestRef = useRef(null)
 
   const cleanupAudio = useCallback(() => {
     if (animationFrameRef.current) {
@@ -49,6 +52,28 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
     streamRef.current = null
     setLevel(0)
   }, [])
+
+  const discardRecording = useCallback(() => {
+    activeRef.current = false
+    generationRef.current += 1
+    requestRef.current?.abort()
+    requestRef.current = null
+    const recorder = recorderRef.current
+    recorderRef.current = null
+    if (recorder) {
+      recorder.onstop = null
+      recorder.ondataavailable = null
+      if (recorder.state !== 'inactive') recorder.stop()
+    }
+    chunksRef.current = []
+    cleanupAudio()
+  }, [cleanupAudio])
+
+  const cancelRecording = useCallback(() => {
+    if (!activeRef.current) return
+    discardRecording()
+    onClose()
+  }, [discardRecording, onClose])
 
   const startLevelMeter = useCallback((stream) => {
     const AudioContext = window.AudioContext || window.webkitAudioContext
@@ -77,7 +102,9 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
   }, [])
 
   const processAudioBlob = useCallback(
-    async (audioBlob) => {
+    async (audioBlob, generation) => {
+      const isCurrent = () => activeRef.current && generationRef.current === generation
+      if (!isCurrent()) return
       if (!audioBlob || audioBlob.size === 0) {
         setStatus('error')
         setErrorMessage('Не удалось записать аудио')
@@ -88,14 +115,18 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
       cleanupAudio()
 
       try {
+        const controller = new AbortController()
+        requestRef.current = controller
         const formData = new FormData()
         formData.set('audio', audioBlob, getAudioFileName(audioBlob.type || ''))
 
         const transcriptResponse = await fetch('/api/events/voice-transcript', {
           method: 'POST',
           body: formData,
+          signal: controller.signal,
         })
         const transcriptPayload = await transcriptResponse.json().catch(() => null)
+        if (!isCurrent()) return
         if (!transcriptResponse.ok || transcriptPayload?.error) {
           throw new Error(
             transcriptPayload?.error || 'Не удалось распознать голос'
@@ -116,8 +147,10 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ text: transcript }),
+          signal: controller.signal,
         })
         const draftPayload = await draftResponse.json().catch(() => null)
+        if (!isCurrent()) return
         if (!draftResponse.ok || draftPayload?.error) {
           throw new Error(draftPayload?.error || 'Не удалось разобрать текст')
         }
@@ -130,6 +163,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
           draftPayload?.aiWarnings ?? []
         )
       } catch (error) {
+        if (!isCurrent()) return
         setStatus('error')
         setErrorMessage(error?.message || 'Не удалось обработать голосовой ввод')
       }
@@ -137,10 +171,7 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
     [cleanupAudio, onDraft, onTranscript]
   )
 
-  const startRecording = useCallback(async () => {
-    if (startedRef.current) return
-    startedRef.current = true
-
+  const startRecording = useCallback(async (generation) => {
     if (
       typeof window === 'undefined' ||
       !window.MediaRecorder ||
@@ -153,6 +184,10 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (!activeRef.current || generationRef.current !== generation) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
       streamRef.current = stream
       chunksRef.current = []
       startLevelMeter(stream)
@@ -164,20 +199,23 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
       recorderRef.current = recorder
 
       recorder.ondataavailable = (event) => {
-        if (event.data?.size > 0) chunksRef.current.push(event.data)
+        if (activeRef.current && generationRef.current === generation && event.data?.size > 0)
+          chunksRef.current.push(event.data)
       }
       recorder.onstop = () => {
+        if (!activeRef.current || generationRef.current !== generation) return
         const audioBlob = new Blob(chunksRef.current, {
           type: recorder.mimeType || 'audio/webm',
         })
         recorderRef.current = null
         chunksRef.current = []
-        processAudioBlob(audioBlob)
+        processAudioBlob(audioBlob, generation)
       }
 
       recorder.start()
       setStatus('listening')
     } catch (error) {
+      if (!activeRef.current || generationRef.current !== generation) return
       cleanupAudio()
       setStatus('error')
       setErrorMessage(
@@ -199,26 +237,22 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
 
   useEffect(() => {
     // Открытие оверлея запускает MediaRecorder; cleanup освобождает микрофон.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    startRecording()
-    return () => {
-      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-        recorderRef.current.stop()
-      }
-      cleanupAudio()
-    }
-  }, [cleanupAudio, startRecording])
+    activeRef.current = true
+    const generation = ++generationRef.current
+    startRecording(generation)
+    return discardRecording
+  }, [discardRecording, startRecording])
 
   const scale = status === 'listening' ? 1 + level * 0.32 : 1
   const shadowSize = status === 'listening' ? 24 + Math.round(level * 36) : 20
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-6 text-white">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-6 pt-6 pb-24 text-white">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
         aria-label="Закрыть голосовой ввод"
-        onClick={status === 'listening' ? undefined : onClose}
+        onClick={status === 'listening' ? undefined : cancelRecording}
       />
       <div className="relative flex max-w-sm flex-col items-center text-center">
         <button
@@ -261,16 +295,14 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
               ? onTranscript ? 'Распознаю речь' : 'Распознаю речь и готовлю черновик'
               : errorMessage}
         </div>
-        {status === 'error' ? (
-          <button
-            type="button"
-            className="mt-6 cursor-pointer rounded-md border border-white/30 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
-            onClick={onClose}
-          >
-            Закрыть
-          </button>
-        ) : null}
       </div>
+      <AppButton
+        variant="secondary"
+        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 min-h-11 min-w-28 -translate-x-1/2"
+        onClick={cancelRecording}
+      >
+        Отмена
+      </AppButton>
     </div>
   )
 }

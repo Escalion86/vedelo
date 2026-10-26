@@ -86,11 +86,17 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         } } })
         window.AudioContext = undefined
         window.webkitAudioContext = undefined
-        Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } })
+        window.voiceTracksStopped = 0
+        window.voiceRecordingsStarted = 0
+        Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => {
+          const stream = { getTracks: () => [{ stop() { window.voiceTracksStopped++ } }] }
+          if (window.deferMicrophone) return new Promise(resolve=>{window.resolveMicrophone=()=>resolve(stream)})
+          return stream
+        } } })
         window.MediaRecorder = class {
           static isTypeSupported() { return true }
           constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm' }
-          start() { this.state = 'recording' }
+          start() { this.state = 'recording'; window.voiceRecordingsStarted++ }
           stop() {
             this.state = 'inactive'
             this.ondataavailable?.({ data: new Blob(['test-audio'], { type: 'audio/webm' }) })
@@ -104,6 +110,7 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         if (message.type() === 'error' && !message.text().includes('502 (Bad Gateway)')) errors.push(message.text())
       })
       let applyCalls = 0
+      let transcriptCalls = 0, prepareCalls = 0, deferTranscript = false, releaseTranscript, transcriptReadyResolve
       const plan = {
         planId: 'plan', eventId: 'event', clientName: 'Анна', eventTitle: 'Свадьба', eventDate: '2026-10-25T10:00:00Z',
         completed: [], steps: [
@@ -112,6 +119,7 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         ],
       }
       await page.route('**/api/events/ai-edit', async (route) => {
+        prepareCalls++
         const body = route.request().postDataJSON()
         let payload
         if (body.mode === 'auto' && body.text.startsWith('Создай')) {
@@ -126,7 +134,13 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         await route.fulfill({ json: payload })
       })
       let voiceText = 'Перенеси заказ на завтра'
-      await page.route('**/api/events/voice-transcript', (route) => route.fulfill({ json: { transcript: voiceText } }))
+      await page.route('**/api/events/voice-transcript', async (route) => {
+        transcriptCalls++
+        if (deferTranscript) await new Promise(resolve=>{releaseTranscript=resolve;transcriptReadyResolve?.()})
+        await route.fulfill({ json: { transcript: voiceText } }).catch(error=>{
+          if (!route.request().failure()) throw error
+        })
+      })
       await page.goto(`http://127.0.0.1:${server.address().port}/cabinet/eventsUpcoming`)
       await page.waitForTimeout(500)
       assert.deepEqual(errors, [], `Page failed: ${(await page.locator('body').innerText()).slice(0, 300)}`)
@@ -200,6 +214,50 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       assert.equal(applyCalls, 2)
       await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
       await page.getByRole('textbox', { name: width === 390 ? 'Что нужно создать или изменить?' : 'Что нужно изменить?' }).waitFor({ state: 'detached' })
+
+      // Отмена во время записи отбрасывает Blob и не вызывает распознавание/ИИ.
+      const beforeTranscript = transcriptCalls, beforePrepare = prepareCalls
+      await page.evaluate(()=>window.openAi('event','voice'))
+      await page.getByText('Говорите',{exact:true}).waitFor()
+      const cancelVoice = page.getByRole('button',{name:'Отмена',exact:true})
+      const cancelBox = await cancelVoice.boundingBox()
+      assert.ok(cancelBox.y > 700 && cancelBox.y + cancelBox.height <= 850)
+      if (process.env.QA_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-voice-cancel-${width}-${dark?'dark':'light'}.png`)})
+      await cancelVoice.click()
+      await page.getByText('Говорите',{exact:true}).waitFor({state:'detached'})
+      assert.equal(transcriptCalls,beforeTranscript)
+      assert.equal(prepareCalls,beforePrepare)
+      assert.ok(await page.evaluate(()=>window.voiceTracksStopped>0))
+
+      // Поздно полученный stream сразу закрывается, запись не запускается.
+      const started = await page.evaluate(()=>window.voiceRecordingsStarted)
+      const stopped = await page.evaluate(()=>window.voiceTracksStopped)
+      await page.evaluate(()=>{window.deferMicrophone=true;window.openAi('event','voice')})
+      await page.getByText('Включаю микрофон',{exact:true}).waitFor()
+      await page.waitForFunction(()=>Boolean(window.resolveMicrophone))
+      await cancelVoice.click()
+      await page.getByText('Включаю микрофон',{exact:true}).waitFor({state:'detached'})
+      await page.evaluate(()=>{window.resolveMicrophone();window.deferMicrophone=false})
+      await page.waitForFunction(stopped=>window.voiceTracksStopped>stopped,stopped)
+      assert.equal(await page.evaluate(()=>window.voiceRecordingsStarted),started)
+      assert.equal(transcriptCalls,beforeTranscript)
+
+      // Отмена после отправки не даёт позднему ответу открыть план/создать заявку.
+      deferTranscript=true
+      const transcriptReady = new Promise(resolve=>{transcriptReadyResolve=resolve})
+      await page.evaluate(()=>window.openAi('event','voice'))
+      await page.getByText('Говорите',{exact:true}).waitFor()
+      await page.getByRole('button',{name:'Завершить запись'}).click()
+      await page.getByText('Обрабатываю',{exact:true}).waitFor()
+      await transcriptReady
+      await cancelVoice.click()
+      await page.getByText('Обрабатываю',{exact:true}).waitFor({state:'detached'})
+      deferTranscript=false
+      releaseTranscript()
+      await page.waitForTimeout(250)
+      assert.equal(prepareCalls,beforePrepare)
+      assert.equal(await page.getByText('Проверьте изменения',{exact:true}).count(),0)
+
       if (width === 390) {
         await page.getByRole('button', { name: /Добавить заявку/ }).click()
         await page.getByRole('button', { name: 'Создать/Ред. голосом ИИ', exact: true }).last().click()

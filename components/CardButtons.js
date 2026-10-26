@@ -301,7 +301,7 @@ const CardButtons = ({
       {typeOfItem === 'event' && !resolveServerSyncDisabled(siteSettings) && ['draft', 'active'].includes(item.status) && getUserTariffAccess(loggedUser, tariffs)?.allowAi && (
         <ItemComponent icon={faMicrophone}
           onClick={() => modalsFunc.event?.aiEdit?.(item._id, 'voice')}
-          color="purple" tooltipText="Изменить голосом" usesAi />
+          color="purple" tooltipText="Редактировать голосом" usesAi />
       )}
       {isEventEditTabsMenu && show.editBtn && (
         <ItemComponent
