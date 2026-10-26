@@ -8,8 +8,6 @@ import NoteAddIcon from '@mui/icons-material/NoteAdd'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import PhotoDraftModal from '@components/PhotoDraftModal'
 import TextSnippetIcon from '@mui/icons-material/TextSnippet'
-import TextDraftModal from '@components/TextDraftModal'
-import VoiceDraftOverlay from '@components/VoiceDraftOverlay'
 import { modalsFuncAtom } from '@state/atoms'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import tariffsAtom from '@state/atoms/tariffsAtom'
@@ -19,8 +17,8 @@ import { getUserTariffAccess } from '@helpers/tariffAccess'
 import { queryKeys } from '@helpers/queryKeys'
 
 /**
- * Общее меню создания заказа/мероприятия (Форма, Голосом,
- * Свободным текстом) + модалки голосового и текстового черновиков.
+ * Общее меню: обычная форма, создание/редактирование голосом и текстом,
+ * отдельное создание из фотографии.
  * Используется и в списке мероприятий (FAB), и в нижней мобильной навигации.
  */
 const useEventCreateMenu = () => {
@@ -29,13 +27,11 @@ const useEventCreateMenu = () => {
   const tariffs = useAtomValue(tariffsAtom)
   const siteSettings = useAtomValue(siteSettingsAtom)
   const queryClient = useQueryClient()
-  const [voiceDraftOpen, setVoiceDraftOpen] = useState(false)
   const [photoDraftOpen, setPhotoDraftOpen] = useState(false)
-  const [textDraftOpen, setTextDraftOpen] = useState(false)
 
   const allowVoiceDraft = useMemo(
-    () => Boolean(getUserTariffAccess(loggedUser, tariffs)?.allowAi),
-    [loggedUser, tariffs]
+    () => Boolean(getUserTariffAccess(loggedUser, tariffs)?.allowAi) && !resolveServerSyncDisabled(siteSettings),
+    [loggedUser, tariffs, siteSettings]
   )
 
   const createDisabled = !modalsFunc.event?.create
@@ -45,12 +41,12 @@ const useEventCreateMenu = () => {
   }, [modalsFunc])
 
   const handleCreateByVoice = useCallback(() => {
-    setVoiceDraftOpen(true)
-  }, [])
+    modalsFunc.event?.aiEdit?.(null, 'voice', { unified: true })
+  }, [modalsFunc])
 
   const handleCreateByText = useCallback(() => {
-    setTextDraftOpen(true)
-  }, [])
+    modalsFunc.event?.aiEdit?.(null, 'text', { unified: true })
+  }, [modalsFunc])
 
   const handleCreateByPhoto = useCallback(() => setPhotoDraftOpen(true), [])
 
@@ -73,29 +69,8 @@ const useEventCreateMenu = () => {
     [queryClient]
   )
 
-  const handleVoiceDraft = useCallback(
-    (fields, transcript, aiFilledFields, client, aiWarnings) => {
-      setVoiceDraftOpen(false)
-      cacheAiClient(client)
-      modalsFunc.event?.create?.(fields?.status || 'draft', {
-        initialEvent: {
-          ...fields,
-          status: fields?.status || 'draft',
-          description:
-            fields?.description ||
-            (transcript ? `Голосовой ввод: ${transcript}` : ''),
-        },
-        aiFilledFields,
-        aiWarnings,
-        initialClient: client,
-      })
-    },
-    [cacheAiClient, modalsFunc]
-  )
-
   const handleTextDraft = useCallback(
     (fields, sourceText, aiFilledFields, client, aiWarnings) => {
-      setTextDraftOpen(false)
       setPhotoDraftOpen(false)
       cacheAiClient(client)
       modalsFunc.event?.create?.(fields?.status || 'draft', {
@@ -125,14 +100,14 @@ const useEventCreateMenu = () => {
     if (allowVoiceDraft) {
       result.push({
         key: 'voice',
-        label: 'Голосом', usesAi: true,
+        label: 'Создать/Ред. голосом', usesAi: true,
         icon: <MicIcon fontSize="small" />,
         onClick: handleCreateByVoice,
       })
       if (loggedUser?.role === 'dev') result.push({ key: 'photo', label: 'Из фотографии', usesAi: true, icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
       result.push({
         key: 'text',
-        label: 'Свободным текстом', usesAi: true,
+        label: 'Создать/Ред. свободным текстом', usesAi: true,
         icon: <TextSnippetIcon fontSize="small" />,
         onClick: handleCreateByText,
       })
@@ -148,28 +123,11 @@ const useEventCreateMenu = () => {
     handleCreateByPhoto,
   ])
 
-  const draftModals = (
-    <>
-      {voiceDraftOpen ? (
-        <VoiceDraftOverlay
-          onClose={() => setVoiceDraftOpen(false)}
-          onDraft={handleVoiceDraft}
-        />
-      ) : null}
-      {photoDraftOpen && allowVoiceDraft && loggedUser?.role === 'dev' ? <PhotoDraftModal open onClose={() => setPhotoDraftOpen(false)} onDraft={handleTextDraft} /> : null}
-      <TextDraftModal
-        open={textDraftOpen}
-        onClose={() => setTextDraftOpen(false)}
-        onDraft={handleTextDraft}
-      />
-    </>
-  )
+  const draftModals = photoDraftOpen && allowVoiceDraft && loggedUser?.role === 'dev'
+    ? <PhotoDraftModal open onClose={() => setPhotoDraftOpen(false)} onDraft={handleTextDraft} />
+    : null
 
-  const editItems = allowVoiceDraft && !resolveServerSyncDisabled(siteSettings) ? [
-    { key: 'edit-voice', label: 'Голосом', usesAi: true, icon: <MicIcon fontSize="small" />, onClick: () => modalsFunc.event?.aiEdit?.(null, 'voice') },
-    { key: 'edit-text', label: 'Свободным текстом', usesAi: true, icon: <TextSnippetIcon fontSize="small" />, onClick: () => modalsFunc.event?.aiEdit?.(null, 'text') },
-  ] : []
-  return { items, editItems, draftModals, createDisabled, createRequest: handleCreateRequest }
+  return { items, draftModals, createDisabled, createRequest: handleCreateRequest }
 }
 
 export default useEventCreateMenu

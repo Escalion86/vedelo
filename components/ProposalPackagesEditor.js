@@ -1,38 +1,20 @@
 'use client'
 
-import fieldHelp from '@helpers/fieldHelp.json'
-import FieldHelp from '@components/FieldHelp'
-
-import { useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAtomValue } from 'jotai'
-import { useQueryClient } from '@tanstack/react-query'
 import { modalsFuncAtom } from '@state/atoms'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
-import { faCircleCheck } from '@fortawesome/free-solid-svg-icons/faCircleCheck'
 import AddIconButton from '@components/AddIconButton'
-import AppButton from '@components/AppButton'
 import IconActionButton from '@components/IconActionButton'
-import IconCheckBox from '@components/IconCheckBox'
-import Input from '@components/Input'
 import Notice from '@components/Notice'
-import ProposalLineDialog from '@components/ProposalLineDialog'
-import Section from '@components/CompactEventSection'
-import Textarea from '@components/Textarea'
-import selectEventServicesFunc from '@layouts/modals/modalsFunc/selectEventServicesFunc'
+import ProposalPackageDialog from '@components/ProposalPackageDialog'
 import { formatMoney } from '@helpers/formatMoney'
-import { queryKeys } from '@helpers/queryKeys'
-import {
-  calculatePackageTotal,
-  reconcileProposalServices,
-} from '@helpers/proposalWorkflow'
 
 export const PROPOSAL_PACKAGES_LIMIT = 6
-export const PROPOSAL_PACKAGE_LINES_LIMIT = 30
+export { PROPOSAL_PACKAGE_LINES_LIMIT } from '@components/ProposalPackageForm'
 
-// Общий редактор вариантов («Что предлагаем клиенту») для КП и шаблона
-// предложения: варианты с позициями, описанием, отметкой «Рекомендуем»
-// и ручной итоговой ценой.
+// Общие компактные карточки для КП и шаблонов. Поля редактируются в стеке модалок.
 const ProposalPackagesEditor = ({
   packages = [],
   onChange,
@@ -40,142 +22,76 @@ const ProposalPackagesEditor = ({
   servicesLoading = false,
   servicesError = false,
   busy = false,
-  initiallyOpenIds = null,
   hint = 'Выберите услуги из каталога или добавьте свои позиции. Несколько вариантов нужны, если хотите дать клиенту выбор.',
 }) => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
-  const queryClient = useQueryClient()
-  const [message, setMessage] = useState(null)
-  const [openedWhileEditing] = useState(() => new Set())
+  const latest = useRef({ packages, onChange })
+  useEffect(() => {
+    latest.current = { packages, onChange }
+  }, [packages, onChange])
 
-  const updatePackage = (packageIndex, patch) =>
-    onChange(
-      packages.map((item, index) =>
-        index === packageIndex
-          ? {
-              ...item,
-              ...patch,
-              ...((patch.lines && !item.manualTotal) ||
-              patch.manualTotal === false
-                ? { total: calculatePackageTotal(patch.lines || item.lines) }
-                : {}),
-            }
-          : item
-      )
+  const editPackage = (item = null) => {
+    if (
+      busy ||
+      servicesLoading ||
+      (!item && packages.length >= PROPOSAL_PACKAGES_LIMIT)
     )
-
-  const updateLine = (packageIndex, lineIndex, patch) =>
-    onChange(
-      packages.map((item, index) =>
-        index === packageIndex
-          ? {
-              ...item,
-              lines: item.lines.map((line, currentLineIndex) =>
-                currentLineIndex === lineIndex ? { ...line, ...patch } : line
-              ),
-              total: item.manualTotal
-                ? item.total
-                : calculatePackageTotal(
-                    item.lines.map((line, currentLineIndex) =>
-                      currentLineIndex === lineIndex
-                        ? { ...line, ...patch }
-                        : line
-                    )
-                  ),
-            }
-          : item
-      )
-    )
-
-  const openLineEditor = (packageIndex, lineIndex = null) => {
-    const item = packages[packageIndex]
+      return
     modalsFunc.add({
-      title:
-        lineIndex === null
-          ? 'Добавление услуги в КП'
-          : 'Редактирование услуги в КП',
-      confirmButtonName: lineIndex === null ? 'Добавить' : 'Применить',
-      declineButtonBgClassName: 'bg-general',
+      title: item ? 'Редактирование варианта КП' : 'Новый вариант КП',
+      confirmButtonName: item ? 'Применить' : 'Добавить',
       closeButtonName: 'Отмена',
       declineButtonName: 'Отмена',
-      Children: ProposalLineDialog,
+      Children: ProposalPackageDialog,
       childrenProps: {
-        initialLine:
-          lineIndex === null
-            ? { serviceId: '', title: '', description: '', price: 0 }
-            : item.lines[lineIndex],
-        index: lineIndex ?? item.lines.length,
+        initialPackage: item || {
+          id: crypto.randomUUID(),
+          title: `Вариант ${packages.length + 1}`,
+          description: '',
+          lines: [],
+          total: 0,
+          manualTotal: false,
+          recommended: false,
+        },
         services,
-        onApply: (line) => {
-          if (lineIndex === null) {
-            updatePackage(packageIndex, { lines: [...item.lines, line] })
-          } else {
-            updateLine(packageIndex, lineIndex, line)
-          }
+        servicesLoading,
+        servicesError,
+        onApply: (next) => {
+          const { packages: current, onChange: commit } = latest.current
+          if (item && !current.some((candidate) => candidate.id === item.id))
+            return
+          if (!item && current.length >= PROPOSAL_PACKAGES_LIMIT) return
+          const updated = item
+            ? current.map((candidate) =>
+                candidate.id === item.id ? next : candidate
+              )
+            : [...current, next]
+          commit(
+            updated.map((candidate) =>
+              next.recommended && candidate.id !== next.id
+                ? { ...candidate, recommended: false }
+                : candidate
+            )
+          )
         },
       },
     })
   }
 
-  const removeLine = (packageIndex, lineIndex) => {
-    const item = packages[packageIndex]
-    const line = item.lines[lineIndex]
+  const removePackage = (item) => {
+    if (busy || packages.length <= 1) return
     modalsFunc.add({
-      title: 'Удалить позицию из КП?',
-      declineButtonBgClassName: 'bg-general',
-      text: `Позиция «${line.title || 'Без названия'}» будет удалена из варианта.`,
+      title: 'Удалить вариант КП?',
+      text: `Вариант «${item.title || 'Без названия'}» будет удалён из предложения.`,
       confirmButtonName: 'Удалить',
       closeButtonName: 'Отмена',
       declineButtonName: 'Отмена',
-      onConfirm: () =>
-        updatePackage(packageIndex, {
-          lines: item.lines.filter((_, index) => index !== lineIndex),
-        }),
-    })
-  }
-
-  const chooseServices = (packageIndex) => {
-    const item = packages[packageIndex]
-    setMessage(null)
-    modalsFunc.add(
-      selectEventServicesFunc(
-        item.lines.map((line) => line.serviceId).filter(Boolean),
-        (ids) => {
-          const catalog =
-            queryClient.getQueryData(queryKeys.services()) || services || []
-          const lines = reconcileProposalServices(item.lines, ids, catalog)
-          if (lines.length > PROPOSAL_PACKAGE_LINES_LIMIT) {
-            setMessage({
-              tone: 'warning',
-              text: `В варианте может быть до ${PROPOSAL_PACKAGE_LINES_LIMIT} позиций. Выберите меньше услуг.`,
-            })
-            return
-          }
-          setMessage(null)
-          updatePackage(packageIndex, { lines })
-        },
-        { services }
-      )
-    )
-  }
-
-  const addPackage = () => {
-    if (packages.length >= PROPOSAL_PACKAGES_LIMIT) return
-    const source = packages[0]
-    const nextId = `package-${Date.now()}`
-    openedWhileEditing.add(nextId)
-    onChange([
-      ...packages,
-      {
-        id: nextId,
-        title: `Вариант ${packages.length + 1}`,
-        description: '',
-        lines: source?.lines?.map((line) => ({ ...line })) || [],
-        total: source?.total || 0,
-        manualTotal: source?.manualTotal ?? false,
-        recommended: false,
+      onConfirm: () => {
+        const { packages: current, onChange: commit } = latest.current
+        if (current.length > 1)
+          commit(current.filter((candidate) => candidate.id !== item.id))
       },
-    ])
+    })
   }
 
   return (
@@ -190,192 +106,45 @@ const ProposalPackagesEditor = ({
       {servicesLoading ? (
         <p className="text-xs text-gray-600">Загружаем каталог услуг…</p>
       ) : null}
-      {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
-      {packages.map((item, packageIndex) => (
+      {packages.map((item, index) => (
         <div
           key={item.id}
-          className="proposal-package rounded-lg border border-gray-200 px-3"
+          className="proposal-package ui-surface-card flex items-start gap-3 rounded-lg p-3"
         >
-          <Section
-            title={item.title || `Вариант ${packageIndex + 1}`}
-            summary={`${formatMoney(item.total)} · Позиций: ${item.lines.length}${item.recommended ? ' · Рекомендуем' : ''}`}
-            initiallyOpen={
-              packageIndex === 0 ||
-              openedWhileEditing.has(item.id) ||
-              (Array.isArray(initiallyOpenIds)
-                ? !initiallyOpenIds.includes(item.id)
-                : false)
-            }
-            noDivider
-            wrapSummary
-          >
-            <div className="input-label mb-1 flex items-center gap-1 px-1 text-xs font-semibold">
-              Название варианта
-              <FieldHelp
-                label="Название варианта"
-                text="Вариант — отдельный набор услуг и цены, который клиент сможет выбрать на странице предложения."
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                inputClassName="min-w-0"
-                ariaLabel="Название варианта"
-                noMargin
-                fullWidth
-                className="min-w-0 flex-1"
-                value={item.title}
-                onChange={(title) => updatePackage(packageIndex, { title })}
-              />
-              {packages.length > 1 ? (
-                <IconActionButton
-                  icon={faTrashAlt}
-                  title="Удалить вариант"
-                  variant="danger"
-                  size="sm"
-                  onClick={() =>
-                    onChange(
-                      packages.filter((_, index) => index !== packageIndex)
-                    )
-                  }
-                />
-              ) : null}
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={Boolean(item.recommended)}
-                aria-label="Рекомендуем"
-                className="focus-visible:outline-general cursor-pointer rounded focus-visible:outline-2"
-                onClick={() =>
-                  onChange(
-                    packages.map((candidate, index) => ({
-                      ...candidate,
-                      recommended:
-                        index === packageIndex ? !candidate.recommended : false,
-                    }))
-                  )
-                }
-              >
-                <IconCheckBox
-                  checked={Boolean(item.recommended)}
-                  label="Рекомендуем"
-                  checkedIcon={faCircleCheck}
-                  checkedIconColor="#F97316"
-                  noMargin
-                />
-              </button>
-              <FieldHelp
-                text={fieldHelp['proposal.recommended']}
-                label="Рекомендуем"
-              />
-            </div>
-            <Textarea
-              label="Описание варианта"
-              rows={2}
-              value={item.description || ''}
-              onChange={(description) =>
-                updatePackage(packageIndex, { description })
-              }
-            />
-            <div className="input-label mt-2 flex items-center gap-1 px-1 text-xs font-semibold select-none">
-              Список услуг варианта
-              <FieldHelp
-                text="Если в варианте одна услуга, клиент увидит название варианта и итоговую стоимость — без повторения названия и цены услуги."
-                label="Список услуг варианта"
-              />
-            </div>
-            <div className="mt-1 space-y-2">
-              {item.lines.map((line, lineIndex) => (
-                <div
-                  key={lineIndex}
-                  className="proposal-line-card flex items-start gap-2 rounded-lg border border-[var(--surface-card-border)] p-3 [background:var(--surface-card-bg)]"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium break-words">
-                      {line.title || 'Без названия'}
-                    </div>
-                    {line.description ? (
-                      <p className="mt-1 line-clamp-2 text-sm break-words text-gray-600">
-                        {line.description}
-                      </p>
-                    ) : null}
-                    <div className="mt-2 text-sm font-semibold">
-                      {formatMoney(line.price)}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <IconActionButton
-                      icon={faPencilAlt}
-                      variant="warning"
-                      size="sm"
-                      title={`Редактировать позицию ${lineIndex + 1}`}
-                      onClick={() => openLineEditor(packageIndex, lineIndex)}
-                    />
-                    <IconActionButton
-                      icon={faTrashAlt}
-                      variant="danger"
-                      size="sm"
-                      title={`Удалить позицию ${lineIndex + 1}`}
-                      onClick={() => removeLine(packageIndex, lineIndex)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <AppButton
-                variant="primary"
-                size="sm"
-                disabled={busy || servicesLoading || servicesError}
-                onClick={() => chooseServices(packageIndex)}
-              >
-                Выбрать услуги
-              </AppButton>
-              <AppButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={item.lines.length >= PROPOSAL_PACKAGE_LINES_LIMIT}
-                onClick={() => openLineEditor(packageIndex)}
-              >
-                Своя позиция
-              </AppButton>
-              <Input
-                inputClassName="min-w-0"
-                label="Итого"
-                help="По умолчанию итог равен сумме позиций. Включите ручную цену, чтобы задать общую стоимость варианта, например со скидкой. Цены отдельных позиций при этом сохранятся."
-                type="number"
-                min={0}
-                step={1000}
-                decimalScale={2}
-                postfix="₽"
-                noMargin
-                value={item.total}
-                disabled={!item.manualTotal}
-                onChange={(total) => updatePackage(packageIndex, { total })}
-              />
-            </div>
-            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={Boolean(item.manualTotal)}
-                onChange={(event) =>
-                  updatePackage(packageIndex, {
-                    manualTotal: event.target.checked,
-                  })
-                }
-              />
-              Указать итоговую цену вручную
-            </label>
-            {item.manualTotal ? (
-              <div className="mt-1 text-xs text-gray-600">
-                Сумма позиций: {formatMoney(calculatePackageTotal(item.lines))}.
-                Разница с итогом:{' '}
-                {formatMoney(item.total - calculatePackageTotal(item.lines))}.
-              </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold break-words">
+              {item.title || `Вариант ${index + 1}`}
+            </p>
+            <p className="mt-1 text-sm">
+              {formatMoney(item.total)} · Позиций: {item.lines.length}
+              {item.recommended ? ' · Рекомендуем' : ''}
+            </p>
+            {item.description ? (
+              <p className="mt-1 line-clamp-2 text-sm break-words opacity-70">
+                {item.description}
+              </p>
             ) : null}
-          </Section>
+          </div>
+          <div className="flex shrink-0 gap-1">
+            <IconActionButton
+              icon={faPencilAlt}
+              variant="warning"
+              size="sm"
+              title={`Редактировать вариант ${index + 1}`}
+              disabled={busy || servicesLoading}
+              onClick={() => editPackage(item)}
+            />
+            {packages.length > 1 ? (
+              <IconActionButton
+                icon={faTrashAlt}
+                variant="danger"
+                size="sm"
+                title={`Удалить вариант ${index + 1}`}
+                disabled={busy}
+                onClick={() => removePackage(item)}
+              />
+            ) : null}
+          </div>
         </div>
       ))}
       <div className="flex justify-end">
@@ -384,8 +153,12 @@ const ProposalPackagesEditor = ({
           label="Добавить вариант"
           size="sm"
           className="px-3"
-          disabled={packages.length >= PROPOSAL_PACKAGES_LIMIT}
-          onClick={addPackage}
+          disabled={
+            busy ||
+            servicesLoading ||
+            packages.length >= PROPOSAL_PACKAGES_LIMIT
+          }
+          onClick={() => editPackage()}
         />
       </div>
     </div>

@@ -1358,9 +1358,9 @@ const EventsContent = ({
                     activeLabel={workItemTerms.pluralCapitalized}
                   />
                   <EventTransferredFilterChip
-                    value={transferredMode === 'only'}
+                    value={transferredMode !== 'exclude'}
                     onChange={(active) =>
-                      setTransferredMode(active ? 'only' : 'all')
+                      setTransferredMode(active ? 'all' : 'exclude')
                     }
                   />
                 </div>

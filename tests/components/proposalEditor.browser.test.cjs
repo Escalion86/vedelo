@@ -293,30 +293,9 @@ test(
               1
             )
 
-            const titleInput = page
-              .getByRole('textbox', { name: 'Название варианта', exact: true })
-              .first()
-            const remove = page
-              .getByRole('button', { name: 'Удалить вариант', exact: true })
-              .first()
-            const recommend = page
-              .getByRole('checkbox', { name: 'Рекомендуем', exact: true })
-              .first()
-            const inputBox = await titleInput.boundingBox(),
-              removeBox = await remove.boundingBox(),
-              recommendBox = await recommend.boundingBox()
-            assert.ok(
-              removeBox.x >= inputBox.x + inputBox.width - 1,
-              'Корзина справа от названия'
-            )
-            assert.ok(
-              Math.abs(removeBox.y + removeBox.height / 2 - inputBox.y - inputBox.height / 2) < 2,
-              'Корзина выровнена по центру поля, без учёта подписи'
-            )
-            assert.ok(
-              recommendBox.y >= inputBox.y + inputBox.height,
-              'Рекомендация под названием'
-            )
+            assert.equal(await page.getByRole('textbox', { name: 'Название варианта', exact: true }).count(), 0)
+            await page.getByRole('button', { name: 'Редактировать вариант 1', exact: true }).click()
+            await page.getByRole('textbox', { name: 'Название варианта', exact: true }).waitFor()
             const help = page
               .getByRole('button', {
                 name: 'Подсказка: Список услуг варианта',
@@ -336,6 +315,7 @@ test(
             await help.press('Escape')
             await page.getByRole('tooltip').waitFor({ state: 'hidden' })
             assert.equal(saved, undefined, 'Подсказка не сохраняет форму')
+            await page.getByRole('button', { name: 'Применить', exact: true }).last().click()
             await page
               .getByRole('button', {
                 name: 'Предпросмотр для клиента',

@@ -36,10 +36,10 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         import {modalsFuncAtom} from '@state/atoms';
         const store=createStore();
         store.set(siteSettingsAtom,{custom:{primaryEntityTerminology:new URLSearchParams(location.search).get('terms')||'orders'}});
-        window.openAi=(id=null,mode='text')=>store.set(modalsAtom,[{id:'ai',props:{
-          title:'Редактировать заказ с ИИ',Children:AiEditAssistant,childrenProps:{eventId:id,mode},
+        window.openAi=(id=null,mode='text',options={})=>store.set(modalsAtom,[{id:crypto.randomUUID(),props:{
+          title:options.unified?'Создать / редактировать заказ':'Редактировать заказ с ИИ',Children:AiEditAssistant,frameless:mode==='voice',childrenProps:{eventId:id,mode,...options,standaloneVoice:mode==='voice'},
           onlyCloseButtonShow:true,crossActsAsDecline:false,closeButtonName:'Закрыть'}}]);
-        store.set(modalsFuncAtom,{event:{create(){},aiEdit:window.openAi},confirm:({onConfirm})=>onConfirm()});
+        store.set(modalsFuncAtom,{event:{create(status,options){window.createdDraft={status,...options}},aiEdit:window.openAi},confirm:({onConfirm})=>onConfirm()});
         const client=new QueryClient();
         createRoot(document.getElementById('root')).render(<Provider store={store}><QueryClientProvider client={client}>
           <main style={{padding:24}}><h1>Заказы</h1><button onClick={()=>window.openAi('event')}>Изменить с ИИ</button></main>
@@ -65,8 +65,8 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
     await fs.readFile('app/globals.css', 'utf8'), { from: path.resolve('app/globals.css') }
   )).css
   const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html' })
-    res.end(`<!doctype html><html><head><title>AI editor QA</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css} #root{height:100dvh;display:grid;grid-template-rows:1fr auto;grid-template-areas:"main" "bottomnav"}main{grid-area:main}</style></head><body><div id="root"></div><script>${bundled.outputFiles[0].text.replaceAll('</script','<\\/script')}</script></body></html>`)
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+    res.end(`<!doctype html><html><head><meta charset="utf-8"><title>AI editor QA</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css} #root{height:100dvh;display:grid;grid-template-rows:1fr auto;grid-template-areas:"main" "bottomnav"}main{grid-area:main}</style></head><body><div id="root"></div><script>${bundled.outputFiles[0].text.replaceAll('</script','<\\/script')}</script></body></html>`)
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const browser = await chromium.launch({ headless: true, channel: 'msedge' }).catch((error) => {
@@ -78,6 +78,12 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
     for (const width of [390, 1365]) for (const dark of [false, true]) {
       const page = await browser.newPage({ viewport: { width, height: 850 } })
       await page.addInitScript(() => {
+        window.clipboardReads = 0
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { readText: async () => {
+          window.clipboardReads++
+          if (window.clipboardDenied) throw new DOMException('Denied', 'NotAllowedError')
+          return '8 (999) 222-22-22'
+        } } })
         window.AudioContext = undefined
         window.webkitAudioContext = undefined
         Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } })
@@ -108,7 +114,10 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       await page.route('**/api/events/ai-edit', async (route) => {
         const body = route.request().postDataJSON()
         let payload
-        if (body.mode === 'apply') {
+        if (body.mode === 'auto' && body.text.startsWith('Создай')) {
+          if (body.text.includes('буфер')) assert.equal(body.clipboardPhone, '79992222222', JSON.stringify(body))
+          payload = { fields: { clientId: 'client', description: 'Новая заявка' }, client: { _id: 'client', phone: 79992222222 }, aiFilledFields: ['clientId'] }
+        } else if (body.mode === 'apply') {
           applyCalls++
           if (applyCalls === 1) return route.fulfill({ status: 502, json: { error: 'Ответ потерян' } })
           payload = { ...plan, completed: [0, 1], done: true }
@@ -116,7 +125,8 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         else payload = plan
         await route.fulfill({ json: payload })
       })
-      await page.route('**/api/events/voice-transcript', (route) => route.fulfill({ json: { transcript: 'Перенеси заказ на завтра' } }))
+      let voiceText = 'Перенеси заказ на завтра'
+      await page.route('**/api/events/voice-transcript', (route) => route.fulfill({ json: { transcript: voiceText } }))
       await page.goto(`http://127.0.0.1:${server.address().port}/cabinet/eventsUpcoming`)
       await page.waitForTimeout(500)
       assert.deepEqual(errors, [], `Page failed: ${(await page.locator('body').innerText()).slice(0, 300)}`)
@@ -124,15 +134,33 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       assert.equal(await page.title(), 'AI editor QA')
       await page.getByRole('button', { name: /Добавить заявку/ }).click()
       await page.getByRole('button', {name:'Из фотографии ИИ',exact:true}).waitFor()
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth), false)
       assert.equal(await page.getByRole('button',{name:'Форма',exact:true}).locator('.ai-badge').count(),0)
-      await page.getByRole('button', {name:'Свободным текстом ИИ',exact:true}).first().click()
-      const recognize=page.getByRole('button',{name:'Распознать и заполнить ИИ',exact:true})
-      await recognize.waitFor()
-      assert.equal(await recognize.isDisabled(),true)
-      await page.getByRole('textbox').fill('Свадьба завтра')
-      assert.equal(await recognize.isEnabled(),true)
+      await page.getByRole('button', {name:'Создать/Ред. свободным текстом ИИ',exact:true}).first().click()
+      const analyze=page.getByRole('button',{name:'Разобрать запрос ИИ',exact:true})
+      await analyze.waitFor()
+      assert.equal(await analyze.isDisabled(),true)
+      assert.equal(await page.evaluate(()=>window.clipboardReads),0)
+      await page.getByRole('textbox').fill('Создай заявку, телефон клиента возьми из буфера обмена')
+      await analyze.click()
+      await page.getByText('Телефон вставлен.', {exact:false}).waitFor()
+      assert.equal(await page.getByRole('textbox',{name:'Телефон клиента из буфера',exact:true}).inputValue(),'79992222222')
+      assert.equal(await page.evaluate(()=>window.createdDraft),undefined)
       if(process.env.QA_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-text-${width}-${dark?'dark':'light'}.png`)})
-      await page.getByRole('button',{name:'Отмена',exact:true}).click()
+      await analyze.click()
+      await page.waitForFunction(()=>window.createdDraft?.initialClient?.phone===79992222222)
+      assert.equal(await page.evaluate(()=>window.clipboardReads),1)
+      await page.getByRole('button',{name:/Добавить заявку/}).click()
+      await page.getByRole('button',{name:'Создать/Ред. свободным текстом ИИ',exact:true}).click()
+      await page.evaluate(()=>{window.clipboardDenied=true})
+      await page.getByRole('textbox').fill('Создай заявку, номер из буфера')
+      await analyze.click()
+      await page.getByRole('alert').filter({hasText:'Браузер не разрешил'}).waitFor()
+      await page.getByRole('textbox',{name:'Телефон клиента из буфера',exact:true}).fill('+7 999 222-22-22')
+      await analyze.click()
+      await analyze.waitFor({state:'detached'})
+      await page.evaluate(()=>{window.clipboardDenied=false})
+      const recognize=page.getByRole('button',{name:'Распознать и заполнить ИИ',exact:true})
       await page.getByRole('button', {name:/Добавить заявку/}).click()
       await page.getByRole('button',{name:'Из фотографии ИИ',exact:true}).click()
       await recognize.waitFor()
@@ -140,25 +168,26 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       await page.getByRole('button',{name:'Отмена',exact:true}).click()
       if (width === 390) {
         await page.getByRole('button', { name: /Добавить заявку/ }).click()
-        await page.getByText('Редактировать заказ', { exact: true }).waitFor()
-        assert.equal(await page.getByRole('button', { name: 'Голосом ИИ', exact: true }).count(), 2)
+        await page.getByText('Создать / редактировать заказ', { exact: true }).waitFor()
+        assert.equal(await page.getByRole('button', { name: 'Создать/Ред. голосом ИИ', exact: true }).count(), 1)
         await page.waitForTimeout(350)
-        assert.ok((await page.getByText('Создать заказ', { exact: true }).boundingBox()).y >= 0)
+        assert.ok((await page.getByText('Создать / редактировать заказ', { exact: true }).boundingBox()).y >= 0)
         if (process.env.QA_SCREENSHOT_DIR) {
           await fs.mkdir(process.env.QA_SCREENSHOT_DIR, { recursive: true })
           await page.screenshot({ path: path.join(process.env.QA_SCREENSHOT_DIR, `ai-menu-${dark ? 'dark' : 'light'}.png`) })
         }
-        await page.getByRole('button', { name: 'Свободным текстом ИИ', exact: true }).last().click()
+        await page.getByRole('button', { name: 'Создать/Ред. свободным текстом ИИ', exact: true }).last().click()
       } else await page.getByRole('button', { name: 'Изменить с ИИ', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Что нужно изменить?' }).fill('Стоимость 40000, получила 10000 наличными сегодня')
-      await page.getByRole('button', { name: width === 390 ? 'Найти заказ ИИ' : 'Подготовить изменения ИИ', exact: true }).click()
+      await page.getByRole('textbox', { name: width === 390 ? 'Что нужно создать или изменить?' : 'Что нужно изменить?' }).fill('Стоимость 40000, получила 10000 наличными сегодня')
+      await page.getByRole('button', { name: width === 390 ? 'Разобрать запрос ИИ' : 'Подготовить изменения ИИ', exact: true }).click()
       if (width === 390) await page.getByRole('button', { name: /Анна · Свадьба/ }).click()
       await page.getByRole('button', { name: 'Применить изменения', exact: true }).waitFor()
       assert.equal(applyCalls, 0)
       assert.equal(await page.getByRole('button',{name:'Применить изменения',exact:true}).locator('.ai-badge').count(),0)
       await page.getByRole('button', { name: 'Уточнить запрос', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Что нужно изменить?' }).fill('Стоимость 40000, получила 10000 наличными вчера')
-      await page.getByRole('button', { name: 'Подготовить изменения ИИ', exact: true }).click()
+      await page.getByRole('textbox', { name: width === 390 ? 'Что нужно создать или изменить?' : 'Что нужно изменить?' }).fill('Стоимость 40000, получила 10000 наличными вчера')
+      await page.getByRole('button', { name: width === 390 ? 'Разобрать запрос ИИ' : 'Подготовить изменения ИИ', exact: true }).click()
+      if (width === 390) await page.getByRole('button', { name: /Анна · Свадьба/ }).click()
       await page.getByText(/Станет: 40\s000 ₽/).waitFor()
       if (process.env.QA_SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.QA_SCREENSHOT_DIR, `ai-preview-${width}-${dark ? 'dark' : 'light'}.png`) })
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
@@ -170,23 +199,51 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       await page.getByText('Изменения сохранены', { exact: true }).waitFor()
       assert.equal(applyCalls, 2)
       await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Что нужно изменить?' }).waitFor({ state: 'detached' })
+      await page.getByRole('textbox', { name: width === 390 ? 'Что нужно создать или изменить?' : 'Что нужно изменить?' }).waitFor({ state: 'detached' })
       if (width === 390) {
         await page.getByRole('button', { name: /Добавить заявку/ }).click()
-        await page.getByRole('button', { name: 'Голосом ИИ', exact: true }).last().click()
+        await page.getByRole('button', { name: 'Создать/Ред. голосом ИИ', exact: true }).last().click()
       } else await page.evaluate(() => window.openAi('event', 'voice'))
       await page.getByText('Говорите', { exact: true }).waitFor()
+      assert.equal(await page.getByRole('textbox').count(), 0)
+      await page.getByText('Создать / редактировать заказ', {exact:true}).waitFor({state:'detached'})
+      assert.equal(await page.getByRole('button', {name:'Разобрать запрос ИИ',exact:true}).count(), 0)
+      assert.equal(await page.getByRole('button', { name: 'Закрыть голосовой ввод' }).locator('..').locator('.ai-badge').count(), 0)
+      if (process.env.QA_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-voice-only-${width}-${dark?'dark':'light'}.png`)})
       await page.getByRole('button', { name: 'Завершить запись' }).click()
-      await page.waitForFunction(() => document.querySelector('textarea')?.value === 'Перенеси заказ на завтра')
-      assert.equal(applyCalls, 2, 'voice only fills the request, never applies edits')
+      if (width === 390) await page.getByRole('button', {name:/Анна · Свадьба/}).waitFor()
+      else await page.getByRole('button', {name:'Применить изменения',exact:true}).waitFor()
+      assert.equal(applyCalls, 2, 'voice prepares the request but never applies edits automatically')
+      await page.getByRole('button', {name:'Закрыть',exact:true}).click()
+      voiceText = 'Создай заявку, возьми телефон клиента из буфера обмена'
+      await page.getByRole('button', {name:/Добавить заявку/}).click()
+      await page.getByRole('button', {name:'Создать/Ред. голосом ИИ',exact:true}).click()
+      await page.getByText('Говорите',{exact:true}).waitFor()
+      await page.getByRole('button', {name:'Завершить запись'}).click()
+      await page.evaluate(()=>{window.createdDraft=null})
+      await page.getByText('Телефон вставлен.',{exact:false}).waitFor()
+      await analyze.click()
+      await page.waitForFunction(()=>window.createdDraft?.initialEvent?.clientId==='client')
+
+      await analyze.waitFor({state:'detached'})
+      voiceText = 'Создай новую заявку'
+      await page.evaluate(()=>{window.createdDraft=null})
+      await page.getByRole('button', {name:/Добавить заявку/}).click()
+      await page.getByRole('button', {name:'Создать/Ред. голосом ИИ',exact:true}).click()
+      await page.getByText('Говорите',{exact:true}).waitFor()
+      assert.equal(await page.getByRole('textbox').count(),0)
+      await page.getByRole('button', {name:'Завершить запись'}).click()
+      await page.waitForFunction(()=>window.createdDraft?.initialEvent?.clientId==='client')
+      assert.equal(await page.getByRole('textbox').count(),0)
+
       await page.close()
     }
     const shortPage = await browser.newPage({ viewport: { width: 390, height: 568 } })
     await shortPage.goto(`http://127.0.0.1:${server.address().port}/cabinet/eventsUpcoming?terms=events`)
     await shortPage.getByRole('button', { name: /Добавить заявку/ }).click()
-    await shortPage.getByText('Редактировать мероприятие', { exact: true }).waitFor()
-    await shortPage.getByRole('button', { name: 'Свободным текстом ИИ', exact: true }).last().scrollIntoViewIfNeeded()
-    assert.equal(await shortPage.getByRole('button', { name: 'Голосом ИИ', exact: true }).count(), 2)
+    await shortPage.getByText('Создать / редактировать мероприятие', { exact: true }).waitFor()
+    await shortPage.getByRole('button', { name: 'Создать/Ред. свободным текстом ИИ', exact: true }).last().scrollIntoViewIfNeeded()
+    assert.equal(await shortPage.getByRole('button', { name: 'Создать/Ред. голосом ИИ', exact: true }).count(), 1)
     await shortPage.close()
     assert.deepEqual(errors, [])
   } finally {

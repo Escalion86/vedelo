@@ -179,6 +179,8 @@ const load = (file) => {
 // Настоящие хелперы вариантов: считаем итоги и переносим услуги каталога.
 mocks['@helpers/proposalWorkflow'] = load('helpers/proposalWorkflow.js')
 // Общий редактор вариантов — тот же, что в редакторе КП.
+mocks['@components/ProposalPackageForm'] = load('components/ProposalPackageForm.js')
+mocks['@components/ProposalPackageDialog'] = load('components/ProposalPackageDialog.js')
 mocks['@components/ProposalPackagesEditor'] = load(
   'components/ProposalPackagesEditor.js'
 )
@@ -196,6 +198,21 @@ const mount = async (t, Component, props) => {
     element.remove()
   })
   return element
+}
+
+const openVariant = async (t, element, adding = false) => {
+  await React.act(async () => (adding ? findButton(element, 'Добавить вариант') : element.querySelector('button[title="Редактировать вариант 1"]')).click())
+  const config = openedModals.at(-1)
+  const state = {}
+  const dialog = await mount(t, config.Children, {
+    ...config.childrenProps,
+    closeModal: () => dialog.remove(),
+    setOnConfirmFunc: handler => { state.confirm = handler },
+    setDisableConfirm: value => { state.disabled = value },
+    setOnShowOnCloseConfirmDialog: value => { state.dirty = value },
+  })
+  element.append(dialog)
+  return { state, dialog, confirm: () => state.confirm() }
 }
 
 const template = {
@@ -233,7 +250,9 @@ const mountEditor = async (t, templateData = template) => {
       changes.showConfirmDialog = value
     },
   })
-  return { element, changes }
+  const dialog = await openVariant(t, element)
+  return { element, changes, applyVariant: dialog.confirm, variantState: dialog.state, dismissVariant: () => dialog.dialog.remove() }
+
 }
 
 const findButton = (element, text) =>
@@ -304,7 +323,7 @@ test('«Выбрать услуги» открывает общий список
   assert.equal(element.textContent.includes('Стрижка'), true)
   assert.equal(element.textContent.includes('5000 ₽'), true)
   assert.equal(element.textContent.includes('Макияж'), true)
-  assert.equal(element.textContent.includes('12000 ₽ · Позиций: 2'), true)
+  assert.equal(element.querySelector('input[aria-label="Итого"]').value, '12000')
 
   // Итог варианта, посчитанный из позиций, попадает в предпросмотр и в вариант.
   assert.equal(pickerCalls.at(-1).options.services, servicesCatalog)
@@ -370,7 +389,7 @@ test('редактор показывает варианты, которые о�
 })
 
 test('«Рекомендуем», ручная цена варианта и второй вариант работают', async (t) => {
-  const { element } = await mountEditor(t)
+  const { element, applyVariant } = await mountEditor(t)
   await React.act(async () => findButton(element, 'Выбрать услуги').click())
   await React.act(async () => pickerCalls[0].onApply(['s1']))
 
@@ -392,23 +411,28 @@ test('«Рекомендуем», ручная цена варианта и вт
     valueSetterFor(totalInput).call(totalInput, '9000')
     totalInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   })
-  assert.equal(element.textContent.includes('9000 ₽ · Позиций: 1'), true)
-
-  await React.act(async () => findButton(element, 'Добавить вариант').click())
+  assert.equal(totalInput.value, '9000')
+  await React.act(async () => applyVariant())
+  const added = await openVariant(t, element, true)
   const titles = [...element.querySelectorAll('input[aria-label="Название варианта"]')]
-  assert.equal(titles.length, 2)
-  assert.equal(titles[1].value, 'Вариант 2')
-  // Позиции основного варианта скопированы во второй, как в редакторе КП.
-  assert.equal(element.textContent.includes('Позиций: 1'), true)
+  assert.equal(titles.length, 1)
+  assert.equal(titles[0].value, 'Вариант 2')
+  assert.equal(element.querySelector('input[aria-label="Итого"]').disabled, true)
+  assert.equal(element.querySelectorAll('.proposal-package').length, 1, 'новый вариант не добавлен до подтверждения')
+  await React.act(async () => added.confirm())
+  // Новый вариант пустой; услуги и ручная цена первого не наследуются.
+  const variants = element.querySelectorAll('.proposal-package')
+  assert.equal(variants[0].textContent.includes('9000 ₽ · Позиций: 1'), true)
+  assert.equal(variants[1].textContent.includes('0 ₽ · Позиций: 0'), true)
   assert.ok(
     [...element.querySelectorAll('button')].some(
-      (button) => button.getAttribute('title') === 'Удалить вариант'
+      (button) => button.getAttribute('title') === 'Удалить вариант 2'
     )
   )
 })
 
 test('сохранение отправляет варианты шаблона и услуги вариантов', async (t) => {
-  const { element, changes } = await mountEditor(t, { ...template, _id: null, name: '' })
+  const { element, changes, applyVariant } = await mountEditor(t, { ...template, _id: null, name: '' })
   await React.act(async () => findButton(element, 'Выбрать услуги').click())
   await React.act(async () => pickerCalls[0].onApply(['s1', 's2']))
 
@@ -417,6 +441,7 @@ test('сохранение отправляет варианты шаблона 
     valueSetterFor().call(nameInput, 'Новый шаблон')
     nameInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   })
+  await React.act(async () => applyVariant())
   assert.equal(changes.disabled, false)
   await React.act(async () => changes.confirm())
 
@@ -428,6 +453,37 @@ test('сохранение отправляет варианты шаблона 
   assert.equal(defaults.packages[0].lines.length, 2)
   assert.equal(defaults.packages[0].total, 12000)
   assert.deepEqual(defaults.servicesIds, ['s1', 's2'])
+})
+
+test('шаблон из КП создаётся только по сохранению, предупреждает о ручном тексте и защищает закрытие', async (t) => {
+  servicesState = { data: servicesCatalog, isPending: false, isError: false }
+  savedRequests.length = 0
+  const prepared = require('../../helpers/proposalTemplateFromProposal.mjs').proposalTemplateFromProposal({
+    _id:'source-proposal',clientId:'source-client',status:'published',title:'Новый шаблон из КП',
+    blocksSnapshot:[{type:'header',contentHtml:'<p>{{client.firstName}}</p>',enabled:true}],
+    messageText:'',packages:[{id:'main',title:'Интерактив',lines:[],total:4000,manualTotal:true,recommended:true}],
+  })
+  let confirm,dirty,closed=false,saved=false
+  const Editor=load('components/ProposalTemplateEditor.js').default
+  const element=await mount(t,Editor,{
+    template:prepared,fromProposal:true,
+    closeModal:()=>{closed=true},onSaved:()=>{saved=true},
+    setOnConfirmFunc:handler=>{confirm=handler},setDisableConfirm:()=>{},
+    setOnShowOnCloseConfirmDialog:value=>{dirty=value},
+  })
+  assert.equal(element.querySelector('[aria-label="Название шаблона"]').value,'Новый шаблон из КП')
+  assert.match(element.textContent,/Проверьте имена, даты и индивидуальные условия/)
+  assert.equal(dirty,true)
+  assert.equal(savedRequests.length,0)
+  await React.act(async()=>confirm())
+  assert.equal(closed,true)
+  assert.equal(saved,true)
+  assert.equal(savedRequests.length,1)
+  assert.equal(savedRequests[0].url,'/api/proposal-templates')
+  assert.equal(savedRequests[0].payload.messageTemplate,'')
+  assert.equal(savedRequests[0].payload.defaults.packages[0].total,4000)
+  assert.equal(savedRequests[0].payload.clientId,undefined)
+  assert.equal(savedRequests[0].payload._id,undefined)
 })
 
 test('ошибка загрузки услуг видна и блокирует выбор', async (t) => {
@@ -445,6 +501,7 @@ test('ошибка загрузки услуг видна и блокирует 
     element.textContent.includes('Не удалось загрузить каталог услуг'),
     true
   )
+  await openVariant(t, element)
   assert.equal(findButton(element, 'Выбрать услуги').disabled, true)
 })
 
@@ -455,4 +512,36 @@ test('изменение существующего шаблона исполь�
   assert.equal(savedRequests[0].url, '/api/proposal-templates/t1')
   assert.equal(savedRequests[0].method, 'PATCH')
   assert.deepEqual(savedRequests[0].payload.blocks.filter(block => ['header', 'packagesIntro', 'closing'].includes(block.type)).map(block => block.type), ['header', 'packagesIntro', 'closing'])
+})
+
+
+test('правки варианта локальны до применения, отмена сохраняет исходные данные', async (t) => {
+  const { element, changes, variantState, dismissVariant } = await mountEditor(t)
+  const field = element.querySelector('input[aria-label="Название варианта"]')
+  await React.act(async () => {
+    valueSetterFor().call(field, 'Несохранённое название')
+    field.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
+  assert.equal(variantState.dirty, true)
+  assert.equal(changes.showConfirmDialog, false)
+  assert.equal(element.querySelector('.proposal-package').textContent.includes('Несохранённое название'), false)
+  dismissVariant()
+  const reopened = await openVariant(t, element)
+  assert.equal(reopened.dialog.querySelector('input[aria-label="Название варианта"]').value, 'Основной вариант')
+})
+
+test('отмена добавления не создаёт вариант; удаление требует подтверждения', async (t) => {
+  const { element, dismissVariant } = await mountEditor(t)
+  dismissVariant()
+  const added = await openVariant(t, element, true)
+  assert.equal(added.dialog.querySelectorAll('.proposal-line-card').length, 0)
+  assert.equal(element.querySelectorAll('.proposal-package').length, 1)
+  added.dialog.remove()
+  assert.equal(element.querySelectorAll('.proposal-package').length, 1)
+  const next = await openVariant(t, element, true)
+  await React.act(async () => next.confirm())
+  await React.act(async () => element.querySelector('button[title="Удалить вариант 2"]').click())
+  assert.equal(element.querySelectorAll('.proposal-package').length, 2)
+  await React.act(async () => openedModals.at(-1).onConfirm())
+  assert.equal(element.querySelectorAll('.proposal-package').length, 1)
 })

@@ -49,6 +49,7 @@ const Modal = ({
   crossActsAsDecline = true,
   waitForConfirm = false,
   contentClassName,
+  frameless = false,
 }) => {
   // const [rendered, setRendered] = useState(false)
   // const [preventCloseFunc, setPreventCloseFunc] = useState(null)
@@ -281,6 +282,8 @@ const Modal = ({
   //     setRendered(true)
   //   }, 10)
   // }, [])
+
+  if (frameless) return close ? null : <Children {...childrenProps} closeModal={closeModal} />
 
   return (
     <motion.div

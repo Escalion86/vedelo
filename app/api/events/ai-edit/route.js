@@ -4,6 +4,9 @@ import getUserTariffAccess from '@server/getUserTariffAccess'
 import dbConnect from '@server/dbConnect'
 import { applyAiEdit, prepareAiEdit, searchAiEditEvents } from '@server/aiEdit'
 import { getAiBalanceErrorMessage, isAiBalanceError } from '@server/aiBilling'
+import { resolveAiEventIntent } from '@server/aiEventIntent'
+import { processEventAiDraft } from '@server/eventAiDraft'
+import { parseClipboardPhone, requestsClipboardPhone } from '@helpers/aiAssistantClipboard.mjs'
 
 export async function POST(req) {
   try {
@@ -21,6 +24,23 @@ export async function POST(req) {
     const text = typeof body?.text === 'string' ? body.text.trim() : ''
     if (!text || text.length > 12000) return NextResponse.json({ error: 'Введите запрос до 12000 символов' }, { status: 400 })
     const args = { tenantId: context.tenantId, userId: context.user._id, text, eventId: body.eventId }
+    const clipboardPhone = body.clipboardPhone ? parseClipboardPhone(body.clipboardPhone) : ''
+    if (body.clipboardPhone && !clipboardPhone)
+      return NextResponse.json({ error: 'Укажите один корректный телефон из буфера обмена' }, { status: 400 })
+    if (requestsClipboardPhone(text) && !clipboardPhone)
+      return NextResponse.json({ needsClipboardPhone: true, question: 'Вставьте телефон клиента из буфера обмена и повторите запрос.' })
+    if (clipboardPhone) {
+      args.text += `\nТелефон клиента из буфера обмена: +${clipboardPhone}.`
+      args.clientPhone = clipboardPhone
+    }
+    if (body.mode === 'auto' && !body.eventId) {
+      const intent = await resolveAiEventIntent(args)
+      if (intent.needsClipboardPhone && !clipboardPhone)
+        return NextResponse.json({ needsClipboardPhone: true, question: 'Вставьте телефон клиента из буфера обмена и повторите запрос.' })
+      if (intent.intent === 'clarify')
+        return NextResponse.json({ question: 'Уточните: создать новую заявку или изменить существующую? Для изменения укажите клиента, дату или название.' })
+      if (intent.intent === 'create') return processEventAiDraft({ ...args, clientPhone: clipboardPhone, strict: true })
+    }
     const result = body.eventId ? await prepareAiEdit(args) : await searchAiEditEvents(args)
     return NextResponse.json(result)
   } catch (error) {

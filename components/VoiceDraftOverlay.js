@@ -1,6 +1,5 @@
 'use client'
 
-import AiBadge from '@components/AiBadge'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
@@ -244,7 +243,6 @@ const VoiceDraftOverlay = ({ onClose, onDraft, onTranscript }) => {
           ) : (
             <FontAwesomeIcon icon={faMicrophone} className="h-16 w-16" />
           )}
-          <span className="absolute bottom-3"><AiBadge /></span>
         </button>
 
         <div className="mt-8 text-3xl font-semibold">

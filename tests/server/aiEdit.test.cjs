@@ -57,17 +57,19 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
     const Plans = load('models/AiEditPlans.js', { mongoose }).default
     let proposal
     let providerCalls = 0
+    let lastProviderRequest
     const service = load('server/aiEdit.js', {
       mongoose, 'node:crypto': require('node:crypto'), '@models/Events': Events, '@models/Clients': Clients, '@models/Transactions': Transactions,
       '@models/AiEditPlans': Plans,
       '@models/Services': { find: () => ({ select: () => ({ limit: () => ({ lean: async () => [] }) }) }) },
       '@models/SiteSettings': { findOne: () => ({ select: () => ({ lean: async () => ({ timeZone: 'Asia/Krasnoyarsk' }) }) }) },
       '@server/aiSettings': { getTenantAiSettings: async () => ({}) },
-      '@server/aiChatCompletion': { requestAiChatCompletion: async () => { providerCalls++; return { content: JSON.stringify(proposal) } } },
+      '@server/aiChatCompletion': { requestAiChatCompletion: async (args) => { lastProviderRequest = args; providerCalls++; return { content: JSON.stringify(proposal) } } },
       '@server/activityHistory': { recordActivityHistory: async () => {} },
       '@server/CRUD': { updateEventInCalendar: async () => {} },
       '@server/taskPushNotifications': { notifyTaskCreated: async () => {}, notifyTaskUpdated: async () => {}, notifyTaskCompleted: async () => {} },
       '@helpers/aiEditContract.mjs': contract,
+      '@helpers/aiEventDraftContacts.mjs': await import('../../helpers/aiEventDraftContacts.mjs'),
       '@helpers/clientMessengerAvailability': load('helpers/clientMessengerAvailability.js', {}),
     })
     const tenantId = new mongoose.Types.ObjectId(), other = new mongoose.Types.ObjectId()
@@ -114,12 +116,24 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
     assert.equal(paymentResults.filter((r) => r.done).length, 1)
     assert.equal(paymentResults.filter((r) => r.conflict).length, 1)
     assert.equal(await Transactions.countDocuments({ tenantId, amount: 11000 }), 1)
+    const foreignClient = await Clients.create({ tenantId: other, firstName: 'Чужой', phone: 79992222222 })
+    const foreignEvent = await Events.create({ tenantId: other, clientId: foreignClient._id, status: 'active' })
+    await Clients.updateOne({ _id: client._id, tenantId }, { $set: { phone: 79992222222 } })
+    proposal = { ids: [String(event._id), String(foreignEvent._id)] }
+    const found = await service.searchAiEditEvents({ tenantId, userId: tenantId, text: 'Найди заказ по телефону из буфера', clientPhone: '79992222222' })
+    assert.deepEqual(found.candidates.map(c => c.id), [String(event._id)])
+    const sentCandidates = JSON.parse(lastProviderRequest.messages[1].content).candidates
+    assert.equal(sentCandidates.length, 1)
+    assert.equal(sentCandidates[0].matchesClipboardPhone, true)
+    assert.equal(sentCandidates[0].phone, undefined)
     const route = load('app/api/events/ai-edit/route.js', {
       'next/server': { NextResponse: { json: (data, options) => Response.json(data, options) } },
       '@server/getRequestContext': async () => ({ tenantId: null }),
       '@server/getUserTariffAccess': async () => { throw new Error('must not be called') },
       '@server/dbConnect': async () => {}, '@server/aiEdit': service,
       '@server/aiBilling': { isAiBalanceError: () => false },
+      '@server/aiEventIntent': {}, '@server/eventAiDraft': {},
+      '@helpers/aiAssistantClipboard.mjs': await import('../../helpers/aiAssistantClipboard.mjs'),
     })
     assert.equal((await route.POST(new Request('http://test', { method: 'POST', body: '{}' }))).status, 401)
   } finally {

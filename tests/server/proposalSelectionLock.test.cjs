@@ -18,6 +18,7 @@ const equal = (a, b) => a instanceof Date || b instanceof Date
 function matches(record, filter) {
   return Object.entries(filter).every(([key, value]) => {
     if (key === '$or') return value.some((part) => matches(record, part))
+    if (key === '$expr') return isDeepStrictEqual(record.additionalEvents || [], value.$eq[1].$literal)
     const actual = key.split('.').reduce((part, field) => part?.[field], record)
     if (Array.isArray(value) || (value && typeof value === 'object' && !(value instanceof Date) && !Object.keys(value).some((key) => key.startsWith('$'))))
       return isDeepStrictEqual(actual, value)
@@ -876,4 +877,85 @@ test('отмена проверяет секрет ссылки, срок и р�
     assert.equal(f.records.Proposals.selectedPackageId, 'basic')
     assert.equal(f.pushes.length, 0)
   }
+})
+
+test('задача следует за выбором, отменой и повторным выбором без дубля', async () => {
+  const f = fixture()
+  await f.select('extended')
+  const original = copy(f.records.Events.additionalEvents[0])
+  assert.match(original.title, /Полный/)
+  const cancel = () => f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'extended' }), { params: f.params })
+  assert.equal((await cancel()).status, 200)
+  assert.equal(f.records.Events.additionalEvents.length, 1)
+  const canceled = f.records.Events.additionalEvents[0]
+  assert.equal(canceled.title, 'Связаться с клиентом: выбор варианта КП отменён')
+  assert.equal(canceled._id, original._id)
+  assert.deepEqual(canceled.date, original.date)
+  assert.equal(canceled.done, false)
+  const version = f.records.Events.syncVersion
+  await cancel()
+  assert.equal(f.records.Events.syncVersion, version)
+  await f.select('basic')
+  assert.equal(f.records.Events.additionalEvents.length, 1)
+  assert.match(f.records.Events.additionalEvents[0].title, /Основной/)
+})
+
+test('отмена обновляет старую автоматически созданную задачу без ID связи', async () => {
+  const f = fixture()
+  f.records.Proposals.selectionTaskCreatedAt = new Date()
+  f.records.Events.additionalEvents = [{ _id: foreign, title: 'Связаться с клиентом: выбран вариант «Основной»', description: 'Клиент выбрал коммерческое предложение версии 1.', date: new Date(), done: false, googleCalendarEventId: 'calendar-id' }]
+  await f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'basic' }), { params: f.params })
+  assert.equal(f.records.Events.additionalEvents[0]._id, foreign)
+  assert.equal(f.records.Events.additionalEvents[0].googleCalendarEventId, 'calendar-id')
+  assert.match(f.records.Events.additionalEvents[0].title, /отменён/)
+  assert.equal(f.records.Proposals.selectionTaskId, foreign)
+})
+
+test('выполненная, удалённая и вручную изменённая задача не восстанавливается и не перезаписывается', async () => {
+  for (const kind of ['done', 'deleted', 'title', 'description']) {
+    const f = fixture()
+    await f.select('extended')
+    if (kind === 'deleted') f.records.Events.additionalEvents = []
+    else if (kind === 'done') f.records.Events.additionalEvents[0].done = true
+    else f.records.Events.additionalEvents[0][kind] = 'Ручная правка'
+    const before = copy(f.records.Events)
+    await f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'extended' }), { params: f.params })
+    assert.deepEqual(f.records.Events, before, kind)
+  }
+})
+
+test('задача чужого tenant не меняется при отмене выбора', async () => {
+  const f = fixture()
+  await f.select('extended')
+  f.records.Events.tenantId = foreign
+  const before = copy(f.records.Events)
+  await f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'extended' }), { params: f.params })
+  assert.deepEqual(f.records.Events, before)
+})
+
+test('позднее создание задачи перечитывает отмену и не оставляет старый текст', async () => {
+  const f = fixture(), g = gate()
+  f.hooks.updateEvents = async () => { delete f.hooks.updateEvents; await g.pause() }
+  const selection = f.select('extended')
+  await g.waiting
+  assert.equal((await f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'extended' }), { params: f.params })).status, 200)
+  g.release()
+  assert.equal((await selection).status, 200)
+  assert.equal(f.records.Events.additionalEvents.length, 1)
+  assert.match(f.records.Events.additionalEvents[0].title, /отменён/)
+})
+
+test('конкурентная ручная правка задачи не затирается; повтор после сбоя завершает отмену', async () => {
+  const f = fixture()
+  await f.select('extended')
+  f.hooks.updateEvents = async () => { throw new Error('Ошибка записи задачи') }
+  const cancel = () => f.publicRoute.POST(f.req({ action: 'cancel', packageId: 'extended' }), { params: f.params })
+  await assert.rejects(cancel, /Ошибка записи задачи/)
+  assert.equal(f.records.Proposals.selectedPackageId, '')
+  delete f.hooks.updateEvents
+  assert.equal((await cancel()).status, 200)
+  assert.match(f.records.Events.additionalEvents[0].title, /отменён/)
+  f.hooks.updateEvents = async () => { delete f.hooks.updateEvents; f.records.Events.additionalEvents[0].title = 'Моя задача' }
+  await f.select('basic')
+  assert.equal(f.records.Events.additionalEvents[0].title, 'Моя задача')
 })

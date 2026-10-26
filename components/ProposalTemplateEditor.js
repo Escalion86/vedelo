@@ -63,7 +63,7 @@ const buildDraft = (template, artist) => {
       ...artist,
       fullName: getPersonFullName(artist),
     }),
-    messageTemplate: template?.messageTemplate || DEFAULT_PROPOSAL_MESSAGE,
+    messageTemplate: template?.messageTemplate ?? DEFAULT_PROPOSAL_MESSAGE,
     media: Array.isArray(template?.media) ? template.media : [],
     packages: defaults.packages.length ? defaults.packages : [emptyPackage()],
   }
@@ -71,6 +71,7 @@ const buildDraft = (template, artist) => {
 
 const ProposalTemplateEditor = ({
   template,
+  fromProposal = false,
   onSaved,
   closeModal,
   setOnConfirmFunc,
@@ -98,7 +99,7 @@ const ProposalTemplateEditor = ({
   const [error, setError] = useState('')
   const [showPreview, setShowPreview] = useState(false)
 
-  const isChanged = JSON.stringify(draft) !== baseline
+  const isChanged = (fromProposal && !draft._id) || JSON.stringify(draft) !== baseline
   const mediaDirectory = `proposal-templates/${
     draft._id || uploadKey || 'draft'
   }`
@@ -254,6 +255,14 @@ const ProposalTemplateEditor = ({
   return (
     <FormWrapper className="flex h-full flex-col gap-3">
       {error ? <Notice tone="error">{error}</Notice> : null}
+      {fromProposal ? (
+        <Notice tone="info">
+          Шаблон подготовлен из КП. Проверьте имена, даты и индивидуальные условия,
+          вписанные вручную. Замените их переменными через «Вставить данные…»,
+          чтобы подставлять данные нового мероприятия. После сохранения шаблон
+          появится в разделе «Коммерческие предложения».
+        </Notice>
+      ) : null}
       <Input
         label="Название шаблона"
         value={draft.name}

@@ -240,8 +240,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
         ),
       edit: (eventId, options) =>
         addModal(eventFunc(eventId, false, null, options)),
-      aiEdit: (eventId = null, mode = 'text') =>
-        !disableServerSync ? addModal(aiEditFunc(eventId, mode, workItemTerms)) : null,
+      aiEdit: (eventId = null, mode = 'text', options) =>
+        !disableServerSync ? addModal(aiEditFunc(eventId, mode, workItemTerms, options)) : null,
       history: (eventId) =>
         addModal(historyFunc('event', eventId, workItemTerms)),
       statusEdit: (eventId, options) =>

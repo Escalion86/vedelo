@@ -936,7 +936,9 @@ export const runWebDocumentWorkflowSmoke = async ({
 
           await editor.waitFor()
           assert.equal(await form.locator('.proposal-editor').count(), 0)
-          await editor
+          await editor.getByRole('button', { name: 'Редактировать вариант 1', exact: true }).click()
+          const packageForm = page.locator('.proposal-package-form')
+          await packageForm
             .getByRole('button', { name: 'Выбрать услуги', exact: true })
             .first()
             .click()
@@ -950,7 +952,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Применить', exact: true })
             .last()
             .click()
-          await editor
+          await packageForm
             .getByRole('button', { name: 'Выбрать услуги', exact: true })
             .first()
             .click()
@@ -964,8 +966,8 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Применить', exact: true })
             .last()
             .click()
-          assert.ok((await editor.locator('.proposal-line-card').count()) >= 2)
-          await editor
+          assert.ok((await packageForm.locator('.proposal-line-card').count()) >= 2)
+          await packageForm
             .getByRole('button', { name: 'Выбрать услуги', exact: true })
             .first()
             .click()
@@ -979,10 +981,10 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Применить', exact: true })
             .last()
             .click()
-          const countBeforeCustom = await editor
+          const countBeforeCustom = await packageForm
             .locator('.proposal-line-card')
             .count()
-          await editor
+          await packageForm
             .getByRole('button', { name: 'Своя позиция', exact: true })
             .first()
             .click()
@@ -999,10 +1001,10 @@ export const runWebDocumentWorkflowSmoke = async ({
             .last()
             .click()
           assert.equal(
-            await editor.locator('.proposal-line-card').count(),
+            await packageForm.locator('.proposal-line-card').count(),
             countBeforeCustom
           )
-          await editor
+          await packageForm
             .getByRole('button', { name: 'Своя позиция', exact: true })
             .first()
             .click()
@@ -1013,7 +1015,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Добавить', exact: true })
             .last()
             .click()
-          const customLine = editor.locator('.proposal-line-card').last()
+          const customLine = packageForm.locator('.proposal-line-card').last()
           await customLine
             .getByRole('button', { name: /Удалить позицию/ })
             .click()
@@ -1022,10 +1024,10 @@ export const runWebDocumentWorkflowSmoke = async ({
             .last()
             .click()
           assert.equal(
-            await editor.locator('.proposal-line-card').count(),
+            await packageForm.locator('.proposal-line-card').count(),
             countBeforeCustom
           )
-          const lineCard = editor.locator('.proposal-line-card').last()
+          const lineCard = packageForm.locator('.proposal-line-card').last()
           const beforeCancel = await lineCard.innerText()
           await lineCard
             .getByRole('button', { name: /Редактировать позицию/ })
@@ -1048,7 +1050,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .last()
             .click()
           assert.equal(await lineCard.innerText(), beforeCancel)
-          const recommended = editor
+          const recommended = packageForm
             .getByRole('checkbox', { name: 'Рекомендуем', exact: true })
             .first()
           const wasRecommended = await recommended.getAttribute('aria-checked')
@@ -1113,7 +1115,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Применить', exact: true })
             .last()
             .click()
-          await editor
+          await packageForm
             .getByRole('button', { name: 'Выбрать услуги', exact: true })
             .first()
             .click()
@@ -1131,55 +1133,19 @@ export const runWebDocumentWorkflowSmoke = async ({
             await lineCard.innerText(),
             /Индивидуальное описание для клиента/
           )
+          await page.getByRole('button', { name: 'Применить', exact: true }).last().click()
+          await packageForm.waitFor({ state: 'detached' })
           const packageSection = editor.locator('.proposal-package').first()
-          const packageSummary = packageSection.locator('summary').first()
-          await packageSummary.click()
-          assert.equal(
-            await packageSection
-              .locator('details')
-              .first()
-              .evaluate((element) => element.open),
-            false
-          )
-          assert.equal(await lineCard.isVisible(), false)
-          assert.match(await packageSummary.innerText(), /Позиций:/)
-          await packageSummary.focus()
-          await page.keyboard.press('Enter')
-          assert.match(
-            await lineCard.innerText(),
-            /Индивидуальное описание для клиента/
-          )
-          await editor
-            .getByRole('button', { name: 'Добавить вариант', exact: true })
-            .click()
+          assert.match(await packageSection.innerText(), /Позиций:/)
+          assert.equal(await editor.getByRole('textbox', { name: 'Название варианта', exact: true }).count(), 0)
+          await editor.getByRole('button', { name: 'Добавить вариант', exact: true }).click()
+          assert.equal(await packageForm.locator('.proposal-line-card').count(), 0)
+          await page.getByRole('button', { name: 'Добавить', exact: true }).last().click()
           const newPackage = editor.locator('.proposal-package').last()
-          assert.equal(
-            await newPackage
-              .locator('details')
-              .first()
-              .evaluate((element) => element.open),
-            true
-          )
-          await newPackage.locator('summary').first().click()
-          assert.equal(
-            await newPackage
-              .locator('details')
-              .first()
-              .evaluate((element) => element.open),
-            false
-          )
-          assert.equal(
-            await packageSection
-              .locator('details')
-              .first()
-              .evaluate((element) => element.open),
-            true
-          )
-          await newPackage.locator('summary').first().click()
-          await newPackage
-            .getByRole('button', { name: 'Удалить вариант', exact: true })
-            .click()
-          await lineCard.scrollIntoViewIfNeeded()
+          assert.match(await newPackage.innerText(), /Позиций: 0/)
+          await newPackage.getByRole('button', { name: /Удалить вариант/ }).click()
+          await page.getByRole('button', { name: 'Удалить', exact: true }).last().click()
+          await packageSection.scrollIntoViewIfNeeded()
           await page.screenshot({
             path: path.join(
               os.tmpdir(),
@@ -1216,6 +1182,7 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByText('Черновик сохранён', { exact: true })
             .waitFor({ state: 'detached' })
           // Switching to a custom position keeps the entered snapshot but removes its service link.
+          await editor.getByRole('button', { name: 'Редактировать вариант 1', exact: true }).click()
           await lineCard
             .getByRole('button', { name: /Редактировать позицию/ })
             .click()
@@ -1230,6 +1197,8 @@ export const runWebDocumentWorkflowSmoke = async ({
             .getByRole('button', { name: 'Применить', exact: true })
             .last()
             .click()
+          await page.getByRole('button', { name: 'Применить', exact: true }).last().click()
+          await packageForm.waitFor({ state: 'detached' })
           await page
             .getByRole('button', { name: 'Сохранить', exact: true })
             .first()
@@ -1254,6 +1223,7 @@ export const runWebDocumentWorkflowSmoke = async ({
           await page
             .getByText('Черновик сохранён', { exact: true })
             .waitFor({ state: 'detached' })
+          await editor.getByRole('button', { name: 'Редактировать вариант 1', exact: true }).click()
           await lineCard
             .getByRole('button', { name: /Редактировать позицию/ })
             .click()
@@ -1267,6 +1237,8 @@ export const runWebDocumentWorkflowSmoke = async ({
               .description,
             'Описание из каталога'
           )
+          await page.getByRole('button', { name: 'Применить', exact: true }).last().click()
+          await packageForm.waitFor({ state: 'detached' })
           await editor
             .getByRole('button', {
               name: 'Предпросмотр для клиента',

@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef } from 'react'
 import InputWrapper from './InputWrapper'
 import copyToClipboard from '@helpers/copyToClipboard'
 import ClipboardActionButton from './ClipboardActionButton'
+import PastePhoneButton from './PastePhoneButton'
 
 const toPhoneValue = (digits) => {
   if (!digits) return null
@@ -125,12 +126,13 @@ const PhoneInput = ({
         {hasPhoneValue && <div className={'text-gray-500'}>+7</div>}
         <input
           ref={inputRef}
+          aria-label={label}
           type="tel"
           inputMode="numeric"
           disabled={disabled}
           placeholder="+7 (999) 123-45-67"
           className={cn(
-            'w-full bg-transparent px-1 focus:outline-hidden',
+            'min-w-0 w-full bg-transparent px-1 focus:outline-hidden',
             required && (!value || String(value).length !== 11)
               ? 'border-red-700'
               : 'border-gray-400',
@@ -212,26 +214,8 @@ const PhoneInput = ({
           }}
         />
         {copyPasteButtons && !disabled && (
-          <div className="flex items-center gap-1">
-            <ClipboardActionButton
-              action="paste"
-              onClick={() => {
-                if (!navigator?.clipboard) return
-                navigator.clipboard.readText().then((text) => {
-                  const digits = String(text || '').replace(/[^\d]/g, '')
-                  if (!digits) {
-                    onChange(null)
-                    return
-                  }
-                  let normalized = digits
-                  if (normalized.startsWith('7') || normalized.startsWith('8'))
-                    normalized = normalized.slice(1)
-                  if (normalized.length > 10) normalized = normalized.slice(-10)
-                  onChange(toPhoneValue(normalized))
-                })
-              }}
-              title="Вставить номер"
-            />
+          <div className="flex shrink-0 items-center gap-1">
+            <PastePhoneButton onChange={onChange} />
             <ClipboardActionButton
               action="copy"
               onClick={() => {

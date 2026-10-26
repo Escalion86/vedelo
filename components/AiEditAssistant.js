@@ -2,16 +2,20 @@
 
 import AiBadge from '@components/AiBadge'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import AppButton from '@components/AppButton'
 import Textarea from '@components/Textarea'
+import Input from '@components/Input'
 import Notice from '@components/Notice'
 import VoiceDraftOverlay from '@components/VoiceDraftOverlay'
+import Modal from '@layouts/modals/Modal'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 import { AI_EDIT_LABELS } from '@helpers/aiEditContract.mjs'
+import { parseClipboardPhone, requestsClipboardPhone } from '@helpers/aiAssistantClipboard.mjs'
+import { queryKeys } from '@helpers/queryKeys'
 
 const valueLabel = (value, field) => {
   if (value === null || value === undefined || value === '') return 'Не указано'
@@ -28,8 +32,18 @@ const valueLabel = (value, field) => {
   return AI_EDIT_LABELS[value] || String(value)
 }
 
+const AssistantContent = ({ content, busy, dirty, setDisableConfirm, setDisableDecline, setOnShowOnCloseConfirmDialog }) => {
+  useEffect(() => {
+    setDisableConfirm(busy)
+    setDisableDecline(busy)
+    setOnShowOnCloseConfirmDialog(dirty)
+  }, [busy, dirty, setDisableConfirm, setDisableDecline, setOnShowOnCloseConfirmDialog])
+  return content
+}
+
 export default function AiEditAssistant({
-  eventId: initialEventId = null, mode = 'text',
+  eventId: initialEventId = null, mode = 'text', unified = false,
+  standaloneVoice = false,
   setOnShowOnCloseConfirmDialog, setDisableConfirm, setDisableDecline,
   setOnCloseButtonFunc, closeModal,
 }) {
@@ -43,12 +57,26 @@ export default function AiEditAssistant({
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [applyStarted, setApplyStarted] = useState(false)
-  const closeVoice = useCallback(() => setVoice(false), [])
+  const [clipboardPhone, setClipboardPhone] = useState('')
+  const inFlight = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+  const [pendingVoiceRequest, setPendingVoiceRequest] = useState(false)
+  const prepareRef = useRef(null)
+  const wantsClipboard = requestsClipboardPhone(text) || result?.needsClipboardPhone || Boolean(clipboardPhone)
+  const closeVoice = useCallback(() => {
+    if (standaloneVoice) closeModal?.()
+    else setVoice(false)
+  }, [standaloneVoice, closeModal])
   const receiveTranscript = useCallback((transcript) => {
     setText((current) => [current, transcript].filter(Boolean).join('\n'))
     setResult(null)
     setVoice(false)
-  }, [])
+    if (standaloneVoice) setPendingVoiceRequest(true)
+  }, [standaloneVoice])
 
   useEffect(() => {
     setOnShowOnCloseConfirmDialog?.(Boolean(text && !result?.done))
@@ -70,16 +98,61 @@ export default function AiEditAssistant({
     return payload
   }
 
-  const prepare = async (selectedId = eventId) => {
+  const readClipboard = async () => {
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     setError('')
     try {
-      setResult(await request({ text, eventId: selectedId }))
+      const phone = parseClipboardPhone(await navigator.clipboard.readText())
+      if (!phone) throw new Error('В буфере должен быть один телефон. Скопируйте только номер или вставьте его в поле ниже.')
+      setClipboardPhone(phone)
+      setResult({ question: 'Телефон вставлен. Проверьте номер и продолжите обработку запроса.' })
+    } catch (err) {
+      setError(err instanceof TypeError || err?.name === 'NotAllowedError'
+        ? 'Браузер не разрешил чтение буфера. Вставьте телефон вручную в поле ниже.' : err.message)
+    } finally { inFlight.current = false; setBusy(false) }
+  }
+  const prepare = async (selectedId = eventId) => {
+    if (inFlight.current) return
+    if (wantsClipboard && !parseClipboardPhone(clipboardPhone)) {
+      if (clipboardPhone) {
+        setError('Укажите один корректный телефон клиента: 10 цифр или 11 цифр с 7/8.')
+        return
+      }
+      await readClipboard()
+      return
+    }
+    inFlight.current = true
+    setBusy(true)
+    setError('')
+    try {
+      const next = await request({ text, eventId: selectedId,
+        ...(unified && !selectedId ? { mode: 'auto' } : {}),
+        ...(clipboardPhone ? { clipboardPhone: parseClipboardPhone(clipboardPhone) } : {}),
+      })
+      if (!mounted.current) return
+      if (unified && next.fields) {
+        if (next.client?._id) {
+          queryClient.setQueryData(queryKeys.client(next.client._id), next.client)
+          await queryClient.invalidateQueries({ queryKey: ['clients'] })
+        }
+        if (!mounted.current) return
+        closeModal?.()
+        modalsFunc.event?.create?.(next.fields.status || 'draft', {
+          initialEvent: { ...next.fields, status: next.fields.status || 'draft', description: next.fields.description || text },
+          aiFilledFields: next.aiFilledFields || [], aiWarnings: next.aiWarnings || [], initialClient: next.client,
+        })
+        return
+      }
+      setResult(next)
       setApplyStarted(false)
     } catch (err) { setError(err.message) }
-    finally { setBusy(false) }
+    finally { inFlight.current = false; setBusy(false) }
   }
   const apply = async () => {
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     setError('')
     setApplyStarted(true)
@@ -96,6 +169,7 @@ export default function AiEditAssistant({
         (key) => queryClient.invalidateQueries({ queryKey: [key] })
       ))
       setBusy(false)
+      inFlight.current = false
     }
   }
   const resetPlan = () => {
@@ -103,27 +177,49 @@ export default function AiEditAssistant({
     setApplyStarted(false)
     setError('')
   }
-  return (
+  useEffect(() => {
+    prepareRef.current = prepare
+  })
+  useEffect(() => {
+    if (!pendingVoiceRequest) return
+    setPendingVoiceRequest(false)
+    prepareRef.current?.()
+  }, [pendingVoiceRequest])
+
+  if (standaloneVoice && voice)
+    return <VoiceDraftOverlay onClose={closeVoice} onTranscript={receiveTranscript} />
+  if (standaloneVoice && (pendingVoiceRequest || (busy && !result && !error)))
+    return <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-6 text-white" role="status">Обрабатываю запрос…</div>
+
+  const content = (
     <div className="flex min-w-0 flex-col gap-4">
-      <p>Опишите изменения {terms.genitive}, клиента, оплат или задач. Сначала проверьте предложение, затем примените его.</p>
+      {!standaloneVoice || !result?.planId ? <>
+      <p>{unified ? `Опишите новую заявку или изменения ${terms.genitive}. ИИ определит действие: откроет заполненную форму или предложит выбрать запись и проверить изменения.` : `Опишите изменения ${terms.genitive}, клиента, оплат или задач. Сначала проверьте предложение, затем примените его.`}</p>
       <Textarea
-        label="Что нужно изменить?"
-        ariaLabel="Что нужно изменить?"
+        label={unified ? 'Что нужно создать или изменить?' : 'Что нужно изменить?'}
+        ariaLabel={unified ? 'Что нужно создать или изменить?' : 'Что нужно изменить?'}
         value={text}
-        onChange={(value) => { setText(value); setResult(null); setError('') }}
+        onChange={(value) => { setText(value); setResult(null); setError(''); if (!initialEventId) setEventId(null) }}
         rows={5}
         maxLength={12000}
         disabled={busy || applyStarted || Boolean(result?.planId)}
         fullWidth
       />
+      {wantsClipboard ? <div className="flex min-w-0 flex-col gap-2">
+        <Input label="Телефон клиента из буфера" ariaLabel="Телефон клиента из буфера"
+          value={clipboardPhone} onChange={(value) => { setClipboardPhone(value); setResult(null); setError(''); if (!initialEventId) setEventId(null) }}
+          disabled={busy || applyStarted || Boolean(result?.planId)} fullWidth />
+        {!result?.planId && !applyStarted ? <AppButton variant="secondary" disabled={busy} onClick={readClipboard}>Вставить телефон из буфера</AppButton> : null}
+      </div> : null}
       {!result?.planId && !applyStarted ? (
         <div className="flex flex-wrap gap-2">
           <AppButton variant="secondary" disabled={busy} onClick={() => setVoice(true)}>Продиктовать<AiBadge /></AppButton>
           <AppButton disabled={busy || !text.trim()} onClick={() => prepare()}>
-            {busy ? 'Подготавливаем…' : eventId ? 'Подготовить изменения' : `Найти ${terms.accusative}`}<AiBadge />
+            {busy ? 'Подготавливаем…' : eventId ? 'Подготовить изменения' : unified ? 'Разобрать запрос' : `Найти ${terms.accusative}`}<AiBadge />
           </AppButton>
         </div>
       ) : null}
+      </> : null}
       {voice ? <VoiceDraftOverlay onClose={closeVoice} onTranscript={receiveTranscript} /> : null}
       {error ? <Notice tone="error" role="alert">{error}</Notice> : null}
       {result?.question ? <Notice tone="info">{result.question}</Notice> : null}
@@ -170,7 +266,20 @@ export default function AiEditAssistant({
           )}
         </div>
       ) : null}
-      {!result?.done ? <p className="text-sm opacity-70">Поиск и подготовка используют ИИ по условиям вашего тарифа. Применение готового плана не вызывает ИИ.</p> : null}
+      {!result?.done ? <p className="text-sm opacity-70">Разбор, поиск и подготовка используют ИИ по условиям вашего тарифа. Применение готового плана не вызывает ИИ.{unified ? ' Для телефона из буфера скажите: «Возьми телефон клиента из буфера обмена». При подготовке новой заявки неизвестный номер создаёт карточку клиента.' : ''}</p> : null}
     </div>
   )
+  return standaloneVoice ? (
+    <Modal
+      title={result?.planId ? 'Проверьте изменения' : 'Уточнение голосового запроса'}
+      Children={AssistantContent}
+      childrenProps={{ content, busy, dirty: Boolean(text && !result?.done) }}
+      onlyCloseButtonShow
+      crossActsAsDecline={false}
+      crossShow={!busy}
+      closeButtonShow={!busy}
+      closeButtonName="Закрыть"
+      onClose={() => { if (!busy) closeModal?.() }}
+    />
+  ) : content
 }

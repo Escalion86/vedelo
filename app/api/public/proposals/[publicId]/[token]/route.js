@@ -2,7 +2,7 @@ import { getProposalSocialContacts } from '@server/proposalSocialContacts'
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
 import { NextResponse } from 'next/server'
 import Proposals from '@models/Proposals'
-import Events from '@models/Events'
+import { syncProposalSelectionTask } from '@server/proposalSelectionTask'
 import { renderProposalVariables } from '@helpers/proposalContent'
 import { isProposalSelectionLocked, isProposalApplicationPending } from '@helpers/proposalWorkflow'
 import dbConnect from '@server/dbConnect'
@@ -157,29 +157,8 @@ export const POST = async (req, { params }) => {
       return error('Предложение изменилось или больше недоступно. Обновите страницу.', 409, 'selection_conflict')
     throw saveError
   }
-  if (changed && !cancel && !proposal.selectionTaskCreatedAt) {
-    const event = await Events.findOne({
-      _id: proposal.eventId,
-      tenantId: proposal.tenantId,
-    })
-    if (event) {
-      event.additionalEvents.push({
-        title: `Связаться с клиентом: выбран вариант «${selected.title}»`,
-        description: `Клиент выбрал коммерческое предложение версии ${proposal.version}.`,
-        date: new Date(),
-        done: false,
-      })
-      event.syncVersion = Number(event.syncVersion || 1) + 1
-      await event.save()
-      proposal.selectionTaskCreatedAt = new Date()
-      // Only persist the task marker: apply may have locked the selection since
-      // its successful save. Never save a stale selection document a second time.
-      await Proposals.updateOne(
-        { _id: proposal._id, tenantId: proposal.tenantId, selectionTaskCreatedAt: null },
-        { $set: { selectionTaskCreatedAt: proposal.selectionTaskCreatedAt } }
-      )
-    }
-  }
+  // Also reconcile on an unchanged retry after a lost response/partial failure.
+  await syncProposalSelectionTask({ proposalId: proposal._id, tenantId: proposal.tenantId })
   if (changed) {
     await sendPushToTenant({
       tenantId: proposal.tenantId,

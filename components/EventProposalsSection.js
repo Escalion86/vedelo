@@ -11,6 +11,8 @@ import dynamic from 'next/dynamic'
 import Notice from '@components/Notice'
 import ProposalShareDialog from '@components/ProposalShareDialog'
 import { copyProposalText as copyText } from '@helpers/copyProposalText'
+import { proposalTemplateFromProposal } from '@helpers/proposalTemplateFromProposal.mjs'
+import proposalTemplateFunc from '@layouts/modals/modalsFunc/proposalTemplateFunc'
 import LoadingSpinner from '@components/LoadingSpinner'
 import useSnackbar from '@helpers/useSnackbar'
 import {
@@ -429,7 +431,7 @@ const EventProposalsSection = ({
     })
   }
 
-  const loadDetails = async (proposal, edit = false) => {
+  const fetchProposalDetails = async (proposal) => {
     const response = await fetch(`/api/proposals/${proposal._id}`, {
       cache: 'no-store',
     })
@@ -439,10 +441,36 @@ const EventProposalsSection = ({
         tone: 'error',
         text: body?.error?.message || 'Не удалось открыть предложение',
       })
-    if (edit || proposal.status === 'draft') {
-      openEditor(body.data)
-    }
     return body.data
+  }
+
+  const loadDetails = async (proposal, edit = false) => {
+    const data = await fetchProposalDetails(proposal)
+    if (data && (edit || proposal.status === 'draft')) openEditor(data)
+    return data
+  }
+
+  const saveAsTemplate = async (proposal) => {
+    if (openInFlight.current || busy) return
+    openInFlight.current = true
+    setBusy(true)
+    try {
+      const data = await fetchProposalDetails(proposal)
+      if (!data) return
+      modalsFunc.add(proposalTemplateFunc(
+        proposalTemplateFromProposal(data),
+        () => {
+          reportMessage({ tone: 'success', text: 'Шаблон сохранён' })
+          void load()
+        },
+        { fromProposal: true }
+      ))
+    } catch {
+      reportMessage({ tone: 'error', text: 'Не удалось подготовить шаблон' })
+    } finally {
+      openInFlight.current = false
+      setBusy(false)
+    }
   }
 
   const editProposal = async (proposal) => {
@@ -646,9 +674,6 @@ const EventProposalsSection = ({
             servicesLoading={servicesLoading}
             servicesError={servicesError}
             busy={busy}
-            initiallyOpenIds={(initialProposal?.packages || []).map(
-              (candidate) => candidate.id
-            )}
           />
         </ProposalContentEditor>
         <details className="rounded-lg border border-gray-200 p-3">
@@ -784,8 +809,16 @@ const EventProposalsSection = ({
                     />
                   </div>
                 </div>
-                {proposal.status === 'draft' ? (
-                  <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  <AppButton
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => saveAsTemplate(proposal)}
+                  >
+                    Сохранить как шаблон
+                  </AppButton>
+                  {proposal.status === 'draft' ? (
                     <AppButton
                       variant="primary"
                       size="sm"
@@ -794,8 +827,8 @@ const EventProposalsSection = ({
                     >
                       Опубликовать
                     </AppButton>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
                 {proposal.status !== 'draft' ? (
                   <div className="tablet:grid-cols-3 mt-3 grid grid-cols-2 gap-2">
                     <AppButton

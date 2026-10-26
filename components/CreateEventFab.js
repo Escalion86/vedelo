@@ -54,7 +54,7 @@ const CreateEventFab = ({ items = [], title }) => {
               transition={{ duration: 0.16, ease: 'easeOut' }}
               className="px-3 py-1 text-sm font-semibold text-[#ebd3a5] [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]"
             >
-              {`Создать ${terms.accusative}`}
+              {`Создать / редактировать ${terms.accusative}`}
             </motion.p>
           ) : null}
           {open

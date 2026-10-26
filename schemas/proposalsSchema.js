@@ -36,6 +36,7 @@ const proposalsSchema = {
   selectedAt: { type: Date, default: null },
   selectionHistory: { type: [Schema.Types.Mixed], default: [] },
   selectionTaskCreatedAt: { type: Date, default: null },
+  selectionTaskId: { type: Schema.Types.ObjectId, default: null },
   // Only new applies use this reservation. Historical applied* remain untouched.
   applyOperation: {
     type: new Schema({

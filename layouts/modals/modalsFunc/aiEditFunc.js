@@ -2,11 +2,12 @@ import dynamic from 'next/dynamic'
 
 const AiEditAssistant = dynamic(() => import('@components/AiEditAssistant'))
 
-export default function aiEditFunc(eventId, mode, terms) {
+export default function aiEditFunc(eventId, mode, terms, options = {}) {
   return {
-    title: `Редактировать ${terms.accusative} с ИИ`,
+    title: options.unified ? `Создать / редактировать ${terms.accusative}` : `Редактировать ${terms.accusative} с ИИ`,
     Children: AiEditAssistant,
-    childrenProps: { eventId, mode },
+    frameless: mode === 'voice',
+    childrenProps: { eventId, mode, unified: Boolean(options.unified), standaloneVoice: mode === 'voice' },
     onlyCloseButtonShow: true,
     crossActsAsDecline: false,
     closeButtonName: 'Закрыть',

@@ -36,6 +36,8 @@ const response = (data, status = 200) => ({
 })
 
 const mocks = {
+  '@helpers/proposalTemplateFromProposal.mjs': require('../../helpers/proposalTemplateFromProposal.mjs'),
+  '@layouts/modals/modalsFunc/proposalTemplateFunc': (template, onSaved, options) => ({ title: 'Новый шаблон предложения', childrenProps: { template, onSaved, ...options } }),
   '@state/atoms/loggedUserAtom': 'loggedUser',
   '@helpers/proposalArtistContacts.mjs': require('../../helpers/proposalArtistContacts.mjs'),
   '@components/ProposalMediaEditor': Box,
@@ -158,6 +160,8 @@ const mount = async (t, Component, props) => {
 
 // Редактор КП использует общий редактор вариантов — грузим его настоящим.
 mocks['@helpers/proposalWorkflow'] = load('helpers/proposalWorkflow.js')
+mocks['@components/ProposalPackageForm'] = load('components/ProposalPackageForm.js')
+mocks['@components/ProposalPackageDialog'] = load('components/ProposalPackageDialog.js')
 mocks['@components/ProposalPackagesEditor'] = load(
   'components/ProposalPackagesEditor.js'
 )
@@ -254,6 +258,57 @@ test('proposal creation hides the inline selector and opens template choice only
   const directRequest = requests.find((item) => item.options.method === 'POST')
   assert.deepEqual(JSON.parse(directRequest.options.body), { templateId: '' })
   assert.equal(openedModals.at(-1).title, 'Редактор коммерческого предложения')
+})
+
+test('сохранение КП как шаблона читает актуальную версию, не создаёт записи до сохранения и обновляет выбор шаблонов', async (t) => {
+  const previousHook = mocks['@helpers/useEventProposalsQuery']
+  const previousFetch = global.fetch
+  const source = { _id: 'proposal-template-source', title: 'Устаревший заголовок', version: 1, status: 'published', selectedPackageId: 'main', packages: [{id:'main',title:'Интерактив',lines:[],total:5000,manualTotal:true,recommended:true}] }
+  const calls = []
+  let refreshed = false
+  mocks['@helpers/useEventProposalsQuery'] = { useEventProposalsQuery: () => ({ data: [source] }) }
+  global.fetch = async (url, options = {}) => {
+    calls.push({url,options})
+    if (url === '/api/proposal-templates') return response(refreshed ? [{_id:'new-template',name:'Актуальное КП',status:'active'}] : [])
+    return response({...source,title:'Актуальное КП',blocksSnapshot:[],messageText:'{{client.firstName}}',mediaSnapshot:[]})
+  }
+  t.after(() => { mocks['@helpers/useEventProposalsQuery'] = previousHook; global.fetch = previousFetch })
+  openedModals.length = 0
+  const Section = load('components/EventProposalsSection.js').default
+  const element = await mount(t, Section, {eventId:'event-template-source'})
+  const button = [...element.querySelectorAll('button')].find(button=>button.textContent==='Сохранить как шаблон')
+  assert.ok(button)
+  await React.act(async()=>{button.click();button.click()})
+  assert.equal(calls.filter(call=>call.url==='/api/proposals/proposal-template-source').length,1)
+  assert.equal(calls.some(call=>call.options.method),false)
+  assert.equal(openedModals.length,1)
+  const editor = openedModals[0]
+  assert.equal(editor.title,'Новый шаблон предложения')
+  assert.equal(editor.childrenProps.fromProposal,true)
+  assert.equal(editor.childrenProps.template._id,undefined)
+  assert.equal(editor.childrenProps.template.name,'Актуальное КП')
+  assert.equal(editor.childrenProps.template.selectedPackageId,undefined)
+  assert.equal(source.title,'Устаревший заголовок')
+  refreshed=true
+  await React.act(async()=>{editor.childrenProps.onSaved();await new Promise(resolve=>setTimeout(resolve,10))})
+  await React.act(async()=>{[...element.querySelectorAll('button')].find(button=>button.textContent==='Создать предложение').click()})
+  assert.equal(openedModals.at(-1).childrenProps.templates[0]._id,'new-template')
+})
+
+test('недоступное исходное КП не открывает редактор шаблона и не отправляет запись', async (t) => {
+  const previousHook = mocks['@helpers/useEventProposalsQuery']
+  const previousFetch = global.fetch
+  mocks['@helpers/useEventProposalsQuery'] = { useEventProposalsQuery: () => ({data:[{_id:'unavailable',title:'КП',version:1,status:'draft',packages:[]}]}) }
+  const calls=[]
+  global.fetch=async(url,options={})=>{calls.push({url,options});return url==='/api/proposal-templates'?response([]):response(null,404)}
+  t.after(()=>{mocks['@helpers/useEventProposalsQuery']=previousHook;global.fetch=previousFetch})
+  openedModals.length=0
+  const Section=load('components/EventProposalsSection.js').default
+  const element=await mount(t,Section,{eventId:'event-unavailable'})
+  await React.act(async()=>{[...element.querySelectorAll('button')].find(button=>button.textContent==='Сохранить как шаблон').click()})
+  assert.equal(openedModals.length,0)
+  assert.equal(calls.some(call=>call.options.method),false)
+  assert.match(element.textContent,/Не удалось открыть предложение/)
 })
 
 test('line dialog keeps edits local until apply and protects unsaved changes', async (t) => {

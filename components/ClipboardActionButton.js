@@ -8,13 +8,17 @@ const ClipboardActionButton = ({
   title,
   ariaLabel = title,
   large = false,
+  disabled = false,
+  loading = false,
 }) => (
   <button
     type="button"
+    disabled={disabled}
+    aria-busy={loading || undefined}
     className={
       large
         ? 'action-icon-button action-icon-button--neutral flex h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center rounded'
-        : 'flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50'
+        : 'flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50'
     }
     onClick={onClick}
     title={title}

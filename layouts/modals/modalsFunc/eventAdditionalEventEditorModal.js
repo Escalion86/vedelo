@@ -180,26 +180,18 @@ const openEventAdditionalEventEditorModal = ({
           Быстрая дата и время
         </div>
         <QuickActionButtons
+          wrapperClassName="grid grid-cols-4"
+          buttonClassName="min-h-10 min-w-0 whitespace-normal rounded px-1!"
           actions={[
-            {
-              key: 'time-11',
-              label: '11:00',
-              onClick: () => applyPresetTime(11, 0),
-            },
-            {
-              key: 'time-19',
-              label: '19:00',
-              onClick: () => applyPresetTime(19, 0),
-            },
-            {
-              key: 'date-today',
-              label: 'Сегодня',
-              onClick: () => applyPresetDateFromToday(0),
-            },
             {
               key: 'date-tomorrow',
               label: 'Завтра',
               onClick: () => applyPresetDateFromToday(1),
+            },
+            {
+              key: 'date-after-tomorrow',
+              label: 'Послезавтра',
+              onClick: () => applyPresetDateFromToday(2),
             },
             {
               key: 'date-plus-2',
@@ -210,6 +202,32 @@ const openEventAdditionalEventEditorModal = ({
               key: 'date-plus-7',
               label: 'Через неделю',
               onClick: () => applyPresetDateFromToday(7),
+            },
+          ]}
+        />
+        <QuickActionButtons
+          wrapperClassName="grid grid-cols-4"
+          buttonClassName="min-h-10 min-w-0 rounded"
+          actions={[
+            {
+              key: 'time-11',
+              label: '11:00',
+              onClick: () => applyPresetTime(11, 0),
+            },
+            {
+              key: 'time-12',
+              label: '12:00',
+              onClick: () => applyPresetTime(12, 0),
+            },
+            {
+              key: 'time-18',
+              label: '18:00',
+              onClick: () => applyPresetTime(18, 0),
+            },
+            {
+              key: 'time-19',
+              label: '19:00',
+              onClick: () => applyPresetTime(19, 0),
             },
           ]}
         />

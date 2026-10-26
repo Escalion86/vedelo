@@ -7,6 +7,7 @@ import {
   faEllipsisV,
   faExternalLinkAlt,
   faMoneyBill,
+  faMicrophone,
   faPencilAlt,
   faKey,
   faLink,
@@ -26,6 +27,7 @@ import windowDimensionsTailwindSelector from '@state/selectors/windowDimensionsT
 import cn from 'classnames'
 import { useAtomValue } from 'jotai'
 import CardButton from './CardButton'
+import AiBadge from './AiBadge'
 import DropDown from './DropDown'
 import { getAdditionalEventsSummary } from '@helpers/additionalEvents'
 import { shouldShowAdditionalEventsAction } from '@helpers/eventCardActions'
@@ -73,6 +75,7 @@ const MenuItem = ({
   onClick,
   color = 'red',
   tooltipText,
+  usesAi = false,
   badges = [],
 }) => {
   const tone = MENU_ITEM_TONE[color] || MENU_ITEM_TONE.red
@@ -91,6 +94,7 @@ const MenuItem = ({
     >
       <FontAwesomeIcon icon={icon} className="h-7 w-7" />
       <div className="prevent-select-text whitespace-nowrap">{tooltipText}</div>
+      {usesAi ? <AiBadge /> : null}
       {badges.length > 0 ? (
         <div className="ml-auto flex items-center gap-1">
           {badges.map((badge) => (
@@ -295,9 +299,9 @@ const CardButtons = ({
   const items = (
     <>
       {typeOfItem === 'event' && !resolveServerSyncDisabled(siteSettings) && ['draft', 'active'].includes(item.status) && getUserTariffAccess(loggedUser, tariffs)?.allowAi && (
-        <ItemComponent icon={faPencilAlt}
-          onClick={() => modalsFunc.event?.aiEdit?.(item._id)}
-          color="purple" tooltipText="Изменить с ИИ" />
+        <ItemComponent icon={faMicrophone}
+          onClick={() => modalsFunc.event?.aiEdit?.(item._id, 'voice')}
+          color="purple" tooltipText="Изменить голосом" usesAi />
       )}
       {isEventEditTabsMenu && show.editBtn && (
         <ItemComponent

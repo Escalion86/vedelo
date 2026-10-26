@@ -87,7 +87,7 @@ const getAmbiguousClientWarning = (candidates) => {
   return `Не удалось однозначно определить клиента: подходят ${names.join(', ')}${suffix}. Выберите клиента вручную.`
 }
 
-export async function processEventAiDraft({ text, tenantId, userId, strict = false, aiSettings: providedAiSettings }) {
+export async function processEventAiDraft({ text, tenantId, userId, clientPhone = '', strict = false, aiSettings: providedAiSettings }) {
   try {
     // --- получаем данные для матчинга клиентов и услуг ---
     await dbConnect()
@@ -200,7 +200,7 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
           { status: 402 }
         )
       }
-      if (strict) return NextResponse.json({ error: 'Не удалось заполнить поля. Попробуйте другое фото или повторите распознавание.', fields: null }, { status: 502 })
+      if (strict) return NextResponse.json({ error: 'Не удалось заполнить поля. Уточните описание или повторите распознавание.', fields: null }, { status: 502 })
       console.warn('[ai-draft] AI provider failed')
     }
 
@@ -226,7 +226,7 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
     }
 
     if (strict && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))) {
-      return NextResponse.json({ error: 'ИИ не вернул корректные поля. Переснимите заметку или выберите другое фото.', fields: null }, { status: 502 })
+      return NextResponse.json({ error: 'ИИ не вернул корректные поля. Уточните описание и повторите распознавание.', fields: null }, { status: 502 })
     }
 
     const validServiceIds = services.map((service) => String(service._id))
@@ -248,21 +248,30 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
       text
     )
     const aiWarnings = normalizeAiWarnings(parsed?.warnings)
-    let selectedClient = findClientByAiContacts(clients, contacts)
+    // An explicitly supplied clipboard phone takes priority over a model's name/ID.
+    const phoneMatches = clientPhone
+      ? clients.filter((client) => findClientByAiContacts([client], { phone: clientPhone }))
+      : []
+    if (clientPhone) { contacts.phone = clientPhone; delete fields.clientId }
+    let selectedClient = clientPhone
+      ? (phoneMatches.length === 1 ? phoneMatches[0] : null)
+      : findClientByAiContacts(clients, contacts)
+    if (phoneMatches.length > 1)
+      aiWarnings.unshift('Этот телефон указан у нескольких клиентов. Выберите клиента вручную; новая карточка не создана.')
     const nameResolution = resolveAiClientByName(clients, text)
-    if (!selectedClient && nameResolution.client) {
+    if (!clientPhone && !selectedClient && nameResolution.client) {
       selectedClient = nameResolution.client
-    } else if (!selectedClient && nameResolution.ambiguous) {
+    } else if (!clientPhone && !selectedClient && nameResolution.ambiguous) {
       delete fields.clientId
       aiWarnings.unshift(getAmbiguousClientWarning(nameResolution.candidates))
-    } else if (!selectedClient && fields.clientId) {
+    } else if (!clientPhone && !selectedClient && fields.clientId) {
       selectedClient = clients.find(
         (client) => String(client._id) === String(fields.clientId)
       )
     }
 
     let clientCreated = false
-    if (!selectedClient && hasAiClientContacts(contacts)) {
+    if (!selectedClient && phoneMatches.length < 2 && hasAiClientContacts(contacts)) {
       selectedClient = await Clients.create({
         ...buildAiClientPayload({
           clientName: getVerifiedClientName(fields.clientName, text),
