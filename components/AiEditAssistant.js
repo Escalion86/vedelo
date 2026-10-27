@@ -16,6 +16,9 @@ import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 import { AI_EDIT_LABELS } from '@helpers/aiEditContract.mjs'
 import { parseClipboardPhone, requestsClipboardPhone } from '@helpers/aiAssistantClipboard.mjs'
 import { queryKeys } from '@helpers/queryKeys'
+import { apiJson } from '@helpers/apiClient'
+import { aiEventEditorOptions } from '@helpers/aiEventEditor.mjs'
+import useSnackbar from '@helpers/useSnackbar'
 
 const valueLabel = (value, field) => {
   if (value === null || value === undefined || value === '') return 'Не указано'
@@ -32,14 +35,15 @@ const valueLabel = (value, field) => {
   return AI_EDIT_LABELS[value] || String(value)
 }
 
-const AssistantContent = ({ content, busy, dirty, setDisableConfirm, setDisableDecline, setOnShowOnCloseConfirmDialog }) => {
-  useEffect(() => {
-    setDisableConfirm(busy)
-    setDisableDecline(busy)
-    setOnShowOnCloseConfirmDialog(dirty)
-  }, [busy, dirty, setDisableConfirm, setDisableDecline, setOnShowOnCloseConfirmDialog])
-  return content
-}
+const VoiceEventPicker = ({ candidates, onSelect }) => (
+  <div className="flex min-w-0 flex-col gap-2">
+    {candidates.map((candidate) => (
+      <AppButton key={candidate.id} variant="secondary" fullWidth className="justify-start whitespace-normal text-left" onClick={() => onSelect(candidate.id)}>
+        {candidate.client} · {candidate.title} · {candidate.date ? new Date(candidate.date).toLocaleString('ru-RU') : 'Без даты'}
+      </AppButton>
+    ))}
+  </div>
+)
 
 export default function AiEditAssistant({
   eventId: initialEventId = null, mode = 'text', unified = false,
@@ -48,6 +52,7 @@ export default function AiEditAssistant({
   setOnCloseButtonFunc, closeModal,
 }) {
   const terms = useWorkItemTerminology()
+  const snackbar = useSnackbar()
   const queryClient = useQueryClient()
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const [eventId, setEventId] = useState(initialEventId)
@@ -115,7 +120,7 @@ export default function AiEditAssistant({
   }
   const prepare = async (selectedId = eventId) => {
     if (inFlight.current) return
-    if (wantsClipboard && !parseClipboardPhone(clipboardPhone)) {
+    if (!standaloneVoice && wantsClipboard && !parseClipboardPhone(clipboardPhone)) {
       if (clipboardPhone) {
         setError('Укажите один корректный телефон клиента: 10 цифр или 11 цифр с 7/8.')
         return
@@ -127,11 +132,33 @@ export default function AiEditAssistant({
     setBusy(true)
     setError('')
     try {
-      const next = await request({ text, eventId: selectedId,
-        ...(unified && !selectedId ? { mode: 'auto' } : {}),
-        ...(clipboardPhone ? { clipboardPhone: parseClipboardPhone(clipboardPhone) } : {}),
-      })
+      const readVoicePhone = async () => {
+        const value = parseClipboardPhone(await navigator.clipboard.readText())
+        if (!value) throw new Error('В буфере нет корректного телефона. Скопируйте один номер и повторите голосовой запрос.')
+        return value
+      }
+      let phone = parseClipboardPhone(clipboardPhone)
+      if (standaloneVoice && wantsClipboard && !phone) {
+        phone = await readVoicePhone()
+      }
       if (!mounted.current) return
+      const body = { text, eventId: selectedId,
+        ...(unified && !selectedId ? { mode: 'auto' } : {}),
+      }
+      let next = await request({ ...body, ...(phone ? { clipboardPhone: phone } : {}) })
+      if (!mounted.current) return
+      if (standaloneVoice && next.needsClipboardPhone && !phone) {
+        phone = await readVoicePhone()
+        if (!mounted.current) return
+        next = await request({ ...body, clipboardPhone: phone })
+        if (!mounted.current) return
+      }
+      if (standaloneVoice && next.candidates?.length === 1) {
+        selectedId = next.candidates[0].id
+        setEventId(selectedId)
+        next = await request({ text, eventId: selectedId, ...(phone ? { clipboardPhone: phone } : {}) })
+        if (!mounted.current) return
+      }
       if (unified && next.fields) {
         if (next.client?._id) {
           queryClient.setQueryData(queryKeys.client(next.client._id), next.client)
@@ -145,9 +172,35 @@ export default function AiEditAssistant({
         })
         return
       }
+      if (standaloneVoice && next.planId) {
+        const payload = await apiJson(`/api/events/${next.eventId}`, { cache: 'no-store' })
+        if (!mounted.current) return
+        const options = aiEventEditorOptions(next, payload.data)
+        queryClient.setQueryData(queryKeys.event(next.eventId), payload.data)
+        closeModal?.()
+        modalsFunc.event?.edit?.(next.eventId, options)
+        return
+      }
+      if (standaloneVoice && !next.candidates?.length) {
+        if (selectedId) {
+          closeModal?.()
+          modalsFunc.event?.edit?.(selectedId, { aiWarnings: [next.question || 'ИИ не подготовил изменений. Проверьте данные в форме.'] })
+        } else {
+          snackbar.warning(next.question || 'Не удалось определить мероприятие. Укажите клиента, дату или название и повторите запрос.')
+          closeModal?.()
+        }
+        return
+      }
       setResult(next)
       setApplyStarted(false)
-    } catch (err) { setError(err.message) }
+    } catch (err) {
+      if (standaloneVoice) {
+        if (mounted.current) {
+          snackbar.error(err?.name === 'NotAllowedError' ? 'Разрешите чтение буфера или продиктуйте номер телефона.' : err.message)
+          closeModal?.()
+        }
+      } else setError(err.message)
+    }
     finally { inFlight.current = false; setBusy(false) }
   }
   const apply = async () => {
@@ -188,8 +241,20 @@ export default function AiEditAssistant({
 
   if (standaloneVoice && voice)
     return <VoiceDraftOverlay onClose={closeVoice} onTranscript={receiveTranscript} />
-  if (standaloneVoice && (pendingVoiceRequest || (busy && !result && !error)))
+  if (standaloneVoice && (pendingVoiceRequest || busy))
     return <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-6 text-white" role="status">Обрабатываю запрос…</div>
+
+  if (standaloneVoice) return result?.candidates?.length ? (
+    <Modal
+      title={`Выберите ${terms.accusative}`}
+      Children={VoiceEventPicker}
+      childrenProps={{ candidates: result.candidates, onSelect: (id) => { setEventId(id); prepare(id) } }}
+      onlyCloseButtonShow
+      crossActsAsDecline={false}
+      closeButtonName="Отмена"
+      onClose={closeModal}
+    />
+  ) : null
 
   const content = (
     <div className="flex min-w-0 flex-col gap-4">
@@ -269,17 +334,5 @@ export default function AiEditAssistant({
       {!result?.done ? <p className="text-sm opacity-70">Разбор, поиск и подготовка используют ИИ по условиям вашего тарифа. Применение готового плана не вызывает ИИ.{unified ? ' Для телефона из буфера скажите: «Возьми телефон клиента из буфера обмена». При подготовке новой заявки неизвестный номер создаёт карточку клиента.' : ''}</p> : null}
     </div>
   )
-  return standaloneVoice ? (
-    <Modal
-      title={result?.planId ? 'Проверьте изменения' : 'Уточнение голосового запроса'}
-      Children={AssistantContent}
-      childrenProps={{ content, busy, dirty: Boolean(text && !result?.done) }}
-      onlyCloseButtonShow
-      crossActsAsDecline={false}
-      crossShow={!busy}
-      closeButtonShow={!busy}
-      closeButtonName="Закрыть"
-      onClose={() => { if (!busy) closeModal?.() }}
-    />
-  ) : content
+  return content
 }

@@ -83,6 +83,8 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
     } }
     proposal = { actions: [payment, { entity: 'event', operation: 'update', id: String(event._id), patch: { contractSum: 30000 } }] }
     const plan = await prepare()
+    assert.deepEqual(plan.eventPatch, { contractSum: 30000 })
+    assert.equal(plan.clientPatch, null)
     assert.equal(await Transactions.countDocuments({ tenantId }), 0, 'preparation never changes business records')
     await assert.rejects(() => apply(plan.planId, { tenantId: other, user: { _id: other } }), /не найден/)
     await assert.rejects(() => apply(plan.planId, { tenantId, user: { _id: other } }), /не найден/)
@@ -103,6 +105,7 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
       { entity: 'event', operation: 'update', id: String(event._id), patch: { contractSum: 50000 } },
     ] }
     const stale = await prepare()
+    assert.deepEqual(stale.clientPatch, { _id: String(client._id), firstName: 'Мария' })
     await Events.updateOne({ _id: event._id, tenantId }, { $set: { contractSum: 40000 }, $inc: { syncVersion: 1 } })
     assert.equal((await apply(stale.planId)).conflict, true)
     assert.equal((await Clients.findById(client._id)).firstName, 'Анна', 'preflight prevents partial writes for known conflicts')

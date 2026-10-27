@@ -44,7 +44,7 @@ const CreateEventFab = ({ items = [], title }) => {
       <div
         className="create-event-fab fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex flex-col items-end gap-2"
       >
-        <AnimatePresence>
+        <AnimatePresence key={open ? 'open' : 'closed'}>
           {open ? (
             <motion.p
               key="create-title"
@@ -71,7 +71,8 @@ const CreateEventFab = ({ items = [], title }) => {
                     ease: 'easeOut',
                   }}
                   className="ui-surface-card flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full py-2.5 pr-5 pl-4 text-sm font-semibold"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation()
                     setOpen(false)
                     item.onClick?.()
                   }}
@@ -96,7 +97,7 @@ const CreateEventFab = ({ items = [], title }) => {
           style={{
             boxShadow: '0 8px 24px rgba(23, 23, 20, 0.28)',
           }}
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={(event) => { event.stopPropagation(); setOpen((prev) => !prev) }}
         >
           <AddIcon fontSize="large" />
         </motion.button>

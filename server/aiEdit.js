@@ -127,6 +127,12 @@ function planDto(plan) {
     eventDate: plan.eventSnapshot.eventDate,
     clientName: plan.clientName,
     completed: plan.completed, expiresAt: plan.expiresAt,
+    // Raw IDs/values for the ordinary editor; display changes below keep service names.
+    eventPatch: plan.steps.find((step) => step.entity === 'event')?.patch || {},
+    clientPatch: (() => {
+      const step = plan.steps.find((item) => item.entity === 'client')
+      return step ? { ...step.patch, _id: String(step.id) } : null
+    })(),
     steps: plan.steps.map((step) => ({
       entity: step.entity, operation: step.operation,
       description: step.entity === 'transaction' && step.before

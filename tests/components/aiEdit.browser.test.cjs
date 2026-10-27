@@ -8,16 +8,20 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
   const esbuild = require('../../mobile/node_modules/esbuild')
   const { chromium } = require('playwright')
   const mocks = {
-    '@state/atoms': 'import {atom} from "jotai"; export const modalsFuncAtom=atom({});',
+    '@state/atoms': 'import {atom} from "jotai"; export const modalsFuncAtom=atom({});export {default as modalsAtom} from "./state/atoms/modalsAtom";',
     '@state/atoms/loggedUserAtom': 'import {atom} from "jotai"; export default atom({_id:"user",role:"dev"});',
     '@state/atoms/tariffsAtom': 'import {atom} from "jotai"; export default atom([]);',
     '@state/selectors/windowDimensionsTailwindSelector': 'import {atom} from "jotai"; export default atom(window.innerWidth<600?"phoneV":"desktop");',
     '@state/selectors/additionalEventsOverdueCountAtom': 'import {atom} from "jotai"; export const additionalEventsOverdueCountAtom=atom(0);',
     '@helpers/useSupportTickets': 'export const useSupportSummaryQuery=()=>({data:{data:{unreadCount:0}}});',
     '@helpers/tariffAccess': 'export const getUserTariffAccess=()=>({allowAi:true});',
-    '@helpers/constants': 'export const pages=[]; export const pagesGroups=[];',
+    '@helpers/constants': 'export * from "./helpers/constants.js";',
+    '@helpers/useSnackbar': 'const s={warning:(message)=>{window.aiNotice=message},error:(message)=>{window.aiNotice=message},success(){},info(){}};export default ()=>s;',
+    '@helpers/useEventsQuery': 'const empty={data:[]};export const useEventQuery=(id)=>({data:id?window.fixtureEvent:null,isPending:false});export const useEventsQuery=()=>({data:empty});',
+    '@helpers/useClientsQuery': 'const clients=[{_id:"client",firstName:"Анна",phone:79992222222}];export const useClientsQuery=()=>({data:clients});export const useClientQuery=(id)=>({data:clients.find(c=>c._id===id)});',
+    '@helpers/useTransactionsQuery': 'const items=[];export const useTransactionsQuery=()=>({data:items});export const useDeleteTransactionMutation=()=>({mutateAsync:async()=>{}});',
     'next/navigation': 'const router={refresh(){},prefetch(){},push(){}};export const useRouter=()=>router;export const usePathname=()=>"/cabinet/eventsUpcoming";',
-    '@components/Tooltip': 'export default function Tooltip({children}){return children}',
+    '@components/Tooltip': 'export default function Tooltip({children,title}){return <span title={title}>{children}</span>}',
   }
   const bundled = await esbuild.build({
     stdin: {
@@ -28,6 +32,8 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         import MobileBottomNav from './components/MobileBottomNav';
         import AiEditAssistant from './components/AiEditAssistant';
         import CreateEventFab from './components/CreateEventFab';
+        import eventFunc from './layouts/modals/modalsFunc/eventFunc';
+        import itemsFuncAtom from './state/atoms/itemsFuncAtom';
         import useEventCreateMenu from './helpers/useEventCreateMenu';
         function DesktopCreate(){const {items,draftModals}=useEventCreateMenu();return <><CreateEventFab items={items}/>{draftModals}</>}
         import ModalsPortal from './layouts/modals/ModalsPortal';
@@ -35,11 +41,14 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         import siteSettingsAtom from './state/atoms/siteSettingsAtom';
         import {modalsFuncAtom} from '@state/atoms';
         const store=createStore();
+        window.fixtureEvent={_id:'event',clientId:'client',status:'active',eventDate:'2026-12-20T10:00:00Z',dateEnd:'2026-12-20T11:00:00Z',contractSum:30000,eventType:'Свадьба',description:'Исходное описание',servicesIds:[],additionalEvents:[],address:{}};
+        const openEditor=(id,options)=>{store.set(siteSettingsAtom,current=>({...current,custom:{...current.custom,eventFormVariant:window.formVariant||'compact'}}));store.set(modalsAtom,current=>[...current,{id:crypto.randomUUID(),props:eventFunc(id,false,null,options)}]);};
+        store.set(itemsFuncAtom,{event:{set:async(payload)=>{const res=await fetch('/api/events/'+payload._id,{method:'PUT',body:JSON.stringify(payload),headers:{'Content-Type':'application/json'}});return (await res.json()).data}}});
         store.set(siteSettingsAtom,{custom:{primaryEntityTerminology:new URLSearchParams(location.search).get('terms')||'orders'}});
         window.openAi=(id=null,mode='text',options={})=>store.set(modalsAtom,[{id:crypto.randomUUID(),props:{
           title:options.unified?'Создать / редактировать заказ':'Редактировать заказ с ИИ',Children:AiEditAssistant,frameless:mode==='voice',childrenProps:{eventId:id,mode,...options,standaloneVoice:mode==='voice'},
           onlyCloseButtonShow:true,crossActsAsDecline:false,closeButtonName:'Закрыть'}}]);
-        store.set(modalsFuncAtom,{event:{create(status,options){window.createdDraft={status,...options}},aiEdit:window.openAi},confirm:({onConfirm})=>onConfirm()});
+        store.set(modalsFuncAtom,{event:{create(status,options){window.createdDraft={status,...options};if(window.renderCreatedDraft)openEditor(null,options)},edit(id,options){window.editedDraft={id,options};openEditor(id,options)},aiEdit:window.openAi},add(props){store.set(modalsAtom,current=>[...current,{id:crypto.randomUUID(),props}])},confirm:({onConfirm})=>onConfirm()});
         const client=new QueryClient();
         createRoot(document.getElementById('root')).render(<Provider store={store}><QueryClientProvider client={client}>
           <main style={{padding:24}}><h1>Заказы</h1><button onClick={()=>window.openAi('event')}>Изменить с ИИ</button></main>
@@ -47,7 +56,7 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         </QueryClientProvider></Provider>);
       `, resolveDir: process.cwd(), loader: 'jsx',
     },
-    bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
+    bundle: true, write: false, outfile: path.join(require('node:os').tmpdir(), 'vedelo-ai-review.js'), format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
     define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}' },
     plugins: [{
       name: 'test-boundaries',
@@ -63,10 +72,10 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
   })
   const css = (await require('postcss')([require('@tailwindcss/postcss')()]).process(
     await fs.readFile('app/globals.css', 'utf8'), { from: path.resolve('app/globals.css') }
-  )).css
+  )).css + (bundled.outputFiles.find(file=>file.path.endsWith('.css'))?.text || '')
   const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-    res.end(`<!doctype html><html><head><meta charset="utf-8"><title>AI editor QA</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css} #root{height:100dvh;display:grid;grid-template-rows:1fr auto;grid-template-areas:"main" "bottomnav"}main{grid-area:main}</style></head><body><div id="root"></div><script>${bundled.outputFiles[0].text.replaceAll('</script','<\\/script')}</script></body></html>`)
+    res.end(`<!doctype html><html><head><meta charset="utf-8"><title>AI editor QA</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css} #root{height:100dvh;display:grid;grid-template-rows:1fr auto;grid-template-areas:"main" "bottomnav"}main{grid-area:main}</style></head><body><div id="root"></div><script>${bundled.outputFiles.find(file=>file.path.endsWith('.js')).text.replaceAll('</script','<\\/script')}</script></body></html>`)
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const browser = await chromium.launch({ headless: true, channel: 'msedge' }).catch((error) => {
@@ -110,9 +119,11 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
         if (message.type() === 'error' && !message.text().includes('502 (Bad Gateway)')) errors.push(message.text())
       })
       let applyCalls = 0
+      let multipleCandidates = false
       let transcriptCalls = 0, prepareCalls = 0, deferTranscript = false, releaseTranscript, transcriptReadyResolve
       const plan = {
         planId: 'plan', eventId: 'event', clientName: 'Анна', eventTitle: 'Свадьба', eventDate: '2026-10-25T10:00:00Z',
+        eventPatch: {contractSum:40000},
         completed: [], steps: [
           { entity: 'event', operation: 'update', changes: [{ field: 'contractSum', label: 'Стоимость', before: 30000, after: 40000 }] },
           { entity: 'transaction', operation: 'create', changes: [{ field: 'amount', label: 'Сумма', before: null, after: 10000 }] },
@@ -127,13 +138,19 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
           payload = { fields: { clientId: 'client', description: 'Новая заявка' }, client: { _id: 'client', phone: 79992222222 }, aiFilledFields: ['clientId'] }
         } else if (body.mode === 'apply') {
           applyCalls++
-          if (applyCalls === 1) return route.fulfill({ status: 502, json: { error: 'Ответ потерян' } })
+          if (applyCalls === 1 || applyCalls === 3) return route.fulfill({ status: 502, json: { error: 'Ответ потерян' } })
           payload = { ...plan, completed: [0, 1], done: true }
-        } else if (!body.eventId) payload = { candidates: [{ id: 'event', title: 'Свадьба', client: 'Анна', date: '2026-10-25T10:00:00Z' }], question: 'Выберите запись' }
+        } else if (!body.eventId) payload = { candidates: [{ id: 'event', title: 'Свадьба', client: 'Анна', date: '2026-10-25T10:00:00Z' }, ...(multipleCandidates ? [{id:'other-event',title:'День рождения',client:'Борис',date:'2026-10-26T10:00:00Z'}] : [])], question: 'Выберите запись' }
         else payload = plan
         await route.fulfill({ json: payload })
       })
       let voiceText = 'Перенеси заказ на завтра'
+      let manualWrites=0
+      const manualPayloads=[]
+      await page.route('**/api/events/event',async(route)=>{
+        if(route.request().method()==='PUT'){manualWrites++;manualPayloads.push(route.request().postDataJSON())}
+        await route.fulfill({json:{success:true,data:{_id:'event',clientId:'client',status:'active',eventDate:'2026-12-20T10:00:00Z',dateEnd:'2026-12-20T11:00:00Z',contractSum:manualWrites?45000:applyCalls>2?40000:30000,address:{},additionalEvents:[],servicesIds:[]}}})
+      })
       await page.route('**/api/events/voice-transcript', async (route) => {
         transcriptCalls++
         if (deferTranscript) await new Promise(resolve=>{releaseTranscript=resolve;transcriptReadyResolve?.()})
@@ -269,30 +286,68 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       assert.equal(await page.getByRole('button', { name: 'Закрыть голосовой ввод' }).locator('..').locator('.ai-badge').count(), 0)
       if (process.env.QA_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-voice-only-${width}-${dark?'dark':'light'}.png`)})
       await page.getByRole('button', { name: 'Завершить запись' }).click()
-      if (width === 390) await page.getByRole('button', {name:/Анна · Свадьба/}).waitFor()
-      else await page.getByRole('button', {name:'Применить изменения',exact:true}).waitFor()
+      await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor()
+      assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
+      assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
+      assert.equal(await page.getByRole('button',{name:/Добавить заявку/}).getAttribute('aria-expanded'),'false')
+      assert.equal(await page.evaluate(()=>window.editedDraft.options.initialEvent.contractSum),40000)
+      assert.deepEqual(await page.evaluate(()=>window.editedDraft.options.aiFilledFields),['contractSum'])
       assert.equal(applyCalls, 2, 'voice prepares the request but never applies edits automatically')
-      await page.getByRole('button', {name:'Закрыть',exact:true}).click()
+      assert.equal(manualWrites,0)
+      if(process.env.QA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-event-editor-${width}-${dark?'dark':'light'}.png`)})
+      await page.locator('svg[data-icon="xmark"]:visible').first().click()
+      await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor({state:'detached'})
+      assert.equal(applyCalls,2,'closing the regular event form discards the plan')
+      multipleCandidates=true
+      await page.evaluate(()=>window.openAi(null,'voice',{unified:true}))
+      await page.getByText('Говорите',{exact:true}).waitFor()
+      await page.getByRole('button',{name:'Завершить запись',exact:true}).click()
+      await page.getByText('Выберите заказ',{exact:true}).waitFor()
+      assert.equal(await page.getByRole('textbox').count(),0)
+      await page.getByRole('button',{name:/Анна · Свадьба/}).click()
+      await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor()
+      multipleCandidates=false
+      await page.locator('svg[data-icon="xmark"]:visible').first().click()
+      await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor({state:'detached'})
+      assert.equal(applyCalls,2)
+      if(width===1365)await page.evaluate(()=>{window.formVariant='classic'})
+      await page.evaluate(()=>window.openAi('event','voice'))
+      await page.getByText('Говорите',{exact:true}).waitFor()
+      await page.getByRole('button',{name:'Завершить запись',exact:true}).click()
+      await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor()
+      if(width===1365)await page.getByRole('tab',{name:'Финансы и Документы',exact:true}).click()
+      else await page.locator('summary').filter({hasText:'Финансы'}).click()
+      const sumInput=page.getByPlaceholder('Договорная сумма',{exact:true})
+      await sumInput.fill('45000')
+      await page.getByRole('button',{name:'Применить',exact:true}).click()
+      await page.getByRole('alert').filter({hasText:'Ответ потерян'}).waitFor()
+      assert.equal(await sumInput.isDisabled(),true)
+      assert.equal(manualWrites,0)
+      await page.getByRole('button',{name:'Повторить / сверить',exact:true}).click()
+      await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor({state:'detached'})
+      assert.equal(applyCalls,4)
+      assert.deepEqual(manualPayloads,[{_id:'event',contractSum:45000}])
+      await page.evaluate(()=>{window.formVariant='compact'})
       voiceText = 'Создай заявку, возьми телефон клиента из буфера обмена'
+      await page.evaluate(()=>{window.createdDraft=null})
       await page.getByRole('button', {name:/Добавить заявку/}).click()
       await page.getByRole('button', {name:'Создать/Ред. голосом ИИ',exact:true}).click()
       await page.getByText('Говорите',{exact:true}).waitFor()
       await page.getByRole('button', {name:'Завершить запись'}).click()
-      await page.evaluate(()=>{window.createdDraft=null})
-      await page.getByText('Телефон вставлен.',{exact:false}).waitFor()
-      await analyze.click()
       await page.waitForFunction(()=>window.createdDraft?.initialEvent?.clientId==='client')
-
-      await analyze.waitFor({state:'detached'})
+      assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
+      assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
       voiceText = 'Создай новую заявку'
-      await page.evaluate(()=>{window.createdDraft=null})
+      await page.evaluate(()=>{window.createdDraft=null;window.renderCreatedDraft=true})
       await page.getByRole('button', {name:/Добавить заявку/}).click()
       await page.getByRole('button', {name:'Создать/Ред. голосом ИИ',exact:true}).click()
       await page.getByText('Говорите',{exact:true}).waitFor()
       assert.equal(await page.getByRole('textbox').count(),0)
       await page.getByRole('button', {name:'Завершить запись'}).click()
       await page.waitForFunction(()=>window.createdDraft?.initialEvent?.clientId==='client')
-      assert.equal(await page.getByRole('textbox').count(),0)
+      await page.getByText('Поля с фиолетовой подсветкой заполнены ИИ.',{exact:false}).waitFor()
+      assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
+      assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
 
       await page.close()
     }

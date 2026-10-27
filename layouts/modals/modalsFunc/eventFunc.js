@@ -4,6 +4,10 @@ import CompactEventForm from '@components/CompactEventForm'
 import { EVENT_STATUSES } from '@helpers/constants'
 import DateTimePicker from '@components/DateTimePicker'
 import AiFieldHighlight from '@components/AiFieldHighlight'
+import AiEventPlanSummary from '@components/AiEventPlanSummary'
+import { saveAiEventReview } from '@helpers/aiEventEditor.mjs'
+import { apiJson } from '@helpers/apiClient'
+import { useQueryClient } from '@tanstack/react-query'
 import ErrorsList from '@components/ErrorsList'
 import FormWrapper from '@components/FormWrapper'
 import IconCheckBox from '@components/IconCheckBox'
@@ -180,7 +184,14 @@ const eventFunc = (
     setCloseButtonShow,
   }) => {
     const { data: eventFromQuery } = useEventQuery(eventId)
-    const event = eventId ? eventFromQuery : (options?.initialEvent ?? null)
+    const event = eventId
+      ? (options.aiPlan ? options.initialEvent : eventFromQuery)
+      : (options?.initialEvent ?? null)
+    const queryClient = useQueryClient()
+    const [aiSaveStarted, setAiSaveStarted] = useState(false)
+    const [aiSaveError, setAiSaveError] = useState('')
+    const aiSaveState = useRef({})
+    const aiPreviewBaseline = useRef(null)
     const hasInitialEvent = Boolean(options?.initialEvent)
     const itemsFunc = useAtomValue(itemsFuncAtom)
     const setEvent = itemsFunc?.event?.set
@@ -213,7 +224,7 @@ const eventFunc = (
     const [aiHighlightedFields, setAiHighlightedFields] = useState(
       () =>
         new Set(
-          !eventId && !clone && Array.isArray(options?.aiFilledFields)
+          !clone && Array.isArray(options?.aiFilledFields)
             ? options.aiFilledFields
             : []
         )
@@ -221,7 +232,7 @@ const eventFunc = (
     const importAiMetadataLoadedRef = useRef(false)
     const hasAiHighlightedFields = aiHighlightedFields.size > 0
     const [aiWarnings, setAiWarnings] = useState(() =>
-      !eventId && !clone && Array.isArray(options?.aiWarnings)
+      !clone && Array.isArray(options?.aiWarnings)
         ? options.aiWarnings.filter(
             (warning) => typeof warning === 'string' && warning.trim()
           )
@@ -229,6 +240,8 @@ const eventFunc = (
     )
     useEffect(() => {
       if (
+        options.aiPlan ||
+        options.aiWarnings?.length ||
         importAiMetadataLoadedRef.current ||
         !eventId ||
         (!event?.importedFromCalendar && !event?.importedFromFile) ||
@@ -466,6 +479,7 @@ const eventFunc = (
 
     const isFormChanged = useMemo(
       () =>
+        Boolean(options.aiPlan) ||
         (!eventId && hasInitialEvent) ||
         initialEventValues.clientId !== clientId ||
         initialEventValues.eventDate !== eventDate ||
@@ -548,7 +562,7 @@ const eventFunc = (
             : 'Создание рабочей карточки'
       )
       setConfirmButtonName?.(
-        editing
+        aiSaveStarted ? 'Повторить / сверить' : editing
           ? 'Применить'
           : useCompactForm && isDraft
             ? 'Создать заявку'
@@ -558,6 +572,7 @@ const eventFunc = (
       setCloseButtonShow?.(!useCompactForm)
     }, [
       setConfirmButtonName,
+      aiSaveStarted,
       setTitle,
       setDeclineButtonShow,
       setCloseButtonShow,
@@ -863,6 +878,8 @@ const eventFunc = (
       () => JSON.stringify(buildEventSaveContext().payload),
       [buildEventSaveContext]
     )
+    if (options.aiPlan && !aiPreviewBaseline.current)
+      aiPreviewBaseline.current = JSON.parse(currentSavePayloadKey)
     const [lastSavedPayloadKey, setLastSavedPayloadKey] = useState(null)
 
     useEffect(() => {
@@ -878,7 +895,19 @@ const eventFunc = (
         const savePayload = statusOverride
           ? { ...payload, status: statusOverride }
           : payload
-        const savedEvent = await setEvent(savePayload, clone)
+        let savedEvent
+        if (options.aiPlan) {
+          setAiSaveStarted(true)
+          setAiSaveError('')
+          savedEvent = await saveAiEventReview({
+            plan: options.aiPlan, state: aiSaveState.current,
+            baseline: aiPreviewBaseline.current, current: savePayload, setEvent,
+            request: apiJson,
+            refresh: () => Promise.all(['event', 'events', 'client', 'clients', 'clientRelations', 'transactions', 'statistics', 'histories'].map(
+              (key) => queryClient.invalidateQueries({ queryKey: [key] })
+            )),
+          })
+        } else savedEvent = await setEvent(savePayload, clone)
         const nextEventId = savedEvent?._id ?? payload?._id ?? null
         if (!nextEventId) {
           throw new Error(`Не удалось создать ${workItemTerms.accusative}`)
@@ -908,7 +937,7 @@ const eventFunc = (
           hasAdditionalEvents,
         }
       },
-      [buildEventSaveContext, setEvent, workItemTerms.accusative]
+      [buildEventSaveContext, setEvent, workItemTerms.accusative, queryClient]
     )
 
     const openAdditionalEventModal = useCallback(
@@ -1183,8 +1212,13 @@ const eventFunc = (
     }, [buildRange, dateEnd, eventDate, events])
     const onClickConfirm = () => {
       const proceedSave = async () => {
-        const saveResult = await saveEvent()
-        await handleSaveSuccess(saveResult)
+        try {
+          const saveResult = await saveEvent()
+          await handleSaveSuccess(saveResult)
+        } catch (error) {
+          if (!options.aiPlan) throw error
+          setAiSaveError(error.message || 'Не удалось сохранить изменения')
+        }
       }
 
       if (validateEventForm()) {
@@ -1289,7 +1323,9 @@ const eventFunc = (
       const clientFromList = clients.find(
         (client) => String(client._id) === String(clientId)
       )
-      if (clientFromList) return clientFromList
+      if (clientFromList) return options.aiPlan?.clientPatch?._id === String(clientId)
+        ? { ...clientFromList, ...options.aiPlan.clientPatch }
+        : clientFromList
       return String(options?.initialClient?._id) === String(clientId)
         ? options.initialClient
         : null
@@ -1645,7 +1681,7 @@ const eventFunc = (
               подсветка отдельного поля исчезнет после вашего изменения.
             </div>
           ) : null}
-          {(!calendarImportChecked ||
+          {(options.aiWarnings?.length || !calendarImportChecked ||
             (event?.importedFromFile && !fileImportChecked)) &&
           aiWarnings.length > 0 ? (
             <Notice tone="warning" className="ai-draft-warning mb-3">
@@ -2472,7 +2508,8 @@ const eventFunc = (
     }
     if (useCompactForm)
       return (
-        <>
+        <fieldset disabled={aiSaveStarted} className="m-0 min-w-0 border-0 p-0">
+          <AiEventPlanSummary plan={options.aiPlan} error={aiSaveError} started={aiSaveStarted} />
           <CompactEventForm
             fields={fields}
             errors={errors}
@@ -2544,10 +2581,11 @@ const eventFunc = (
               removeError('dateEnd')
             }}
           />
-        </>
+        </fieldset>
       )
     return (
-      <>
+      <fieldset disabled={aiSaveStarted} className="m-0 min-w-0 border-0 p-0">
+        <AiEventPlanSummary plan={options.aiPlan} error={aiSaveError} started={aiSaveStarted} />
         <TabContext
           value={initialTab}
           variant="fullWidth"
@@ -2614,7 +2652,7 @@ const eventFunc = (
             </TabPanel>
           ) : null}
         </TabContext>
-      </>
+      </fieldset>
     )
   }
 

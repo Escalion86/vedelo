@@ -237,7 +237,7 @@ const MobileBottomNav = () => {
         style={{ gridArea: 'bottomnav' }}
         aria-label="Основная навигация"
       >
-        <AnimatePresence>
+        <AnimatePresence key={createOpen ? 'create' : 'navigation'}>
           {openPanel === 'events' ? (
             <SubMenu
               key="submenu-events"
@@ -336,7 +336,8 @@ const MobileBottomNav = () => {
                     ease: 'easeOut',
                   }}
                   className="ui-surface-card mobile-bottomnav-create-item flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-full py-2.5 pr-5 pl-4 text-sm font-semibold"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation()
                     setOpenPanel(null)
                     item.onClick?.()
                   }}
