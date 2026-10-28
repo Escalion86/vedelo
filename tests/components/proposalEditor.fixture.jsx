@@ -7,6 +7,7 @@ import modalsFuncAtom from '../../state/atoms/modalsFuncAtom'
 import loggedUserAtom from '../../state/atoms/loggedUserAtom'
 import ModalsPortal from '../../layouts/modals/ModalsPortal'
 import EventProposalsSection from '../../components/EventProposalsSection'
+import EventPublishedProposals from '../../components/EventPublishedProposals'
 import EventProposalsSummary from '../../components/EventProposalsSummary'
 import ProposalTemplateEditor from '../../components/ProposalTemplateEditor'
 import ProposalPageView from '../../components/ProposalPageView'
@@ -83,6 +84,8 @@ function App() {
           <h1>Проверка редактора КП</h1>
           {kind === 'public' ? (
             <ProposalPageView proposal={publicProposal} />
+          ) : kind === 'view' ? (
+            <EventPublishedProposals eventId="event" />
           ) : kind === 'list' ? (
             <Compact
               fields={{ proposals: <EventProposalsSection eventId="event" /> }}

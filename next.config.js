@@ -1,5 +1,9 @@
+const { HTML_LIMITED_BOT_UA_RE } = require('next/dist/shared/lib/router/utils/html-bots')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep Next's defaults and send complete head metadata to MAX/Telegram previews.
+  htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|\\bMAX\\b|MaxBot|OneMe|TelegramBot`, 'i'),
   // Изолированная сборка/HTTP-стенд могут работать рядом с dev и другими сборками.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
@@ -23,6 +27,11 @@ const nextConfig = {
   },
   async headers() {
     return [
+      { source: '/proposal/:path*', headers: [
+        { key: 'Cache-Control', value: 'private, no-store' },
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+      ] },
       { source: '/review/:path*', headers: [
         { key: 'Cache-Control', value: 'private, no-store' },
         { key: 'Referrer-Policy', value: 'no-referrer' },

@@ -1,5 +1,8 @@
 import ClientReviewsList from '@components/ClientReviewsList'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import AppButton from '@components/AppButton'
+import EventCard from '@layouts/cards/EventCard'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import CardButtons from '@components/CardButtons'
@@ -26,6 +29,7 @@ const CONTACT_CHANNEL_LABELS = {
   telegram: 'Telegram',
   whatsapp: 'WhatsApp',
   max: 'MAX',
+  avito: 'Avito (beta)',
   vk: 'VK',
   other: 'Другое',
 }
@@ -75,6 +79,8 @@ const clientViewFunc = (clientId) => {
       initialClient
     )
     const modalsFunc = useAtomValue(modalsFuncAtom)
+    const terms = useWorkItemTerminology()
+    const [showAllUpcoming, setShowAllUpcoming] = useState(false)
     const loggedUser = useAtomValue(loggedUserAtom)
     const tariffs = useAtomValue(tariffsAtom)
     const clientActions = useClientActions()
@@ -112,6 +118,15 @@ const clientViewFunc = (clientId) => {
       if (!event.eventDate) return true
       return new Date(event.eventDate).getTime() >= startOfToday
     }).length
+
+    const upcomingEvents = clientEvents
+      .filter((event) =>
+        event.status !== 'canceled' &&
+        event.status !== 'closed' &&
+        event.eventDate &&
+        new Date(event.eventDate).getTime() >= now.getTime()
+      )
+      .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
 
     const clientTransactions = useMemo(() => {
       if (!clientId) return []
@@ -261,15 +276,15 @@ const clientViewFunc = (clientId) => {
         </div>
 
         <SectionBlock
-          title="Мероприятия"
+          title={terms.pluralCapitalized}
           action={
-            <button
-              type="button"
-              className="client-view-action-btn cursor-pointer rounded border px-3 py-1 text-xs font-semibold transition"
+            <AppButton
+              variant="secondary"
+              size="sm"
               onClick={() => modalsFunc.client?.events(clientId)}
             >
-              Посмотреть
-            </button>
+              Посмотреть все
+            </AppButton>
           }
         >
           <div className="tablet:grid-cols-3 grid grid-cols-1 gap-2">
@@ -292,6 +307,30 @@ const clientViewFunc = (clientId) => {
               </div>
             </div>
           </div>
+          {upcomingEvents.length > 0 && (
+            <div className="mt-3 flex min-w-0 flex-col gap-2">
+              {(showAllUpcoming ? upcomingEvents : upcomingEvents.slice(0, 1)).map((event) => (
+                <EventCard
+                  key={event._id}
+                  eventId={event._id}
+                  event={event}
+                  transactions={transactions}
+                  showClient={false}
+                  noHorizontalPadding
+                />
+              ))}
+              {upcomingEvents.length > 1 && (
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  aria-expanded={showAllUpcoming}
+                  onClick={() => setShowAllUpcoming((value) => !value)}
+                >
+                  {showAllUpcoming ? 'Свернуть' : `+ ещё ${upcomingEvents.length - 1}`}
+                </AppButton>
+              )}
+            </div>
+          )}
         </SectionBlock>
 
         <SectionBlock

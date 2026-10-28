@@ -1,8 +1,11 @@
 import ProposalPublicClient from './ProposalPublicClient'
+import { getProposalMetadata } from '@server/proposalMetadata'
 
-export const metadata = {
-  title: 'Персональное предложение — Ведело',
-  robots: { index: false, follow: false, nocache: true },
+export const dynamic = 'force-dynamic'
+
+export const generateMetadata = async ({ params }) => {
+  const { publicId, token } = await params
+  return getProposalMetadata(publicId, token)
 }
 
 const ProposalPage = async ({ params }) => {

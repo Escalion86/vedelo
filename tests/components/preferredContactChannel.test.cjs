@@ -34,6 +34,7 @@ function loadModule(file) {
   const resolve = (id) => {
     if (id in mocks) return mocks[id]
     if (id === '@helpers/maxContact') return loadModule('helpers/maxContact.js')
+    if (id === '@helpers/avitoContact.mjs') return require('../../helpers/avitoContact.mjs')
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(resolve, loaded, loaded.exports)
@@ -48,9 +49,10 @@ test('only the preferred available contact gets the sand marker', () => {
     phone: '79991234567',
     whatsapp: '79991234567',
     max: '+79991234567',
+    avitoUrl: 'https://www.avito.ru/user/test/profile?src=messenger',
   }
 
-  for (const channel of ['max', 'whatsapp']) {
+  for (const channel of ['max', 'whatsapp', 'avito']) {
     const html = renderToStaticMarkup(
       React.createElement(Contacts, {
         user: { ...baseUser, preferredContactChannel: channel },

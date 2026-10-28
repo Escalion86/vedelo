@@ -16,7 +16,7 @@ const { createRoot } = require('react-dom/client')
 const openedModals = []
 const requests = []
 let templates = []
-const snackbar = { success() {} }
+const snackbar = { success() {}, info() {}, error() {} }
 const queryClient = {
   getQueryData: () => [],
   invalidateQueries: async () => {},
@@ -724,7 +724,9 @@ test('share copies the proposal and opens contact choice without sending it', as
   const Section = load('components/EventProposalsSection.js').default
   const element = await mount(t, Section, { eventId: 'share-event' })
   assert.equal(element.textContent.includes('В Telegram'), false)
-  assert.equal(element.textContent.includes('Копировать'), false)
+  await React.act(async () => [...element.querySelectorAll('button')].find((button) => button.textContent === 'Копировать ссылку').click())
+  assert.equal(copied, proposal.publicUrl)
+  assert.equal(writes, 0)
   const send = [...element.querySelectorAll('button')].find((button) => button.textContent === 'Отправить')
   await React.act(async () => send.click())
   assert.equal(copied, proposal.renderedMessage)
@@ -741,9 +743,15 @@ test('share copies the proposal and opens contact choice without sending it', as
 })
 
 test('contact choices include supported channels, respect unavailable numbers and preserve MAX message', async () => {
+  mocks['./avitoContact.mjs'] = require('../../helpers/avitoContact.mjs')
   mocks['./maxContact'] = load('helpers/maxContact.js')
   const { getProposalContactOptions } = load('helpers/proposalContactOptions.js')
   const message = 'Здравствуйте! https://example.test/a?b=1&c=2'
+  const avitoUrl = 'https://www.avito.ru/user/test/profile?src=messenger'
+  const avitoChoices = getProposalContactOptions({ avitoUrl, phone: 79000000000, preferredContactChannel: 'avito' }, message)
+  assert.equal(avitoChoices[0].id, 'avito')
+  assert.equal(avitoChoices[0].url, avitoUrl)
+  assert.equal(getProposalContactOptions({ avitoUrl: 'https://evil.test' }, message).length, 0)
   const choices = getProposalContactOptions({ phone: 79000000000, telegram: '@sample', email: 'test@example.test', preferredContactChannel: 'telegram' }, message)
   assert.equal(choices[0].id, 'telegram')
   assert.equal(choices[0].url, 'tg://resolve?domain=sample')

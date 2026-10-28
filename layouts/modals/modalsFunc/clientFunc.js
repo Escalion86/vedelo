@@ -1,4 +1,5 @@
 import fieldHelp from '@helpers/fieldHelp.json'
+import { isValidAvitoContactUrl, normalizeAvitoContactUrl } from '@helpers/avitoContact.mjs'
 import FieldHelp from '@components/FieldHelp'
 import ErrorsList from '@components/ErrorsList'
 import DateInput from '@components/DateInput'
@@ -42,6 +43,7 @@ const CONTACT_CHANNELS = [
   { value: 'telegram', name: 'Telegram' },
   { value: 'whatsapp', name: 'WhatsApp' },
   { value: 'max', name: 'MAX' },
+  { value: 'avito', name: 'Avito (beta)' },
   { value: 'vk', name: 'VK' },
   { value: 'other', name: 'Другое' },
 ]
@@ -141,6 +143,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
     )
     const [vk, setVk] = useState(client?.vk ?? DEFAULT_CLIENT.vk)
     const [max, setMax] = useState(client?.max ?? DEFAULT_CLIENT.max)
+    const [avitoUrl, setAvitoUrl] = useState(client?.avitoUrl ?? '')
     const [preferredContactChannel, setPreferredContactChannel] = useState(
       client?.preferredContactChannel ?? DEFAULT_CLIENT.preferredContactChannel
     )
@@ -255,6 +258,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         (client?.instagram ?? DEFAULT_CLIENT.instagram) !== instagram ||
         (client?.vk ?? DEFAULT_CLIENT.vk) !== vk ||
         (client?.max ?? DEFAULT_CLIENT.max) !== max ||
+        (client?.avitoUrl ?? '') !== avitoUrl ||
         (client?.preferredContactChannel ??
           DEFAULT_CLIENT.preferredContactChannel) !== preferredContactChannel ||
         (client?.preferredContactChannelOther ??
@@ -289,6 +293,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         instagram,
         vk,
         max,
+        avitoUrl,
         preferredContactChannel,
         preferredContactChannelOther,
         messengerPushMuted,
@@ -313,6 +318,10 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         whatsapp,
       })
       let customError = false
+      if (!isValidAvitoContactUrl(avitoUrl)) {
+        addError({ avitoUrl: 'Укажите HTTPS-ссылку на профиль клиента на avito.ru' })
+        customError = true
+      }
       if (!fullName || !fullName.trim()) {
         addError({ firstName: 'Укажите ФИО' })
         customError = true
@@ -330,11 +339,12 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         Boolean(String(telegram || '').trim()) ||
         Boolean(String(instagram || '').trim()) ||
         Boolean(String(vk || '').trim()) ||
-        Boolean(String(max || '').trim())
+        Boolean(String(max || '').trim()) ||
+        Boolean(avitoUrl.trim())
       if (!hasAnyContact) {
         addError({
           phone:
-            'Укажите хотя бы один контакт: телефон, WhatsApp, email, Telegram, Instagram, VK или MAX',
+            'Укажите хотя бы один контакт: телефон, WhatsApp, email, Telegram, Instagram, VK, MAX или Avito',
         })
         customError = true
       }
@@ -386,6 +396,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             instagram: instagram.trim(),
             vk: vk.trim(),
             max: normalizeMaxContactInput(max),
+            avitoUrl: normalizeAvitoContactUrl(avitoUrl),
             preferredContactChannel,
             preferredContactChannelOther:
               preferredContactChannel === 'other'
@@ -423,6 +434,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
       instagram,
       vk,
       max,
+      avitoUrl,
       preferredContactChannel,
       preferredContactChannelOther,
       messengerPushMuted,
@@ -616,6 +628,24 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             normalizePastedValue={normalizeMaxContactInput}
             placeholder="Ссылка max.ru или +7 999 123-45-67"
             maxLength={500}
+          />
+          <Input
+            label="Avito (beta)"
+            ariaLabel="Avito (beta)"
+            help="Ссылка на профиль клиента на Avito. Кнопка в контактах откроет профиль; переписка через интеграцию остаётся в чате Ведело."
+            value={avitoUrl}
+            onChange={(value) => {
+              removeError('phone')
+              removeError('avitoUrl')
+              setAvitoUrl(value)
+            }}
+            error={errors.avitoUrl}
+            showErrorText
+            className="w-full"
+            smallMargin
+            copyPasteButtons
+            placeholder="https://www.avito.ru/user/…/profile"
+            maxLength={2000}
           />
         </div>
         <ClientTypeField value={clientType} onChange={setClientType} />

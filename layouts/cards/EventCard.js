@@ -123,6 +123,7 @@ const EventCard = ({
   event: eventProp,
   transactions: transactionsProp,
   noHorizontalPadding = false,
+  showClient = true,
 }) => {
   const { data: cachedEvent } = useEventQuery(eventId, eventProp)
   const event = eventProp ?? cachedEvent
@@ -341,7 +342,7 @@ const EventCard = ({
     <CardWrapper
       style={style}
       // Кнопка повтора не должна быть вложена в другой role="button".
-      role={clientLoadError ? 'group' : 'button'}
+      role={showClient && clientLoadError ? 'group' : 'button'}
       outerClassName={cn(noHorizontalPadding ? '' : 'px-2', 'py-1')}
       onClick={() => !loading && modalsFunc.event?.view(event._id)}
       onSwipeLeft={() => !loading && modalsFunc.event?.edit(event._id)}
@@ -561,7 +562,7 @@ const EventCard = ({
           )}
         </div>
 
-        <div
+        {showClient && <div
           className={cn(
             'col-span-3 flex min-h-11 min-w-0 items-center gap-2 border-t border-gray-200 pt-2 text-sm',
             clientLoadError ? 'flex-wrap' : 'flex-nowrap'
@@ -668,7 +669,7 @@ const EventCard = ({
               </DropDown>
             </div>
           ) : null}
-        </div>
+        </div>}
       </div>
     </CardWrapper>
   )

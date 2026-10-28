@@ -286,6 +286,7 @@ export const DEFAULT_CLIENT = Object.freeze({
   vk: '',
   max: '',
   preferredContactChannel: '',
+  avitoUrl: '',
   preferredContactChannelOther: '',
   messengerPushMuted: false,
   comment: '',

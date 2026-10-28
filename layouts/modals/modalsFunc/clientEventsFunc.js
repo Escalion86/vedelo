@@ -1,10 +1,7 @@
 import { useMemo } from 'react'
-import { useAtomValue } from 'jotai'
-import { modalsFuncAtom } from '@state/atoms'
-import formatDate from '@helpers/formatDate'
-import formatDateTime from '@helpers/formatDateTime'
+import EventCard from '@layouts/cards/EventCard'
+import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 import getPersonFullName from '@helpers/getPersonFullName'
-import Button from '@components/Button'
 import {
   useClientQuery,
   useClientRelationsQuery,
@@ -13,6 +10,7 @@ import {
 
 const clientEventsFunc = (clientId) => {
   const ClientEventsModal = () => {
+    const terms = useWorkItemTerminology()
     const { data: clients = [] } = useClientsQuery()
     const initialClient = useMemo(
       () => clients.find((item) => item._id === clientId) ?? null,
@@ -22,7 +20,6 @@ const clientEventsFunc = (clientId) => {
       clientId,
       initialClient
     )
-    const modalsFunc = useAtomValue(modalsFuncAtom)
     const { data: relations } = useClientRelationsQuery(clientId)
     const events = useMemo(() => relations?.events ?? [], [relations?.events])
 
@@ -72,27 +69,14 @@ const clientEventsFunc = (clientId) => {
           {clientRequests.length > 0 ? (
             <div className="mt-3 grid gap-2">
               {clientRequests.map((request) => (
-                <div
+                <EventCard
                   key={request._id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {request.eventDate
-                        ? formatDate(request.eventDate, false, true)
-                        : 'Дата не указана'}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {request.description || 'Комментарий не указан'}
-                    </div>
-                  </div>
-                  <Button
-                    name="Открыть"
-                    thin
-                    className="h-8 px-3 text-xs"
-                    onClick={() => modalsFunc.event?.view(request._id)}
-                  />
-                </div>
+                  eventId={request._id}
+                  event={request}
+                  transactions={relations?.transactions ?? []}
+                  showClient={false}
+                  noHorizontalPadding
+                />
               ))}
             </div>
           ) : (
@@ -103,7 +87,7 @@ const clientEventsFunc = (clientId) => {
         <div className="p-4 bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold text-gray-900">
-              Мероприятия клиента
+              {terms.pluralCapitalized} клиента
             </div>
             <div className="text-xs text-gray-500">
               Всего: {clientEvents.length}
@@ -112,36 +96,19 @@ const clientEventsFunc = (clientId) => {
           {clientEvents.length > 0 ? (
             <div className="mt-3 grid gap-2">
               {clientEvents.map((event) => (
-                <div
+                <EventCard
                   key={event._id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {event.eventDate
-                        ? formatDateTime(event.eventDate)
-                        : 'Дата не указана'}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {event.description
-                        ? event.description
-                            .replace(/<[^>]+>/g, '')
-                            .slice(0, 80)
-                        : 'Описание не указано'}
-                    </div>
-                  </div>
-                  <Button
-                    name="Открыть"
-                    thin
-                    className="h-8 px-3 text-xs"
-                    onClick={() => modalsFunc.event?.view(event._id)}
-                  />
-                </div>
+                  eventId={event._id}
+                  event={event}
+                  transactions={relations?.transactions ?? []}
+                  showClient={false}
+                  noHorizontalPadding
+                />
               ))}
             </div>
           ) : (
             <div className="mt-2 text-sm text-gray-500">
-              Мероприятий нет
+              Нет {terms.pluralGenitive}
             </div>
           )}
         </div>

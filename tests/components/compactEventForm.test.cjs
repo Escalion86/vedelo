@@ -35,6 +35,7 @@ const atoms = {
 const Box = ({ children }) => React.createElement('div', null, children)
 const noop = () => {}
 const mocks = {
+  '@tanstack/react-query': { useQueryClient: () => ({ invalidateQueries: async () => {} }) },
   './FieldHelp': () => null,
   jotai: {
     useAtomValue: (atom) => atom === 'user' ? user : atom,
@@ -186,6 +187,28 @@ test('classic draft saves without dates while other required fields and statuses
   assert.equal(saved[0].status, 'draft')
   assert.equal(saved[0].eventDate, null)
   assert.equal(saved[0].dateEnd, null)
+})
+
+test('cancellation requires a nonblank reason, trims it and clears it for other statuses in both editors', async (t) => {
+  saved = []
+  t.after(() => { settings.custom = {} })
+  for (const eventFormVariant of ['compact', 'classic']) {
+    settings.custom = { eventFormVariant }
+    for (const [status, cancelReason, expected] of [
+      ['canceled', '', null],
+      ['canceled', '   ', null],
+      ['canceled', '  Передумал  ', 'Передумал'],
+      ['active', 'Прежняя причина', ''],
+    ]) {
+      const before = saved.length
+      const { el } = await mount(t, modalHarness(eventFunc(null, false, status, {
+        initialEvent: { clientId: 'client', eventDate: '2026-12-20T10:00:00Z', cancelReason },
+      }).Children))
+      await React.act(async () => el.querySelector('[data-save]').click())
+      assert.equal(saved.length, before + Number(expected !== null))
+      if (expected !== null) assert.equal(saved.at(-1).cancelReason, expected)
+    }
+  }
 })
 
 test('services are optional for every status while confirmed work still requires a date', async (t) => {

@@ -544,6 +544,45 @@ test('старое КП показывает актуальные соцсети
 })
 
 
+test('изменение срока сохраняет выбор, дату выбора и задачу, в том числе после применения; чужой tenant запрещён', async () => {
+  const f = fixture()
+  await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+  const route = f.load('app/api/proposals/[id]/route.js')
+  Object.assign(f.proposal, {
+    status: 'published', blocksSnapshot: [], messageText: 'Предложение',
+    clientSnapshot: { firstName: 'Анна' },
+    packages: [{ id: 'main', title: 'Основной', total: 1000, manualTotal: true, lines: [] }],
+    validUntil: new Date('2030-12-31'), selectedPackageId: 'main',
+    selectedAt: new Date('2026-10-28T10:00:00Z'),
+    selectionTaskCreatedAt: new Date('2026-10-28T10:00:00Z'), selectionTaskId: templateId,
+    selectionHistory: [{ packageId: 'main' }],
+  })
+  const selection = () => JSON.stringify({
+    id: f.proposal.selectedPackageId, at: f.proposal.selectedAt,
+    taskAt: f.proposal.selectionTaskCreatedAt, taskId: f.proposal.selectionTaskId,
+    history: f.proposal.selectionHistory,
+  })
+  const before = selection()
+  for (const validUntil of ['2031-01-31', '2030-11-30', null, '2020-01-01']) {
+    const revision = f.proposal.contentRevision || 0
+    const result = await route.PATCH(f.req({ validUntil, contentRevision: revision }), { params: { id: proposalId } })
+    assert.equal(result.status, 200, JSON.stringify(result.body))
+    assert.equal(selection(), before)
+    assert.equal(f.proposal.validUntil?.toISOString() || null, validUntil ? new Date(validUntil).toISOString() : null)
+    assert.equal(f.proposal.contentRevision, revision + 1)
+    assert.equal((await route.GET(f.req({}), { params: { id: proposalId } })).body.data.selectedPackageId, 'main')
+  }
+  f.proposal.appliedAt = new Date()
+  f.proposal.appliedPackageId = 'main'
+  assert.equal((await route.PATCH(f.req({ validUntil: '2031-02-01' }), { params: { id: proposalId } })).status, 200)
+  assert.equal(selection(), before)
+  const saved = JSON.stringify(f.proposal)
+  assert.equal((await route.PATCH(f.req({ validUntil: 'bad-date' }), { params: { id: proposalId } })).status, 400)
+  f.setTenant(foreign)
+  assert.equal((await route.PATCH(f.req({ validUntil: '2032-01-01' }), { params: { id: proposalId } })).status, 404)
+  assert.equal(JSON.stringify(f.proposal), saved)
+})
+
 test('карандаш обновляет опубликованное КП на месте, ссылка/ID/статус сохраняются; устаревшие редакторы и выбор отклоняются', async () => {
   const f = fixture()
   await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })

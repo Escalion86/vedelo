@@ -1,5 +1,6 @@
 import { DEFAULT_USERS_NOTIFICATIONS } from '@helpers/constants'
 import { isValidMaxContact } from '@helpers/maxContact'
+import { isValidAvitoContactUrl } from '@helpers/avitoContact.mjs'
 import { Schema } from 'mongoose'
 import documentSchema from './documentSchema'
 
@@ -109,13 +110,22 @@ const clientsSchema = {
   },
   preferredContactChannel: {
     type: String,
-    enum: ['phone', 'telegram', 'whatsapp', 'max', 'vk', 'other', ''],
+    enum: ['phone', 'telegram', 'whatsapp', 'max', 'vk', 'avito', 'other', ''],
     default: '',
   },
   preferredContactChannelOther: {
     type: String,
     maxlength: 100,
     default: '',
+  },
+  avitoUrl: {
+    type: String,
+    default: '',
+    maxlength: 2000,
+    validate: {
+      validator: isValidAvitoContactUrl,
+      message: 'Укажите HTTPS-ссылку на профиль клиента на avito.ru',
+    },
   },
   messengerPushMuted: {
     type: Boolean,

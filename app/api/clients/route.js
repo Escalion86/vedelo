@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isValidAvitoContactUrl, normalizeAvitoContactUrl } from '@helpers/avitoContact.mjs'
 import Clients from '@models/Clients'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
@@ -35,6 +36,11 @@ export const POST = async (req) => {
     )
   }
   const documents = normalizeEntityDocuments(body.documents)
+  if (body.avitoUrl !== undefined) {
+    if (!isValidAvitoContactUrl(body.avitoUrl))
+      return NextResponse.json({ success: false, error: 'Укажите HTTPS-ссылку на профиль клиента на avito.ru' }, { status: 400 })
+    body.avitoUrl = normalizeAvitoContactUrl(body.avitoUrl)
+  }
   const access = await getUserTariffAccess(context.user?._id)
   if (entityHasDocuments({ documents }) && !access?.allowDocuments) {
     return NextResponse.json(

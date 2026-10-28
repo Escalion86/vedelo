@@ -115,6 +115,7 @@ const mergeMissingClientFields = (target, duplicate) => {
     'instagram',
     'vk',
     'max',
+    'avitoUrl',
     'preferredContactChannel',
     'preferredContactChannelOther',
     'clientType',

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isValidAvitoContactUrl, normalizeAvitoContactUrl } from '@helpers/avitoContact.mjs'
 import Clients from '@models/Clients'
 import Events from '@models/Events'
 import Transactions from '@models/Transactions'
@@ -59,6 +60,11 @@ export const PUT = async (req, { params }) => {
     )
 
   const update = resetClientMessengerAvailability(existingClient, body)
+  if (body.avitoUrl !== undefined) {
+    if (!isValidAvitoContactUrl(body.avitoUrl))
+      return NextResponse.json({ success: false, error: 'Укажите HTTPS-ссылку на профиль клиента на avito.ru' }, { status: 400 })
+    update.avitoUrl = normalizeAvitoContactUrl(body.avitoUrl)
+  }
   if (body.documents !== undefined) {
     const documents = normalizeEntityDocuments(body.documents, {
       allowedStorageKeys: getDocumentStorageKeys(existingClient.documents),

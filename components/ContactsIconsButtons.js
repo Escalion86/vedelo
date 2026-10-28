@@ -12,6 +12,7 @@ import { faSms } from '@fortawesome/free-solid-svg-icons/faSms'
 import ClientChatButton from '@components/ClientChatButton'
 import NovofonCallButton from '@components/NovofonCallButton'
 import { getMaxContactAction } from '@helpers/maxContact'
+import { normalizeAvitoContactUrl } from '@helpers/avitoContact.mjs'
 import useSnackbar from '@helpers/useSnackbar'
 import { modalsFuncAtom } from '@state/atoms'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
@@ -202,6 +203,7 @@ const ContactsIconsButtons = ({
   const snackbar = useSnackbar()
   const Btn = withTitle ? ContactIconBtnWithTitle : ContactIconBtn
   const preferredChannel = user?.preferredContactChannel
+  const avitoUrl = normalizeAvitoContactUrl(user?.avitoUrl)
   const maxUnconfirmed = Boolean(
     !user?.max && forceMax && user?.phone && !user?.maxPhoneUnavailable
   )
@@ -244,6 +246,23 @@ const ContactsIconsButtons = ({
     }[provider]
     if (!messengerName) return
 
+    const confirmContact = async (makePreferred = false) => {
+      const savedClient = await itemsFunc.client.set(
+        {
+          _id: targetClient._id,
+          [confirmedField]:
+            provider === 'max' ? maxAction.phone : targetClient.phone,
+          [unavailableField]: false,
+          ...(makePreferred
+            ? { preferredContactChannel: provider, preferredContactChannelOther: '' }
+            : {}),
+        },
+        false,
+        true
+      )
+      if (!savedClient) throw new Error('Контакт клиента не сохранён')
+    }
+
     setTimeout(() => {
       modalsFunc.custom({
         title: `Контакт в ${messengerName}`,
@@ -252,23 +271,13 @@ const ContactsIconsButtons = ({
             ? `Удалось найти клиента в MAX по номеру ${maxAction.phone}?`
             : `Удалось открыть контакт клиента в ${messengerName} по номеру +${targetClient.phone}?`,
         confirmButtonName: 'Да',
+        confirmButtonName2: 'Да и сделай основным',
         declineButtonName: 'Нет',
         neutralButtonName: 'Не знаю',
         crossActsAsDecline: false,
         waitForConfirm: true,
-        onConfirm: async () => {
-          const savedClient = await itemsFunc.client.set(
-            {
-              _id: targetClient._id,
-              [confirmedField]:
-                provider === 'max' ? maxAction.phone : targetClient.phone,
-              [unavailableField]: false,
-            },
-            false,
-            true
-          )
-          if (!savedClient) throw new Error('Контакт клиента не сохранён')
-        },
+        onConfirm: () => confirmContact(),
+        onConfirm2: () => confirmContact(true),
         onDecline: () =>
           itemsFunc.client.set(
             {
@@ -433,6 +442,25 @@ const ContactsIconsButtons = ({
           title={'@' + user.instagram}
           buttonClassName={compactButtonClassName}
         />
+      )}
+      {avitoUrl && (
+        <button
+          type="button"
+          className={cn(
+            'cursor-pointer',
+            withTitle ? 'group flex items-center gap-x-2 text-left' : compactButtonClassName || 'inline-flex h-6 min-w-6 items-center justify-center',
+          )}
+          title="Открыть профиль в Avito (beta)"
+          aria-label={`Открыть профиль в Avito (beta)${preferredChannel === 'avito' ? ' — приоритетный канал связи' : ''}`}
+          data-preferred-contact={preferredChannel === 'avito' ? 'true' : undefined}
+          onClick={(event) => {
+            event.stopPropagation()
+            window.open(avitoUrl, '_blank', 'noopener,noreferrer')
+          }}
+        >
+          <span className="text-xs font-bold text-[var(--ui-primary)]" aria-hidden="true">Av</span>
+          {withTitle ? <span>Avito (beta)</span> : null}
+        </button>
       )}
       {!message && user?.vk && (
         <Btn

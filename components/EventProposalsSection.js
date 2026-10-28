@@ -30,6 +30,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons/faExternalLinkAlt'
 import { faPaperPlane } from '@fortawesome/free-solid-svg-icons/faPaperPlane'
+import { faCopy } from '@fortawesome/free-regular-svg-icons/faCopy'
 import { queryKeys } from '@helpers/queryKeys'
 import ProposalPackagesEditor from '@components/ProposalPackagesEditor'
 import ProposalAppearanceEditor from '@components/ProposalAppearanceEditor'
@@ -521,6 +522,24 @@ const EventProposalsSection = ({
     }
   }
 
+  const copyProposalLink = async (proposal) => {
+    if (openInFlight.current || busy) return
+    openInFlight.current = true
+    setBusy(true)
+    try {
+      const data = await fetchProposalDetails(proposal)
+      if (!data) return
+      if (!data.publicUrl) throw new Error('missing_url')
+      await copyText(data.publicUrl)
+      snackbar.info('Ссылка скопирована')
+    } catch {
+      snackbar.error('Не удалось скопировать ссылку')
+    } finally {
+      openInFlight.current = false
+      setBusy(false)
+    }
+  }
+
   const uploadLogo = async (file) => {
     if (
       !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
@@ -608,8 +627,8 @@ const EventProposalsSection = ({
         {editing.selectedPackageId || isProposalSelectionLocked(editing) ? (
           <Notice tone="info">
             {isProposalSelectionLocked(editing)
-              ? 'Условия уже применены к заказу. Можно изменить название, оформление, медиа и сообщение.'
-              : 'При изменении условий или вариантов прежний выбор клиента будет сброшен. Клиент сможет выбрать вариант заново по той же ссылке.'}
+              ? 'Условия уже применены к заказу. Можно изменить срок действия, название, оформление, медиа и сообщение.'
+              : 'При изменении условий или вариантов прежний выбор клиента будет сброшен. Изменение только срока действия сохраняет выбор.'}
           </Notice>
         ) : null}
         {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
@@ -810,6 +829,18 @@ const EventProposalsSection = ({
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  {proposal.status === 'published' ? (
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={busy}
+                      onClick={() => copyProposalLink(proposal)}
+                    >
+                      <FontAwesomeIcon icon={faCopy} className="h-3.5 w-3.5" aria-hidden="true" />
+                      Копировать ссылку
+                    </AppButton>
+                  ) : null}
                   <AppButton
                     variant="secondary"
                     size="sm"

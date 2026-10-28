@@ -40,12 +40,12 @@ test.before(async () => {
     }
     if (id === '@fortawesome/free-solid-svg-icons') return { faTimes: {} }
     if (id === '@layouts/modals/ModalButtons') {
-      return ({ onConfirmClick, confirmPending }) =>
+      return ({ onConfirmClick, onConfirm2Click, confirmPending }) =>
         React.createElement(
           'button',
           {
             type: 'button',
-            onClick: onConfirmClick,
+            onClick: onConfirm2Click || onConfirmClick,
             disabled: confirmPending,
           },
           'Подтвердить'
@@ -118,6 +118,34 @@ test('modal runs only one async confirm action while the first is pending', asyn
     })
 
     assert.equal(button.disabled, false)
+  } finally {
+    await React.act(async () => root.unmount())
+  }
+})
+
+test('second confirmation waits for saving before closing and blocks repeated clicks', async () => {
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  let release
+  let calls = 0
+  let closes = 0
+  const pending = new Promise((resolve) => { release = resolve })
+  try {
+    await React.act(async () => root.render(React.createElement(Modal, {
+      id: 'second-confirm-test',
+      title: 'Контакт',
+      waitForConfirm: true,
+      onClose: () => { closes++ },
+      onConfirm2: async () => { calls++; await pending },
+    })))
+    const button = container.querySelector('button')
+    await React.act(async () => { button.click(); button.click() })
+    assert.equal(calls, 1)
+    assert.equal(closes, 0)
+    assert.equal(button.disabled, true)
+    assert.match(container.textContent, /Контакт/)
+    await React.act(async () => { release(); await pending })
+    assert.equal(closes, 1)
   } finally {
     await React.act(async () => root.unmount())
   }

@@ -286,11 +286,10 @@ export const PATCH = async (req, { params }) => {
       JSON.parse(JSON.stringify(draft[key] ?? null)), JSON.parse(JSON.stringify(current[key] ?? null)))
     const blocksChanged = changed('blocksSnapshot') && !isDeepStrictEqual(
       draft.blocksSnapshot, normalizeProposalBlocks(toProposalEditorBlocks(current.blocksSnapshot, current.artistSnapshot)))
-    const day = value => value ? new Date(value).toISOString().slice(0, 10) : ''
-    const conditionsChanged = changed('packages') || blocksChanged ||
-      (changed('validUntil') && day(draft.validUntil) !== day(current.validUntil))
+    // The validity window controls availability, not the client's selected terms.
+    const conditionsChanged = changed('packages') || blocksChanged
     if (conditionsChanged && isProposalSelectionLocked(current))
-      return error('Условия уже применены к заказу. Можно изменить название, оформление, медиа и сообщение.', 409, 'selection_locked')
+      return error('Условия уже применены к заказу. Можно изменить срок действия, название, оформление, медиа и сообщение.', 409, 'selection_locked')
     if (current.status === 'published') {
       const candidate = { ...current, ...draft }
       if (!candidate.packages?.length) return error('Добавьте хотя бы один вариант', 400, 'packages_required')

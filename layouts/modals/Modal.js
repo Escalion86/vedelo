@@ -213,7 +213,9 @@ const Modal = ({
   const onConfirm2Click = confirm2Handler
     ? () =>
         runConfirm(confirm2Handler, {
-          closeImmediately: typeof onConfirm2Func !== 'function',
+          closeImmediately:
+            !waitForConfirm && typeof onConfirm2Func !== 'function',
+          closeAfterSuccess: waitForConfirm,
         })
     : undefined
 

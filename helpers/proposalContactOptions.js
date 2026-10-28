@@ -1,4 +1,5 @@
 import { getMaxContactAction } from './maxContact'
+import { normalizeAvitoContactUrl } from './avitoContact.mjs'
 
 const phone = (value) => String(value || '').replace(/\D/g, '')
 const handle = (value) => encodeURIComponent(String(value || '').trim().replace(/^@/, ''))
@@ -7,6 +8,8 @@ export const getProposalContactOptions = (client, message) => {
   if (!client) return []
   const options = []
   const text = encodeURIComponent(message)
+  const avitoUrl = normalizeAvitoContactUrl(client.avitoUrl)
+  if (avitoUrl) options.push({ id: 'avito', label: 'Avito (beta)', detail: 'Открыть профиль клиента', url: avitoUrl })
   const number = phone(client.phone)
   const whatsapp = phone(client.whatsapp) || (!client.whatsappPhoneUnavailable && number)
   const telegramPhone = phone(client.telegramPhone) || (!client.telegramPhoneUnavailable && number)

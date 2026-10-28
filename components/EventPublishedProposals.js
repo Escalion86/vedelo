@@ -1,6 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useAtomValue } from 'jotai'
+import { modalsFuncAtom } from '@state/atoms'
+import dynamic from 'next/dynamic'
+import IconActionButton from '@components/IconActionButton'
+import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import ProposalStatusChip from '@components/ProposalStatusChip'
 import { getProposalStatus } from '@helpers/proposalStatus.mjs'
 import SurfaceCard from '@components/SurfaceCard'
@@ -11,6 +16,8 @@ import { apiJson } from '@helpers/apiClient'
 import { formatMoney } from '@helpers/formatMoney'
 import useSnackbar from '@helpers/useSnackbar'
 
+const EventProposalsSection = dynamic(() => import('@components/EventProposalsSection'), { ssr: false })
+
 export default function EventPublishedProposals({ eventId }) {
   const {
     data = [],
@@ -19,8 +26,33 @@ export default function EventPublishedProposals({ eventId }) {
     refetch,
   } = useEventProposalsQuery(eventId)
   const [openingId, setOpeningId] = useState(null)
+  const editingInFlight = useRef(false)
+  const modalsFunc = useAtomValue(modalsFuncAtom)
   const snackbar = useSnackbar()
   const published = data.filter((item) => item.status === 'published' || getProposalStatus(item) === 'accepted')
+
+  const edit = async (proposal) => {
+    if (editingInFlight.current || openingId) return
+    editingInFlight.current = true
+    setOpeningId(proposal._id)
+    try {
+      const body = await apiJson(`/api/proposals/${proposal._id}`, { cache: 'no-store' })
+      if (!body.data) throw new Error('missing_proposal')
+      modalsFunc.add({
+        title: 'Редактор коммерческого предложения',
+        declineButtonBgClassName: 'bg-general',
+        closeButtonName: 'Закрыть',
+        declineButtonName: 'Закрыть',
+        Children: EventProposalsSection,
+        childrenProps: { eventId, initialProposal: body.data },
+      })
+    } catch {
+      snackbar.error('Не удалось открыть предложение')
+    } finally {
+      editingInFlight.current = false
+      setOpeningId(null)
+    }
+  }
 
   const open = async (proposal) => {
     // Открываем вкладку внутри клика, чтобы браузер не блокировал её после fetch.
@@ -76,7 +108,7 @@ export default function EventPublishedProposals({ eventId }) {
                 key={proposal._id}
                 className="published-proposal-card"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 break-words">
                     <div className="font-semibold">{proposal.title}</div>
                     <div className="mt-2">
@@ -100,6 +132,17 @@ export default function EventPublishedProposals({ eventId }) {
                       </p>
                     ) : null}
                   </div>
+                  <IconActionButton
+                    icon={faPencilAlt}
+                    variant="warning"
+                    size="sm"
+                    title="Редактировать предложение"
+                    disabled={Boolean(openingId)}
+                    onClick={() => edit(proposal)}
+                    className="shrink-0"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <AppButton
                     variant="secondary"
                     size="sm"

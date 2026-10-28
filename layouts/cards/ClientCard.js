@@ -19,6 +19,7 @@ const CONTACT_CHANNEL_LABELS = {
   telegram: 'Telegram',
   whatsapp: 'WhatsApp',
   max: 'MAX',
+  avito: 'Avito (beta)',
   vk: 'VK',
   other: 'Другое',
 }
@@ -186,6 +187,7 @@ ClientCard.propTypes = {
     thirdName: PropTypes.string,
     phone: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     max: PropTypes.string,
+    avitoUrl: PropTypes.string,
     preferredContactChannel: PropTypes.string,
     preferredContactChannelOther: PropTypes.string,
     messengerPushMuted: PropTypes.bool,

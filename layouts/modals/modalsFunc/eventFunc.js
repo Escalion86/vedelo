@@ -290,6 +290,21 @@ const eventFunc = (
       ? 'active'
       : (event?.status ?? initialStatus ?? DEFAULT_EVENT.status)
     const [status, setStatus] = useState(initialStatusValue)
+    const [cancelReason, setCancelReason] = useState(
+      clone ? '' : (event?.cancelReason ?? '')
+    )
+    const normalizedCancelReason = cancelReason.trim()
+    const cancelReasons = useMemo(
+      () => Array.from(new Set(
+        (Array.isArray(siteSettings?.custom?.cancelReasons)
+          ? siteSettings.custom.cancelReasons
+          : [])
+          .filter((reason) => typeof reason === 'string')
+          .map((reason) => reason.trim())
+          .filter(Boolean)
+      )),
+      [siteSettings?.custom?.cancelReasons]
+    )
     const [persistedEventId, setPersistedEventId] = useState(event?._id ?? null)
     const isDraft = status === 'draft'
     const showColleagueTransferControls =
@@ -451,6 +466,7 @@ const eventFunc = (
         colleagueId: event?.colleagueId ?? DEFAULT_EVENT.colleagueId,
         isTransferred: initialIsTransferred,
         status: initialStatusValue,
+        cancelReason: clone ? '' : (event?.cancelReason ?? ''),
         requestCreatedAt:
           event?.requestCreatedAt ?? event?.createdAt ?? requestCreatedAt,
         additionalEvents: clone
@@ -496,6 +512,7 @@ const eventFunc = (
         initialEventValues.eventType !== eventType ||
         initialEventValues.financeComment !== financeComment ||
         initialEventValues.status !== status ||
+        initialEventValues.cancelReason !== (status === 'canceled' ? normalizedCancelReason : '') ||
         initialEventValues.requestCreatedAt !== requestCreatedAt ||
         JSON.stringify(initialEventValues.additionalEvents ?? []) !==
           JSON.stringify(additionalEvents) ||
@@ -533,6 +550,7 @@ const eventFunc = (
         requestCreatedAt,
         additionalEvents,
         hasInitialEvent,
+        normalizedCancelReason,
       ]
     )
 
@@ -641,6 +659,7 @@ const eventFunc = (
     const missingFields = useMemo(() => {
       const fields = []
       if (!clientId) fields.push('Клиент')
+      if (status === 'canceled' && !normalizedCancelReason) fields.push('Причина отмены')
       if (!isDraft && !eventDate) fields.push('Дата начала')
       if (showColleagueTransferControls && isTransferred && !colleagueId) {
         fields.push('Коллега')
@@ -653,6 +672,8 @@ const eventFunc = (
       isTransferred,
       colleagueId,
       showColleagueTransferControls,
+      status,
+      normalizedCancelReason,
     ])
     const requiredMissing = missingFields.length > 0
 
@@ -808,6 +829,7 @@ const eventFunc = (
         _id: sourceEventId ?? null,
         clientId,
         status,
+        cancelReason: status === 'canceled' ? normalizedCancelReason : '',
         requestCreatedAt: requestCreatedAt ?? new Date().toISOString(),
         additionalEvents: normalizedAdditionalEvents,
         isTransferred: effectiveIsTransferred,
@@ -872,6 +894,7 @@ const eventFunc = (
       sourceEventId,
       status,
       waitDeposit,
+      normalizedCancelReason,
     ])
 
     const currentSavePayloadKey = useMemo(
@@ -893,7 +916,11 @@ const eventFunc = (
         const { payload, isCreatingDraftRequest, hasAdditionalEvents } =
           buildEventSaveContext()
         const savePayload = statusOverride
-          ? { ...payload, status: statusOverride }
+          ? {
+              ...payload,
+              status: statusOverride,
+              cancelReason: statusOverride === 'canceled' ? payload.cancelReason : '',
+            }
           : payload
         let savedEvent
         if (options.aiPlan) {
@@ -928,6 +955,19 @@ const eventFunc = (
           await options.onSaved(savedEvent)
         }
 
+        if (
+          savedEvent?._id &&
+          savePayload.cancelReason &&
+          !cancelReasons.includes(savePayload.cancelReason)
+        ) {
+          await postData('/api/site', {
+            custom: {
+              ...(siteSettings?.custom ?? {}),
+              cancelReasons: [...cancelReasons, savePayload.cancelReason],
+            },
+          }, (data) => setSiteSettings(data), null, false, null)
+        }
+
         return {
           savedEvent,
           payload: savePayload,
@@ -937,7 +977,7 @@ const eventFunc = (
           hasAdditionalEvents,
         }
       },
-      [buildEventSaveContext, setEvent, workItemTerms.accusative, queryClient]
+      [buildEventSaveContext, setEvent, workItemTerms.accusative, queryClient, cancelReasons, siteSettings?.custom, setSiteSettings]
     )
 
     const openAdditionalEventModal = useCallback(
@@ -1102,6 +1142,11 @@ const eventFunc = (
         clearErrorsRef.current()
         let hasError = false
 
+        if (targetStatus === 'canceled' && !normalizedCancelReason) {
+          addErrorRef.current({ cancelReason: 'Укажите причину отмены' })
+          hasError = true
+        }
+
         if (!clientId) {
           addErrorRef.current({ clientId: 'Выберите клиента' })
           hasError = true
@@ -1132,6 +1177,7 @@ const eventFunc = (
         isTransferred,
         showColleagueTransferControls,
         workItemTerms.genitive,
+        normalizedCancelReason,
       ]
     )
 
@@ -1268,7 +1314,7 @@ const eventFunc = (
 
     useEffect(() => {
       setOnShowOnCloseConfirmDialog(isFormChanged)
-      setDisableConfirm(false)
+      setDisableConfirm(status === 'canceled' && !normalizedCancelReason)
       setOnConfirmFunc(
         isFormChanged || useCompactForm
           ? () => onClickConfirmRef.current()
@@ -1290,6 +1336,8 @@ const eventFunc = (
       setOnCloseButtonFunc,
       setOnDeclineFunc,
       setOnShowOnCloseConfirmDialog,
+      status,
+      normalizedCancelReason,
     ])
 
     useEffect(() => {
@@ -1708,6 +1756,18 @@ const eventFunc = (
               disabledValues={canSetClosedStatus || isClosed ? [] : ['closed']}
               disabledReasons={{ closed: closeStatusDisabledReason }}
             />
+            {status === 'canceled' ? (
+              <Input
+                label="Причина отмены"
+                value={cancelReason}
+                onChange={setCancelReason}
+                dataList={{ name: 'event-editor-cancel-reasons', list: cancelReasons }}
+                required
+                fullWidth
+                noMargin
+                error={errors.cancelReason}
+              />
+            ) : null}
             {status !== 'closed' &&
             !canSetClosedStatus &&
             (!useCompactForm || sourceEventId) ? (
