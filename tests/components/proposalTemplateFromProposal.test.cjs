@@ -10,7 +10,7 @@ const source = () => ({
   selectedPackageId: 'first', appliedAt: '2026-01-01', selectionTaskId: 'task',
   clientSnapshot: { firstName: 'Старый клиент' }, eventSnapshot: { date: '01.01.2026' },
   title: 'Готовое КП',
-  appearance: { theme: 'dark', logoUrl: 'https://cloud.escalion.ru/uploads/vedelo/aaaaaaaaaaaaaaaaaaaaaaaa/proposals/bbbbbbbbbbbbbbbbbbbbbbbb/logos/cccccccc-cccc-cccc-cccc-cccccccccccc/logo.webp' },
+  appearance: { logoAlignment: 'center', theme: 'dark', logoUrl: 'https://cloud.escalion.ru/uploads/vedelo/aaaaaaaaaaaaaaaaaaaaaaaa/proposals/bbbbbbbbbbbbbbbbbbbbbbbb/logos/cccccccc-cccc-cccc-cccc-cccccccccccc/logo.webp' },
   blocksSnapshot: [
     { id: 'header', type: 'header', enabled: true, contentHtml: '<p>Здравствуйте, {{client.firstName}}! {{event.date}}</p>' },
     { id: 'packages', type: 'packages', enabled: false, title: 'Варианты' },

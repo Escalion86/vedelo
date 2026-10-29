@@ -25,6 +25,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   normalizeInstagramInput,
   normalizeTelegramInput,
+  normalizeTelegramPhoneInput,
   normalizeVkInput,
 } from '@helpers/socialInput'
 import useErrors from '@helpers/useErrors'
@@ -138,6 +139,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
     const [telegram, setTelegram] = useState(
       client?.telegram ?? DEFAULT_CLIENT.telegram
     )
+    const [telegramPhone, setTelegramPhone] = useState(client?.telegramPhone ?? null)
     const [instagram, setInstagram] = useState(
       client?.instagram ?? DEFAULT_CLIENT.instagram
     )
@@ -255,6 +257,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         (client?.phone ?? DEFAULT_CLIENT.phone) !== phone ||
         (client?.whatsapp ?? DEFAULT_CLIENT.whatsapp) !== whatsapp ||
         (client?.telegram ?? DEFAULT_CLIENT.telegram) !== telegram ||
+        (client?.telegramPhone ?? null) !== telegramPhone ||
         (client?.instagram ?? DEFAULT_CLIENT.instagram) !== instagram ||
         (client?.vk ?? DEFAULT_CLIENT.vk) !== vk ||
         (client?.max ?? DEFAULT_CLIENT.max) !== max ||
@@ -290,6 +293,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         phone,
         whatsapp,
         telegram,
+        telegramPhone,
         instagram,
         vk,
         max,
@@ -318,6 +322,10 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         whatsapp,
       })
       let customError = false
+      if (telegramPhone && !/^7\d{10}$/.test(String(telegramPhone))) {
+        addError({ telegramPhone: 'Некорректно введён номер Telegram' })
+        customError = true
+      }
       if (!isValidAvitoContactUrl(avitoUrl)) {
         addError({ avitoUrl: 'Укажите HTTPS-ссылку на профиль клиента на avito.ru' })
         customError = true
@@ -337,6 +345,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
         Boolean(normalizePhoneValue(whatsapp)) ||
         Boolean(String(client?.email || '').trim()) ||
         Boolean(String(telegram || '').trim()) ||
+        Boolean(telegramPhone) ||
         Boolean(String(instagram || '').trim()) ||
         Boolean(String(vk || '').trim()) ||
         Boolean(String(max || '').trim()) ||
@@ -393,6 +402,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
             phone: phone ?? null,
             whatsapp: whatsapp ?? null,
             telegram: telegram.trim(),
+            telegramPhone: telegramPhone ?? null,
             instagram: instagram.trim(),
             vk: vk.trim(),
             max: normalizeMaxContactInput(max),
@@ -431,6 +441,7 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
       phone,
       whatsapp,
       telegram,
+      telegramPhone,
       instagram,
       vk,
       max,
@@ -578,15 +589,36 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
           />
           <Input
             label="Telegram"
+            help="Имя пользователя, например username. Полный номер автоматически переносится в поле «Telegram — телефон». Наличие контакта само по себе не привязывает переписку бота."
             value={telegram}
             onChange={(value) => {
               removeError('phone')
-              setTelegram(value)
+              const phoneContact = normalizeTelegramPhoneInput(value)
+              if (phoneContact) {
+                removeError('telegramPhone')
+                setTelegramPhone(Number(phoneContact))
+                setTelegram((current) => /^[+\d\s().\-‐‑‒–—]*$/u.test(current) ? '' : current)
+              } else {
+                setTelegram(value)
+              }
             }}
             className="w-full"
             smallMargin
             copyPasteButtons
             normalizePastedValue={normalizeTelegramInput}
+          />
+          <PhoneInput
+            label="Telegram — телефон"
+            value={telegramPhone}
+            onChange={(value) => {
+              removeError('phone')
+              removeError('telegramPhone')
+              setTelegramPhone(value)
+            }}
+            error={errors.telegramPhone}
+            className="w-full"
+            smallMargin
+            copyPasteButtons
           />
           <Input
             label="Instagram"

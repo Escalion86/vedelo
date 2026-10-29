@@ -3,9 +3,18 @@ import test from 'node:test'
 import { normalizeProposalAppearance, isProposalLogoUrl } from '../helpers/proposalAppearance.mjs'
 const tenant = '0123456789abcdef01234567'
 const url = `https://cloud.escalion.ru/uploads/vedelo/${tenant}/proposals/abcdef0123456789abcdef01/logos/a123-456/logo.webp`
+
+test('logo alignment accepts only known positions and defaults legacy values to left', () => {
+  for (const logoAlignment of ['left', 'center', 'right']) {
+    assert.equal(normalizeProposalAppearance({ logoAlignment }).logoAlignment, logoAlignment)
+  }
+  for (const logoAlignment of [undefined, null, '', 'justify', { right: true }]) {
+    assert.equal(normalizeProposalAppearance({ logoAlignment }).logoAlignment, 'left')
+  }
+})
 test('legacy proposals keep classic appearance and unsafe themes fall back', () => {
-  assert.deepEqual(normalizeProposalAppearance(), { theme: 'classic', logoUrl: '' })
-  assert.deepEqual(normalizeProposalAppearance({ theme: 'unknown', logoUrl: 'javascript:alert(1)' }), { theme: 'classic', logoUrl: '' })
+  assert.deepEqual(normalizeProposalAppearance(), { theme: 'classic', logoUrl: '', logoAlignment: 'left' })
+  assert.deepEqual(normalizeProposalAppearance({ theme: 'unknown', logoUrl: 'javascript:alert(1)' }), { theme: 'classic', logoUrl: '', logoAlignment: 'left' })
   for (const theme of ['classic', 'light', 'blue', 'dark']) assert.equal(normalizeProposalAppearance({ theme }).theme, theme)
 })
 test('logo references accept owned public branding and reject foreign tenants and URLs', () => {

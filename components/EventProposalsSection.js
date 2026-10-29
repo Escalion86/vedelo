@@ -828,7 +828,7 @@ const EventProposalsSection = ({
                     />
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <div className="tablet:grid-cols-3 mt-3 grid grid-cols-2 gap-2">
                   {proposal.status === 'published' ? (
                     <AppButton
                       variant="secondary"

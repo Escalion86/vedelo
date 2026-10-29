@@ -11,6 +11,7 @@ const proposalsSchema = {
   appearance: {
     theme: { type: String, enum: ['classic', 'light', 'blue', 'dark'], default: 'classic' },
     logoUrl: { type: String, default: '', maxlength: 1024 },
+    logoAlignment: { type: String, enum: ['left', 'center', 'right'], default: 'left' },
   },
   status: {
     type: String,

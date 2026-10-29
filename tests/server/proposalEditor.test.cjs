@@ -395,7 +395,7 @@ test('настоящий logo POST + sharp сохраняет альфа-кан�
 test('template appearance and Vimeo persist through create, patch, preview and new proposal; foreign logos rejected', async () => {
   const f = fixture()
   const logoUrl = `https://cloud.escalion.ru/uploads/vedelo/${tenant}/proposal-templates/${templateId}/logos/a123/logo.webp`
-  const appearance = { theme: 'blue', logoUrl }
+  const appearance = { theme: 'blue', logoUrl, logoAlignment: 'right' }
   const media = [{ id: 'vimeo', kind: 'video_link', url: 'https://vimeo.com/123456789/abc' }]
   const create = f.load('app/api/proposal-templates/route.js')
   const templates = f.load('app/api/proposal-templates/[id]/route.js')
@@ -408,8 +408,24 @@ test('template appearance and Vimeo persist through create, patch, preview and n
   assert.equal(created.body.data.mediaSnapshot[0].url, media[0].url)
   const preview = await f.load('app/api/proposal-templates/[id]/preview/route.js').POST(f.req({}), { params: { id: templateId } })
   assert.equal(preview.body.data.appearance.logoUrl, logoUrl)
+  assert.equal(preview.body.data.appearance.logoAlignment, 'right')
   await templates.PATCH(f.req({ appearance: { ...appearance, logoUrl: logoUrl.replace(tenant, foreign) } }), { params: { id: templateId } })
   assert.equal(f.template.appearance.logoUrl, '')
+})
+
+test('logo alignment survives proposal save and reload; foreign tenant cannot change it', async () => {
+  const f = fixture()
+  await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+  const route = f.load('app/api/proposals/[id]/route.js')
+  for (const logoAlignment of ['center', 'right', 'left']) {
+    const result = await route.PATCH(f.req({ appearance: { theme: 'dark', logoAlignment } }), { params: { id: proposalId } })
+    assert.equal(result.status, 200)
+    assert.equal((await route.GET(f.req({}), { params: { id: proposalId } })).body.data.appearance.logoAlignment, logoAlignment)
+  }
+  const before = JSON.stringify(f.proposal)
+  f.setTenant(foreign)
+  assert.equal((await route.PATCH(f.req({ appearance: { theme: 'dark', logoAlignment: 'right' } }), { params: { id: proposalId } })).status, 404)
+  assert.equal(JSON.stringify(f.proposal), before)
 })
 
 test('template logo upload checks tenant and tariff before reading file, supports unsaved template', async () => {

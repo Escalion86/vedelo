@@ -1,6 +1,7 @@
 'use client'
 
 import ProposalContactLinks from '@components/ProposalContactLinks'
+import { BRAND } from '@helpers/brand.mjs'
 import { proposalPhoneNumber } from '@helpers/proposalArtistContacts.mjs'
 import Image from 'next/image'
 import ProposalVideoEmbed from '@components/ProposalVideoEmbed'
@@ -70,6 +71,7 @@ export default function ProposalPageView({
               loader={proposalImageLoader}
               unoptimized
               className={styles.logo}
+              data-alignment={appearance.logoAlignment}
             />
           ) : null}
           {isSectionLayout ? (
@@ -321,13 +323,25 @@ export default function ProposalPageView({
                 </div>
               ) : null}
               <ProposalContactLinks artist={proposal.socialContacts ?? proposal.artist} />
-              <div className={`${styles.muted} mt-5 text-xs`}>
-                Предложение подготовлено в Ведело
-              </div>
             </footer>
           ) : null}
         </div>
       </article>
+      <footer className={`${styles.muted} mx-auto mt-6 max-w-3xl text-center text-xs`}>
+        <a
+          href={BRAND.primaryUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          referrerPolicy="no-referrer"
+          className={`${styles.brandLink} inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3 py-2`}
+        >
+          <Image src="/brand/vedelo-mark.svg" alt="" width={28} height={28} />
+          <span>
+            Подготовлено в <span className="font-semibold">{BRAND.name}</span>
+            <span className="ml-2 underline underline-offset-2">{BRAND.primaryHost}</span>
+          </span>
+        </a>
+      </footer>
     </main>
   )
 }

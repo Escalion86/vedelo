@@ -40,7 +40,7 @@ test('Google Tasks beta: persistence, provider lifecycle and access', { timeout:
     const Links = load('models/GoogleAdditionalLinks.js', { mongoose }).default
     await Links.init()
     const O = mongoose.Schema.Types.ObjectId
-    const Settings = mongoose.model('TasksBetaSite', new mongoose.Schema({ tenantId: O, timeZone: String }))
+    const Settings = mongoose.model('TasksBetaSite', new mongoose.Schema({ tenantId: O, timeZone: String, custom: mongoose.Schema.Types.Mixed }))
     const Users = mongoose.model('TasksBetaUsers', new mongoose.Schema({ tenantId: O, googleCalendar: mongoose.Schema.Types.Mixed }))
     const tenantId = String(new mongoose.Types.ObjectId())
     const otherTenant = String(new mongoose.Types.ObjectId())
@@ -77,7 +77,23 @@ test('Google Tasks beta: persistence, provider lifecycle and access', { timeout:
     const calendar = { events: client('event') }
     const tasks = { tasks: client('task'), tasklists: { list: async () => ({ data: { items: [{ id: 'list', title: 'Ведело' }] } }) } }
     let allowCalendarSync = true
+    const Clients = mongoose.model('TaskDescriptionClients', new mongoose.Schema({ tenantId: O }, { strict: false }))
+    const Transactions = mongoose.model('TaskDescriptionTransactions', new mongoose.Schema({ tenantId: O, eventId: O }, { strict: false }))
+    const Services = mongoose.model('TaskDescriptionServices', new mongoose.Schema({ tenantId: O }, { strict: false }))
+    const calendarSettings = load('server/googleUserCalendarClient.js', {
+      googleapis: { google: {} }, '@helpers/constants': { DEFAULT_GOOGLE_CALENDAR_REMINDERS: {} },
+    })
+    const description = load('server/googleEventDescription.js', {
+      '@models/Clients': Clients, '@models/Transactions': Transactions, '@models/Services': Services,
+      '@server/dbConnect': async () => {}, '@helpers/constants': { TRANSACTION_CATEGORIES: [] },
+      '@helpers/transactionCategory.mjs': await import('../../helpers/transactionCategory.mjs'),
+      '@helpers/workItemTerminology.mjs': await import('../../helpers/workItemTerminology.mjs'),
+      '@helpers/formatAddress': load('helpers/formatAddress.js', {}).default,
+      '@server/googleUserCalendarClient': calendarSettings,
+      '@helpers/brand.mjs': { getCanonicalBaseUrl: () => 'https://vedelo.ru' },
+    })
     const service = load('server/googleAdditionalSync.js', {
+      '@server/googleEventDescription': description,
       'node:crypto': require('node:crypto'), googleapis: { google: { tasks: () => tasks } },
       '@models/Events': Events, '@models/SiteSettings': Settings, '@models/GoogleAdditionalLinks': Links,
       '@server/dbConnect': async () => {}, '@server/getUserTariffAccess': async () => ({ allowCalendarSync }),
@@ -99,6 +115,35 @@ test('Google Tasks beta: persistence, provider lifecycle and access', { timeout:
       await change(event, { done: false, doneAt: null, date: null }); await sync(event)
       assert.equal(remote.task.get(link.remoteId).status, 'needsAction')
       assert.equal(remote.task.get(link.remoteId).due, null)
+    })
+    await t.test('task notes include configured event details, refresh existing tasks and isolate related tenants', async () => {
+      const client = await Clients.create({ tenantId, firstName: 'Анна', phone: 79991234567 })
+      const colleague = await Clients.create({ tenantId: otherTenant, firstName: 'ЧУЖОЙ', phone: 78888888888 })
+      const event = await make('task', { description: 'Уточнить детали' })
+      await Events.updateOne({ _id: event._id }, { $set: { title: 'Свадьба', eventType: 'Свадьба',
+        description: '<p>Описание заказа</p>', clientId: client._id, colleagueId: colleague._id, isTransferred: true,
+        contractSum: 15000, financeComment: 'Предоплата', eventDate: new Date('2026-11-01T10:00:00Z') } })
+      await Transactions.create({ tenantId, eventId: event._id, amount: 5000, type: 'income', comment: 'Своя оплата' })
+      await Transactions.create({ tenantId: otherTenant, eventId: event._id, amount: 9999, comment: 'ЧУЖАЯ ОПЛАТА' })
+      await sync(event)
+      const link = await linkFor(event)
+      let notes = remote.task.get(link.remoteId).notes
+      for (const text of ['Задача по мероприятию', 'Описание задачи:', 'Уточнить детали', 'Свадьба', 'Дата мероприятия:', 'Анна', '+79991234567', 'Описание заказа', 'Предоплата', 'Своя оплата']) assert.ok(notes.includes(text), text)
+      assert.doesNotMatch(notes, /ЧУЖОЙ|78888888888|ЧУЖАЯ ОПЛАТА|<p>/)
+      user.googleCalendar.syncSettings = { showClient: false, showDescription: false, showTransactions: false, showContractSum: false, showFinanceComment: false, showAdditionalEvents: false, showEventLink: false }
+      await sync(event)
+      notes = remote.task.get(link.remoteId).notes
+      assert.doesNotMatch(notes, /Анна|79991234567|Описание заказа|Своя оплата|Предоплата|15000|https:\/\/vedelo/)
+      assert.ok(notes.includes('Уточнить детали'))
+      assert.ok(notes.endsWith(`[vedelo:${link.marker}]`))
+      await Settings.updateOne({ tenantId }, { custom: { primaryEntityTerminology: 'orders' } })
+      await change(event, { description: 'Я'.repeat(12000) }); await sync(event)
+      notes = remote.task.get(link.remoteId).notes
+      assert.ok(notes.startsWith('Задача по заказу'))
+      assert.equal(notes.length, 8192)
+      assert.ok(notes.endsWith(`[vedelo:${link.marker}]`))
+      delete user.googleCalendar.syncSettings
+      await Settings.updateOne({ tenantId }, { custom: {} })
     })
     await t.test('pulls Google completion and reopening into Mongo with syncVersion', async () => {
       const event = await make(); await sync(event); const link = await linkFor(event)

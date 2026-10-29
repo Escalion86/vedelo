@@ -8,6 +8,7 @@ import IconActionButton from '@components/IconActionButton'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import {
   PROPOSAL_THEMES,
+  PROPOSAL_LOGO_ALIGNMENTS,
   normalizeProposalAppearance,
 } from '@helpers/proposalAppearance.mjs'
 
@@ -36,6 +37,15 @@ export default function ProposalAppearanceEditor({
           items={PROPOSAL_THEMES}
           disabled={busy}
           onChange={(theme) => onChange({ ...appearance, theme })}
+        />
+        <ComboBox
+          label="Расположение логотипа"
+          noMargin
+          fullWidth
+          value={appearance.logoAlignment}
+          items={PROPOSAL_LOGO_ALIGNMENTS}
+          disabled={busy}
+          onChange={(logoAlignment) => onChange({ ...appearance, logoAlignment })}
         />
         <div className="flex flex-wrap items-center gap-3">
           {appearance.logoUrl ? (

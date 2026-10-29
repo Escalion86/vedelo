@@ -1,4 +1,4 @@
-import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
+import { buildGoogleEventDescription, sanitizeToPlainText, isValidDateValue } from '@server/googleEventDescription'
 import { isGoogleTasksBeta } from '@helpers/googleTasksBeta.mjs'
 import { syncGoogleAdditionalEvents } from '@server/googleAdditionalSync'
 import formatAddress from '@helpers/formatAddress'
@@ -13,7 +13,6 @@ import dbConnect from './dbConnect'
 // import Roles from '@models/Roles'
 import mongoose from 'mongoose'
 import compareObjectsWithDif from '@helpers/compareObjectsWithDif'
-import { TRANSACTION_CATEGORIES } from '@helpers/constants'
 import { NextResponse } from 'next/server'
 import {
   getUserCalendarClient,
@@ -89,53 +88,6 @@ function isJson(str) {
 //   },
 // }
 
-const linkAReformer = (link) => {
-  const textLink = link.substring(link.indexOf('>') + 1, link.lastIndexOf('<'))
-  const text = link.substring(link.indexOf(`href="`) + 6).split('"')[0]
-  return text === textLink || textLink === 'about:blank' || !textLink
-    ? text
-    : `${textLink} (${text})`
-}
-
-const normalizePhoneDigits = (value) => {
-  if (value === null || value === undefined) return ''
-  const digits = String(value).replace(/[^\d]/g, '')
-  if (!digits) return ''
-  if (digits.length >= 11 && (digits.startsWith('7') || digits.startsWith('8')))
-    return `7${digits.slice(1, 11)}`
-  if (digits.length === 10) return `7${digits}`
-  return digits
-}
-
-const normalizeSocialHandle = (value) => {
-  if (!value) return ''
-  const trimmed = String(value).trim()
-  if (!trimmed) return ''
-  return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed
-}
-
-const buildClientContactsLines = (client) => {
-  if (!client || typeof client !== 'object') return []
-  const lines = []
-  const phoneDigits = normalizePhoneDigits(client.phone)
-  const whatsappDigits = normalizePhoneDigits(client.whatsapp)
-  const viberDigits = normalizePhoneDigits(client.viber)
-  const telegram = normalizeSocialHandle(client.telegram)
-  const instagram = normalizeSocialHandle(client.instagram)
-  const vk = normalizeSocialHandle(client.vk)
-  const email = client.email ? String(client.email).trim() : ''
-
-  if (phoneDigits) lines.push(`Телефон: +${phoneDigits}`)
-  if (whatsappDigits) lines.push(`WhatsApp: wa.me/${whatsappDigits}`)
-  if (viberDigits) lines.push(`Viber: viber://chat?number=+${viberDigits}`)
-  if (telegram) lines.push(`Telegram: t.me/${telegram}`)
-  if (instagram) lines.push(`Instagram: instagram.com/${instagram}`)
-  if (vk) lines.push(`VK: vk.com/${vk}`)
-  if (email) lines.push(`Email: ${email}`)
-
-  return lines
-}
-
 const DEFAULT_TIME_ZONE = 'Asia/Krasnoyarsk'
 
 const getSiteTimeZone = async (tenantId) => {
@@ -145,81 +97,6 @@ const getSiteTimeZone = async (tenantId) => {
     .select('timeZone')
     .lean()
   return settings?.timeZone || DEFAULT_TIME_ZONE
-}
-
-const buildNavigationLinks = (address) => {
-  if (!address || typeof address !== 'object') return []
-  const links = []
-  const town = typeof address.town === 'string' ? address.town.trim() : ''
-  const street = typeof address.street === 'string' ? address.street.trim() : ''
-  const house = typeof address.house === 'string' ? address.house.trim() : ''
-  const searchAddress = [town, street, house].filter(Boolean).join(', ')
-
-  const twoGisLink =
-    address.link2Gis ||
-    (town && street && house
-      ? `https://2gis.ru/search/${encodeURIComponent(searchAddress).replaceAll(
-          '%20',
-          ''
-        )}`
-      : '')
-  const yandexLink =
-    address.linkYandexNavigator ||
-    (town && street && house
-      ? `yandexnavi://map_search?text=${encodeURIComponent(searchAddress)}`
-      : '')
-
-  if (twoGisLink) links.push(`2ГИС: ${twoGisLink}`)
-  if (yandexLink) links.push(`Яндекс Навигатор: ${yandexLink}`)
-
-  return links
-}
-
-const isValidDateValue = (value) =>
-  value instanceof Date && !Number.isNaN(value.getTime())
-
-const sanitizeToPlainText = (value) =>
-  String(value ?? '')
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
-    .replace(/<\/?[^>]+>/g, '')
-    .replaceAll('&nbsp;', ' ')
-    .replaceAll('&amp;', '&')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&#39;', "'")
-    .trim()
-
-const formatAdditionalEventsForMainDescription = (additionalEvents = []) => {
-  if (!Array.isArray(additionalEvents) || additionalEvents.length === 0)
-    return ''
-
-  const lines = additionalEvents
-    .map((item) => {
-      if (!item || typeof item !== 'object') return ''
-      const title = typeof item.title === 'string' ? item.title.trim() : ''
-      const description =
-        typeof item.description === 'string' ? item.description.trim() : ''
-      const rawDate = item.date ? new Date(item.date) : null
-      const dateLabel = isValidDateValue(rawDate)
-        ? rawDate.toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : 'без даты'
-      const statusPrefix = item.done ? '[выполнено]' : '[в работе]'
-      const parts = [title || 'Задача']
-      if (description) parts.push(description)
-      return `- ${statusPrefix} ${dateLabel}: ${parts.join(' — ')}`
-    })
-    .filter(Boolean)
-
-  if (lines.length === 0) return ''
-  return `Задачи/События:\n${lines.join('\n')}`
 }
 
 const getCalendarContext = async (user) => {
@@ -446,178 +323,8 @@ const updateEventInCalendar = async (
   //     }
   //   }
   // )
-  const CALENDAR_RESPONSE_MARKER = '--- Google Calendar Response ---'
-  const stripCalendarResponse = (text = '') => {
-    const markerIndex = text.indexOf(`\n\n${CALENDAR_RESPONSE_MARKER}\n`)
-    if (markerIndex === -1) return text.trim()
-    return text.slice(0, markerIndex).trim()
-  }
-
-  var preparedText = syncSettings.showDescription
-    ? stripCalendarResponse(event.description ?? '')
-    : ''
-  const extraDescriptionLines = []
-  let clientName = ''
-  let clientContactLines = []
-  let colleagueName = ''
-  let colleagueContactLines = []
-  if (event?.clientId) {
-    await dbConnect()
-    const client = await Clients.findById(event.clientId)
-      .select(
-        'firstName secondName phone whatsapp viber telegram instagram vk email'
-      )
-      .lean()
-    clientName = [client?.firstName, client?.secondName]
-      .filter(Boolean)
-      .join(' ')
-    if (syncSettings.showClient && clientName) {
-      extraDescriptionLines.push(`Клиент: ${clientName}`)
-    }
-    clientContactLines = buildClientContactsLines(client)
-    if (syncSettings.showClient && clientContactLines.length) {
-      extraDescriptionLines.push(clientContactLines.join('\n'))
-    }
-  }
-  if (
-    syncSettings.showColleague &&
-    event?.isTransferred &&
-    event?.colleagueId
-  ) {
-    await dbConnect()
-    const colleague = await Clients.findById(event.colleagueId)
-      .select(
-        'firstName secondName phone whatsapp viber telegram instagram vk email'
-      )
-      .lean()
-    colleagueName = [colleague?.firstName, colleague?.secondName]
-      .filter(Boolean)
-      .join(' ')
-    colleagueContactLines = buildClientContactsLines(colleague)
-    if (colleagueName || colleagueContactLines.length) {
-      extraDescriptionLines.push(
-        `Передано: ${colleagueName || 'Контакт не указан'}`
-      )
-      if (colleagueContactLines.length) {
-        extraDescriptionLines.push(colleagueContactLines.join('\n'))
-      }
-    }
-  }
-  if (
-    syncSettings.showOtherContacts &&
-    Array.isArray(event?.otherContacts) &&
-    event.otherContacts.length
-  ) {
-    await dbConnect()
-    const contactIds = event.otherContacts
-      .map((item) => item?.clientId)
-      .filter(Boolean)
-    const contacts =
-      contactIds.length > 0
-        ? await Clients.find({ _id: { $in: contactIds } })
-            .select(
-              'firstName secondName phone whatsapp viber telegram instagram vk email'
-            )
-            .lean()
-        : []
-    const contactsMap = new Map(
-      contacts.map((item) => [String(item._id), item])
-    )
-    const otherContactsText = event.otherContacts
-      .map((item) => {
-        const contact = contactsMap.get(String(item.clientId))
-        const contactName = [contact?.firstName, contact?.secondName]
-          .filter(Boolean)
-          .join(' ')
-        const base = contactName || item?.clientId || 'Контакт'
-        const suffix = item?.comment ? ` — ${item.comment}` : ''
-        const contactLines = buildClientContactsLines(contact)
-        if (contactLines.length > 0) {
-          return `${base}${suffix}\n${contactLines
-            .map((line) => `• ${line}`)
-            .join('\n')}`
-        }
-        return `${base}${suffix}`
-      })
-      .filter(Boolean)
-      .join('\n')
-    if (otherContactsText)
-      extraDescriptionLines.push(`Прочие контакты:\n${otherContactsText}`)
-  }
-  if (extraDescriptionLines.length) {
-    preparedText = [preparedText, extraDescriptionLines.join('\n')]
-      .filter(Boolean)
-      .join('\n\n')
-  }
-
-  const financeLines = []
-  const transactionCategoryMap = new Map(
-    TRANSACTION_CATEGORIES.map((item) => [item.value, item.name])
-  )
-  if (
-    syncSettings.showContractSum &&
-    typeof event?.contractSum === 'number' &&
-    event.contractSum > 0
-  ) {
-    financeLines.push(`Договорная сумма: ${event.contractSum.toLocaleString()}`)
-  }
-  if (syncSettings.showFinanceComment && event?.financeComment) {
-    financeLines.push(`Комментарий по финансам: ${event.financeComment}`)
-  }
-  if (syncSettings.showTransactions && event?._id) {
-    await dbConnect()
-    const transactions = await Transactions.find({ eventId: event._id })
-      .select('amount type category date comment')
-      .sort({ date: -1 })
-      .lean()
-    if (transactions.length > 0) {
-      const items = transactions.map((transaction) => {
-        const dateLabel = transaction.date
-          ? new Date(transaction.date).toLocaleDateString('ru-RU')
-          : 'без даты'
-        const sign = transaction.type === 'expense' ? '-' : '+'
-        const amountLabel = Number(transaction.amount ?? 0).toLocaleString()
-        const categoryName = transaction.category
-          ? (transactionCategoryMap.get(normalizeTransactionCategory(transaction.category)) ??
-            transaction.category)
-          : ''
-        const categoryLabel = categoryName ? `, ${categoryName}` : ''
-        const commentLabel = transaction.comment
-          ? ` — ${transaction.comment}`
-          : ''
-        return `- ${dateLabel}: ${sign}${amountLabel}${categoryLabel}${commentLabel}`
-      })
-      financeLines.push('Транзакции:')
-      financeLines.push(...items)
-    }
-  }
-  if (financeLines.length) {
-    preparedText = [preparedText, financeLines.join('\n')]
-      .filter(Boolean)
-      .join('\n\n')
-  }
-
-  const additionalEventsDescription = formatAdditionalEventsForMainDescription(
-    event?.additionalEvents
-  )
-  if (syncSettings.showAdditionalEvents && additionalEventsDescription) {
-    preparedText = [preparedText, additionalEventsDescription]
-      .filter(Boolean)
-      .join('\n\n')
-  }
-
-  const navigationLinks = buildNavigationLinks(event?.address)
-  if (syncSettings.showNavigationLinks && navigationLinks.length > 0) {
-    preparedText = [preparedText, `Навигатор:\n${navigationLinks.join('\n')}`]
-      .filter(Boolean)
-      .join('\n\n')
-  }
-  const aTags = String(event.description ?? '').match(/<a[^>]*>([^<]+)<\/a>/g)
-  // const linksReformated = []
-  if (aTags?.length > 0) {
-    for (let i = 0; i < aTags.length; i++)
-      preparedText = preparedText.replaceAll(aTags[i], linkAReformer(aTags[i]))
-  }
+  const { preparedText, clientName, clientContactLines, colleagueName, colleagueContactLines } =
+    await buildGoogleEventDescription(event, syncSettings)
 
   const rawStart = event.eventDate ?? event.dateEnd ?? null
   const rawEnd =

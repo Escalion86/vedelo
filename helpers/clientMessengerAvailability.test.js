@@ -94,3 +94,22 @@ test('allows marking the current phone as unavailable without contact changes', 
     { telegramPhoneUnavailable: true }
   )
 })
+
+test('preserves an explicitly supplied Telegram phone when the main phone changes', () => {
+  const update = resetClientMessengerAvailability(
+    { phone: 79991234567, telegramPhone: 79991234567 },
+    { phone: 79997654321, telegramPhone: 79991234567 }
+  )
+  assert.equal(update.telegramPhone, 79991234567)
+})
+
+test('clearing or editing Telegram phone resets its unavailable flag', () => {
+  for (const telegramPhone of [null, 79997654321]) {
+    const update = resetClientMessengerAvailability(
+      { telegramPhone: 79991234567, telegramPhoneUnavailable: true },
+      { telegramPhone }
+    )
+    assert.equal(update.telegramPhone, telegramPhone)
+    assert.equal(update.telegramPhoneUnavailable, false)
+  }
+})

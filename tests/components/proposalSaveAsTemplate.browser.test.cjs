@@ -22,7 +22,7 @@ test('готовое КП → редактор нового шаблона → �
       {id:'closing',type:'closing',enabled:true,contentHtml:'<p>Дата: {{event.date}}</p>'},
     ],
     packages: [{id:'main',title:'Интерактив',description:'Индивидуальный вариант',lines:[{serviceId:'dddddddddddddddddddddddd',title:'Выступление',description:'Особая цена',price:5000}],total:4000,manualTotal:true,recommended:true}],
-    appearance: {theme:'blue',logoUrl:'https://cloud.escalion.ru/uploads/vedelo/aaaaaaaaaaaaaaaaaaaaaaaa/proposals/bbbbbbbbbbbbbbbbbbbbbbbb/logos/cccccccc-cccc-cccc-cccc-cccccccccccc/logo.webp'},
+    appearance: { logoAlignment: 'center',theme:'blue',logoUrl:'https://cloud.escalion.ru/uploads/vedelo/aaaaaaaaaaaaaaaaaaaaaaaa/proposals/bbbbbbbbbbbbbbbbbbbbbbbb/logos/cccccccc-cccc-cccc-cccc-cccccccccccc/logo.webp'},
     mediaSnapshot:[{id:'image',kind:'image',url:'https://cloud.escalion.ru/test-photo.jpg',title:'Программа'}],
     messageText:'{{client.firstName}}, предложение: {{proposal.url}}',
     clientSnapshot:{firstName:'Старый клиент'},eventSnapshot:{date:'25.10.2026'},artistSnapshot:{firstName:'Иван'},

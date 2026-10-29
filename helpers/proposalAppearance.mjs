@@ -8,6 +8,12 @@ export const PROPOSAL_THEMES = [
 export const isProposalTheme = (value) =>
   PROPOSAL_THEMES.some((item) => item.value === value)
 
+export const PROPOSAL_LOGO_ALIGNMENTS = [
+  { value: 'left', name: 'Слева' },
+  { value: 'center', name: 'По центру' },
+  { value: 'right', name: 'Справа' },
+]
+
 export const isProposalLogoUrl = (value, tenantId) => {
   if (typeof value !== 'string' || value.length > 1024) return false
   try {
@@ -32,4 +38,7 @@ export const isProposalLogoUrl = (value, tenantId) => {
 export const normalizeProposalAppearance = (value, tenantId) => ({
   theme: isProposalTheme(value?.theme) ? value.theme : 'classic',
   logoUrl: isProposalLogoUrl(value?.logoUrl, tenantId) ? value.logoUrl : '',
+  logoAlignment: PROPOSAL_LOGO_ALIGNMENTS.some((item) => item.value === value?.logoAlignment)
+    ? value.logoAlignment
+    : 'left',
 })

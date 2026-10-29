@@ -23,7 +23,8 @@ export const resetClientMessengerAvailability = (
       normalizeTelegram(existingClient?.telegram)
 
   if (phoneChanged) {
-    update.telegramPhone = null
+    // An explicitly supplied Telegram phone is an independent contact.
+    if (!hasOwn(update, 'telegramPhone')) update.telegramPhone = null
     update.maxPhoneUnavailable = false
     if (
       String(existingClient?.max ?? '').startsWith('+') &&
@@ -34,7 +35,10 @@ export const resetClientMessengerAvailability = (
       update.max = ''
     }
   }
-  if (phoneChanged || telegramChanged) {
+  const telegramPhoneChanged =
+    hasOwn(update, 'telegramPhone') &&
+    normalizePhone(update.telegramPhone) !== normalizePhone(existingClient?.telegramPhone)
+  if (phoneChanged || telegramChanged || telegramPhoneChanged) {
     update.telegramPhoneUnavailable = false
   }
 

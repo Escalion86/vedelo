@@ -219,18 +219,8 @@ const PhoneInput = ({
             <ClipboardActionButton
               action="copy"
               onClick={() => {
-                if (!value) return
-                const raw = String(value).replace(/[^\d]/g, '')
-                const digits = raw.startsWith('7') ? raw.slice(1, 11) : raw
-                if (!digits) return
-                const formatted =
-                  digits.length >= 10
-                    ? `+7(${digits.slice(0, 3)}) ${digits.slice(
-                        3,
-                        6
-                      )}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`
-                    : `+7${digits}`
-                copyToClipboard(formatted)
+                if (!normalizedDigits) return
+                copyToClipboard(`+${normalizedDigits}`)
               }}
               title="Скопировать номер"
             />

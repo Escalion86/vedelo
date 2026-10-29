@@ -1,3 +1,4 @@
+import { buildGoogleTaskContext, buildGoogleTaskNotes } from '@server/googleEventDescription'
 import crypto from 'node:crypto'
 import { google } from 'googleapis'
 import Events from '@models/Events'
@@ -31,7 +32,7 @@ export const listGoogleTaskLists = async (user) => {
 // A persisted marker lets a retry find a task after a lost insert response.
 // If the outcome is still unknown we stop, rather than silently insert a duplicate.
 export const reconcileAdditionalLink = async ({ link, item, event, timeZone, calendarId,
-  taskListId, calendar, tasks, save, applyDone, reminders, restore = false }) => {
+  taskListId, calendar, tasks, save, applyDone, reminders, taskContext, restore = false }) => {
   const mode = item ? normalizeGoogleTaskMode(item.googleSyncMode) : 'none'
   const wanted = mode === 'task' || (mode === 'event' && item?.date && !item.done)
   const target = link.remoteId && link.kind === mode ? link.containerId : mode === 'task' ? taskListId : calendarId
@@ -113,7 +114,7 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
     if (!await applyDone(done, remote.completed)) throw new Error('local_conflict')
     item = { ...item, done, doneAt: done ? remote.completed || new Date() : null }
   }
-  const notes = `${String(item.description || '').slice(0, 6500)}\n\n${getCanonicalBaseUrl()}/cabinet/eventsUpcoming?openEvent=${event._id}\n[vedelo:${link.marker}]`
+  const notes = mode === 'task' && taskContext ? buildGoogleTaskNotes(item, taskContext, link.marker) : `${String(item.description || '').slice(0, 6500)}\n\n${getCanonicalBaseUrl()}/cabinet/eventsUpcoming?openEvent=${event._id}\n[vedelo:${link.marker}]`
   const body = mode === 'task' ? {
     title: (item.title || 'Задача').slice(0, 1024), notes: notes.slice(0, 8192),
     due: googleTaskDue(item.date, timeZone), status: item.done ? 'completed' : 'needsAction',
@@ -161,7 +162,7 @@ export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, pre
   await dbConnect()
   const filter = { tenantId, ...(eventId ? { _id: eventId } : {}) }
   const events = await Events.find(filter).select('additionalEvents googleCalendarCalendarId importedFromFile fileImportChecked importedFromCalendar calendarImportChecked syncVersion').lean()
-  const settings = await SiteSettings.findOne({ tenantId }).select('timeZone').lean()
+  const settings = await SiteSettings.findOne({ tenantId }).select('timeZone custom').lean()
   const timeZone = settings?.timeZone || 'Asia/Krasnoyarsk'
   const calendar = getUserCalendarClient(user)
   const tasks = hasGoogleTasksScope(user) ? getGoogleTasksClient(user) : null
@@ -200,12 +201,13 @@ export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, pre
     }
     try {
       // Re-read after acquiring the lease. Never mutate from a stale listing.
-      const event = await Events.findOne({ _id: link.eventId, tenantId }).select('additionalEvents googleCalendarCalendarId importedFromFile fileImportChecked importedFromCalendar calendarImportChecked').lean()
+      const event = await Events.findOne({ _id: link.eventId, tenantId }).lean()
       if (event && ((event.importedFromFile && !event.fileImportChecked) || (event.importedFromCalendar && !event.calendarImportChecked))) continue
       const item = event?.additionalEvents?.find((entry) => String(entry._id) === String(link.taskId))
       if ((link.kind === 'task' || item?.googleSyncMode === 'task') && !tasks) throw new Error('tasks_permission_required')
       await reconcileAdditionalLink({ link, item, event: event || eventMap.get(String(link.eventId)) || { _id: link.eventId },
         timeZone, calendarId: event?.googleCalendarCalendarId || user.googleCalendar.calendarId || 'primary',
+        taskContext: item?.googleSyncMode === 'task' ? await buildGoogleTaskContext(event, user, settings) : undefined,
         reminders: normalizeCalendarReminders(user.googleCalendar.reminders),
         taskListId: user.googleCalendar.tasksBeta.taskListId, calendar, tasks, save,
         restore: String(restoreId || '') === String(link._id),

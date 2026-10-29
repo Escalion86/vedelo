@@ -28,8 +28,17 @@ const extractHandle = (rawValue, domains = []) => {
   return value.trim()
 }
 
+export const normalizeTelegramPhoneInput = (value) => {
+  const text = String(value ?? '').trim()
+  if (!/^\+?[\d\s().\-‐‑‒–—]+$/u.test(text)) return ''
+  const digits = text.replace(/\D/g, '')
+  if (/^[78]\d{10}$/.test(digits)) return `+7${digits.slice(1)}`
+  if (/^[3489]\d{9}$/.test(digits)) return `+7${digits}`
+  return ''
+}
+
 export const normalizeTelegramInput = (value) =>
-  extractHandle(value, ['t.me', 'telegram.me'])
+  normalizeTelegramPhoneInput(value) || extractHandle(value, ['t.me', 'telegram.me'])
 
 export const normalizeInstagramInput = (value) =>
   extractHandle(value, ['instagram.com'])

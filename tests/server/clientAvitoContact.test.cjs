@@ -8,9 +8,9 @@ const url = 'https://www.avito.ru/user/b05f7c5ce6ff0dd28f25e72b6564c023/profile?
 const load = (file, mocks) => {
   const { code } = transformSync(fs.readFileSync(file, 'utf8'), { filename: file,
     jsc: { parser: { syntax: 'ecmascript', jsx: true } }, module: { type: 'commonjs' } })
-  const module = { exports: {} }
-  new Function('require', 'module', 'exports', code)((id) => id in mocks ? mocks[id] : require(id), module, module.exports)
-  return module.exports
+  const loaded = { exports: {} }
+  new Function('require', 'module', 'exports', code)((id) => id in mocks ? mocks[id] : require(id), loaded, loaded.exports)
+  return loaded.exports
 }
 test.before(async () => loadBindings())
 
@@ -54,7 +54,7 @@ test('client POST/PUT: create, update, clear, validation and tenant isolation', 
     '@server/getUserTariffAccess': async () => ({}),
     '@server/activityHistory': { recordActivityHistory: async () => {} },
     '@server/tenantSafeUpdate': { buildTenantSafeUpdate: (value) => { const { tenantId, _id, ...rest } = value; return rest } },
-    '@helpers/clientMessengerAvailability': { resetClientMessengerAvailability: (_, value) => ({ ...value }) },
+    '@helpers/clientMessengerAvailability': load('helpers/clientMessengerAvailability.js', {}),
     '@helpers/entityDocuments': { normalizeEntityDocuments: () => [], entityHasDocuments: () => false, getDocumentStorageKeys: () => [] },
     '@server/mobile/sync': { withSyncVersionIncrement: (value) => value, recordSyncTombstone: async () => {} },
     '@server/clientCreation': { createClientOnce: async (value) => { writes.push(value); return { data: { ...value.body, tenantId: value.tenantId, _id: 'new' }, created: true } } },
@@ -70,6 +70,9 @@ test('client POST/PUT: create, update, clear, validation and tenant isolation', 
   assert.equal(writes.at(-1).update.preferredContactChannel, 'avito')
   assert.equal((await put({ avitoUrl: '' })).status, 200)
   assert.equal(writes.at(-1).update.avitoUrl, '')
+  assert.equal((await put({ phone: 79997654321, telegramPhone: 79991234567 })).status, 200)
+  assert.equal(writes.at(-1).update.telegramPhone, 79991234567)
+  assert.deepEqual(writes.at(-1).filter, { _id: 'client', tenantId: 'own' })
   writes = []
   for (const value of ['https://evil.test', { url }]) {
     assert.equal((await put({ avitoUrl: value })).status, 400)
@@ -78,6 +81,7 @@ test('client POST/PUT: create, update, clear, validation and tenant isolation', 
   assert.equal((await put({ avitoUrl: url }, 'foreign')).status, 404)
   context = { tenantId: 'foreign', user: { _id: 'foreign' } }
   assert.equal((await put({ avitoUrl: url })).status, 404)
+  assert.equal((await put({ telegramPhone: 79991234567 })).status, 404)
   context = {}
   assert.equal((await put({ avitoUrl: url })).status, 401)
   assert.equal((await postRoute.POST(request({ avitoUrl: url }))).status, 401)

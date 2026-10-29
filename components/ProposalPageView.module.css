@@ -75,6 +75,16 @@
 .page .muted {
   color: var(--proposal-muted);
 }
+.page .brandLink {
+  color: var(--proposal-muted);
+}
+.page .brandLink:hover {
+  color: var(--proposal-accent);
+}
+.page .brandLink:focus-visible {
+  outline: 2px solid var(--proposal-accent);
+  outline-offset: 3px;
+}
 .page .border {
   border-color: var(--proposal-border);
 }
@@ -112,6 +122,7 @@
   border-color: var(--proposal-border);
 }
 .page .logo {
+  display: block;
   height: 80px;
   width: auto;
   max-width: 100%;
@@ -124,6 +135,13 @@
 .page :global(.proposal-rich-text-content) blockquote {
   color: inherit;
   border-color: var(--proposal-accent);
+}
+.page .logo[data-alignment='center'] {
+  margin-inline: auto;
+}
+.page .logo[data-alignment='right'] {
+  margin-left: auto;
+  margin-right: 0;
 }
 .page :global(.proposal-rich-text-content) a {
   color: var(--proposal-accent);
