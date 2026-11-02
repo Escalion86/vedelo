@@ -110,6 +110,7 @@ export default function EventsScreen() {
   return (
     <Screen scroll={false} contentStyle={styles.screen}>
       <ListHeader title={`${scope === 'past' ? 'Прошедшие' : 'Предстоящие'} ${terminology.plural}`} count={events.length} user={user} />
+      <Button title="Помощник ИИ" variant="secondary" onPress={() => router.push('/events/assistant' as never)} />
       <View style={styles.toolbar}>
         <EventFilters scope={scope} value={currentFilters} towns={towns} onChange={(value) => setFilters((current) => ({ ...current, [scope]: value }))} />
         <Pressable testID={`events-view-${viewMode === 'list' ? 'calendar' : 'list'}`} accessibilityRole="button"

@@ -16,6 +16,47 @@ const tenant = 'a'.repeat(24),
 
 test.before(() => loadBindings())
 
+test('template draft uses the common PWA converter without a write and enforces tenant/tariff', async () => {
+  const f = fixture()
+  await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+  const route = f.load('app/api/proposals/[id]/route.js')
+  const request = () => ({ ...f.req({}), nextUrl: { origin: 'https://example.test', searchParams: new URLSearchParams('view=template-draft') } })
+  const before = JSON.stringify(f.proposal)
+  const response = await route.GET(request(), { params: { id: proposalId } })
+  assert.equal(response.status, 200)
+  assert.ok(response.body.data.blocks.some(block => block.type === 'header'))
+  assert.equal(response.body.data.status, 'active')
+  for (const key of ['_id', 'eventId', 'tenantId', 'clientSnapshot', 'publicTokenHash', 'selectedPackageId', 'appliedAt'])
+    assert.equal(response.body.data[key], undefined)
+  assert.equal(JSON.stringify(f.proposal), before)
+  assert.equal(f.template, undefined)
+  assert.ok(f.filters.some(([model, filter]) => model === 'Events' && filter.tenantId === tenant))
+  f.setTenant(foreign)
+  assert.equal((await route.GET(request(), { params: { id: proposalId } })).status, 404)
+  f.setTenant(tenant)
+  f.setAllowed(false)
+  assert.equal((await route.GET(request(), { params: { id: proposalId } })).status, 403)
+  f.setTenant(null)
+  assert.equal((await route.GET(request(), { params: { id: proposalId } })).status, 401)
+})
+test('partial legacy template PATCH returns the same materialized defaults as GET without replacing stored defaults', async () => {
+  const f = fixture()
+  await f.load('app/api/proposal-templates/route.js').POST(f.req({ name: 'Legacy' }))
+  f.template.defaults = { servicesIds: [], legacyMetadata: 'keep' }
+  const stored = JSON.stringify(f.template.defaults)
+  const route = f.load('app/api/proposal-templates/[id]/route.js')
+  const options = { params: { id: templateId } }
+  const saved = await route.PATCH(f.req({ name: 'Renamed' }), options)
+  assert.equal(saved.status, 200)
+  assert.ok(saved.body.data.defaults.packages.length)
+  const fresh = await route.GET(f.req({}), options)
+  assert.deepEqual(saved.body.data.defaults, fresh.body.data.defaults)
+  assert.equal(JSON.stringify(f.template.defaults), stored)
+  f.setTenant(foreign)
+  assert.equal((await route.PATCH(f.req({ name: 'Forbidden' }), options)).status, 404)
+  assert.equal(f.template.name, 'Renamed')
+})
+
 function fixture() {
   let currentTenant = tenant,
     allowed = true,
@@ -597,6 +638,48 @@ test('изменение срока сохраняет выбор, дату вы
   f.setTenant(foreign)
   assert.equal((await route.PATCH(f.req({ validUntil: '2032-01-01' }), { params: { id: proposalId } })).status, 404)
   assert.equal(JSON.stringify(f.proposal), saved)
+})
+
+test('принятое КП сохраняет условия и контакты без изменения выбора; варианты и чужой tenant защищены', async () => {
+  for (const markers of [
+    { appliedAt: new Date(), appliedPackageId: 'main' },
+    { applyOperation: { id: 'operation', state: 'pending', packageId: 'main' } },
+    { applyOperation: { id: 'operation', state: 'confirmed', packageId: 'main' } },
+  ]) {
+    const f = fixture()
+    await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+    Object.assign(f.proposal, {
+      status: 'published', blocksSnapshot: [], messageText: '',
+      packages: normalizeProposalPackages([{ id: 'main', title: 'Программа', total: 1000, manualTotal: true, lines: [] }]),
+      selectedPackageId: 'main', selectedAt: new Date(), selectionTaskCreatedAt: new Date(),
+      ...markers,
+    })
+    const route = f.load('app/api/proposals/[id]/route.js')
+    const preserved = () => JSON.stringify({
+      packages: f.proposal.packages, selectedPackageId: f.proposal.selectedPackageId,
+      selectedAt: f.proposal.selectedAt, task: f.proposal.selectionTaskCreatedAt,
+      appliedAt: f.proposal.appliedAt, appliedPackageId: f.proposal.appliedPackageId,
+      operation: f.proposal.applyOperation,
+    })
+    const before = preserved()
+    const blocks = [{ id: 'terms', type: 'terms', enabled: true, contentHtml: '<p>Новые условия и контакты: +7 900 123 45 67</p>' }]
+    const result = await route.PATCH(f.req({ blocks, packages: f.proposal.packages, contentRevision: 0 }), { params: { id: proposalId } })
+    assert.equal(result.status, 200, JSON.stringify(result.body))
+    assert.equal(preserved(), before)
+    assert.match(JSON.stringify(result.body.data.blocksSnapshot), /Новые условия и контакты/)
+    assert.equal(f.proposal.contentRevision, 1)
+    assert.equal((await route.PATCH(f.req({ blocks: [], contentRevision: 0 }), { params: { id: proposalId } })).status, 409)
+    for (const packages of [[], [{ ...f.proposal.packages[0], total: 2000 }], [{ ...f.proposal.packages[0], title: 'Другая программа' }]]) {
+      const rejected = await route.PATCH(f.req({ packages }), { params: { id: proposalId } })
+      assert.equal(rejected.status, 409)
+      assert.equal(rejected.body.error.code, 'selection_locked')
+      assert.equal(preserved(), before)
+    }
+    const saved = JSON.stringify(f.proposal)
+    f.setTenant(foreign)
+    assert.equal((await route.PATCH(f.req({ blocks: [] }), { params: { id: proposalId } })).status, 404)
+    assert.equal(JSON.stringify(f.proposal), saved)
+  }
 })
 
 test('карандаш обновляет опубликованное КП на месте, ссылка/ID/статус сохраняются; устаревшие редакторы и выбор отклоняются', async () => {

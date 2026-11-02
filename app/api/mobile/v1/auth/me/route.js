@@ -9,7 +9,12 @@ export const GET = async (req) => {
   const context = await getRequestContext(req)
   if (!context.user?._id) return mobileError('UNAUTHORIZED', 'Не авторизован', 401)
   await dbConnect()
-  const user = await Users.findById(context.user._id)
+  const user = await Users.findOne({
+    _id: context.user._id,
+    // Legacy owner accounts predate tenantId; they can only read their own ID.
+    tenantId: String(context.tenantId) === String(context.user._id) ? { $in: [context.tenantId, null] } : context.tenantId,
+    archive: { $ne: true },
+  })
   if (!user) return mobileError('USER_NOT_FOUND', 'Пользователь не найден', 404)
   return mobileSuccess(await serializeMobileUserWithTariff(user))
 }

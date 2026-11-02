@@ -23,6 +23,7 @@ import {
 } from '../../src/shared/ui/components'
 import type { Palette } from '../../src/shared/ui/theme'
 import { ArtistRequisitesSection } from '../../src/features/profile/ArtistRequisitesSection'
+import { YandexLinkSection } from '../../src/features/profile/YandexLinkSection'
 
 type DeviceSession = {
   _id: string
@@ -334,6 +335,9 @@ function UserProfileScreen() {
         <Button title="Сохранить" onPress={save} loading={loading} />
       </Surface>
       <ArtistRequisitesSection />
+      <YandexLinkSection linked={user?.yandexLinked === true} disabled={loading} onLinked={async () => {
+        if (!(await readProfile(capture()))) throw new Error('Обновите профиль, чтобы проверить подключение Яндекс ID')
+      }} />
       <Surface>
         <SectionTitle>{hasPassword === false ? 'Установка пароля' : 'Смена пароля'}</SectionTitle>
         {passwordStatusLoading ? <Notice message="Проверяем состояние пароля…" /> : passwordStatusError ? <>

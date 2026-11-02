@@ -19,6 +19,67 @@ export const callbackUrl = () => new URL(process.env.YANDEX_ID_REDIRECT_URI)
 export const appUrl = (path) => new URL(path, callbackUrl().origin)
 export const enabled = async () => (await getSocialAuthSettings()).allowYandexAuth
 
+const mobileRedirects = new Set(['vedelo', 'artistcrm', 'vedelo-dev', 'artistcrm-dev']
+  .flatMap(scheme => [`${scheme}://auth/yandex`, `${scheme}://auth/yandex-link`]))
+export const mobileFlowFields = (params) => {
+  const mobileRedirect = params.get('mobileRedirect')
+  if (!mobileRedirect && !params.has('mobileChallenge') && !params.has('mobileState')) return {}
+  const mobileChallenge = params.get('mobileChallenge'), mobileState = params.get('mobileState')
+  if (!mobileRedirects.has(mobileRedirect) || !/^[\w-]{43}$/.test(mobileChallenge || '') || !/^[\w-]{43}$/.test(mobileState || ''))
+    throw new Error('INVALID_MOBILE_FLOW')
+  return { mobileRedirect, mobileChallenge, mobileState }
+}
+export const mobileFlowUrl = (flow, fields) => {
+  if (!mobileRedirects.has(flow?.mobileRedirect)) return null
+  const url = new URL(flow.mobileRedirect)
+  url.search = new URLSearchParams({ ...fields, state: flow.mobileState }).toString()
+  return url
+}
+export const readMobileFlow = (code, verifier, consume = false) => {
+  if (typeof code !== 'string' || !/^[\w-]{43}$/.test(code) || typeof verifier !== 'string' || !/^[\w-]{43,128}$/.test(verifier)) return null
+  // Bind the one-time return code to this installation's in-memory proof. A custom
+  // scheme handler intercepting the redirect cannot redeem it without the verifier.
+  const filter = {
+    hash: hashToken(code), kind: 'mobile', expiresAt: { $gt: new Date() },
+    mobileChallenge: createHash('sha256').update(verifier).digest('base64url'),
+  }
+  return consume ? YandexAuthFlows.findOneAndDelete(filter) : YandexAuthFlows.findOne(filter)
+}
+
+const authError = (message, status = 409) => Object.assign(new Error(message), { status })
+const phoneError = 'Номер телефона Яндекса не совпадает с номером аккаунта. Войдите с тем же номером или исправьте номер в Яндекс ID.'
+export const resolveYandexAccount = async (flow) => {
+  if (!validPhone(flow.phone)) throw authError('Не получен телефон Яндекса. Начните вход заново.')
+  const user = await accountByPhone(flow.phone)
+  const owner = await Users.findOne({ yandexId: flow.yandexId })
+  if (user?.archive || (owner && (!user || String(owner._id) !== String(user._id)))) throw authError(phoneError)
+  return user
+}
+export const completeYandexAccount = async ({ flow, action, context, consume }) => {
+  const account = await resolveYandexAccount(flow)
+  let user = account
+  if (action === 'link') {
+    if (!context?.user?._id || !context.tenantId || context.user.impersonation?.active)
+      throw authError('Сначала войдите в свой аккаунт или зарегистрируйтесь', 401)
+    user = await Users.findOne({ _id: context.user._id, tenantId: context.tenantId, archive: { $ne: true } })
+    if (!user?.phone) throw authError('У аккаунта должен быть номер телефона', 403)
+    if (normalizePhone(user.phone) !== flow.phone || String(account?._id) !== String(user._id)) throw authError(phoneError)
+  } else if (action !== 'login') throw authError('Некорректное действие', 400)
+  if (!user) throw authError('Зарегистрируйтесь с номером из Яндекс ID')
+  if (user.yandexId && user.yandexId !== flow.yandexId) throw authError('К аккаунту уже подключён другой Яндекс ID')
+  if (!(await consume())) throw authError('Запрос уже использован')
+  // Shared by PWA and Android. Ignore client-supplied phone, owner and tenant.
+  try {
+    await Users.init()
+    user = await Users.findOneAndUpdate({
+      _id: user._id, tenantId: user.tenantId || null, archive: { $ne: true }, phone: user.phone,
+      $or: [{ yandexId: { $exists: false } }, { yandexId: flow.yandexId }],
+    }, { $set: { yandexId: flow.yandexId, tenantId: user.tenantId || user._id } }, { returnDocument: 'after' })
+  } catch { throw authError('Не удалось подключить Яндекс. Начните заново; существующие привязки сохранены.') }
+  if (!user) throw authError('Привязка изменилась. Начните заново.')
+  return user
+}
+
 export const createFlow = async (kind, fields = {}) => {
   const secret = randomToken()
   await YandexAuthFlows.create({

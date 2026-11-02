@@ -1,0 +1,22 @@
+{
+  "data": "fictional",
+  "sources": [
+    {
+      "file": "layouts/cards/EventCard.js",
+      "sha256": "73ce9ea3c272caa202b6089a7395c074661a8b996abd36ffea79f88bd79454bb"
+    },
+    {
+      "file": "layouts/modals/modalsFunc/AdditionalEventCard.js",
+      "sha256": "bc2d8a749c3217562fa788c1e4df0d8267522e8d8746aa44f170d39a72917e75"
+    },
+    {
+      "file": "app/globals.css",
+      "sha256": "f0e42d4b59ad6b1064b356f1059c9ad0b96e83d013f3f0a35276b7e15f24135a"
+    }
+  ],
+  "captured": [
+    "order",
+    "task",
+    "paid"
+  ]
+}

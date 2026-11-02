@@ -1,10 +1,11 @@
 import React from 'react'
-import { Linking, StyleSheet } from 'react-native'
+import { Alert, Linking, StyleSheet } from 'react-native'
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
 import LoginScreen from '../../../app/(auth)/login'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import { api } from '../../shared/api/client'
+import { beginYandex, inspectYandex, loginYandex, linkYandex } from '../../shared/auth/yandex'
 
 let mockParams: { mode?: string; ref?: string } = {}
 let mockVkResult: unknown = null
@@ -13,11 +14,12 @@ const mockPrompt = jest.fn(), mockCompleteSignIn = jest.fn(), mockReplace = jest
 const mockCapture = jest.fn()
 jest.mock('expo-router', () => ({ router: { replace: (path: string) => mockReplace(path) }, useLocalSearchParams: () => mockParams }))
 jest.mock('expo-web-browser', () => ({ maybeCompleteAuthSession: jest.fn() }))
+jest.mock('../../shared/auth/yandex', () => ({ beginYandex: jest.fn(), inspectYandex: jest.fn(), loginYandex: jest.fn(), linkYandex: jest.fn(), isYandexProofCurrent: () => true }))
 jest.mock('expo-auth-session', () => ({
   makeRedirectUri: () => 'vedelo://auth/vk', ResponseType: { Code: 'code' },
   useAuthRequest: () => [mockVkRequest, mockVkResult, mockPrompt],
 }))
-jest.mock('../../shared/api/client', () => ({ api: { post: jest.fn() } }))
+jest.mock('../../shared/api/client', () => ({ api: { post: jest.fn(), get: jest.fn() } }))
 jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ completeSignIn: mockCompleteSignIn }) }))
 jest.mock('../../shared/auth/registrationReferral', () => ({
   normalizeRegistrationReferrer: (value: unknown) => typeof value === 'string' ? value : null,
@@ -42,6 +44,7 @@ const consents = (screen: ReturnType<typeof render>) => consentNames.forEach(nam
 beforeEach(() => {
   jest.clearAllMocks(); mockParams = {}; mockVkResult = null; mockVkRequest = { codeVerifier: 'mock-verifier' }
   mockCapture.mockResolvedValue(undefined)
+  ;(api.get as jest.Mock).mockResolvedValue({ data: { allowVkAuth: true, appId: 'mock-app' } })
   ;(api.post as jest.Mock).mockImplementation(async (path: string) => ({ success: true, data: path.endsWith('/start') ? { id: 7, auth_phone: '78000000000' } : path.endsWith('/check') ? { confirmed: true } : session }))
 })
 describe.each(['light', 'dark'] as const)('%s: оформление авторизации', (theme) => {
@@ -75,7 +78,7 @@ describe.each(['light', 'dark'] as const)('%s: оформление автори
     mockParams = { mode: 'register', ref: 'mock-referrer' }; mockCapture.mockResolvedValue('mock-referrer')
     const screen = setup(theme); consents(screen); fill(screen, true)
     fireEvent.press(screen.getByTestId('submit-auth')); await screen.findByText('Подтверждение звонком')
-    expect(api.post).toHaveBeenCalledWith('/phone/verify/start', { phone: '79990000000', flow: 'register' }, options)
+    expect(api.post).toHaveBeenCalledWith('/phone/verify/start', { phone: '79990000000', flow: 'register', method: 'preferred' }, options)
     ;(api.post as jest.Mock).mockResolvedValueOnce({ success: true, data: { confirmed: false } })
     fireEvent.press(screen.getByText('Я позвонил — проверить'))
     await screen.findByText(/Звонок ещё не подтверждён/); expect(mockCompleteSignIn).not.toHaveBeenCalled()
@@ -104,13 +107,13 @@ describe.each(['light', 'dark'] as const)('%s: оформление автори
     const screen = setup(theme); fill(screen); fireEvent.press(screen.getByTestId('submit-auth'))
     expect(screen.getByTestId('auth-phone').props.editable).toBe(false)
     expect(screen.getByRole('tab', { name: 'Регистрация' }).props.accessibilityState.disabled).toBe(true)
-    expect(screen.getByTestId('submit-vk-auth').props.accessibilityState.disabled).toBe(true)
+    expect((await screen.findByTestId('submit-vk-auth')).props.accessibilityState.disabled).toBe(true)
     fireEvent.press(screen.getByTestId('submit-auth')); expect(api.post).toHaveBeenCalledTimes(1)
     await act(async () => resolve({ success: true, data: session }))
   })
   it('VK: согласия, PKCE callback и прежние параметры', async () => {
     mockParams = { mode: 'register', ref: 'mock-referrer' }; mockCapture.mockResolvedValue('mock-referrer')
-    const screen = setup(theme); fireEvent.press(screen.getByTestId('submit-vk-auth'))
+    const screen = setup(theme); fireEvent.press(await screen.findByTestId('submit-vk-auth'))
     await screen.findByText('Для регистрации через VK ID примите юридические согласия'); expect(mockPrompt).not.toHaveBeenCalled()
     consents(screen); fireEvent.press(screen.getByTestId('submit-vk-auth')); expect(mockPrompt).toHaveBeenCalledTimes(1)
     mockVkResult = { type: 'success', params: { code: 'mock-code', device_id: 'mock-device', state: 'mock-state' } }
@@ -155,8 +158,82 @@ describe.each(['light', 'dark'] as const)('%s: оформление автори
     expect(api.post).not.toHaveBeenCalled()
   })
 })
-it('VK без request заблокирован; отмена OAuth не отправляет запрос', () => {
+it('VK без request заблокирован; отмена OAuth не отправляет запрос', async () => {
   mockVkRequest = null; mockVkResult = { type: 'cancel' }
-  const screen = setup('dark'); expect(screen.getByTestId('submit-vk-auth').props.accessibilityState.disabled).toBe(true)
+  const screen = setup('dark'); expect((await screen.findByTestId('submit-vk-auth')).props.accessibilityState.disabled).toBe(true)
   expect(api.post).not.toHaveBeenCalled()
+})
+it('preferred SMS response opens the code form without requesting a second message', async () => {
+  mockParams = { mode: 'register' }
+  ;(api.post as jest.Mock).mockResolvedValueOnce({ success: true, data: { method: 'sms', smsSent: true } })
+  const screen = setup('light'); consents(screen); fill(screen, true)
+  fireEvent.press(screen.getByTestId('submit-auth'))
+  await screen.findByText('Код из SMS')
+  expect(screen.queryByText('Я позвонил — проверить')).toBeNull()
+  expect(api.post).toHaveBeenCalledTimes(1)
+  expect(api.post).toHaveBeenCalledWith('/phone/verify/start', expect.objectContaining({ method: 'preferred' }), options)
+})
+it('server-disabled VK stays hidden even when the APK contains an application ID', async () => {
+  ;(api.get as jest.Mock).mockResolvedValueOnce({ data: { allowVkAuth: false, appId: '' } })
+  const screen = setup('light')
+  await act(async () => undefined)
+  expect(screen.queryByTestId('submit-vk-auth')).toBeNull()
+  expect(mockPrompt).not.toHaveBeenCalled()
+})
+
+describe('Яндекс ID', () => {
+  const proof = { code: 'c'.repeat(43), verifier: 'v'.repeat(64), epoch: 0 }
+  beforeEach(() => {
+    ;(api.get as jest.Mock).mockResolvedValue({ data: { allowVkAuth: false, allowYandexAuth: true } })
+    ;(beginYandex as jest.Mock).mockResolvedValue(proof)
+    ;(inspectYandex as jest.Mock).mockResolvedValue({ accountExists: true, phone: '79990000000', referrerId: '' })
+    ;(loginYandex as jest.Mock).mockResolvedValue(session)
+    ;(linkYandex as jest.Mock).mockResolvedValue({ linked: true })
+  })
+  it.each(['light', 'dark'] as const)('%s: вход, защита двойного нажатия, отсутствие парольного запроса', async (theme) => {
+    const screen = setup(theme)
+    const button = await screen.findByTestId('submit-yandex-auth')
+    fireEvent.press(button); fireEvent.press(button)
+    await waitFor(() => expect(mockCompleteSignIn).toHaveBeenCalledWith(session))
+    expect(beginYandex).toHaveBeenCalledTimes(1)
+    expect(api.post).not.toHaveBeenCalled()
+  })
+  it('новый номер проходит обычную регистрацию с явными согласиями и подтверждением телефона', async () => {
+    ;(inspectYandex as jest.Mock).mockResolvedValue({ accountExists: false, phone: '79990000000', referrerId: 'saved-ref' })
+    const screen = setup('dark')
+    fireEvent.press(await screen.findByTestId('submit-yandex-auth'))
+    await screen.findByText(/С этим номером ещё нет аккаунта/)
+    expect(screen.getByTestId('auth-phone').props.value).toContain('999')
+    expect(mockCapture).toHaveBeenCalledWith('saved-ref')
+    fill(screen, true); fireEvent.press(screen.getByTestId('submit-auth'))
+    await screen.findByText('Для регистрации примите юридические согласия')
+    expect(linkYandex).not.toHaveBeenCalled()
+    consents(screen); fireEvent.press(screen.getByTestId('submit-auth'))
+    fireEvent.press(await screen.findByText('Я позвонил — проверить'))
+    await waitFor(() => expect(linkYandex).toHaveBeenCalledWith(proof, session.accessToken))
+    expect(mockCompleteSignIn).toHaveBeenCalledWith(expect.objectContaining({ user: expect.objectContaining({ yandexLinked: true }) }))
+    expect(api.post).toHaveBeenCalledWith('/mobile/v1/auth/register', expect.objectContaining({ consentTerms: true, consentPrivacyPolicy: true, consentPersonalData: true }), options)
+  })
+  it('неудача привязки после регистрации сохраняет созданный аккаунт и предлагает повторить в профиле', async () => {
+    ;(inspectYandex as jest.Mock).mockResolvedValue({ accountExists: false, phone: '79990000000', referrerId: '' })
+    ;(linkYandex as jest.Mock).mockRejectedValue(new Error('expired'))
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined)
+    const screen = setup('light'); fireEvent.press(await screen.findByTestId('submit-yandex-auth'))
+    await screen.findByText(/С этим номером ещё нет аккаунта/)
+    consents(screen); fill(screen, true); fireEvent.press(screen.getByTestId('submit-auth'))
+    fireEvent.press(await screen.findByText('Я позвонил — проверить'))
+    await waitFor(() => expect(mockCompleteSignIn).toHaveBeenCalled())
+    expect(alert).toHaveBeenCalledWith('Аккаунт создан', expect.stringContaining('профиле'))
+    alert.mockRestore()
+  })
+  it('отмена OAuth и выключенный провайдер не запускают вход', async () => {
+    ;(beginYandex as jest.Mock).mockResolvedValue(null)
+    const screen = setup('light'); fireEvent.press(await screen.findByTestId('submit-yandex-auth'))
+    await waitFor(() => expect(beginYandex).toHaveBeenCalled())
+    expect(inspectYandex).not.toHaveBeenCalled(); expect(mockCompleteSignIn).not.toHaveBeenCalled()
+    screen.unmount()
+    ;(api.get as jest.Mock).mockResolvedValue({ data: { allowYandexAuth: false } })
+    const disabled = setup('dark'); await act(async () => undefined)
+    expect(disabled.queryByTestId('submit-yandex-auth')).toBeNull()
+  })
 })

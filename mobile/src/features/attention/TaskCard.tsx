@@ -107,7 +107,7 @@ export function TaskCard({ item, segment, busy, onAction }: {
           <CompactAction title="Удалить" variant="danger" disabled={busy} onPress={remove} />
         </View>
       </QuickActionsSheet>
-    </> : <CompactAction title="Открыть оплату" onPress={openEvent} />}
+    </> : <View style={styles.actions}><CompactAction title="Задаток получен" onPress={() => router.push(`/events/deposit/${event._id}` as never)} /><CompactAction title="Открыть оплату" onPress={openEvent} /></View>}
   </View>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({

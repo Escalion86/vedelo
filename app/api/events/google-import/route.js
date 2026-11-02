@@ -47,7 +47,8 @@ import {
   getUserImportCalendarId,
   normalizeImportCalendarSettings,
 } from '@server/googleUserCalendarClient'
-import getRequestContext from '@server/getRequestContext'
+import { getGoogleImportContext } from '@server/googleImportContext'
+import { withGoogleImportOperation } from '@server/googleImportOperation'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 
 export const runtime = 'nodejs'
@@ -66,7 +67,7 @@ const AI_EVENT_FIELDS = new Set([
 ])
 
 const getImportAccess = async (req) => {
-  const { tenantId, user } = await getRequestContext(req)
+  const { tenantId, user } = await getGoogleImportContext(req)
   if (!tenantId || !user?._id) {
     return { error: 'Не авторизован', status: 401 }
   }
@@ -163,17 +164,21 @@ const analyzeCalendarItem = async ({
   aiSettings,
   timeZone,
   groupId,
+  operationId,
+  skipAi = false,
 }) => {
   const sourceText = getGoogleImportSourceText(item)
   const validServiceIds = services.map((service) => String(service._id))
   let parsed = null
   let providerUnavailable = false
 
-  if (String(item?.description ?? '').trim()) {
+  if (!skipAi && String(item?.description ?? '').trim()) {
     const completion = await requestAiChatCompletion({
       settings: aiSettings,
       feature: 'calendar_import',
       groupId,
+      operationId,
+      timeoutMs: 45_000,
       messages: [
         {
           role: 'system',
@@ -205,7 +210,9 @@ const analyzeCalendarItem = async ({
   if (servicesIds.length > 0) fields.servicesIds = servicesIds
 
   const warnings = normalizeWarnings(parsed?.warnings)
-  if (providerUnavailable) {
+  if (skipAi) {
+    warnings.push('Предыдущий ответ ИИ не сохранён. Повторный платный разбор не запускался. Проверьте поля вручную.')
+  } else if (providerUnavailable) {
     warnings.push('ИИ-провайдер недоступен: импортированы только данные Google Calendar.')
   } else if (item?.description && !parsed) {
     warnings.push('ИИ не смог разобрать описание. Проверьте мероприятие вручную.')
@@ -224,6 +231,8 @@ const resolveClient = async ({
   fields,
   parsed,
   warnings,
+  clientId,
+  assertCurrent,
 }) => {
   const contacts = keepAiContactsPresentInText(
     mergeAiClientContacts(extractAiClientContacts(sourceText), parsed ?? {}),
@@ -249,13 +258,14 @@ const resolveClient = async ({
   }
 
   if (!client && !nameResolution.ambiguous && hasAiClientContacts(contacts)) {
-    client = await Clients.create({
+    await assertCurrent()
+    client = await Clients.findOneAndUpdate({ _id: clientId, tenantId }, { $setOnInsert: {
       ...buildAiClientPayload({
         clientName: getVerifiedClientName(fields.clientName, sourceText),
         contacts,
       }),
       tenantId,
-    })
+    } }, { upsert: true, returnDocument: 'after', runValidators: true })
     clients.push(client.toObject())
     await recordActivityHistory({
       req,
@@ -388,6 +398,9 @@ export const POST = async (req) => {
       )
     }
     const body = await req.json().catch(() => ({}))
+    if (body.calendarId !== undefined && body.calendarId !== context.calendarId) {
+      return NextResponse.json({ success: false, error: 'Календарь для импорта изменился. Обновите список.' }, { status: 409 })
+    }
     const range = normalizeGoogleImportRange(body.timeMin, body.timeMax)
     const eventIds = Array.from(
       new Set(
@@ -422,9 +435,8 @@ export const POST = async (req) => {
     const selected = (calendarResult.items ?? []).filter((item) =>
       selectedIds.has(String(item?.id ?? ''))
     )
-    const [clients, services, aiSettings, siteSettings, existingEvents] =
+    const [services, aiSettings, siteSettings] =
       await Promise.all([
-        Clients.find({ tenantId: context.tenantId }).lean(),
         Services.find({ tenantId: context.tenantId })
           .select('_id title description price')
           .lean(),
@@ -432,83 +444,81 @@ export const POST = async (req) => {
         SiteSettings.findOne({ tenantId: context.tenantId })
           .select('timeZone custom.defaultEventDurationMinutes')
           .lean(),
-        Events.find({
-          tenantId: context.tenantId,
-          googleCalendarCalendarId: context.calendarId,
-          googleCalendarId: { $in: eventIds },
-        })
-          .select('googleCalendarId')
-          .lean(),
       ])
-    const existingIds = new Set(
-      existingEvents.map((item) => item.googleCalendarId)
-    )
     const timeZone = siteSettings?.timeZone || 'Asia/Krasnoyarsk'
     const defaultDurationMinutes = Number(
       siteSettings?.custom?.defaultEventDurationMinutes || 60
     )
-    let createdThisMonth = 0
     const accessLimit =
       Number.isFinite(context.access?.eventsPerMonth) &&
       context.access.eventsPerMonth > 0
         ? context.access.eventsPerMonth
         : null
-    if (accessLimit) {
-      const now = new Date()
-      createdThisMonth = await Events.countDocuments({
-        tenantId: context.tenantId,
-        createdAt: {
-          $gte: new Date(now.getFullYear(), now.getMonth(), 1),
-          $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
-        },
-      })
-    }
 
     const results = []
     const createdEvents = []
     for (const item of selected) {
-      if (existingIds.has(item.id)) {
-        results.push({ id: item.id, title: item.summary, status: 'duplicate' })
-        continue
-      }
       if (isGoogleImportCanceled(item)) {
         results.push({ id: item.id, title: item.summary, status: 'canceled' })
         continue
       }
-      if (accessLimit && createdThisMonth >= accessLimit) {
-        results.push({ id: item.id, title: item.summary, status: 'limit' })
-        continue
-      }
 
       try {
-        const analysis = await analyzeCalendarItem({
+        await withGoogleImportOperation({ tenantId: context.tenantId, calendarId: context.calendarId, sourceId: item.id }, async operation => {
+        // Reload after the tenant lease: another device may have finished while
+        // Google was returning the candidate list.
+        const existing = await Events.findOne({ tenantId: context.tenantId, googleCalendarCalendarId: context.calendarId, googleCalendarId: item.id }).select('_id').lean()
+        if (existing || operation.row.completed) {
+          if (existing && !operation.row.completed) await operation.save({ completed: true, eventId: existing._id, analysis: null })
+          results.push({ id: item.id, title: item.summary, status: 'duplicate' })
+          return
+        }
+        const freshClients = await Clients.find({ tenantId: context.tenantId }).lean()
+        const dates = getGoogleImportDates(item, { timeZone, defaultDurationMinutes })
+        if (!dates.eventDate) { results.push({ id: item.id, title: item.summary, status: 'invalid_date' }); return }
+        if (accessLimit) {
+          const now = new Date()
+          const count = await Events.countDocuments({ tenantId: context.tenantId, createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), 1), $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } })
+          if (count >= accessLimit) { results.push({ id: item.id, title: item.summary, status: 'limit' }); return }
+        }
+        let analysis = operation.row.analysis
+        if (!analysis) {
+        await operation.save({ analysisStarted: true })
+        try { analysis = await analyzeCalendarItem({
           item,
           services,
-          clients,
+          clients: freshClients,
           aiSettings,
           timeZone,
           groupId,
-        })
+          operationId: operation.analysisOperationId,
+          skipAi: operation.row.analysisStarted,
+        }) } catch (error) {
+          // A definite balance refusal happened before the provider request.
+          // Other uncertain failures must never automatically charge again.
+          if (isAiBalanceError(error)) await operation.save({ analysisStarted: false, analysisAttempt: (operation.row.analysisAttempt || 0) + 1 })
+          throw error
+        }
+        await operation.save({ analysis })
+        }
+        const liveContext = await getImportAccess(req)
+        if (liveContext.error || String(liveContext.tenantId) !== String(context.tenantId) || String(liveContext.user?._id) !== String(context.user._id) || liveContext.calendarId !== context.calendarId) {
+          throw new Error('IMPORT_ACCESS_CHANGED')
+        }
         const warnings = [...analysis.warnings]
         const client = await resolveClient({
           tenantId: context.tenantId,
           req,
           context,
           batchId: groupId,
-          clients,
+          clients: freshClients,
           sourceText: analysis.sourceText,
           fields: analysis.fields,
           parsed: analysis.parsed,
           warnings,
+          clientId: operation.clientId,
+          assertCurrent: operation.assertCurrent,
         })
-        const dates = getGoogleImportDates(item, {
-          timeZone,
-          defaultDurationMinutes,
-        })
-        if (!dates.eventDate) {
-          results.push({ id: item.id, title: item.summary, status: 'invalid_date' })
-          continue
-        }
         if (dates.allDay) {
           warnings.push(
             'Событие было на весь день: установлено 12:00. Проверьте время.'
@@ -531,7 +541,8 @@ export const POST = async (req) => {
         const aiFields = Object.keys(analysis.fields).filter((field) =>
           AI_EVENT_FIELDS.has(field)
         )
-        const event = await Events.create({
+        await operation.assertCurrent()
+        const event = await Events.findOneAndUpdate({ _id: operation.eventId, tenantId: context.tenantId }, { $setOnInsert: {
           tenantId: context.tenantId,
           clientId: client?._id ?? null,
           servicesIds: analysis.fields.servicesIds ?? [],
@@ -559,9 +570,8 @@ export const POST = async (req) => {
           calendarImportWarnings: Array.from(new Set(warnings)).slice(0, 5),
           calendarImportBatchId: groupId,
           calendarSyncError: '',
-        })
-        createdThisMonth += 1
-        existingIds.add(item.id)
+        } }, { upsert: true, returnDocument: 'after', runValidators: true })
+        await operation.save({ completed: true, eventId: event._id, analysis: null })
         createdEvents.push(event.toJSON())
         results.push({
           id: item.id,
@@ -569,6 +579,7 @@ export const POST = async (req) => {
           title: item.summary,
           status: 'created',
           warnings: event.calendarImportWarnings,
+        })
         })
       } catch (error) {
         if (isAiBalanceError(error)) {
@@ -584,7 +595,7 @@ export const POST = async (req) => {
           id: item.id,
           title: item.summary,
           status: 'error',
-          error: error?.message || 'Ошибка импорта',
+          error: error?.code === 'GOOGLE_IMPORT_BUSY' ? error.message : 'Импорт не завершён. Повторное подтверждение продолжит сохранённый результат без повторного платного разбора.',
         })
       }
     }

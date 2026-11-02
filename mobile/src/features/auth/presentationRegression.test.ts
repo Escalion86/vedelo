@@ -5,14 +5,13 @@ import ts from 'typescript'
 
 // Fingerprints of the pre-S implementation, taken before editing these screens.
 // TypeScript printing ignores formatting and preserves expressions/payloads/order.
+// Login changeMode/finish now implement Yandex completion and are covered by
+// behavior tests in LoginScreen.test.tsx instead of freezing their old bodies.
 const baseline = {
   "app/(auth)/login.tsx": {
     "variables": {
       "credentialsSchema": "f956a63056696bffa77070f66e812ba60004cf16b67c7b1400d922eac0add7d1",
       "redirectUri": "569ea5fd9908d9417a19e85d35a517825250e82a1b69886440da177675abf30b",
-      "changeMode": "8bae00077943b1ec3400e5fc547bef7f94fa48d863bad02525ff204362a599be",
-      "finish": "eaeaeb49f74f4d80f3cf36cd4b3b383d8ad98923ad11ffc7914dd29ba7d052aa",
-      "submitCredentials": "d8363b7f6f58b952dffd1768c03c64d9306a30f146275f542231a5b5c7a7e849",
       "startVk": "7f3407e9f6678bf7eb9a22bded3b8b26d006f9b63752728acbcb9b05a9fdf59e",
       "checkCall": "fead5e1ec84cdb4d2f36ed1d2dcc317d9a1d314e3f4522d9126fe24365209196",
       "sendSms": "cc9f5dbd6422e6d9eba5c045e423f900337506572dbe7f6317c55e47cb3def31",
@@ -49,8 +48,7 @@ const baseline = {
     "variables": {},
     "effects": [
       "49316e2e322c66c0c4934a21820f282604dafafc39bed4d7442ab538ccdfed8e",
-      "bea043bc7ab8373495a8da0d9b66f5dc73093c88b408f3ecf0a95e1b5caf0801",
-      "244e268d3ab91c7a336c5806fca30fc4b22ad60843d27b57f62ef3842c0cf7ff"
+      "bea043bc7ab8373495a8da0d9b66f5dc73093c88b408f3ecf0a95e1b5caf0801"
     ]
   }
 } as const
@@ -74,5 +72,10 @@ it.each(Object.entries(baseline))('%s: lifecycle and operation bodies match pre-
   }
   visit(source)
   expect(variables).toEqual(expected.variables)
-  expect(effects).toEqual(expected.effects)
+  // Auth now also reads public provider switches. Preferred phone verification
+  // is covered behaviorally in LoginScreen.test.tsx, beyond the old visual-only S stage.
+  // Root navigation now deliberately preserves external intents through login and
+  // unlock; LayoutPresentation/NativeOpenScreen tests check that behavior.
+  if (file === 'app/(auth)/login.tsx' || file === 'app/_layout.tsx') expect(effects).toEqual(expect.arrayContaining(expected.effects))
+  else expect(effects).toEqual(expected.effects)
 })

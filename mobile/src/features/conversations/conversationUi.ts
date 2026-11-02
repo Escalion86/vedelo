@@ -1,9 +1,11 @@
 import type { Conversation, ConversationMessage, ConversationProvider } from '../../shared/domain/types'
 import { optionalDate, optionalText, record, serverId, successfulData } from '../calls/communication'
 
-export const conversationProvider = (value: unknown): value is ConversationProvider => value === 'avito' || value === 'vk'
+export const conversationProvider = (value: unknown): value is ConversationProvider => value === 'avito' || value === 'vk' || value === 'telegram'
+export const conversationProviders = ['avito', 'vk', 'telegram'] as const
+export const providerLabels: Record<ConversationProvider, string> = { avito: 'Avito', vk: 'VK', telegram: 'Telegram' }
 // Both current delegated POST handlers trim and slice to 4000 characters.
-export const messageLimit: Record<ConversationProvider, number> = { avito: 4000, vk: 4000 }
+export const messageLimit: Record<ConversationProvider, number> = { avito: 4000, vk: 4000, telegram: 4000 }
 export const conversationStatus = (value?: Conversation['status']) => value === 'closed' ? 'Закрыт' : value === 'ignored' ? 'Игнорируется' : 'В работе'
 export const checkedConversation = (value: unknown, provider: ConversationProvider, id?: string): Conversation => {
   if (!conversationProvider(provider) || !record(value) || !serverId(value._id) || id !== undefined && value._id !== id
@@ -13,6 +15,7 @@ export const checkedConversation = (value: unknown, provider: ConversationProvid
     || [value.clientId, value.eventId].some((link) => link != null && !serverId(link))
     || ['clientName', 'avitoItemTitle', 'lastMessageText'].some((key) => !optionalText(value[key]))
     || !optionalDate(value.lastMessageAt)) throw new Error('invalid_conversation')
+  if (provider === 'telegram' && typeof value.canReply !== 'boolean') throw new Error('invalid_reply_window')
   return { ...value, provider } as Conversation
 }
 export const checkedMessage = (value: unknown): ConversationMessage => {

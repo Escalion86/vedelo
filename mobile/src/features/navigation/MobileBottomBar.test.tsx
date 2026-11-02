@@ -120,7 +120,7 @@ it.each(['draft', 'active', 'voice', 'text'] as const)('центральное �
   fireEvent.press(screen.getByTestId('bottom-slot-create'))
   expect(screen.getByText('Создать заказ')).toBeTruthy()
   fireEvent.press(screen.getByText(titles[choice]))
-  expect(mockPush).toHaveBeenCalledWith({ pathname: '/events/edit/new', params: {
+  expect(mockPush).toHaveBeenCalledWith({ pathname: ['voice', 'text'].includes(choice) ? '/events/assistant' : '/events/edit/new', params: {
     initialStatus: choice === 'active' ? 'active' : 'draft', mode: ['voice', 'text'].includes(choice) ? choice : 'manual',
   } })
   expect(screen.queryByText('Свободным текстом')).toBeNull()

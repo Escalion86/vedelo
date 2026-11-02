@@ -35,8 +35,21 @@ it.each(['light', 'dark'] as const)('Y: detail %s, текст/поле/напр�
   expect(mockPost).toHaveBeenCalledWith(`/mobile/v1/conversations/avito/${id}/messages`, { text: 'Старый ответ' }, { skipRefresh: true })
   expect(mockGet).toHaveBeenCalledTimes(2); expect(mockPatch).not.toHaveBeenCalled()
 })
-it.each(['telegram', 'VK', '', 'vk/../avito'])('Y: invalid provider %p не вызывает API', async (provider) => {
+it.each(['email', 'VK', '', 'vk/../avito'])('Y: invalid provider %p не вызывает API', async (provider) => {
   mockParams = { provider, id }; const screen = render(draw()); await screen.findByText('Некорректный канал или ID диалога.'); expect(mockGet).not.toHaveBeenCalled(); expect(screen.queryByLabelText('Ответ клиенту')).toBeNull()
+})
+it('Telegram uses the common message flow and prevents sending after the reply window closes', async () => {
+  mockParams = { provider: 'telegram', id }; mockConversation.canReply = false
+  const screen = render(draw()); await screen.findByText(incoming.text)
+  expect(screen.getByText(/Окно ответа Telegram истекло/)).toBeTruthy()
+  fireEvent.changeText(screen.getByLabelText('Ответ клиенту'), 'Ответ')
+  fireEvent.press(screen.getByText('Отправить')); expect(mockPost).not.toHaveBeenCalled()
+  mockConversation.canReply = true
+  fireEvent.press(screen.getByText('Обновить переписку'))
+  await waitFor(() => expect(screen.queryByText(/Окно ответа Telegram истекло/)).toBeNull())
+  fireEvent.press(screen.getByText('Отправить'))
+  await screen.findByText('Отправлено. Доставка клиенту не подтверждена.')
+  expect(mockPost).toHaveBeenCalledWith(`/mobile/v1/conversations/telegram/${id}/messages`, { text: 'Ответ' }, { skipRefresh: true })
 })
 it('Y: initial loading/нет messages не empty, wrong ID ответа и retry', async () => {
   let finish!: (value: any) => void; mockGet.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))

@@ -24,7 +24,7 @@ export const GET = async (req) => {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
   const limit = parsePositiveInt(searchParams.get('limit'), 80)
-  const query = { tenantId }
+  const query = { tenantId, provider: { $ne: 'android' } }
 
   if (status && status !== 'all') query.status = normalizeCallStatus(status)
 

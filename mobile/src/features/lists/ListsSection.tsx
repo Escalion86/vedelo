@@ -1,4 +1,5 @@
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { DetectTownButton } from '../../shared/native/DetectTownButton'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { resolveMobileWorkItemTerminology } from '../../shared/domain/workItemTerminology'
 import { Button, CompactField, Notice, SectionTitle, Surface } from '../../shared/ui/components'
@@ -67,6 +68,7 @@ export const ListsSection = () => {
         </Pressable>{removeButton(town, true)}
       </View>)}
       <CompactField label="Новый город" value={townDraft} onChangeText={(value) => editor.change((current) => ({ ...current, townDraft: value }))} editable={!disabled} maxLength={100} />
+      <DetectTownButton value={`${defaultTown}|${townDraft}`} disabled={disabled} onConfirm={town => editor.change(current => ({ ...current, towns: normalizeList([...current.towns, town]), defaultTown: town, townDraft: '' }))} />
       <Button title="Добавить город" variant="secondary" onPress={() => add(true)} disabled={disabled || !townDraft.trim()} />
     </Surface>
     <Surface>

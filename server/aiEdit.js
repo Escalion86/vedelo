@@ -151,6 +151,26 @@ function planDto(plan) {
   }
 }
 
+// Recovery is read-only: a lost progress acknowledgement must not make the UI
+// offer a new plan or charge the provider again. Receipts are authoritative.
+export async function getAiEditPlan({ planId, tenantId, userId }) {
+  requireId(planId)
+  const plan = await AiEditPlans.findOne({ _id: planId, tenantId, userId }).lean()
+  if (!plan || !await Events.exists({ _id: plan.eventId, tenantId }))
+    throw editError('План или связанная запись не найдены', 404)
+  const completed = new Set(plan.completed)
+  for (let index = 0; index < plan.steps.length; index++) {
+    const step = plan.steps[index]
+    if (await models[step.entity].exists({ _id: step.id, tenantId, aiEditReceipts: `${planId}:${index}` }))
+      completed.add(index)
+  }
+  return {
+    ...planDto({ ...plan, completed: [...completed].sort((a, b) => a - b) }),
+    done: plan.steps.every((_, index) => completed.has(index)),
+    expired: completed.size === 0 && new Date(plan.expiresAt).getTime() < Date.now(),
+  }
+}
+
 export async function applyAiEdit({ planId, context, req, access }) {
   requireId(planId)
   const { tenantId, user } = context

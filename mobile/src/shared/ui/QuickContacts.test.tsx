@@ -45,7 +45,8 @@ it('MAX копирует нормализованный номер, открыв
   expect(Linking.openURL).toHaveBeenCalledWith('max://max.ru/')
   const buttons = jest.mocked(Alert.alert).mock.calls.at(-1)?.[2]
   await act(async () => buttons?.find((button) => button.text === 'Да')?.onPress?.())
-  expect(confirmPhoneContact).toHaveBeenCalledWith(client, 'max', '+79991234567', true)
+  await act(async () => jest.mocked(Alert.alert).mock.calls.at(-1)?.[2]?.find(button => button.text === 'Сохранить и назначить основным')?.onPress?.())
+  expect(confirmPhoneContact).toHaveBeenCalledWith(client, 'max', '+79991234567', true, true)
 })
 it('ссылка MAX открывается без копирования и подтверждения', async () => {
   const screen = render(<QuickContacts client={{ ...client, max: 'https://max.ru/u/anna' }} maxVisible={8} />)
@@ -110,7 +111,7 @@ it('отказ контакта сохраняется один раз и инв
   const buttons = jest.mocked(Alert.alert).mock.calls.at(-1)?.[2]
   await act(async () => { const no = buttons?.find(button => button.text === 'Нет')?.onPress; no?.(); no?.() })
   expect(confirmPhoneContact).toHaveBeenCalledTimes(1)
-  expect(confirmPhoneContact).toHaveBeenCalledWith(client, 'whatsapp', client.phone, false)
+  expect(confirmPhoneContact).toHaveBeenCalledWith(client, 'whatsapp', client.phone, false, false)
   expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['cached-entities', 'clients'] })
   await act(async () => fireEvent.press(screen.getByLabelText('Telegram — попробовать по телефону'), { stopPropagation: jest.fn() }))
   expect(jest.mocked(Alert.alert).mock.calls.at(-1)?.[2]?.find(button => button.text === 'Не знаю')?.style).toBe('cancel')

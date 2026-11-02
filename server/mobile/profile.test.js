@@ -35,6 +35,7 @@ test('mobile profile serializer возвращает контакты без pas
     whatsapp: 79000000001,
     telegram: 'artist',
     password: 'hash',
+    yandexId: 'provider-identity',
     googleCalendar: { refreshToken: 'oauth-secret' },
     registrationOffer: {
       tariffId: 'tariff-id',
@@ -51,6 +52,8 @@ test('mobile profile serializer возвращает контакты без pas
   })
   assert.equal(result.whatsapp, '79000000001')
   assert.equal(result.telegram, 'artist')
+  assert.equal(result.yandexLinked, true)
+  assert.equal('yandexId' in result, false)
   assert.equal(result.tariffId, 'tariff-id')
   assert.equal(result.tariffTitle, 'Профи')
   assert.equal(result.registrationOffer.tariffTitle, 'Профи')

@@ -16,6 +16,7 @@ import {
 } from '@helpers/proposalAccess'
 import { buildProposalSnapshot } from '@server/proposals'
 import { normalizeProposalTemplateDefaults } from '@helpers/proposalContent'
+import { prepareResourceCreation, withCreationErrors } from '@server/idempotentResourceCreation'
 
 const error = (message, status = 400, code = 'bad_request') =>
   NextResponse.json({ success: false, error: { code, message } }, { status })
@@ -51,11 +52,14 @@ export const GET = async (req, { params }) => {
   return NextResponse.json({ success: true, data: items })
 }
 
-export const POST = async (req, { params }) => {
+export const POST = withCreationErrors(async (req, { params, creationIntent }) => {
   const { id } = await params
   const resolved = await contextFor(req, id)
   if (resolved.response) return resolved.response
   const body = await req.json().catch(() => ({}))
+  const creation = await prepareResourceCreation({ model: Proposals, kind: 'proposal', context: resolved.context, scope: { eventId: id }, body })
+  if (creationIntent === 'cancel') return NextResponse.json({ success: true, data: await creation.cancel() })
+  if (creation.existing) return NextResponse.json({ success: true, data: creation.existing })
   const sourceProposalId = String(body?.sourceProposalId || '')
   if (sourceProposalId && !mongoose.Types.ObjectId.isValid(sourceProposalId)) return error('Некорректный ID исходного предложения', 400, 'bad_source_id')
   if (sourceProposalId) {
@@ -83,7 +87,7 @@ export const POST = async (req, { params }) => {
     }
     const invalid = applyProposalDraftChanges(draft, body, resolved.context.tenantId)
     if (invalid) return error(invalid.message, invalid.status, invalid.code)
-    const item = await Proposals.create(draft)
+    const item = await creation.create(draft)
     return NextResponse.json({ success: true, data: item }, { status: 201 })
   }
   const templateId = String(body?.templateId || '')
@@ -122,7 +126,7 @@ export const POST = async (req, { params }) => {
     ? new Date(body.validUntil)
     : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   if (Number.isNaN(validUntil.getTime())) return error('Некорректный срок действия', 400, 'bad_valid_until')
-  const item = await Proposals.create({
+  const item = await creation.create({
     tenantId: resolved.context.tenantId,
     eventId: id,
     clientId: resolved.event.clientId || null,
@@ -140,4 +144,4 @@ export const POST = async (req, { params }) => {
     artistSnapshot: snapshot.artistSnapshot,
   })
   return NextResponse.json({ success: true, data: item }, { status: 201 })
-}
+})

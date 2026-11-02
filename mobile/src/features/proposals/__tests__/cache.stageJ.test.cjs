@@ -77,6 +77,8 @@ const host = (name) => (props) =>
   React.createElement(name, props, props.children)
 const ui = new Proxy({}, { get: (_, name) => host(name) })
 Module._load = function (id, parent, main) {
+  // Native-only projection is absent in this Node host; identity/ledger/cache remain real.
+  if (id === 'expo-modules-core') return { requireOptionalNativeModule: () => null }
   if (id === '@tanstack/react-query') return queryExports
   if (id === 'expo-sqlite') return { openDatabaseAsync: async () => sqlite }
   if (id === 'expo-file-system')

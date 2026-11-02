@@ -1,0 +1,4 @@
+qa/
+composition/.hyperframes/
+composition/snapshots/
+composition/assets/*.html

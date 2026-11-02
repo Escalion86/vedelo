@@ -2,11 +2,25 @@ import { NextResponse } from 'next/server'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import dbConnect from '@server/dbConnect'
-import { applyAiEdit, prepareAiEdit, searchAiEditEvents } from '@server/aiEdit'
+import { applyAiEdit, getAiEditPlan, prepareAiEdit, searchAiEditEvents } from '@server/aiEdit'
 import { getAiBalanceErrorMessage, isAiBalanceError } from '@server/aiBilling'
 import { resolveAiEventIntent } from '@server/aiEventIntent'
 import { processEventAiDraft } from '@server/eventAiDraft'
 import { parseClipboardPhone, requestsClipboardPhone } from '@helpers/aiAssistantClipboard.mjs'
+
+export async function GET(req) {
+  try {
+    const context = await getRequestContext(req)
+    if (!context.tenantId || !context.user?._id) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    await dbConnect()
+    return NextResponse.json(await getAiEditPlan({
+      planId: new URL(req.url).searchParams.get('planId'),
+      tenantId: context.tenantId, userId: context.user._id,
+    }), { headers: { 'Cache-Control': 'no-store' } })
+  } catch (error) {
+    return NextResponse.json({ error: error.safe ? error.message : 'Не удалось проверить изменения' }, { status: error.safe ? error.status : 502 })
+  }
+}
 
 export async function POST(req) {
   try {
@@ -39,7 +53,7 @@ export async function POST(req) {
         return NextResponse.json({ needsClipboardPhone: true, question: 'Вставьте телефон клиента из буфера обмена и повторите запрос.' })
       if (intent.intent === 'clarify')
         return NextResponse.json({ question: 'Уточните: создать новую заявку или изменить существующую? Для изменения укажите клиента, дату или название.' })
-      if (intent.intent === 'create') return processEventAiDraft({ ...args, clientPhone: clipboardPhone, strict: true })
+      if (intent.intent === 'create') return processEventAiDraft({ ...args, clientPhone: clipboardPhone, strict: true, deferClientCreation: body.deferClientCreation === true })
     }
     const result = body.eventId ? await prepareAiEdit(args) : await searchAiEditEvents(args)
     return NextResponse.json(result)

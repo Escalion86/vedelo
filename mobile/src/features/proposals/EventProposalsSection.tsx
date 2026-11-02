@@ -90,10 +90,11 @@ const IdentitySection = ({
     const revision = ++readRevision.current
     setLoading(true)
     setError('')
-    const [list, choices, event] = await Promise.allSettled([
+    const [list, choices, event, restored] = await Promise.allSettled([
       proposalsApi.list(eventId, operation()),
       proposalsApi.templates(operation()),
       proposalsApi.readEvent(eventId, operation()),
+      proposalsApi.restoreCreate(eventId, operation()),
     ])
     if (
       !alive.current ||
@@ -107,6 +108,7 @@ const IdentitySection = ({
     )
     if (list.status === 'fulfilled') setItems(list.value)
     else setError('Не удалось загрузить предложения.')
+    if (restored.status === 'rejected') setError('Не удалось прочитать незавершённую попытку создания. Повторите загрузку КП.')
     setTemplateError(choices.status === 'rejected')
     if (choices.status === 'fulfilled')
       setTemplates(choices.value.filter((item) => item.status === 'active'))
@@ -140,11 +142,19 @@ const IdentitySection = ({
     setMessage('')
     try {
       await work()
-    } catch {
-      if (alive.current && token === generation.current)
+    } catch (cause) {
+      if (alive.current && token === generation.current) {
+        if (cause instanceof Error && cause.message === 'CREATION_CANCELLED') {
+          setChoosing(false)
+          setMessage('Попытка создания отменена.')
+          return
+        }
         setError(
-          'Действие не подтверждено. Проверьте сеть и повторите чтение КП.'
+          cause instanceof Error && cause.message === 'CREATED_RESOURCE_GONE'
+            ? 'Созданное КП уже удалено. Оно не восстановлено. При необходимости создайте новое предложение.'
+            : 'Действие не подтверждено. Проверьте сеть и повторите чтение КП.'
         )
+      }
     } finally {
       locked.current = false
       if (alive.current) setBusy(false)
@@ -177,6 +187,20 @@ const IdentitySection = ({
       const item = await proposalsApi.recoverCreate(eventId, operation())
       if (alive.current && token === generation.current) openCreated(item)
     })
+  const cancelCreation = () => {
+    if (!creation?.recoverable || creation.inflight || busy || locked.current) return
+    const cancel = () => void run(async () => {
+      const token = generation.current
+      const item = await proposalsApi.cancelCreate(eventId, operation())
+      if (!alive.current || token !== generation.current) return
+      if (item) openCreated(item)
+      else { setChoosing(false); setMessage('Попытка создания отменена.') }
+    })
+    if (creation.cancelRequested) cancel()
+    else Alert.alert('Отменить попытку создания?', 'Если КП уже сохранено, откроется его карточка. Сохранённое КП не удаляется.', [
+      { text: 'Назад', style: 'cancel' }, { text: 'Отменить попытку', onPress: cancel },
+    ])
+  }
   const deliverApplied = async (item: Proposal, fresh: AppliedEvent) => {
     setServerStatus(fresh.status)
     await onApplied?.(fresh)
@@ -341,18 +365,25 @@ const IdentitySection = ({
           <Notice
             tone="warning"
             message={
-              creation.id
+              creation.cancelRequested
+                ? 'Отмена ещё не подтверждена. Завершите её проверку; сохранённое КП не будет удалено.'
+                : creation.id
                 ? 'Создание не подтверждено чтением. Повторите точное чтение КП.'
-                : 'Результат создания неизвестен. Новое создание заблокировано: ответ сервера потерян. Проверьте список КП; автоматическое восстановление недоступно.'
+                : creation.recoverable ? 'Создание не подтверждено. Продолжите сохранённую попытку без создания дубля.'
+                : 'Результат создания неизвестен. Проверьте список КП; для этой старой попытки автоматическое восстановление недоступно.'
             }
           />
-          {creation.id ? (
+          {!creation.cancelRequested && (creation.id || creation.recoverable) ? (
             <Button
-              title="Повторить чтение созданного КП"
+              title={creation.id ? 'Повторить чтение созданного КП' : 'Продолжить создание КП'}
               variant="secondary"
               disabled={busy || creation.inflight}
               onPress={() => void recoverCreation()}
             />
+          ) : null}
+          {creation.recoverable && (!creation.id || creation.cancelRequested) ? (
+            <Button title={creation.cancelRequested ? 'Завершить отмену' : 'Отменить попытку создания'}
+              variant="secondary" disabled={busy || creation.inflight} onPress={cancelCreation} />
           ) : null}
         </>
       ) : null}
@@ -385,8 +416,9 @@ const IdentitySection = ({
         const accepted =
           ['published', 'expired'].includes(item.status) &&
           Boolean(item.selectedPackageId)
+        const applicationPending = item.applicationPending || Boolean(item.applyOperation && item.applyOperation.state !== 'confirmed')
         const applied = Boolean(
-          item.appliedAt &&
+          !applicationPending && item.appliedAt &&
           item.selectedPackageId &&
           (item.appliedPackageId
             ? item.appliedPackageId === item.selectedPackageId &&
@@ -400,7 +432,7 @@ const IdentitySection = ({
             entry.status,
           ])
         )
-        const label = accepted
+        const label = applicationPending ? 'Применение не завершено' : accepted
           ? applied
             ? 'Принято клиентом · применено'
             : 'Принято клиентом'
@@ -422,19 +454,13 @@ const IdentitySection = ({
             />
             <Button
               testID={`proposal-edit-${item._id}`}
-              title={
-                item.status === 'draft'
-                  ? 'Редактировать'
-                  : 'Создать новую версию'
-              }
+              title="Редактировать"
               variant="secondary"
-              disabled={busy || (item.status !== 'draft' && Boolean(creation))}
+              disabled={busy}
               onPress={() =>
-                item.status === 'draft'
-                  ? router.push(
+                router.push(
                       `/events/${encodeURIComponent(eventId)}/proposals/${encodeURIComponent(item._id)}` as never
                     )
-                  : void create({ sourceProposalId: item._id })
               }
             />
             <Button
@@ -442,6 +468,12 @@ const IdentitySection = ({
               variant="secondary"
               disabled={busy || Boolean(creation)}
               onPress={() => void create({ sourceProposalId: item._id })}
+            />
+            <Button
+              title="Сохранить как шаблон"
+              variant="secondary"
+              disabled={busy}
+              onPress={() => router.push({ pathname: '/more/proposal-templates/[id]', params: { id: 'new', sourceProposalId: item._id } } as never)}
             />
             <Button
               title="Предпросмотр для клиента"
@@ -518,7 +550,7 @@ const IdentitySection = ({
             ) : null}
             <Button
               testID={`proposal-apply-${item._id}`}
-              title="Применить выбранный вариант"
+              title={applicationPending ? 'Завершить применение' : 'Применить выбранный вариант'}
               disabled={
                 busy ||
                 loading ||

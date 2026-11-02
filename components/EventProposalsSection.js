@@ -627,7 +627,7 @@ const EventProposalsSection = ({
         {editing.selectedPackageId || isProposalSelectionLocked(editing) ? (
           <Notice tone="info">
             {isProposalSelectionLocked(editing)
-              ? 'Условия уже применены к заказу. Можно изменить срок действия, название, оформление, медиа и сообщение.'
+              ? 'Варианты программ зафиксированы. Все остальные поля, включая условия и контакты, можно редактировать. Принятый выбор и данные заказа сохранятся.'
               : 'При изменении условий или вариантов прежний выбор клиента будет сброшен. Изменение только срока действия сохраняет выбор.'}
           </Notice>
         ) : null}
@@ -692,7 +692,7 @@ const EventProposalsSection = ({
             services={services}
             servicesLoading={servicesLoading}
             servicesError={servicesError}
-            busy={busy}
+            busy={busy || isProposalSelectionLocked(editing)}
           />
         </ProposalContentEditor>
         <details className="rounded-lg border border-gray-200 p-3">

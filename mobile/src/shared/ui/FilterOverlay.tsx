@@ -54,7 +54,7 @@ const focusAccessible = (node: View | Text | null) => {
 
 /** Controlled overlay; the trigger is the only element participating in list layout. */
 export const FilterOverlay = ({ title = 'Фильтры', visible, onOpen, onClose, options,
-  onSelect, maxWidth = 340, selected = false, testID = 'filter-overlay' }: {
+  onSelect, maxWidth = 340, selected = false, disabled = false, testID = 'filter-overlay' }: {
   title?: string
   visible: boolean
   onOpen: () => void
@@ -63,6 +63,7 @@ export const FilterOverlay = ({ title = 'Фильтры', visible, onOpen, onClo
   onSelect: (value: string) => void
   maxWidth?: 260 | 340
   selected?: boolean
+  disabled?: boolean
   testID?: string
 }) => {
   const styles = useThemeStyles(createStyles)
@@ -90,7 +91,7 @@ export const FilterOverlay = ({ title = 'Фильтры', visible, onOpen, onClo
   const layout = filterOverlayLayout(viewport, insets, maxWidth, anchor)
   return (
     <>
-      <FilterControl ref={trigger} title={title} expanded={visible} selected={selected}
+      <FilterControl ref={trigger} title={title} expanded={visible} selected={selected} disabled={disabled}
         onPress={onOpen} testID={`${testID}-trigger`} />
       <Modal visible={visible} transparent statusBarTranslucent navigationBarTranslucent
         animationType="none" onRequestClose={onClose}

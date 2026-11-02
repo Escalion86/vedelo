@@ -40,10 +40,10 @@ it('импорт/экспорт обозначает текущий пробел
   expect(mockApi).not.toHaveBeenCalled()
 })
 
-it.each(['learning'])('новый раздел %s сообщает о незавершённом этапе без API-запросов', (section) => {
-  mockSection = section
-  const screen = render(<MoreSectionScreen />)
-  expect(screen.getByText('Пока недоступно в приложении')).toBeTruthy()
+it('адрес обучения ведёт в самостоятельный экран', () => {
+  mockSection = 'learning'
+  render(<MoreSectionScreen />)
+  expect(mockReplace).toHaveBeenCalledWith('/more/learning')
   expect(mockLists).not.toHaveBeenCalled()
   expect(mockApi).not.toHaveBeenCalled()
 })

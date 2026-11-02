@@ -28,6 +28,28 @@ it.each(['light', 'dark'] as const)('статистика %s с financial hierar
   expect(screen.getByText('Доходы: 123 ₽')).toBeTruthy(); expect(screen.getByText(/Заказы: 0/)).toBeTruthy()
   fireEvent.press(screen.getByText('Экспортировать CSV')); await waitFor(() => expect(shareStatisticsCsv).toHaveBeenCalledTimes(1)); expect((shareStatisticsCsv as jest.Mock).mock.calls[0][0]).toContain('\ufeffТип;ID;')
 })
+it.each(['light', 'dark'] as const)('статистика %s: заявки добавляются к работам, отменённые суммы не попадают в CSV', async mode => {
+  const work = (id: string, status: string) => ({ _id: id, clientId: null, status, eventType: '', description: id, eventDate: '2020-06-01T12:00:00Z', dateEnd: null, contractSum: 1000, address: { town: 'Город', street: '', house: '' } })
+  mockGet.mockImplementation(async (path: string) => ({ success: true, data: {
+    ...statistics(path, 0).data,
+    events: [work('confirmed', 'active'), work('request', 'draft'), work('canceled', 'canceled')],
+    transactions: [100, 200, 300].map((amount, index) => ({ _id: `money-${index}`, eventId: ['confirmed', 'request', 'canceled'][index], clientId: null, amount, type: 'income', category: '', date: '2019-01-01T12:00:00Z', comment: '' })),
+  } }))
+  const screen = render(draw('statistics', mode))
+  await screen.findByText('Доходы: 100 ₽')
+  expect(mockGet.mock.calls.every(([path]) => path === '/mobile/v1/statistics?status=all')).toBe(true)
+  fireEvent.press(screen.getByText(/^Фильтры:/))
+  expect(screen.getByText('2020')).toBeTruthy()
+  fireEvent.press(screen.getByText('Учитывать заявки'))
+  await screen.findByText('Доходы: 300 ₽')
+  fireEvent.press(screen.getByText('Экспортировать CSV'))
+  await waitFor(() => expect(shareStatisticsCsv).toHaveBeenCalledTimes(1))
+  const csv = (shareStatisticsCsv as jest.Mock).mock.calls[0][0]
+  expect(csv).toContain('confirmed')
+  expect(csv).toContain('request')
+  expect(csv).not.toContain('canceled')
+  expect(csv).not.toContain('money-2')
+})
 it.each(['statistics', 'referrals'] as const)('%s не рисует нули до ответа, 403 и invalid/success:false имеют retry', async (kind) => {
   const pending = deferred(); mockGet.mockReturnValueOnce(pending.promise)
   const screen = render(draw(kind)); expect(screen.queryByTestId('statistics-net')).toBeNull(); expect(screen.queryByText(/Начислено: 0/)).toBeNull()

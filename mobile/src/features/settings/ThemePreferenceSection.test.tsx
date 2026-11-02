@@ -7,6 +7,7 @@ import { Button, CompactField, Surface } from '../../shared/ui/components'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import { ThemePreferenceSection } from './ThemePreferenceSection'
 import { SettingsSection } from './SettingsSection'
+jest.mock('../billing/PromoCodeRedeem', () => ({ PromoCodeRedeem: () => null }))
 
 const mockGet = jest.fn(), mockPut = jest.fn(), mockCache = jest.fn()
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))

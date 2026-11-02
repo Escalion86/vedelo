@@ -6,13 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
 import { QueryClientContext } from '@tanstack/react-query'
 import { getMaxContactAction } from '../domain/maxContact'
+import { normalizeAvitoContactUrl } from '../domain/avitoContact'
 import type { Client } from '../domain/types'
 import { useTheme, useThemeStyles } from './ThemeProvider'
 import type { Palette } from './theme'
 
 export type ContactAction = {
   label: string; url: string; icon: keyof typeof FontAwesome5.glyphMap
-  channel?: 'phone' | 'vk' | 'viber' | 'instagram' | 'email'
+  channel?: 'phone' | 'vk' | 'viber' | 'instagram' | 'email' | 'avito'
   provider?: 'whatsapp' | 'telegram' | 'max'; trial?: boolean; phone?: string; copyPhone?: string
 }
 const digits = (value?: string | number | null) => String(value || '').replace(/\D/g, '')
@@ -45,6 +46,8 @@ export const getQuickContactActions = (client?: Client): ContactAction[] => {
     actions.push({ label: 'ВКонтакте', url: `https://vk.com/${encodeURIComponent(name)}`, icon: 'vk', channel: 'vk' })
   }
   if (client.email?.trim()) actions.push({ label: 'Электронная почта', url: `mailto:${client.email.trim()}`, icon: 'envelope', channel: 'email' })
+  const avito = normalizeAvitoContactUrl(client.avitoUrl || '')
+  if (avito) actions.push({ label: 'Avito', url: avito, icon: 'comment-dots', channel: 'avito' })
   return actions
 }
 export const openContactUrl = (url: string) => Linking.openURL(url).then(() => true).catch(() => {
@@ -87,7 +90,7 @@ export function QuickContacts({ client, maxVisible, availableWidth }: { client?:
   const visibleCount = Math.max(0, Math.min(maxVisible ?? actions.length, actions.length > capacity ? capacity - 1 : capacity))
   const preferred = (action: ContactAction) => Boolean(client?.preferredContactChannel && client.preferredContactChannel === (action.provider || action.channel))
   const label = (action: ContactAction) => `${action.label}${action.trial ? ' — попробовать по телефону' : ''}${client?.preferredContactChannel && client.preferredContactChannel === (action.provider || action.channel) ? ' — приоритетный канал связи' : ''}`
-  const color = (action: ContactAction) => action.trial ? action.provider === 'max' ? palette.contacts.trialBadge : palette.contacts.trial : palette.contacts[action.provider || action.channel || 'phone']
+  const color = (action: ContactAction) => action.channel === 'avito' ? palette.primary : action.trial ? action.provider === 'max' ? palette.contacts.trialBadge : palette.contacts.trial : palette.contacts[action.provider || action.channel || 'phone']
   const open = async (action: ContactAction) => {
     setExpanded(false)
     let copyFailed = false
@@ -99,13 +102,13 @@ export function QuickContacts({ client, maxVisible, availableWidth }: { client?:
     const copyHint = copyFailed ? `Номер не скопирован — введите в поиске MAX вручную: ${action.copyPhone}` : 'Номер скопирован — вставьте его в поиск MAX.'
     if (!await openContactUrl(action.url)) return
     if (action.trial && action.provider && client) {
-      const save = async (confirmed: boolean) => {
+      const save = async (confirmed: boolean, preferred = false) => {
         if (saving.current) return
         saving.current = true
         try {
           // Load the native storage adapter only when the user confirms.
           const { confirmPhoneContact } = require('../domain/phoneContactConfirmation') as typeof import('../domain/phoneContactConfirmation')
-          const patch = await confirmPhoneContact(client, action.provider!, action.phone!, confirmed)
+          const patch = await confirmPhoneContact(client, action.provider!, action.phone!, confirmed, preferred)
           setOverride({ source: client, patch })
           await queryClient?.invalidateQueries({ queryKey: ['cached-entities', 'clients'] })
         } catch {
@@ -115,7 +118,10 @@ export function QuickContacts({ client, maxVisible, availableWidth }: { client?:
       Alert.alert(`Контакт в ${action.label}`, `Удалось найти клиента по номеру ${action.phone}?${action.copyPhone ? ` ${copyHint}` : ''}`, [
         { text: 'Не знаю', style: 'cancel' },
         { text: 'Нет', onPress: () => { void save(false) } },
-        { text: 'Да', onPress: () => { void save(true) } },
+        { text: 'Да', onPress: () => { Alert.alert('Приоритетный канал', `Использовать ${action.label} как основной канал связи?`, [
+          { text: 'Только сохранить контакт', onPress: () => { void save(true) } },
+          { text: 'Сохранить и назначить основным', onPress: () => { void save(true, true) } },
+        ]) } },
       ])
     } else if (action.copyPhone) Alert.alert(copyFailed ? 'Номер не скопирован' : 'Номер скопирован', copyHint)
   }

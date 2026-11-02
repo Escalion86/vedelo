@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
 
 import Users from '@models/Users'
-import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import { getGoogleImportContext, googleImportUserFilter } from '@server/googleImportContext'
 
 export const runtime = 'nodejs'
 
-export const POST = async () => {
-  const { user } = await getTenantContext()
+export const POST = async (req) => {
+  const { user, tenantId } = await getGoogleImportContext(req)
   if (!user?._id) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
@@ -15,16 +14,7 @@ export const POST = async () => {
     )
   }
 
-  await dbConnect()
-  const dbUser = await Users.findById(user._id)
-  if (!dbUser) {
-    return NextResponse.json(
-      { success: false, error: 'Пользователь не найден' },
-      { status: 404 }
-    )
-  }
-
-  dbUser.googleCalendarImport = {
+  await Users.updateOne(googleImportUserFilter(user._id, tenantId), { $set: { googleCalendarImport: {
     enabled: false,
     calendarId: '',
     calendarName: '',
@@ -34,8 +24,7 @@ export const POST = async () => {
     scope: '',
     connectedAt: null,
     email: '',
-  }
-  await dbUser.save()
+  } } })
 
   return NextResponse.json({ success: true })
 }

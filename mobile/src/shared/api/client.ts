@@ -6,6 +6,7 @@ import {
   clearAuthSession,
   getAccessToken,
   getRefreshToken,
+  getAuthRevision,
   setAuthSession,
 } from '../auth/tokenStore'
 import type { AuthSession } from '../auth/types'
@@ -46,7 +47,9 @@ let refreshPromise: Promise<string | null> | null = null
 const refreshAccessToken = async () => {
   if (refreshPromise) return refreshPromise
   refreshPromise = (async () => {
+    const revision = getAuthRevision()
     const refreshToken = await getRefreshToken()
+    if (revision !== getAuthRevision()) throw new ApiError('Сессия изменилась. Повторите действие.', 401)
     if (!refreshToken) {
       await clearAuthSession()
       return null
@@ -56,9 +59,10 @@ const refreshAccessToken = async () => {
       headers: { 'Content-Type': 'application/json', ...deviceHeaders },
       body: JSON.stringify({ refreshToken }),
     })
+    if (revision !== getAuthRevision()) throw new ApiError('Сессия изменилась. Повторите действие.', 401)
     if (!response.ok) {
       const error = await parseApiError(response)
-      if (response.status === 401) await clearAuthSession()
+      if (response.status === 401 && revision === getAuthRevision()) await clearAuthSession()
       throw error
     }
     const result = (await response.json()) as {
@@ -73,6 +77,7 @@ const refreshAccessToken = async () => {
     ) {
       throw new ApiError('Сервер вернул некорректную mobile-сессию', 502)
     }
+    if (revision !== getAuthRevision()) throw new ApiError('Сессия изменилась. Повторите действие.', 401)
     await setAuthSession(result.data)
     return result.data.accessToken
   })().finally(() => {
@@ -85,6 +90,9 @@ const parseResponse = async <TResponse>(response: Response) => {
   if (response.status === 204) return undefined as TResponse
   return (await response.json()) as TResponse
 }
+const assertRequestSession = (revision: number) => {
+  if (revision !== getAuthRevision()) throw new ApiError('Сессия изменилась. Повторите действие.', 401)
+}
 
 export const createApiClient = () => {
   const request = async <TResponse>(
@@ -92,7 +100,9 @@ export const createApiClient = () => {
     options: RequestOptions = {},
     retry = true
   ): Promise<TResponse> => {
+    const revision = getAuthRevision()
     const token = options.skipAuth ? null : await getAccessToken()
+    if (!options.skipAuth) assertRequestSession(revision)
     const response = await fetch(buildUrl(path), {
       method: options.method || 'GET',
       headers: {
@@ -105,6 +115,7 @@ export const createApiClient = () => {
         options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: options.signal,
     })
+    if (!options.skipAuth) assertRequestSession(revision)
 
     if (
       response.status === 401 &&
@@ -113,11 +124,13 @@ export const createApiClient = () => {
       !options.skipRefresh
     ) {
       const nextToken = await refreshAccessToken()
-      if (nextToken) return request<TResponse>(path, options, false)
+      if (nextToken && await getAccessToken() === nextToken) return request<TResponse>(path, options, false)
     }
 
     if (!response.ok) throw await parseApiError(response)
-    return parseResponse<TResponse>(response)
+    const data = await parseResponse<TResponse>(response)
+    if (!options.skipAuth) assertRequestSession(revision)
+    return data
   }
 
   return {
@@ -146,7 +159,9 @@ export const createApiClient = () => {
     ) => request<TResponse>(path, { ...options, method: 'DELETE', body }),
     upload: async <TResponse>(path: string, formData: FormData) => {
       const send = async (retry = true): Promise<TResponse> => {
+        const revision = getAuthRevision()
         const token = await getAccessToken()
+        assertRequestSession(revision)
         const response = await fetch(buildUrl(path), {
           method: 'POST',
           headers: {
@@ -155,18 +170,23 @@ export const createApiClient = () => {
           },
           body: formData,
         })
+        assertRequestSession(revision)
         if (response.status === 401 && retry) {
           const nextToken = await refreshAccessToken()
-          if (nextToken) return send(false)
+          if (nextToken && await getAccessToken() === nextToken) return send(false)
         }
         if (!response.ok) throw await parseApiError(response)
-        return parseResponse<TResponse>(response)
+        const data = await parseResponse<TResponse>(response)
+        assertRequestSession(revision)
+        return data
       }
       return send()
     },
     download: async (path: string) => {
       const send = async (retry = true): Promise<ArrayBuffer> => {
+        const revision = getAuthRevision()
         const token = await getAccessToken()
+        assertRequestSession(revision)
         const response = await fetch(buildUrl(path), {
           method: 'GET',
           headers: {
@@ -174,12 +194,15 @@ export const createApiClient = () => {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         })
+        assertRequestSession(revision)
         if (response.status === 401 && retry) {
           const nextToken = await refreshAccessToken()
-          if (nextToken) return send(false)
+          if (nextToken && await getAccessToken() === nextToken) return send(false)
         }
         if (!response.ok) throw await parseApiError(response)
-        return response.arrayBuffer()
+        const data = await response.arrayBuffer()
+        assertRequestSession(revision)
+        return data
       }
       return send()
     },

@@ -4,7 +4,7 @@ export type ClientFilter = 'all' | 'requests' | 'events' | 'canceled'
 export const clientName = (client: Client) => [client.secondName, client.firstName, client.thirdName].map((part) => part?.trim()).filter(Boolean).join(' ') || 'Без имени'
 export const contactChannelLabel = (client: Client) => client.preferredContactChannel === 'other'
   ? client.preferredContactChannelOther?.trim() || 'Другое'
-  : ({ phone: 'Телефон', telegram: 'Telegram', whatsapp: 'WhatsApp', max: 'MAX', vk: 'VK' } as Record<string, string>)[client.preferredContactChannel || ''] || ''
+  : ({ phone: 'Телефон', telegram: 'Telegram', whatsapp: 'WhatsApp', max: 'MAX', vk: 'VK', avito: 'Avito' } as Record<string, string>)[client.preferredContactChannel || ''] || ''
 export const plainComment = (value?: string) => (value || '')
   .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
   .replace(/<br\s*\/?\s*>|<\/p\s*>|<\/div\s*>/gi, '\n').replace(/<[^>]*>/g, '')

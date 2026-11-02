@@ -1,3 +1,4 @@
+export { normalizeProposalMedia } from './proposalMedia.mjs'
 import {
   getProposalBlockContentHtml,
   escapeProposalHtml,
@@ -66,59 +67,6 @@ const clean = (value, limit = 4000) =>
     .slice(0, limit)
 const makeId = (prefix = 'item') =>
   `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
-
-const safeHttpUrl = (value) => {
-  const url = clean(value, 2000)
-  try {
-    const parsed = new URL(url)
-    return ['http:', 'https:'].includes(parsed.protocol)
-      ? parsed.toString()
-      : ''
-  } catch {
-    return ''
-  }
-}
-
-const isSupportedVideoLink = (value) => {
-  try {
-    const host = new URL(value).hostname.toLowerCase()
-    return [
-      'youtube.com',
-      'youtube-nocookie.com',
-      'youtu.be',
-      'rutube.ru',
-      'vk.com',
-      'vkvideo.ru',
-      'vimeo.com',
-    ].some((domain) => host === domain || host.endsWith(`.${domain}`))
-  } catch {
-    return false
-  }
-}
-
-export const normalizeProposalMedia = (items) => {
-  if (!Array.isArray(items)) return []
-  return items.slice(0, 10).flatMap((item) => {
-    if (!item || typeof item !== 'object') return []
-    const kind = ['image', 'video', 'video_link'].includes(item.kind)
-      ? item.kind
-      : ''
-    const url = safeHttpUrl(item.url)
-    if (!kind || !url || (kind === 'video_link' && !isSupportedVideoLink(url)))
-      return []
-    return [
-      {
-        id: clean(item.id, 100) || makeId('media'),
-        kind,
-        url,
-        title: clean(item.title, 200),
-        fileName: clean(item.fileName, 300),
-        contentType: clean(item.contentType, 100),
-        size: Math.max(0, Number(item.size) || 0),
-      },
-    ]
-  })
-}
 
 export const normalizeProposalBlocks = (blocks) => {
   const source =

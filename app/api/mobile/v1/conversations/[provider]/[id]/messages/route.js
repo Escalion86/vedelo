@@ -9,6 +9,7 @@ import {
 } from '../../../../../../integrations/vk/conversations/[id]/messages/route'
 import { mobileError } from '@server/mobile/routeHelpers'
 import { sanitizeMobileConversationPayload } from '@server/mobile/conversations'
+import { telegramConversations } from '@server/mobile/telegramConversations'
 
 const sanitizeResponse = async (response) => {
   const payload = await response.json()
@@ -19,6 +20,7 @@ const sanitizeResponse = async (response) => {
 
 const delegate = async (req, params, method) => {
   const routeParams = await params
+  if (routeParams.provider === 'telegram') return telegramConversations(req, { id: routeParams.id, action: method === 'GET' ? 'history' : 'send' })
   const context = { params: Promise.resolve({ id: routeParams.id }) }
   if (routeParams.provider === 'avito') {
     const response = method === 'GET'

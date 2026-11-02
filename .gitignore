@@ -11,12 +11,14 @@
 
 
 # dependencies
+/.g/
 /node_modules
 /.pnp
 .pnp.js
 
 # testing
 /coverage
+/.verify-native/
 
 # next.js
 /.next/

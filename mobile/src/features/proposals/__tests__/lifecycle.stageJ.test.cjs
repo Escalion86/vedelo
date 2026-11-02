@@ -16,6 +16,7 @@ const queryExports = Module.createRequire(mobile + '/package.json')(
 )
 const { QueryClient, QueryClientProvider } = queryExports
 const originalLoad = Module._load
+const sqlite = require('../../../../__tests__/sqlitePlatform.cjs')()
 const originalExtensions = {
   ts: Module._extensions['.ts'],
   tsx: Module._extensions['.tsx'],
@@ -67,13 +68,11 @@ const host = (name) => (props) =>
   React.createElement(name, props, props.children)
 const ui = new Proxy({}, { get: (_, name) => host(name) })
 Module._load = function (id, parent, main) {
+  // Native-only projection is absent in this Node host; identity/ledger/cache remain real.
+  if (id === 'expo-modules-core') return { requireOptionalNativeModule: () => null }
   if (id === '@tanstack/react-query') return queryExports
   if (id === 'expo-sqlite')
-    return {
-      openDatabaseAsync: async () => {
-        throw Error('Unexpected database access')
-      },
-    }
+    return { openDatabaseAsync: async () => sqlite }
   if (id === 'expo-file-system')
     return { Directory: class {}, Paths: { document: '' } }
   if (id === 'react') return React
@@ -110,7 +109,7 @@ Module._load = function (id, parent, main) {
       nativeApplicationVersion: 'test',
     }
   if (id === 'expo-device') return { modelName: 'test-device' }
-  if (id === 'expo-crypto') return { randomUUID: () => 'test-uuid' }
+  if (id === 'expo-crypto') return { randomUUID: require('node:crypto').randomUUID }
   if (id === 'expo-document-picker')
     return { getDocumentAsync: async () => ({ canceled: true }) }
   if (id === 'expo-clipboard') return { setStringAsync: async () => {} }
@@ -322,6 +321,7 @@ test.beforeEach(async () => {
   readHook = null
   requestImpl = async (p) => reads(p)
   await session({ _id: 'u' + ++sequence, tenantId: 'tenant' + sequence })
+  await require(mobile + '/src/shared/storage/database.ts').clearLocalData()
 })
 test.afterEach(async () => {
   readHook = null
@@ -499,6 +499,31 @@ for (const kind of ['proposal', 'template'])
       }
       assert.equal(writes().length, 1)
     })
+for (const kind of ['proposal', 'template']) test(`C-CREATE-02 ${kind} restores durable input after process ledger loss`, async () => {
+  let answer = false
+  requestImpl = async (p, c) => {
+    if (c.method === 'POST') {
+      if (!answer) throw Error('lost create response')
+      return data(kind === 'template' ? template : proposal)
+    }
+    return reads(p)
+  }
+  let s = await mount(kind === 'template' ? editor() : section())
+  if (kind === 'template') { await name(s); await press(s, 'Сохранить') }
+  else { await press(s, 'Создать КП'); await press(s, 'Без шаблона') }
+  const first = writes()[0]
+  assert.ok(first.body.requestId)
+  await unmount(s)
+  require('../operations.ts').proposalOperations.clear(proposalIdentity(user), kind === 'template' ? 'create-template' : 'create-proposal', kind === 'template' ? 'new' : 'event')
+  s = await mount(kind === 'template' ? editor() : section())
+  assert.equal(writes().length, 1, 'restoring never dispatches automatically')
+  assert.equal(Boolean(button(s, kind === 'template' ? 'Сохранить' : 'Создать КП').props.disabled), true)
+  answer = true
+  await press(s, kind === 'template' ? 'Продолжить создание шаблона' : 'Продолжить создание КП')
+  assert.equal(writes().length, 2)
+  assert.deepEqual(writes()[1].body, first.body, 'same requestId and confirmed input after restart')
+  if (kind === 'proposal') assert.equal(routes.length, 1)
+})
 for (const ending of ['refocus', 'unmount'])
   test(
     'C-NONIDEMPOTENT-01 inflight Telegram retains owner across ' + ending,

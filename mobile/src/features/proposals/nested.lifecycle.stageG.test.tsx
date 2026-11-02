@@ -11,7 +11,7 @@ jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...a: any[]) => mo
 jest.mock('./api', () => ({ proposalsApi: {
  template: (...a: any[]) => mockTemplate(...a), services: async () => [],
  previewTemplate: (...a: any[]) => mockPreview(...a), saveTemplate: (...a: any[]) => mockSave(...a),
- uploadMedia: (...a: any[]) => mockUpload(...a),
+ uploadMedia: (...a: any[]) => mockUpload(...a), uploadGallery: (...a: any[]) => mockUpload(...a),
 } }))
 // Only the native WebView host is replaced. The real editor, rich editor, picker
 // continuation and local document builder run inside the actual identity boundary.
@@ -60,5 +60,5 @@ it('C-SESSION-01 late save cannot rehydrate old draft; next write contains only 
  expect(s.queryByDisplayValue('Чужой ввод')).toBeNull()
  fireEvent.changeText(s.getByLabelText('Название шаблона'), 'Ввод нового пользователя'); fireEvent.press(s.getByTestId('proposal-save'))
  await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2))
- expect(mockSave.mock.calls[1][1]).toMatchObject({ name: 'Ввод нового пользователя', media: [] })
+ expect(mockSave.mock.calls[1][1]).toEqual({ name: 'Ввод нового пользователя' })
 })

@@ -5,7 +5,7 @@ import * as DocumentPicker from 'expo-document-picker'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/client'
 import type { DocumentTemplate, Event } from '../../shared/domain/types'
-import { getCachedEntity, upsertEntities } from '../../shared/storage/cache'
+import { getCachedEntity, publishEntityReadback } from '../../shared/storage/cache'
 import { saveLocalEntity } from '../../shared/storage/mutations'
 import { deleteEncryptedFile, encryptAndQueueFile, listEncryptedFiles, retryFileQueueNow, type EncryptedLocalFile } from '../../shared/storage/encryptedFiles'
 import { runSync } from '../../shared/sync/syncEngine'
@@ -20,6 +20,7 @@ import { documentRows, fileSize, isServerEntityId, readEntityResponse, readTempl
 import { shareEncryptedFile } from './nativeFiles'
 import { useDocumentTask } from './useDocumentTask'
 import { documentDateForLocalDay } from './localDate'
+import { beginGeneration, finishGeneration, readGeneration, type DocumentGeneration } from './generationStore'
 
 export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -36,7 +37,10 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
   const [templateId, setTemplateId] = useState('')
   const [documentDate, setDocumentDate] = useState(documentDateForLocalDay)
   const [message, setMessage] = useState('')
-  const [generation, setGeneration] = useState<{ before: string[]; documentId?: string } | null>(null)
+  const [generation, setGeneration] = useState<DocumentGeneration | null>(null)
+  const [generationReady, setGenerationReady] = useState(false)
+  const [source, setSource] = useState<'event' | 'proposal'>('event')
+  const [allowEmpty, setAllowEmpty] = useState(false)
   const alive = useRef(false)
   const readToken = useRef(0)
   const templateToken = useRef(0)
@@ -71,19 +75,25 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     alive.current = true; void loadLocal(); if (kind === 'events') void loadTemplates()
     return () => { alive.current = false; readToken.current++; templateToken.current++ }
   }, [kind, loadLocal, loadTemplates]))
+  useEffect(() => {
+    let active = true
+    setGenerationReady(false)
+    readGeneration(id).then((pending) => {
+      if (active) {
+        setGeneration(pending)
+        if (pending) { setTemplateId(pending.templateId); setDocumentDate(pending.documentDate); setSource(pending.source); setAllowEmpty(pending.allowEmpty) }
+        setGenerationReady(true)
+      }
+    }).catch(() => { if (active) task.setError('Не удалось прочитать предыдущую попытку создания. Откройте документы повторно.') })
+    return () => { active = false }
+  }, [id, kind])
   const currentEntity = async () => requireEntity(await getCachedEntity<DocumentEntity>(kind, id), id)
   const freshFiles = () => listEncryptedFiles({ entityType: kind, entityId: id })
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['cached-entities', kind] })
   const commitRemote = async (remote: DocumentEntity, current: () => boolean) => {
     requireEntity(remote, id)
-    const cached = await currentEntity()
-    if (!current() || !alive.current) return
-    // Не перетирать offline-правки полным ответом сервера.
-    if (cached.syncStatus && cached.syncStatus !== 'synced') throw new Error('LOCAL_CHANGES_PENDING')
-    const merged = { ...cached, ...remote }
-    await upsertEntities(kind, [merged])
-    if (!current() || !alive.current) return
-    setEntity(merged); await invalidate()
+    await publishEntityReadback<DocumentEntity>(kind, remote, () => current() && alive.current, merged => setEntity(merged))
+    if (current() && alive.current) await invalidate()
   }
   const readRemote = async () => readEntityResponse(await api.get<{ success?: boolean; data?: DocumentEntity }>(endpoint), id)
   const pick = () => task.run('Выбираем и отправляем вложение…', 'Не удалось добавить файл. Проверьте локальную очередь и доступ.', async (current) => {
@@ -182,39 +192,40 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     }
     if (current() && alive.current) setMessage(document.file?.storageKey ? 'Удаление документа подтверждено сервером' : 'Ссылка снята локально; изменение в очереди синхронизации')
   }) })
-  const verifyGeneration = async (pending: { before: string[]; documentId?: string }, current: () => boolean) => {
+  const verifyGeneration = async (pending: DocumentGeneration, current: () => boolean) => {
     const remote = await readRemote()
-    const found = remote.documents?.find((document) => pending.documentId ? document.id === pending.documentId : !pending.before.includes(document.id))
+    const found = remote.documents?.find((document) => document.id === pending.requestId)
     await commitRemote(remote, current)
     if (!current() || !alive.current) return
-    if (found && pending.documentId) { setGeneration(null); setMessage('Документ сформирован и прочитан с сервера') }
-    else if (found) task.setError('Список обновлён. После потери ответа нельзя однозначно подтвердить создание. Проверьте новые документы перед повторным созданием.')
-    else task.setError('Новый документ пока не найден. Проверьте позднее; автоматического повторного создания нет.')
+    if (found) { await finishGeneration(pending); if (current() && alive.current) { setGeneration(null); setMessage('Документ сформирован и прочитан с сервера') } }
+    else task.setError('Документ пока не найден. Повторите ту же попытку: новый документ-дубликат не создаётся.')
   }
   const generate = () => {
-    if (task.busy.current || generation || templateState !== 'ready' || readState !== 'ready') return
-    if (!validDocumentDate(documentDate)) { task.setError('Введите корректную дату в формате ГГГГ-ММ-ДД'); return }
-    void task.run('Формируем и проверяем документ…', 'Результат создания не подтверждён. Проверьте документы; повторный запрос может создать дубликат.', async (current) => {
+    if (task.busy.current || !generationReady || (!generation && templateState !== 'ready') || readState !== 'ready') return
+    if (!validDocumentDate(generation?.documentDate || documentDate)) { task.setError('Введите корректную дату в формате ГГГГ-ММ-ДД'); return }
+    void task.run('Формируем и проверяем документ…', 'Результат создания не подтверждён. Проверьте или повторите ту же попытку.', async (current) => {
       const owner = await currentEntity()
-      if (kind !== 'events' || !isServerEntityId(id) || (owner as Event).status === 'draft' || (owner.syncStatus && owner.syncStatus !== 'synced')) throw new Error('GENERATION_UNAVAILABLE')
-      const available = readTemplatesResponse(await api.get('/mobile/v1/document-templates'))
-      if (!available.some((item) => item.id === templateId)) throw new Error('TEMPLATE_MISMATCH')
+      if (kind !== 'events' || !isServerEntityId(id) || (owner.syncStatus && owner.syncStatus !== 'synced')) throw new Error('GENERATION_UNAVAILABLE')
+      if (!generation) {
+        const available = readTemplatesResponse(await api.get('/mobile/v1/document-templates'))
+        if (!available.some((item) => item.id === templateId)) throw new Error('TEMPLATE_MISMATCH')
+      }
       if (!current() || !alive.current) return
-      const pending = { before: (owner.documents || []).map((item) => item.id) }
+      const pending = generation || await beginGeneration({ _id: id, templateId, documentDate, source, allowEmpty })
+      if (!current() || !alive.current) return
       setGeneration(pending); setMessage('')
       let response: { success?: boolean; data?: { document?: DocumentRow; event?: DocumentEntity } }
-      try { response = await api.post(`${endpoint}/documents/generate`, { templateId, documentDate }) }
+      try { response = await api.post(`${endpoint}/documents/generate`, { templateId: pending.templateId, documentDate: pending.documentDate, requestId: pending.requestId, source: pending.source, allowEmpty: pending.allowEmpty }) }
       catch (cause) {
         const status = (cause as { status?: number })?.status
-        if (status && status >= 400 && status < 500 && current() && alive.current) setGeneration(null)
+        if ((status === 400 || status === 422) && current() && alive.current) { await finishGeneration(pending); setGeneration(null) }
         throw cause
       }
       const returned = readEntityResponse({ success: response?.success, data: response.data?.event }, id)
       const documentId = response.data?.document?.id
-      if (!documentId || pending.before.includes(documentId) || !returned.documents?.some((item) => item.id === documentId)) throw new Error('INVALID_RESPONSE')
+      if (documentId !== pending.requestId || !returned.documents?.some((item) => item.id === documentId)) throw new Error('INVALID_RESPONSE')
       if (!current() || !alive.current) return
-      const expected = { ...pending, documentId }; setGeneration(expected)
-      await verifyGeneration(expected, current)
+      await verifyGeneration(pending, current)
     })
   }
   const blocked = Boolean(task.phase)
@@ -230,7 +241,7 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     {message ? <Notice tone="success" message={message} /> : null}
     {localClient ? <Notice message="Сначала синхронизируйте клиента. После этого можно загружать файлы." /> : null}
     <Surface><SectionTitle help={kind === 'events'
-      ? `В Android можно добавить файл, а для подтверждённой синхронизированной работы — сформировать DOCX по шаблону. Вложения доступны и в заявке; создание ссылок на документы в этом экране отсутствует.\n\nОбщая справка: ${getFieldHelp('documents.event')}`
+      ? `Добавьте файл или сформируйте DOCX по шаблону для синхронизированной заявки или заказа.\n\n${getFieldHelp('documents.event')}`
       : getFieldHelp('documents.client')}>{`Документы · ${rows.length}`}</SectionTitle>
       {rows.length ? rows.map((row) => <DocumentRowView key={row.id} title={row.title || row.file?.name || typeLabel(row.type, row.customTypeName)} subtitle={`${typeLabel(row.type, row.customTypeName)} · ${row.file?.name || (row.legacyUrl ? 'Прежнее вложение' : 'Ссылка на документ')} ${fileSize(row.file?.size)}`} disabled={blocked} onOpen={() => void open(row)}>
         <DocumentAction testID={`share-document-${row.id}`} icon="share-variant-outline" label={`Поделиться документом ${row.title || 'Документ'}`} onPress={() => void open(row, true)} disabled={blocked} />
@@ -248,17 +259,20 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     {kind === 'events' ? <Surface><SectionTitle>Сформировать по шаблону</SectionTitle>
       {templateState === 'loading' ? <Notice message="Загружаем шаблоны…" /> : templateState === 'error' ? <><Notice tone="danger" message={templateError} /><Button title="Повторить чтение шаблонов" variant="secondary" onPress={() => void loadTemplates()} disabled={blocked} /></> : templates.length ? <View style={styles.options}>{templates.map((template) => <Pressable key={template.id} accessibilityRole="radio" accessibilityLabel={template.name} accessibilityState={{ selected: templateId === template.id, disabled: blocked || Boolean(generation) }} disabled={blocked || Boolean(generation)} onPress={() => setTemplateId(template.id)} style={[styles.option, templateId === template.id && styles.selected]}><Text style={styles.text}>{template.name}</Text><Text style={styles.muted}>{typeLabel(template.type, template.customTypeName)}</Text></Pressable>)}</View> : <Notice message="Сначала добавьте шаблон в разделе «Меню → Документы»." />}
       <CompactField testID="document-date" help={getFieldHelp('documents.date')} label="Дата документа" value={documentDate} onChangeText={setDocumentDate} placeholder="ГГГГ-ММ-ДД" editable={!blocked && !generation} />
-      {!isServerEntityId(id) || (entity as Event).status === 'draft' || (entity.syncStatus && entity.syncStatus !== 'synced') ? <Notice tone="warning" message="Формирование доступно для сохранённой на сервере работы после подтверждения заявки и синхронизации изменений." /> : null}
+      {(entity as Event).agreedProposal ? <Button title={source === 'proposal' ? 'Источник: согласованное КП' : 'Источник: данные заказа'} variant="secondary" onPress={() => setSource(source === 'event' ? 'proposal' : 'event')} disabled={blocked || Boolean(generation)} /> : null}
+      <Button title={allowEmpty ? 'Пустые поля разрешены' : 'Требовать заполнения всех переменных'} variant="secondary" onPress={() => setAllowEmpty(!allowEmpty)} disabled={blocked || Boolean(generation)} />
+      {!isServerEntityId(id) || (entity.syncStatus && entity.syncStatus !== 'synced') ? <Notice tone="warning" message="Сначала синхронизируйте заявку или заказ. Подтверждение заявки для формирования документа не требуется." /> : null}
       {generation ? <><Notice tone="warning" message="Проверяем результат предыдущего создания. Повторная генерация автоматически не выполняется." /><Button title="Проверить результат создания" variant="secondary" onPress={() => void task.run('Читаем результат создания…', 'Не удалось проверить результат. Повторите чтение позднее.', (current) => verifyGeneration(generation, current))} disabled={blocked} />
+        <Button title="Повторить ту же попытку" variant="secondary" disabled={blocked} onPress={generate} />
         <Button title="Разрешить новое создание после проверки" variant="secondary" disabled={blocked} onPress={() => {
           if (task.busy.current || confirming.current) return
           confirming.current = true
           Alert.alert('Создать ещё один документ?', 'Предыдущий запрос мог выполниться. Убедитесь, что нужного документа нет в списке. Новое создание может дать дубликат.', [
             { text: 'Отмена', style: 'cancel', onPress: () => { confirming.current = false } },
-            { text: 'Разрешить новое создание', onPress: () => { confirming.current = false; if (task.isActive() && !task.busy.current && alive.current) { setGeneration(null); setMessage(''); task.setError('') } } },
+            { text: 'Разрешить новое создание', onPress: () => { confirming.current = false; if (task.isActive() && !task.busy.current && alive.current) void task.run('Завершаем проверку…', 'Не удалось завершить проверку', async (current) => { await finishGeneration(generation); if (current() && alive.current) { setGeneration(null); setMessage(''); task.setError('') } }) } },
           ], { cancelable: true, onDismiss: () => { confirming.current = false } })
         }} />
-      </> : <Button testID="generate-document" title="Сформировать и прикрепить DOCX" onPress={generate} disabled={blocked || templateState !== 'ready' || !templateId || !isServerEntityId(id) || (entity as Event).status === 'draft' || Boolean(entity.syncStatus && entity.syncStatus !== 'synced')} />}
+      </> : <Button testID="generate-document" title="Сформировать и прикрепить DOCX" onPress={generate} disabled={blocked || !generationReady || templateState !== 'ready' || !templateId || !isServerEntityId(id) || Boolean(entity.syncStatus && entity.syncStatus !== 'synced')} />}
     </Surface> : null}
     <Button title="Повторить чтение" variant="secondary" onPress={() => { setMessage(''); void loadLocal() }} disabled={blocked} />
   </Screen>

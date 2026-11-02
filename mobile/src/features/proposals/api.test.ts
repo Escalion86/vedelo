@@ -1,4 +1,14 @@
 let mockSessionSequence = 0
+const mockCreationRows = new Map<string, any>()
+let mockCleanupFails = false
+jest.mock('expo-crypto', () => ({ randomUUID: () => '11111111-1111-4111-8111-111111111111' }))
+jest.mock('../../shared/storage/cache', () => ({
+  getCachedEntity: async (kind: string, id: string) => mockCreationRows.get(`${kind}:${id}`) || null,
+  upsertEntities: async (kind: string, rows: any[]) => { for (const row of rows) mockCreationRows.set(`${kind}:${row._id}`, JSON.parse(JSON.stringify(row))) },
+  removeCachedEntity: async (kind: string, id: string) => { if (mockCleanupFails) throw new Error('local disk unavailable'); mockCreationRows.delete(`${kind}:${id}`) },
+}))
+jest.mock('../../shared/storage/localEntityIds', () => ({ localEntityIdentity: async () => JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant']), assertLocalEntityIdentity: async (id: string) => { if (id !== JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant'])) throw new Error('SESSION_CHANGED') } }))
+jest.mock('../../shared/storage/localEntityCoordination', () => ({ localDataEpoch: () => mockSessionSequence, assertLocalDataEpoch: (epoch: number) => { if (epoch !== mockSessionSequence) throw new Error('SESSION_CHANGED') }, withLocalEntityWrite: async (fn: () => unknown) => fn() }))
 jest.mock('../../shared/config/env', () => ({ env: { apiBaseUrl: 'https://stagej.invalid/api' } }))
 jest.mock('../../shared/auth/tokenStore', () => ({ getStoredUser: async () => ({ _id: `test-user-${mockSessionSequence}`, tenantId: 'test-tenant' }), getAccessToken: async () => 'fixture-credential', subscribeAuthSession: () => () => {} }))
 // Exercise the real React Native multipart implementation, not JSDOM FormData.
@@ -57,8 +67,125 @@ function api() {
   expect(subject.proposalsApi).toBeDefined()
   return subject.proposalsApi
 }
+it('process restart after a lost create response restores input and reuses the exact request ID', async () => {
+  mockRequest.mockRejectedValueOnce(new Error('lost response'))
+  await expect(api().create('e', { sourceProposalId: 'original' })).rejects.toThrow('lost response')
+  const firstBody = mockRequest.mock.calls[0][1].body
+  const { proposalOperations } = require('./operations')
+  const identity = JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant'])
+  proposalOperations.clear(identity, 'create-proposal', 'e') // Drop process memory, retain the encrypted rows.
+  await expect(api().create('e', { templateId: 'different' })).rejects.toThrow('CREATE_OUTCOME_PENDING')
+  expect(mockRequest).toHaveBeenCalledTimes(1)
+  await api().restoreCreate('e')
+  expect(proposalOperations.get(identity, 'create-proposal', 'e')).toMatchObject({ recoverable: true, phase: 'unknown' })
+  mockRequest.mockResolvedValueOnce(data(proposal)).mockResolvedValueOnce(data(proposal))
+  expect(await api().recoverCreate('e')).toMatchObject(proposal)
+  expect(mockRequest.mock.calls[1]).toEqual(['/mobile/v1/events/e/proposals', { method: 'POST', skipRefresh: true, body: firstBody }])
+  expect(mockRequest.mock.calls[2]).toEqual(['/proposals/p', undefined])
+  expect(mockCreationRows.size).toBe(0)
+})
+it('a known create response survives restart and recovery performs only the exact GET', async () => {
+  mockRequest.mockResolvedValueOnce(data(proposal)).mockRejectedValueOnce(new Error('read unavailable'))
+  await expect(api().create('e', {})).rejects.toThrow('READBACK_FAILED')
+  const { proposalOperations } = require('./operations')
+  const identity = JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant'])
+  proposalOperations.clear(identity, 'create-proposal', 'e')
+  await api().restoreCreate('e')
+  mockRequest.mockResolvedValueOnce(data(proposal))
+  await api().recoverCreate('e')
+  expect(mockRequest.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1)
+  expect(mockRequest.mock.calls[2]).toEqual(['/proposals/p', undefined])
+})
+it('a template confirmation restores its exact form after restart without another request', async () => {
+  const { _id: _unused, ...input } = template
+  mockRequest.mockRejectedValueOnce(new Error('offline'))
+  await expect(api().saveTemplate(undefined, input)).rejects.toThrow('offline')
+  const { proposalOperations } = require('./operations')
+  proposalOperations.clear(JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant']), 'create-template', 'new')
+  expect(await api().restoreTemplate()).toMatchObject({ ...input, _id: 'new' })
+  expect(mockRequest).toHaveBeenCalledTimes(1)
+  mockRequest.mockResolvedValueOnce(data(template)).mockResolvedValueOnce(data(template))
+  expect(await api().recoverTemplate()).toMatchObject(template)
+  expect(mockRequest.mock.calls[1][1].body).toEqual(mockRequest.mock.calls[0][1].body)
+})
+it('confirmed deletion closes a pending creation without another create or resurrecting its row', async () => {
+  mockRequest.mockRejectedValueOnce(new Error('lost response'))
+  await expect(api().create('e', {})).rejects.toThrow('lost response')
+  mockRequest.mockRejectedValueOnce(Object.assign(new Error('Deleted'), { status: 410, code: 'created_resource_deleted' }))
+  await expect(api().recoverCreate('e')).rejects.toThrow('CREATED_RESOURCE_GONE')
+  expect(mockCreationRows.size).toBe(0)
+  expect(mockRequest).toHaveBeenCalledTimes(2)
+  const { proposalOperations } = require('./operations')
+  expect(proposalOperations.get(JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant']), 'create-proposal', 'e')).toBeUndefined()
+})
+it('a local cleanup failure after server deletion remains recoverable instead of leaving creation busy', async () => {
+  mockRequest.mockRejectedValueOnce(new Error('lost response'))
+  await expect(api().create('e', {})).rejects.toThrow('lost response')
+  const deleted = Object.assign(new Error('Deleted'), { status: 410, code: 'created_resource_deleted' })
+  mockCleanupFails = true
+  mockRequest.mockRejectedValueOnce(deleted)
+  await expect(api().recoverCreate('e')).rejects.toThrow('local disk unavailable')
+  const { proposalOperations } = require('./operations')
+  const identity = JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant'])
+  expect(proposalOperations.get(identity, 'create-proposal', 'e')).toMatchObject({ inflight: false, recoverable: true })
+  expect(mockCreationRows.size).toBe(1)
+  mockCleanupFails = false
+  mockRequest.mockRejectedValueOnce(deleted)
+  await expect(api().recoverCreate('e')).rejects.toThrow('CREATED_RESOURCE_GONE')
+  expect(mockCreationRows.size).toBe(0)
+  expect(proposalOperations.get(identity, 'create-proposal', 'e')).toBeUndefined()
+  expect(mockRequest.mock.calls[2][1].body).toEqual(mockRequest.mock.calls[0][1].body)
+})
+it('an unstructured proxy 404 cannot discard a known creation; only exact API not_found can close it', async () => {
+  mockRequest.mockResolvedValueOnce(data(proposal)).mockRejectedValueOnce(Object.assign(new Error('Proxy page missing'), { status: 404 }))
+  await expect(api().create('e', {})).rejects.toThrow('READBACK_FAILED')
+  expect(mockCreationRows.size).toBe(1)
+  mockRequest.mockRejectedValueOnce(Object.assign(new Error('Proposal missing'), { status: 404, code: 'not_found' }))
+  await expect(api().recoverCreate('e')).rejects.toThrow('CREATED_RESOURCE_GONE')
+  expect(mockCreationRows.size).toBe(0)
+  expect(mockRequest.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1)
+})
+it('lost cancellation survives restart and cannot resume the old creation', async () => {
+  mockRequest.mockRejectedValueOnce(new Error('create reply lost'))
+  await expect(api().create('e', { templateId: 'missing' })).rejects.toThrow('create reply lost')
+  mockRequest.mockRejectedValueOnce(new Error('cancel reply lost'))
+  await expect(api().cancelCreate('e')).rejects.toThrow('cancel reply lost')
+  const { proposalOperations } = require('./operations')
+  const identity = JSON.stringify([`test-user-${mockSessionSequence}`, 'test-tenant'])
+  proposalOperations.clear(identity, 'create-proposal', 'e')
+  await api().restoreCreate('e')
+  expect(proposalOperations.get(identity, 'create-proposal', 'e')).toMatchObject({ inflight: false, cancelRequested: true })
+  await expect(api().recoverCreate('e')).rejects.toThrow('CREATION_CANCELLATION_PENDING')
+  expect(mockRequest).toHaveBeenCalledTimes(2)
+  mockRequest.mockRejectedValueOnce(Object.assign(new Error('Cancelled'), { status: 410, code: 'creation_cancelled' }))
+  await expect(api().cancelCreate('e')).rejects.toThrow('CREATION_CANCELLED')
+  expect(mockCreationRows.size).toBe(0)
+  expect(mockRequest.mock.calls.map(([path]) => path)).toEqual(['/mobile/v1/events/e/proposals', '/mobile/v1/events/e/proposals/cancel', '/mobile/v1/events/e/proposals/cancel'])
+  expect(mockRequest.mock.calls[2][1].body).toEqual(mockRequest.mock.calls[0][1].body)
+})
+it('cancellation reads a creation that won the race without deleting or overwriting it', async () => {
+  mockRequest.mockRejectedValueOnce(new Error('reply lost'))
+  await expect(api().create('e', {})).rejects.toThrow('reply lost')
+  mockRequest.mockResolvedValueOnce(data({ state: 'created', id: 'p' })).mockResolvedValueOnce(data({ ...proposal, title: 'Later PWA edit' }))
+  expect(await api().cancelCreate('e')).toMatchObject({ _id: 'p', title: 'Later PWA edit' })
+  expect(mockCreationRows.size).toBe(0)
+  expect(mockRequest.mock.calls[2]).toEqual(['/proposals/p', undefined])
+  expect(mockRequest.mock.calls.some(([, options]) => ['DELETE', 'PATCH'].includes(options?.method))).toBe(false)
+})
+it('template cancellation preserves the confirmed input until server acknowledgement', async () => {
+  const { _id: _unused, ...input } = template
+  mockRequest.mockRejectedValueOnce(new Error('offline'))
+  await expect(api().saveTemplate(undefined, input)).rejects.toThrow('offline')
+  mockRequest.mockResolvedValueOnce(data({ state: 'cancelled' }))
+  expect(await api().cancelTemplate()).toBeNull()
+  expect(mockRequest.mock.calls[1][0]).toBe('/mobile/v1/proposal-templates/cancel')
+  expect(mockRequest.mock.calls[1][1].body).toEqual(mockRequest.mock.calls[0][1].body)
+  expect(mockCreationRows.size).toBe(0)
+})
 beforeEach(() => {
   mockSessionSequence++
+  mockCreationRows.clear()
+  mockCleanupFails = false
   mockRequest.mockReset()
   mockUpload.mockReset()
   global.fetch = jest.fn(async (url, options: any) => ({ ok: true, json: () => mockUpload(new URL(String(url)).pathname.replace(/^\/api/, ''), options.body) })) as any
@@ -72,8 +199,8 @@ it('create/clone POST exact event then GET exact created proposal', async () => 
   ).toMatchObject(proposal)
   expect(mockRequest.mock.calls).toEqual([
     [
-      '/events/e/proposals',
-      { method: 'POST', skipRefresh: true, body: { sourceProposalId: 'original' } },
+      '/mobile/v1/events/e/proposals',
+      { method: 'POST', skipRefresh: true, body: { sourceProposalId: 'original', requestId: '11111111-1111-4111-8111-111111111111' } },
     ],
     ['/proposals/p', undefined],
   ])
@@ -166,7 +293,7 @@ it('template create and update use real POST/PATCH, reread exact template', asyn
   await api().saveTemplate(undefined, { name: 'Шаблон' })
   await api().saveTemplate('t', { name: 'Шаблон' })
   expect(mockRequest.mock.calls).toEqual([
-    ['/proposal-templates', { method: 'POST', skipRefresh: true, body: { name: 'Шаблон' } }],
+    ['/mobile/v1/proposal-templates', { method: 'POST', skipRefresh: true, body: { name: 'Шаблон', requestId: '11111111-1111-4111-8111-111111111111' } }],
     ['/proposal-templates/t', undefined],
     ['/proposal-templates/t', { method: 'PATCH', skipRefresh: true, body: { name: 'Шаблон' } }],
     ['/proposal-templates/t', undefined],
@@ -214,6 +341,13 @@ it('preview uses private POST with unsaved data; defaults and services use tenan
     '/proposal-templates/t/preview',
     { method: 'POST', skipRefresh: true, body: { name: 'Несохранённое' } },
   ])
+})
+it('template conversion reads only the common server draft', async () => {
+  mockRequest.mockResolvedValueOnce(data(template))
+  const draft = await api().templateFromProposal('p')
+  expect(draft.name).toBe('Шаблон')
+  expect(draft._id).toBeUndefined()
+  expect(mockRequest.mock.calls).toEqual([['/proposals/p?view=template-draft', undefined]])
 })
 it('template DELETE used archive is confirmed by exact reread and list', async () => {
   mockRequest
@@ -274,6 +408,33 @@ it('logo uses dedicated POST file endpoint with native upload and exact proposal
   ).toMatch(/logo.webp$/)
   expect(mockUpload.mock.calls[0][0]).toBe('/proposals/p/logo')
   expect(mockRequest.mock.calls[0][0]).toBe('/proposals/p')
+})
+it.each(['new', 't'])('template logo %s uses its tenant-protected endpoint without creating a template', async id => {
+  mockUpload.mockResolvedValueOnce(data({ url: 'https://cloud.escalion.ru/uploads/vedelo/a/proposal-templates/t/logo.webp' }))
+  mockRequest.mockResolvedValueOnce(data(template))
+  await expect(api().uploadTemplateLogo(id, { uri: 'file:///logo.png', name: 'logo.png', mimeType: 'image/png', size: 20 })).resolves.toMatch(/logo.webp$/)
+  expect(mockUpload.mock.calls[0][0]).toBe(`/proposal-templates/${id}/logo`)
+  expect(mockRequest.mock.calls).toEqual(id === 'new' ? [] : [['/proposal-templates/t', undefined]])
+})
+it('gallery uploads match PWA type and size limits', async () => {
+  const file = { uri: 'file:///movie.mp4', name: 'movie.mp4', mimeType: 'video/mp4', size: 50 * 1024 * 1024 }
+  mockUpload.mockResolvedValueOnce(data({ path: 'uploads/vedelo/a/proposals/p/movie.mp4' }))
+  await expect(api().uploadGallery('proposal', 'p', file)).resolves.toMatch(/movie.mp4$/)
+  for (const bad of [{ ...file, size: file.size + 1 }, { ...file, mimeType: 'video/webm', size: 20 }, { ...file, mimeType: 'image/gif', size: 20 }])
+    await expect(api().uploadGallery('proposal', 'p', bad)).rejects.toThrow('INVALID_MEDIA_FILE')
+  expect(mockUpload).toHaveBeenCalledTimes(1)
+})
+it('rich-text uploads retain the separate PWA GIF/WebM contract', async () => {
+  mockUpload.mockResolvedValue(data({ path: 'uploads/vedelo/a/proposals/p/file.webm' }))
+  for (const mimeType of ['image/gif', 'video/webm'])
+    await expect(api().uploadMedia('proposal', 'p', { uri: 'file:///file', name: 'file', mimeType, size: 20 })).resolves.toBeTruthy()
+  await expect(api().uploadMedia('proposal', 'p', { uri: 'file:///file', name: 'file', mimeType: 'video/webm', size: 40 * 1024 * 1024 + 1 })).rejects.toThrow('INVALID_MEDIA_FILE')
+})
+it('native media validation is generated verbatim from the PWA contract', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const source = fs.readFileSync(path.resolve(__dirname, '../../../../helpers/proposalMedia.mjs'), 'utf8')
+  const generated = fs.readFileSync(path.resolve(__dirname, 'proposalMedia.generated.ts'), 'utf8')
+  expect(generated.replace(/^\/\/ @ts-nocheck\r?\n\/\/ Generated verbatim from helpers\/proposalMedia.mjs\.\r?\n/, '').replaceAll('\r\n', '\n')).toBe(source.replaceAll('\r\n', '\n'))
 })
 it('PATCH readback must match the exact server mutation snapshot', async () => {
   mockRequest

@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const completeSignIn = useCallback(async (session: AuthSession) => {
     await flushPendingLogout()
     const previous = await getAuthSession()
-    if (previous?.user.tenantId && previous.user.tenantId !== session.user.tenantId) {
+    if (previous?.user && (previous.user._id !== session.user._id || previous.user.tenantId !== session.user.tenantId)) {
       await clearLocalData()
       queryClient.clear()
     }

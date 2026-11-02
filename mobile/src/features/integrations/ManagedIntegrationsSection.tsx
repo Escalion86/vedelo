@@ -86,6 +86,15 @@ function ManagedForm({ provider, gate, onStatus, onClose }: { provider: ManagedP
     const selected = aiProvider
     await perform(() => api.post('/mobile/v1/integrations/ai', { provider: selected, ...(selected === 'aitunnel' ? { key } : {}), transcriptionModel, analysisModel }, { skipRefresh: true }), (next) => next.analysisProvider === selected && next.enabled && next.configured && (selected === 'artistcrm' || (next.analysisModel === analysisModel && next.transcriptionModel === transcriptionModel)), `${selected === 'artistcrm' ? 'ИИ Ведело' : 'AITunnel'} подключён`)
   }
+  const toggleNovofon = () => {
+    if (!editable || !details.configured || session.gate.owner) return
+    const enabled = !details.enabled
+    return perform(
+      () => api.patch('/mobile/v1/integrations/telephony', { enabled }, { skipRefresh: true }),
+      next => next.enabled === enabled && next.configured && next.hasApiKey === details.hasApiKey,
+      enabled ? 'Novofon возобновлён. Адрес webhook сохранён.' : 'Novofon приостановлен. Ключи и адрес webhook сохранены.'
+    )
+  }
   const updateAi = (patch: Record<string, unknown>, message: string) => {
     if (!editable || !aiProvider || details?.analysisProvider !== aiProvider) return
     if (patch.analysisModel && (!validIdentifier(analysisModel, 120) || !validIdentifier(transcriptionModel, 120))) { invalid('Проверьте названия моделей: пробелы и длина недопустимы.'); return }
@@ -134,7 +143,8 @@ function ManagedForm({ provider, gate, onStatus, onClose }: { provider: ManagedP
     {details ? <>
       {!details.available ? <Notice tone="warning" message="Интеграция недоступна на текущем тарифе. Отключение сохранённой настройки остаётся доступным." /> : null}
       {provider === 'telephony' ? <>
-        <Notice tone="info" message="Подключение выпускает новый webhook. Прежний адрес перестаёт работать; повторный выпуск требует подтверждения. Пауза через мобильный API не поддерживается." />
+        <Notice tone="info" message="Пауза сохраняет ключи и адрес webhook. Выпуск нового webhook меняет прежний адрес и требует подтверждения." />
+        {details.configured ? <Button title={details.enabled ? 'Приостановить Novofon' : 'Возобновить Novofon'} variant="secondary" disabled={!editable} onPress={toggleNovofon} /> : null}
         <Field label="Ключ Novofon (необязательно)" value={credential} onChangeText={setCredential} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={editable} placeholder={details.hasApiKey ? 'Пустое поле сохраняет текущий ключ' : ''} />
         <Button title={confirmAction === 'rotate:telephony' ? 'Подтвердить выпуск нового webhook' : details.configured ? 'Выпустить новый webhook' : 'Подключить Novofon'} loading={session.working} disabled={!editable} onPress={connectNovofon} />
       </> : null}

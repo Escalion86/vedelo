@@ -3,8 +3,10 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, St
 import { router, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router'
 import { usePreventRemove } from '@react-navigation/native'
 import { useQueryClient } from '@tanstack/react-query'
-import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventDraft, validateEventDraft, type EventDraft, type EventFormValues } from '../../../src/shared/domain/eventForm'
+import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventChanges, validateEventDraft, type EventDraft } from '../../../src/shared/domain/eventForm'
 import { consumePendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
+import { consumeSharedDraft, readSharedDraft } from '../../../src/shared/native/shareDraft'
+import { deviceSession } from '../../../src/shared/native/device'
 import type { Client, Event, MobileSettings, Service, Transaction } from '../../../src/shared/domain/types'
 import { getCachedEntity, listCachedEntities, upsertEntities } from '../../../src/shared/storage/cache'
 import { deleteLocalEntity, saveLocalEntity } from '../../../src/shared/storage/mutations'
@@ -20,10 +22,15 @@ import { PhotoDraftSection, type PhotoDraftMetadata, type PhotoDraftFields } fro
 import { CompactEventForm } from '../../../src/features/events/CompactEventForm'
 import { validationSection, type CompactSectionId } from '../../../src/features/events/compactEventFormHelpers'
 import { applyPhotoDraft, photoDraftHighlights } from '../../../src/features/events/applyPhotoDraft'
-import { VoiceDraftSection } from '../../../src/features/events/VoiceDraftSection'
-import { applyVoiceDraftFields, type VoiceDraftFields } from '../../../src/features/events/voiceDraft'
 import { useWorkItemTerminology } from '../../../src/shared/hooks/useWorkItemTerminology'
 import { initialWorkItemMode, initialWorkItemStatus } from '../../../src/features/events/createOptions'
+import { aiReviewError, aiReviewHighlights, discardAiReview, readAiReview, refreshAiReview, saveAiReview, type AiReview } from '../../../src/features/events/aiReview'
+import { AiPlanSummary } from '../../../src/features/events/AiPlanSummary'
+import { getAuthSessionEpoch } from '../../../src/shared/auth/tokenStore'
+import { localDataEpoch } from '../../../src/shared/storage/localEntityCoordination'
+import { discardAiCreateReview, readAiCreateReview, saveAiCreatedEvent, type AiCreateReview } from '../../../src/features/events/aiCreateReview'
+import { resolveLocalEntityId } from '../../../src/shared/storage/localEntityIds'
+import { ConfirmedAiEvent } from '../../../src/features/events/ConfirmedAiForm'
 
 const countEventDocuments = (event?: Event | null) =>
   event ? (event.documents?.length || 0) + (event.documentFiles?.length || 0) : 0
@@ -32,10 +39,20 @@ export default function EventEditScreen() {
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
-  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[]; decision?: string }>()
+  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[]; decision?: string; shareDraft?: string; aiPlan?: string; aiDraft?: string }>()
   // Freeze the entry context: URL updates and tab switches must not rehydrate a dirty form.
   const [entry] = useState(params)
+  const [aiScope] = useState(() => entry.aiPlan || entry.aiDraft ? { epoch: localDataEpoch(), auth: getAuthSessionEpoch() } : null)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const aiCurrent = () => alive.current && !!aiScope && aiScope.epoch === localDataEpoch() && aiScope.auth === getAuthSessionEpoch()
+  const [aiReview, setAiReview] = useState<AiReview | null>(null)
+  const [aiCreate, setAiCreate] = useState<AiCreateReview | null>(null)
   const isNew = entry.id === 'new', isClone = Boolean(entry.cloneId)
+  const [sharedDraft] = useState(() => isNew && !isClone && entry.shareDraft ? readSharedDraft(entry.shareDraft, deviceSession()?.generation) : null)
+  const redirectAi = isNew && !isClone && !entry.aiDraft && (sharedDraft?.mode === 'text' || !sharedDraft && (entry.mode === 'voice' || entry.mode === 'text'))
+  useEffect(() => { if (sharedDraft && !redirectAi) consumeSharedDraft(sharedDraft.id, sharedDraft.generation) }, [sharedDraft, redirectAi])
+  useEffect(() => { if (redirectAi) router.replace({ pathname: '/events/assistant', params: { mode: sharedDraft ? 'text' : entry.mode, ...(sharedDraft ? { shareDraft: sharedDraft.id } : {}) } } as never) }, [redirectAi, entry, sharedDraft])
   const queryClient = useQueryClient()
   const navigation = useNavigation()
   const [clients, setClients] = useState<Client[]>([])
@@ -48,24 +65,30 @@ export default function EventEditScreen() {
   const [draft, setDraft] = useState<EventDraft>(() => {
     const initial = createEventDraft()
     initial.values.clientId = entry.clientId || ''
+    // Keep the supplied text in the ordinary form even if AI is unavailable.
+    if (sharedDraft) initial.values.description = sharedDraft.text
     initial.values.status = isNew && !isClone ? initialWorkItemStatus(entry.initialStatus) : 'draft'
     return initial
   })
   const [section, setSection] = useState(() => eventSection(entry.section))
-  const [initialMode] = useState(() => isNew && !isClone ? initialWorkItemMode(entry.mode) : 'manual')
+  const [initialMode] = useState(() => sharedDraft?.mode || (isNew && !isClone ? initialWorkItemMode(entry.mode) : 'manual'))
   const [ready, setReady] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [photoMetadata, setPhotoMetadata] = useState<PhotoDraftMetadata | null>(null)
   const [aiFields, setAiFields] = useState<Set<string>>(() => new Set())
-  const [openSections, setOpenSections] = useState<Set<CompactSectionId>>(() => new Set<CompactSectionId>(entry.section === 'contacts' ? ['client'] : entry.section === 'finance' ? ['finance'] : []))
+  const [openSections, setOpenSections] = useState<Set<CompactSectionId>>(() => new Set<CompactSectionId>(sharedDraft || entry.section === 'contacts' ? ['client'] : entry.section === 'finance' ? ['finance'] : []))
   const [invalid, setInvalid] = useState<{ section: CompactSectionId; message: string }>()
   const savedLocalId = useRef('')
-  const [dirty, setDirty] = useState(false)
+  const [dirty, setDirty] = useState(Boolean(sharedDraft))
   const [savedPath, setSavedPath] = useState('')
   const busy = useRef(false)
+  const formLocked = !!aiReview?.attempt || !!aiCreate?.eventAttempt
   const { values } = draft
+  const formClients = aiReview?.plan.clientPatch
+    ? clients.map(client => client._id === aiReview.plan.clientPatch?._id ? { ...client, ...aiReview.plan.clientPatch, _id: client._id } as Client : client)
+    : clients
   const compact = settings?.custom?.eventFormVariant !== 'classic'
   const onManualEdit = (keys: string[]) => {
     setAiFields(current => { const next = new Set(current); keys.forEach(key => next.delete(key)); return next })
@@ -79,9 +102,6 @@ export default function EventEditScreen() {
   const loadSourceId = entry.cloneId || savedWorkId
   const relatedTransactions = eventTransactionsFor(transactions, savedWorkId)
   const changeDraft = (next: EventDraft) => { setDirty(true); setDraft(next) }
-  const setValues = (update: (current: EventFormValues) => EventFormValues) => {
-    setDirty(true); setDraft((current) => ({ ...current, values: update(current.values) }))
-  }
   const loadTransactions = useCallback(async () => {
     try {
       const items = await listCachedEntities<Transaction>('transactions')
@@ -100,6 +120,7 @@ export default function EventEditScreen() {
   })
   useEffect(() => { if (savedPath) router.replace(savedPath as never) }, [savedPath])
   useEffect(() => {
+    if (redirectAi) return
     let active = true
     setError('')
     Promise.all([listCachedEntities<Client>('clients'), listCachedEntities<Service>('services'),
@@ -108,14 +129,33 @@ export default function EventEditScreen() {
         (items) => ({ items, failed: false }),
         () => ({ items: [] as Transaction[], failed: true }),
       ),
-    ]).then(([clientItems, serviceItems, settingsItems, event, transactionResult]) => {
+      entry.aiPlan ? readAiReview(entry.aiPlan) : null,
+      entry.aiDraft ? readAiCreateReview(entry.aiDraft) : null,
+    ]).then(([clientItems, serviceItems, settingsItems, event, transactionResult, review, creation]) => {
       if (!active) return
-      if (loadSourceId && !event) throw new Error('Запись не найдена в локальных данных')
+      if (entry.aiPlan && (!review || review.plan.eventId !== savedWorkId || !aiCurrent())) throw new Error('Проверка изменений недоступна. Откройте помощника заново')
+      if (entry.aiDraft && (!creation || !isNew || isClone || !aiCurrent())) throw new Error('Черновик недоступен. Откройте помощника заново')
+      if (loadSourceId && !event && !review) throw new Error('Запись не найдена в локальных данных')
       setClients(clientItems); setServices(serviceItems); setSettings(settingsItems[0])
       setTransactions(transactionResult.items); setTransactionsError(transactionResult.failed)
       setClientsError(false)
       setDocumentsCount(isClone ? 0 : countEventDocuments(event))
+      setAiReview(review)
+      setAiCreate(creation)
+      if (review) { setAiFields(aiReviewHighlights(review.plan)); setDirty(true) }
+      if (creation) {
+        setPhotoMetadata({ sourceText: creation.sourceText, aiFilledFields: creation.aiFilledFields, aiWarnings: creation.aiWarnings })
+        setAiFields(photoDraftHighlights(creation.fields, creation.aiFilledFields, new Set(clientItems.map(c => c._id)), new Set(serviceItems.map(s => s._id))))
+        setDirty(true); setOpenSections(new Set(['client']))
+      }
       setDraft((current) => {
+        if (review) return review.attempt?.draft || createEventDraft(review.preview)
+        if (creation) {
+          if (creation.eventAttempt) return creation.eventAttempt.form
+          const base = createEventDraft()
+          base.values.town = settingsItems[0]?.defaultTown || ''
+          return applyPhotoDraft(base, { ...creation.fields, ...(creation.clientId ? { clientId: creation.clientId } : {}) }, new Set(clientItems.map(c => c._id)), new Set(serviceItems.map(s => s._id)))
+        }
         const next = event ? createEventDraft(event, isClone) : current
         return { ...next, values: { ...next.values,
           clientId: entry.clientId || next.values.clientId,
@@ -126,29 +166,33 @@ export default function EventEditScreen() {
       setReady(true)
     }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Не удалось загрузить данные') })
     return () => { active = false }
-  }, [entry, isClone, isNew, loadSourceId, attempt])
+  }, [entry, isClone, isNew, loadSourceId, attempt, redirectAi])
   // Возврат из клиентского редактора, транзакций и документов: обновляем кэш и перенимаем созданного клиента.
   useFocusEffect(useCallback(() => {
     let active = true
     if (ready) {
       void (async () => {
-        const [clientResult, transactionResult, eventResult] = await Promise.allSettled([
+        const [clientResult, transactionResult, eventResult, creationResult] = await Promise.allSettled([
           listCachedEntities<Client>('clients'),
           listCachedEntities<Transaction>('transactions'),
           savedWorkId ? getCachedEntity<Event>('events', savedWorkId) : Promise.resolve(null),
+          entry.aiDraft ? readAiCreateReview(entry.aiDraft) : Promise.resolve(null),
         ])
         if (!active) return
         setClientsError(clientResult.status === 'rejected')
         if (clientResult.status === 'fulfilled') {
           const clientItems = clientResult.value
           setClients(clientItems)
-          const pendingClient = consumePendingEventClient()
+          const pendingId = consumePendingEventClient()
+          const pendingClient = pendingId ? await resolveLocalEntityId('clients', pendingId) : null
+          if (!active) return
           if (pendingClient && clientItems.some((client) => client._id === pendingClient)) {
             setDirty(true)
             setAiFields(current => { const next = new Set(current); next.delete('clientId'); return next })
             setDraft((current) => ({ ...current, values: { ...current.values, clientId: pendingClient } }))
           }
         }
+        if (creationResult.status === 'fulfilled' && creationResult.value) setAiCreate(creationResult.value)
         setTransactionsError(transactionResult.status === 'rejected')
         if (transactionResult.status === 'fulfilled') setTransactions(transactionResult.value)
         if (eventResult.status === 'fulfilled' && eventResult.value) {
@@ -157,8 +201,7 @@ export default function EventEditScreen() {
       })()
     }
     return () => { active = false }
-  }, [ready, savedWorkId, section]))
-  const applyVoiceDraft = (fields: VoiceDraftFields) => setValues((current) => applyVoiceDraftFields(current, fields, new Set(clients.map((client) => client._id))))
+  }, [ready, savedWorkId, section, entry.aiDraft]))
   const applyPhoto = async (fields: PhotoDraftFields, metadata?: PhotoDraftMetadata) => {
     let verifiedClients = clients
     if (typeof fields.clientId === 'string' && !clients.some((client) => client._id === fields.clientId)) {
@@ -199,7 +242,8 @@ export default function EventEditScreen() {
     if (!ready || busy.current) return
     setError('')
     try {
-      const validationError = validateEventDraft(draft)
+      const confirmedPayload = aiCreate?.eventAttempt?.values ?? aiReview?.attempt?.manualChanges
+      const validationError = confirmedPayload ? null : validateEventDraft(draft)
       if (validationError) {
         const id = validationSection(validationError)
         setInvalid({ section: id, message: validationError })
@@ -207,13 +251,27 @@ export default function EventEditScreen() {
         if (!compact) setSection(id === 'client' || id === 'tasks' ? 'contacts' : id === 'finance' ? 'finance' : 'general')
         throw new Error(validationError)
       }
-      const payload = serializeEventDraft(draft, {
+      const payload = confirmedPayload ?? serializeEventChanges(draft, {
         clientIds: new Set(clients.map((c) => c._id)), serviceIds: new Set(services.map((s) => s._id)),
         // При ошибке чтения транзакций сохраняем черновик как есть, без нулевой подмены.
         depositPaid: !transactionsError && hasDepositPaidTransaction(relatedTransactions),
       })
       busy.current = true; setLoading(true)
-      const entity = await saveLocalEntity({ entityType: 'events', entityId: savedLocalId.current || (isNew || isClone ? undefined : entry.id), values: payload })
+      if (aiCreate) {
+        const saved = await saveAiCreatedEvent(aiCreate._id, payload, draft, aiCurrent)
+        if (!aiCurrent()) return
+        void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'events'] }).catch(() => undefined)
+        setSavedPath(`/events/${saved._id}`); return
+      }
+      if (aiReview) {
+        const saved = await saveAiReview(aiReview._id, draft, payload, aiCurrent)
+        if (!aiCurrent()) return
+        for (const entityType of ['events', 'clients', 'transactions']) void queryClient.invalidateQueries({ queryKey: ['cached-entities', entityType] }).catch(() => undefined)
+        setSavedPath(`/events/${saved._id}`)
+        return
+      }
+      const entity = await saveLocalEntity({ entityType: 'events', entityId: savedLocalId.current || (isNew || isClone ? undefined : entry.id), values: payload,
+        baseSnapshot: !isNew && !isClone ? draft.source : undefined })
       void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'events'] }).catch(() => undefined)
       savedLocalId.current = entity._id
       const saved = await getCachedEntity<Event>('events', entity._id)
@@ -222,8 +280,35 @@ export default function EventEditScreen() {
       setAiFields(new Set())
       setPhotoMetadata(null)
       setSavedPath(`/events/${saved._id}`)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить') }
+    } catch (reason) {
+      setError(aiReview || aiCreate ? aiReviewError(reason) : reason instanceof Error ? reason.message : 'Не удалось сохранить')
+      if (aiCreate && aiCurrent()) {
+        const pending = await readAiCreateReview(aiCreate._id).catch(() => null)
+        if (aiCurrent() && pending) { setAiCreate(pending); if (pending.eventAttempt) setDraft(pending.eventAttempt.form) }
+      }
+      if (aiReview && aiCurrent()) {
+        const pending = await readAiReview(aiReview._id).catch(() => null)
+        if (aiCurrent() && pending) { setAiReview(pending); if (pending.attempt) setDraft(pending.attempt.draft) }
+      }
+    }
     finally { busy.current = false; setLoading(false) }
+  }
+  const checkAiReview = async () => {
+    if (!aiReview || busy.current || !aiCurrent()) return
+    busy.current = true; setLoading(true); setError('')
+    try { const pending = await refreshAiReview(aiReview._id, aiCurrent); if (aiCurrent()) setAiReview(pending) }
+    catch (reason) { if (aiCurrent()) setError(aiReviewError(reason)) }
+    finally { busy.current = false; if (aiCurrent()) setLoading(false) }
+  }
+  const cancelAiReview = async () => {
+    if ((!aiReview && !aiCreate) || busy.current || !aiCurrent()) return
+    busy.current = true; setLoading(true); setError('')
+    try {
+      if (aiCreate) { await discardAiCreateReview(aiCreate._id, aiCurrent); if (aiCurrent()) setSavedPath('/events/assistant') }
+      else if (aiReview) { await discardAiReview(aiReview._id, aiCurrent); if (aiCurrent()) setSavedPath(`/events/${aiReview.plan.eventId}`) }
+    }
+    catch (reason) { if (aiCurrent()) setError(aiReviewError(reason)) }
+    finally { busy.current = false; if (aiCurrent()) setLoading(false) }
   }
   const remove = () => Alert.alert(`Удалить ${terms.accusative}?`, 'Удаление будет синхронизировано со всеми устройствами.', [
     { text: 'Отмена', style: 'cancel' }, { text: 'Удалить', style: 'destructive', onPress: async () => {
@@ -237,9 +322,15 @@ export default function EventEditScreen() {
       finally { busy.current = false; setLoading(false) }
     } },
   ])
-  if (!ready) return <Screen><PageHeader title="Редактирование" />{error ? <><ErrorNotice message={error} /><Button title="Повторить" onPress={() => setAttempt((value) => value + 1)} /></> : <ActivityIndicator accessibilityLabel="Загрузка формы" color={palette.primary} />}</Screen>
+  if (redirectAi || !ready) return <Screen><PageHeader title={redirectAi ? 'Помощник ИИ' : 'Редактирование'} />{error ? <><ErrorNotice message={error} /><Button title="Повторить" onPress={() => setAttempt((value) => value + 1)} /></> : <ActivityIndicator accessibilityLabel="Загрузка формы" color={palette.primary} />}</Screen>
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><Screen keyboardShouldPersistTaps="handled">
     <PageHeader title={isNew || isClone ? (values.status === 'draft' ? 'Новая заявка' : `Создать ${terms.accusative}`) : 'Редактирование'} />
+    {sharedDraft ? <Notice message="Текст из «Поделиться» перенесён в поле «Описание». Проверьте его перед сохранением." /> : null}
+    {aiCreate?.clientDraft && !aiCreate.clientId ? <Surface><Notice message={`Предложен новый клиент: ${aiCreate.clientDraft.firstName}. Он появится в CRM только после сохранения его формы. Можно выбрать существующего клиента ниже.`} /><Button title={aiCreate.clientAttempt ? 'Продолжить сохранение клиента' : 'Проверить нового клиента'} variant="secondary" disabled={loading || formLocked} onPress={() => router.push({ pathname: '/clients/edit/[id]', params: { id: 'new', returnTo: 'event', aiDraft: aiCreate._id } } as never)} /></Surface> : null}
+    {aiCreate?.clientAttempt ? <Notice message="Клиент сохраняется отдельно. Отмена этой заявки не удалит сохранённого клиента." /> : null}
+    {aiCreate?.eventAttempt ? <Notice message="Создание подтверждено. Повтор продолжит сохранение этой же заявки без повторного ИИ-разбора. Введённая форма сохранена на устройстве." /> : null}
+    {aiCreate?.eventAttempt ? <ConfirmedAiEvent draft={aiCreate.eventAttempt.form} clients={clients} services={services} /> : null}
+    {aiReview ? <><AiPlanSummary plan={aiReview.plan} started={!!aiReview.attempt} manualChanges={aiReview.attempt?.manualChanges} clients={formClients} services={services} /><Button title="Проверить выполненные действия" variant="secondary" disabled={loading} onPress={() => void checkAiReview()} /></> : null}
     {!compact ? <View style={styles.options}>{EVENT_SECTIONS.map(([key, label]) => <Pressable key={key} testID={`event-section-${key}`}
       accessibilityRole="tab" accessibilityState={{ selected: section === key, disabled: loading }} disabled={loading}
       onPress={() => setSection(key)} style={[styles.option, section === key && styles.optionActive]}>
@@ -249,11 +340,11 @@ export default function EventEditScreen() {
       <Notice tone="warning" message="Поля заполнены ИИ. Проверьте данные по оригиналу перед сохранением." />
       {photoMetadata.aiWarnings.map((warning, index) => <Notice key={index} tone="warning" message={warning} />)}
     </Surface> : null}
-    <View style={styles.section} pointerEvents={loading ? 'none' : 'auto'}>
+    <View style={styles.section} pointerEvents={loading || formLocked ? 'none' : 'auto'} accessibilityElementsHidden={formLocked} importantForAccessibility={formLocked ? 'no-hide-descendants' : 'auto'}>
       <View style={!compact && section !== 'general' ? { display: 'none' } : undefined} accessibilityElementsHidden={!compact && section !== 'general'} importantForAccessibility={compact || section === 'general' ? 'auto' : 'no-hide-descendants'}>
-        {initialMode === 'photo' ? <PhotoDraftSection onApply={applyPhoto} /> : <VoiceDraftSection onApply={applyVoiceDraft} initialMode={initialMode} />}
+        {aiReview || aiCreate || sharedDraft?.mode === 'manual' ? null : savedWorkId ? <Button title="Изменить с ИИ" variant="secondary" onPress={() => router.push({ pathname: '/events/assistant', params: { eventId: savedWorkId } } as never)} disabled={dirty || savedWorkId.startsWith('local-')} /> : initialMode === 'photo' ? <PhotoDraftSection onApply={applyPhoto} /> : <Button title="Помощник ИИ" variant="secondary" disabled={dirty} onPress={() => router.push('/events/assistant' as never)} />}
       </View>
-      {compact ? <CompactEventForm draft={draft} onChange={changeDraft} clients={clients}
+      {compact ? <CompactEventForm draft={draft} onChange={changeDraft} clients={formClients}
         services={services.filter(service => !service.archive || draft.serviceIds.includes(service._id))}
         eventTypes={(settings?.custom?.eventTypes || []).filter(value => typeof value === 'string')}
         towns={(settings?.towns || []).filter(value => typeof value === 'string')}
@@ -266,11 +357,11 @@ export default function EventEditScreen() {
           onOpenDocuments: () => router.push(`/events/${savedWorkId}/documents` as never), onRetryTransactions: () => { void loadTransactions() } }}
       /> : null}
       {!compact && section === 'general' ? <EventGeneralSection draft={draft} onChange={changeDraft} aiFields={aiFields} onManualEdit={onManualEdit}
-        services={services.filter((service) => !service.archive || draft.serviceIds.includes(service._id))} clients={clients}
+        services={services.filter((service) => !service.archive || draft.serviceIds.includes(service._id))} clients={formClients}
         eventTypes={(settings?.custom?.eventTypes || []).filter((value) => typeof value === 'string')}
         towns={(settings?.towns || []).filter((value) => typeof value === 'string')}
         showTransfer={settings?.custom?.showColleagueTransferFields === true || Boolean(draft.source?.isTransferred)} genitive={terms.genitive} /> : null}
-      {!compact && section === 'contacts' ? <EventContactsSection clients={clients} draft={draft} onChange={changeDraft} aiFields={aiFields} onManualEdit={onManualEdit}
+      {!compact && section === 'contacts' ? <EventContactsSection clients={formClients} draft={draft} onChange={changeDraft} aiFields={aiFields} onManualEdit={onManualEdit}
         onCreateClient={() => router.push({ pathname: '/clients/edit/[id]', params: { id: 'new', returnTo: 'event' } } as never)}
         onOpenClient={(clientId) => router.push(`/clients/edit/${clientId}` as never)} /> : null}
       {!compact && section === 'finance' ? <EventFinanceSection documentsCount={documentsCount} draft={draft} eventId={savedWorkId}
@@ -281,9 +372,9 @@ export default function EventEditScreen() {
     </View>
     {clientsError ? <ErrorNotice message="Не удалось обновить клиентов. Вернитесь к вкладке, чтобы повторить загрузку." /> : null}
     {error ? <ErrorNotice message={error} /> : null}
-    <Button testID="save-event" title="Сохранить" loadingTitle="Сохраняем…" onPress={save} loading={loading} />
-    <Button testID="cancel-event" title="Отмена" variant="secondary" onPress={() => router.back()} disabled={loading} />
-    {!isNew && !isClone ? <Button title={`Удалить ${terms.accusative}`} variant="danger" onPress={remove} disabled={loading} /> : null}
+    <Button testID="save-event" title={formLocked ? 'Продолжить сохранение' : 'Сохранить'} loadingTitle="Сохраняем…" onPress={save} loading={loading} disabled={aiReview?.plan.expired} />
+    <Button testID="cancel-event" title={formLocked ? 'Вернуться позже' : 'Отмена'} variant="secondary" onPress={() => (aiReview || aiCreate) && !formLocked ? void cancelAiReview() : router.back()} disabled={loading} />
+    {!isNew && !isClone && !aiReview ? <Button title={`Удалить ${terms.accusative}`} variant="danger" onPress={remove} disabled={loading} /> : null}
   </Screen></KeyboardAvoidingView>
 }
 const createStyles = (colors: Palette) => StyleSheet.create({

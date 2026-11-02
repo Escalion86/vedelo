@@ -61,7 +61,7 @@ describe('attention selectors', () => {
     expect(data.groups.today.map((item) => item.task.title)).toEqual(['Без срока', 'Позднее'])
     expect(data.pending.today).toBe(0)
   })
-  it('задатки: только active/waitDeposit, положительный deposit или advance снимает ожидание', () => {
+  it('задатки: draft/active, сумма снимает ожидание active, завтра попадает в свой раздел', () => {
     const events = ['paid', 'advance', 'zero', 'expense', 'other', 'future', 'undated', 'draft', 'closed', 'canceled'].map((id) => event({
       _id: id, waitDeposit: true, depositDueAt: id === 'undated' ? null : id === 'future' ? iso(2) : iso(1, 12),
       status: ['draft', 'closed', 'canceled'].includes(id) ? id as Event['status'] : 'active',
@@ -71,9 +71,10 @@ describe('attention selectors', () => {
       category: id === 'other' ? 'client_payment' : id === 'advance' ? 'advance' : 'deposit',
     }))
     const data = select(events, transactions)
-    expect(data.deposits.map((item) => item._id)).toEqual(['zero', 'expense', 'other', 'future', 'undated'])
-    expect(data.groups.overdue.map((item) => item.event._id)).toEqual(['zero', 'expense', 'other'])
-    expect(data.pending.overdue).toBe(3)
+    expect(data.deposits.map((item) => item._id)).toEqual(['zero', 'expense', 'other', 'draft', 'future', 'undated'])
+    expect(data.groups.today.map((item) => item.event._id)).toEqual(['zero', 'expense', 'other', 'draft'])
+    expect(data.groups.tomorrow.map((item) => item.event._id)).toEqual(['future'])
+    expect(data.pending.overdue).toBe(0)
   })
   it('closed/canceled исключены, задачи прошедшей незакрытой работы не теряются', () => {
     const events = ['active', 'draft', 'closed', 'canceled'].map((status) => event({ _id: status, status: status as Event['status'],

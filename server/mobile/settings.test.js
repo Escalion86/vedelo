@@ -9,6 +9,8 @@ test('не отдаёт мобильному клиенту секреты и DO
       firstRunWizardCompleted: true,
       mobileTheme: 'dark',
       eventTypes: ['Свадьба', 'Корпоратив'],
+      eventFormVariant: 'classic',
+      cancelReasons: ['Перенос', 42],
       avitoClientSecret: 'secret',
       documentTemplates: [{ templateBase64: 'sensitive-base64' }],
     },
@@ -16,6 +18,8 @@ test('не отдаёт мобильному клиенту секреты и DO
   assert.equal(result.custom.firstRunWizardCompleted, true)
   assert.equal(result.custom.mobileTheme, 'dark')
   assert.deepEqual(result.custom.eventTypes, ['Свадьба', 'Корпоратив'])
+  assert.equal(result.custom.eventFormVariant, 'classic')
+  assert.deepEqual(result.custom.cancelReasons, ['Перенос'])
   assert.equal('avitoClientSecret' in result.custom, false)
   assert.equal('documentTemplates' in result.custom, false)
 })

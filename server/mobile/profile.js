@@ -96,6 +96,7 @@ export const serializeMobileProfile = (user, tariff = null) => {
         }
       : null,
     registrationType: data.registrationType || 'phone',
+    yandexLinked: Boolean(data.yandexId),
     consentTermsAccepted: Boolean(data.consentTermsAccepted),
     consentPrivacyPolicyAccepted: Boolean(data.consentPrivacyPolicyAccepted),
     consentPersonalDataAccepted: Boolean(data.consentPersonalDataAccepted),

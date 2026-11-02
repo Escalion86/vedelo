@@ -1,7 +1,8 @@
 // Only safe fields are projected into component state. Raw responses and secrets
 // must never enter the query cache, offline storage or diagnostic messages.
+import { GOOGLE_STATUS_COLORS, GOOGLE_SYNC_DEFAULTS, GOOGLE_SYNC_FLAGS, GOOGLE_TITLE_MODES, type GoogleSyncSettings } from './googleCalendarSettings'
 export type ManagedProvider = 'telephony' | 'ai' | 'public-leads'
-export type Provider = ManagedProvider | 'avito' | 'vk' | 'google-calendar'
+export type Provider = ManagedProvider | 'avito' | 'vk' | 'google-calendar' | 'telegram'
 export type ApiKeyMetadata = { id: string; name: string; enabled: boolean; lastFour: string }
 export type ProviderStatus = {
   available: boolean; enabled: boolean; configured: boolean; status: string
@@ -9,12 +10,14 @@ export type ProviderStatus = {
   analysisProvider?: string; transcriptionProvider?: string; platformConfigured?: boolean
   hasTranscriptionKey?: boolean; transcriptionModel?: string; analysisModel?: string
   endpoint?: string; keys?: ApiKeyMetadata[]; botUsername?: string
+  autoCreateClients?: boolean; pushAudience?: 'all' | 'clients' | 'non_clients'; canReply?: boolean
 }
 export type Reminder = { method: 'popup' | 'email'; minutes: number }
 export type GoogleStatus = {
   available: boolean; connected: boolean; enabled: boolean; calendarId: string; calendarName: string
   reminders: { useDefault: boolean; overrides: Reminder[] }
   deleteCanceledFromCalendar: boolean; skipTransferredFromCalendar: boolean
+  statusColors: typeof GOOGLE_STATUS_COLORS; syncSettings: GoogleSyncSettings
 }
 export type CalendarItem = { id: string; summary: string; primary: boolean; accessRole: string }
 export type IntegrationOverview = Partial<Record<Provider | 'telegram', ProviderStatus | GoogleStatus>>
@@ -56,7 +59,12 @@ export const readProvider = (provider: Exclude<Provider, 'google-calendar'> | 't
     if (new Set(state.keys.map((key) => key.id)).size !== state.keys.length) throw new Error('DUPLICATE_KEYS')
     state.endpoint = validHttpsUrl(data.endpoint) ? String(data.endpoint) : undefined
   }
-  if (provider === 'telegram') state.botUsername = text(data.botUsername, 100)
+  if (provider === 'telegram') {
+    state.botUsername = text(data.botUsername, 100)
+    state.autoCreateClients = bool(data.autoCreateClients) ? data.autoCreateClients : undefined
+    state.pushAudience = ['all', 'clients', 'non_clients'].includes(String(data.pushAudience)) ? data.pushAudience as ProviderStatus['pushAudience'] : undefined
+    state.canReply = bool(data.canReply) ? data.canReply : undefined
+  }
   return state
 }
 export const readGoogle = (data: unknown): GoogleStatus => {
@@ -66,7 +74,31 @@ export const readGoogle = (data: unknown): GoogleStatus => {
     return { method: item.method, minutes: item.minutes } as Reminder
   })
   if (!data.reminders.useDefault && !overrides.length) throw new Error('INVALID_REMINDERS')
-  return { available: data.available, connected: data.connected, enabled: data.enabled, calendarId: String(data.calendarId), calendarName: String(data.calendarName), deleteCanceledFromCalendar: data.deleteCanceledFromCalendar, skipTransferredFromCalendar: data.skipTransferredFromCalendar, reminders: { useDefault: data.reminders.useDefault, overrides } }
+  const statusColors = { ...GOOGLE_STATUS_COLORS }, syncSettings = { ...GOOGLE_SYNC_DEFAULTS }
+  if (data.statusColors !== undefined) {
+    if (!isObject(data.statusColors)) throw new Error('INVALID_COLORS')
+    for (const key of Object.keys(statusColors) as (keyof typeof statusColors)[]) {
+      const color = data.statusColors[key]
+      if (color === undefined) continue
+      if (typeof color !== 'string' || !/^(?:[1-9]|1[01])$/.test(color)) throw new Error('INVALID_COLOR')
+      statusColors[key] = color
+    }
+  }
+  if (data.syncSettings !== undefined) {
+    if (!isObject(data.syncSettings)) throw new Error('INVALID_SYNC_SETTINGS')
+    for (const { key } of GOOGLE_SYNC_FLAGS) {
+      const value = data.syncSettings[key]
+      if (value === undefined) continue
+      if (!bool(value)) throw new Error('INVALID_SYNC_FLAG')
+      syncSettings[key] = value
+    }
+    const titleMode = data.syncSettings.titleMode
+    if (titleMode !== undefined) {
+      if (!GOOGLE_TITLE_MODES.some(item => item.value === titleMode)) throw new Error('INVALID_TITLE_MODE')
+      syncSettings.titleMode = titleMode as GoogleSyncSettings['titleMode']
+    }
+  }
+  return { available: data.available, connected: data.connected, enabled: data.enabled, calendarId: String(data.calendarId), calendarName: String(data.calendarName), deleteCanceledFromCalendar: data.deleteCanceledFromCalendar, skipTransferredFromCalendar: data.skipTransferredFromCalendar, reminders: { useDefault: data.reminders.useDefault, overrides }, statusColors, syncSettings }
 }
 export const readStatus = <T extends Provider>(provider: T, response: unknown): T extends 'google-calendar' ? GoogleStatus : ProviderStatus => {
   const data = responseData(response)

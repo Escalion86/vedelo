@@ -20,7 +20,7 @@ const rows = [
   ['telephony', 'phone-voip', 'IP-телефония и записи разговоров'],
   ['ai', 'creation-outline', 'ИИ Ведело или собственный AITunnel'],
   ['public-leads', 'api', 'Заявки с сайта, Tilda и других источников'],
-  ['telegram', 'send-outline', 'Состояние Telegram Business'],
+  ['telegram', 'send-outline', 'Бот, переписка и уведомления Telegram Business'],
 ] as const
 const noReload = async () => {}
 export function IntegrationsSection() {
@@ -67,12 +67,12 @@ export function IntegrationsSection() {
     {provider === 'google-calendar' ? <GoogleCalendarForm gate={gate.current} onStatus={(state) => updateStatus('google-calendar', state)} onClose={close} /> : null}
     {provider === 'avito' || provider === 'vk' ? <CredentialIntegrationForm key={provider} provider={provider} gate={gate.current} onStatus={(state) => updateStatus(provider, state)} onClose={close} /> : null}
     {provider === 'telephony' || provider === 'ai' || provider === 'public-leads' ? <ManagedIntegrationsSection key={provider} initialProvider={provider as ManagedProvider} overview={{}} onChanged={noReload} gate={gate.current} onStatus={updateStatus} onClose={close} /> : null}
-    {provider === 'telegram' ? <TelegramSection state={overview?.telegram as ProviderStatus | undefined} /> : null}
+    {provider === 'telegram' ? <TelegramSection gate={gate.current} onStatus={state => updateStatus('telegram', state)} /> : null}
         </> : null}
       </View>)}
     </Surface> : null}
     <Button title={error ? 'Повторить загрузку интеграций' : 'Обновить статусы'} variant="secondary" loading={loading} onPress={() => void load()} />
-    <Button title="Открыть переписки Avito и VK" variant="secondary" onPress={() => router.push('/conversations' as never)} />
+    <Button title="Открыть переписки Avito, VK и Telegram" variant="secondary" onPress={() => router.push('/conversations' as never)} />
     <Text style={styles.muted}>Секреты интеграций хранятся на сервере. Введённые и одноразовые значения доступны только в открытой форме.</Text>
   </>
 }

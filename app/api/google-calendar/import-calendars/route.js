@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import getTenantContext from '@server/getTenantContext'
+import { getGoogleImportContext } from '@server/googleImportContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import {
   listUserImportCalendars,
@@ -9,8 +9,8 @@ import {
 
 export const runtime = 'nodejs'
 
-export const GET = async () => {
-  const { user } = await getTenantContext()
+export const GET = async (req) => {
+  const { user } = await getGoogleImportContext(req)
   if (!user?._id) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },

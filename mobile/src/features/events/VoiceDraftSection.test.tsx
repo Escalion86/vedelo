@@ -61,6 +61,15 @@ it('свободный текст требует явного применени
   expect(apply).toHaveBeenCalledTimes(1)
   expect(screen.queryByTestId('voice-draft-apply')).toBeNull()
 })
+it('the edit assistant routes text to its plan handler without creating a voice draft', async () => {
+  const analyze = jest.fn(async () => undefined), apply = jest.fn()
+  const screen = render(<VoiceDraftSection initialMode="text" onApply={apply} onAnalyzeText={analyze} />)
+  fireEvent.changeText(await screen.findByTestId('voice-draft-text'), 'Изменить дату')
+  fireEvent.press(screen.getByText('Разобрать текст'))
+  await waitFor(() => expect(analyze).toHaveBeenCalledWith('Изменить дату'))
+  expect(mockPost).not.toHaveBeenCalled(); expect(apply).not.toHaveBeenCalled()
+  expect(screen.queryByTestId('voice-draft-apply')).toBeNull()
+})
 
 it('потеря сети между показом формы и действием блокирует отправку и запрос микрофона', async () => {
   const screen = render(<VoiceDraftSection initialMode="voice" onApply={jest.fn()} />)

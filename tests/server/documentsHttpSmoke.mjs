@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import mongoose from 'mongoose'
 import { Document, Paragraph, Packer } from 'docx'
 import PizZip from 'pizzip'
@@ -124,7 +125,8 @@ export const runDocumentsHttpSmoke = async ({
     id,
     templateId,
     documentDate = '2026-09-10',
-    authenticated = true
+    authenticated = true,
+    options = {}
   ) => {
     const response = await fetch(
       `${baseUrl}/api/mobile/v1/events/${id}/documents/generate`,
@@ -134,7 +136,7 @@ export const runDocumentsHttpSmoke = async ({
           'content-type': 'application/json',
           ...(authenticated ? { authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ templateId, documentDate }),
+        body: JSON.stringify({ templateId, documentDate, ...options }),
       }
     )
     return { status: response.status, body: await response.json() }
@@ -159,13 +161,14 @@ export const runDocumentsHttpSmoke = async ({
   }
   assert.equal((await generate(eventId, 'broken-smoke')).status, 422)
   assert.equal(cloudRequests.length, initialUploads)
-  await db
-    .collection('events')
-    .updateOne({ _id: eventId }, { $set: { status: 'draft' } })
-  assert.equal((await generate(eventId, 'contract-smoke')).status, 409)
-  await db
-    .collection('events')
-    .updateOne({ _id: eventId }, { $set: { status: 'active' } })
+  const draftRequest = { requestId: randomUUID(), source: 'event', allowEmpty: true }
+  const draftDocument = await generate(draftEventId, 'contract-smoke', undefined, true, draftRequest)
+  assert.equal(draftDocument.status, 200, JSON.stringify(draftDocument.body))
+  const draftReplay = await generate(draftEventId, 'contract-smoke', undefined, true, draftRequest)
+  assert.equal(draftReplay.status, 200, JSON.stringify(draftReplay.body))
+  assert.equal(draftReplay.body.data.document.id, draftDocument.body.data.document.id)
+  assert.equal((await db.collection('events').findOne({ _id: draftEventId })).documents.length, 1)
+  assert.equal(cloudRequests.length, initialUploads + 1)
 
   for (const type of ['contract', 'act']) {
     const result = await generate(eventId, `${type}-smoke`)
@@ -193,7 +196,7 @@ export const runDocumentsHttpSmoke = async ({
     assert.match(xml, /<w:tbl/)
     assert.doesNotMatch(xml, /PARTIES_TABLES|\{ФИО|\{НОМЕР/)
   }
-  assert.equal(cloudRequests.length, initialUploads + 2)
+  assert.equal(cloudRequests.length, initialUploads + 3)
   const stored = await db.collection('events').findOne({ _id: eventId })
   assert.deepEqual(
     stored.documents.map((item) => item.type),

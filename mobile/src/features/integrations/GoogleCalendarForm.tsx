@@ -4,13 +4,14 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import * as WebBrowser from 'expo-web-browser'
 import { api } from '../../shared/api/client'
 import { env } from '../../shared/config/env'
-import { Button, ErrorNotice, Field, Notice, SectionTitle, StatusChip, Surface } from '../../shared/ui/components'
+import { Button, ErrorNotice, Field, FilterOverlay, Notice, SectionTitle, StatusChip, Surface } from '../../shared/ui/components'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { spacing, type Palette } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { IntegrationFormState } from './IntegrationFormState'
 import { readCalendars, readGoogle, readOAuthUrl, responseData, safeError, validOAuthCallback, type CalendarItem, type GoogleStatus, type Reminder } from './integrationContract'
 import { IntegrationCancelled, useIntegrationSession, type OperationGate } from './useIntegrationSession'
+import { GOOGLE_COLOR_OPTIONS, GOOGLE_SYNC_FLAGS, GOOGLE_TITLE_MODES, matchesGoogleSettingsPatch, type GoogleSyncSettings } from './googleCalendarSettings'
 type ReminderDraft = { method: 'popup' | 'email'; minutes: string }
 export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: OperationGate; onStatus: (state: GoogleStatus) => void; onClose: () => void }) {
   const styles = useThemeStyles(createStyles); const { palette } = useTheme()
@@ -45,9 +46,9 @@ export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: Operatio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [google?.connected, google?.available])
   const receipt = (response: unknown) => readGoogle(responseData(response))
-  const patch = (body: Partial<GoogleStatus>, message: string) => {
+  const patch = (body: Partial<Omit<GoogleStatus, 'syncSettings' | 'statusColors'>> & { syncSettings?: Partial<GoogleSyncSettings>; statusColors?: Partial<GoogleStatus['statusColors']> }, message: string) => {
     if (!editable) return
-    return session.run(() => api.patch('/mobile/v1/integrations/google-calendar', body, { skipRefresh: true }), receipt, (result) => ({ matches: (next) => Object.entries(body).every(([key, value]) => JSON.stringify(result[key as keyof GoogleStatus]) === JSON.stringify(value) && JSON.stringify((next as GoogleStatus)[key as keyof GoogleStatus]) === JSON.stringify(value)), message }))
+    return session.run(() => api.patch('/mobile/v1/integrations/google-calendar', body, { skipRefresh: true }), receipt, (result) => ({ matches: (next) => matchesGoogleSettingsPatch(result, body) && matchesGoogleSettingsPatch(next, body), message }))
   }
   const connect = () => {
     if (!google?.available || blocked) return
@@ -74,7 +75,7 @@ export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: Operatio
   }
   const saveReminders = () => {
     if (!editable) return
-    if (!useDefault && (!reminders.length || reminders.some((item) => !/^\d+$/.test(item.minutes) || Number(item.minutes) <= 0 || !Number.isFinite(Number(item.minutes))))) { session.setNotice({ tone: 'danger', message: 'Укажите хотя бы одно напоминание и положительное число минут.' }); return }
+    if (!useDefault && (!reminders.length || reminders.length > 5 || reminders.some((item) => !/^\d+$/.test(item.minutes) || Number(item.minutes) <= 0 || Number(item.minutes) > 40320))) { session.setNotice({ tone: 'danger', message: 'Добавьте от 1 до 5 напоминаний, от 1 до 40320 минут каждое.' }); return }
     const overrides: Reminder[] = reminders.map((item) => ({ method: item.method, minutes: Number(item.minutes) }))
     return patch({ reminders: { useDefault, overrides: useDefault ? [] : overrides } }, 'Напоминания Google Calendar сохранены')
   }
@@ -108,18 +109,28 @@ export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: Operatio
             <Field label={`Минут до события — напоминание ${index + 1}`} keyboardType="number-pad" value={reminder.minutes} editable={editable} onChangeText={(minutes) => setReminders((previous) => previous.map((item, i) => i === index ? { ...item, minutes } : item))} />
             <Button title={`Удалить напоминание ${index + 1}`} variant="danger" disabled={!editable} onPress={() => setReminders((previous) => previous.filter((_, i) => i !== index))} />
           </View>)}
-          <Button title="Добавить напоминание" variant="secondary" disabled={!editable} onPress={() => setReminders((previous) => [...previous, { method: 'popup', minutes: '60' }])} />
+          <Button title="Добавить напоминание" variant="secondary" disabled={!editable || reminders.length >= 5} onPress={() => setReminders((previous) => previous.length < 5 ? [...previous, { method: 'popup', minutes: '60' }] : previous)} />
         </> : null}
         <Button title="Сохранить напоминания" disabled={!editable} onPress={() => void saveReminders()} />
         <Toggle title="Удалять отменённые события из календаря" enabled={google.deleteCanceledFromCalendar} disabled={!editable} onPress={() => void patch({ deleteCanceledFromCalendar: !google.deleteCanceledFromCalendar }, 'Настройка отменённых событий сохранена')} />
         <Toggle title="Не переносить переданные события" enabled={google.skipTransferredFromCalendar} disabled={!editable} onPress={() => void patch({ skipTransferredFromCalendar: !google.skipTransferredFromCalendar }, 'Настройка переданных событий сохранена')} />
-        <Notice tone="info" message="Новые настройки применяются при последующей синхронизации. Массовая отправка, состав данных и цвета событий пока доступны в Web/PWA." />
+        <SectionTitle>Состав записи в календаре</SectionTitle>
+        <CalendarChoice title="Заголовок" value={google.syncSettings.titleMode} options={GOOGLE_TITLE_MODES} disabled={!editable} onSelect={(titleMode) => void patch({ syncSettings: { titleMode: titleMode as GoogleSyncSettings['titleMode'] } }, 'Заголовок записи сохранён')} />
+        {GOOGLE_SYNC_FLAGS.map(({ key, label }) => <Toggle key={key} title={label} enabled={google.syncSettings[key]} disabled={!editable} onPress={() => void patch({ syncSettings: { [key]: !google.syncSettings[key] } }, 'Состав записи сохранён')} />)}
+        <SectionTitle>Цвета статусов</SectionTitle>
+        {([['draft', 'Заявка'], ['active', 'Подтверждено'], ['canceled', 'Отменено'], ['closed', 'Закрыто']] as const).map(([status, label]) => <CalendarChoice key={status} title={`Цвет: ${label}`} value={google.statusColors[status]} options={GOOGLE_COLOR_OPTIONS} disabled={!editable} onSelect={(color) => void patch({ statusColors: { [status]: color } }, 'Цвет статуса сохранён')} />)}
+        <Notice tone="info" message="Новые настройки применяются при последующей синхронизации записи." />
         <Button title={confirm ? 'Подтвердить отключение Google Calendar' : 'Отключить Google Calendar'} variant="danger" disabled={blocked} onPress={() => void disconnect()} />
         {confirm ? <Button title="Отмена подтверждения" variant="secondary" disabled={session.working} onPress={() => setConfirm(false)} /> : null}
       </>}
     </> : null}
     <Button title="Закрыть без сохранения" variant="secondary" onPress={() => { session.invalidate(); onClose() }} />
   </Surface>
+}
+function CalendarChoice({ title, value, options, disabled, onSelect }: { title: string; value: string; options: readonly { value: string; label: string }[]; disabled: boolean; onSelect: (value: string) => void }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => { if (disabled) setOpen(false) }, [disabled])
+  return <FilterOverlay title={`${title}: ${options.find(item => item.value === value)?.label || value}`} disabled={disabled} visible={open && !disabled} onOpen={() => { if (!disabled) setOpen(true) }} onClose={() => setOpen(false)} options={options.map(item => ({ ...item, selected: item.value === value, disabled }))} onSelect={(next) => { setOpen(false); if (!disabled && next !== value) onSelect(next) }} />
 }
 function Toggle({ title, enabled, disabled, onPress }: { title: string; enabled: boolean; disabled: boolean; onPress: () => void }) {
   const styles = useThemeStyles(createStyles)

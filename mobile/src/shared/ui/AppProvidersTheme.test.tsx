@@ -6,7 +6,7 @@ import { AppProviders } from '../providers/AppProviders'
 import { useTheme, THEME_PREFERENCE_KEY } from './ThemeProvider'
 
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn() }))
-jest.mock('../auth/AuthProvider', () => ({ AuthProvider: ({ children }: { children: React.ReactNode }) => children }))
+jest.mock('../auth/AuthProvider', () => ({ AuthProvider: ({ children }: { children: React.ReactNode }) => children, useAuth: () => ({ authenticated: false, user: null }) }))
 const Demo = () => {
   const { palette, preference } = useTheme()
   return <Text testID="theme">{palette.mode}/{preference}</Text>

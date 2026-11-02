@@ -1,4 +1,5 @@
 import type { Client, Event, Transaction } from '../../shared/domain/types'
+import { isWaitingForDeposit } from '../../shared/domain/deposits'
 
 export type Segment = 'overdue' | 'today' | 'tomorrow'
 export type Task = NonNullable<Event['additionalEvents']>[number]
@@ -62,16 +63,13 @@ export function selectAttention(events: Event[], transactions: Transaction[], cl
       groups[segment].push({ key: `${event._id}:task:${task._id || index}`, event, task, index, kind: 'task' })
     })
   }
-  // PWA считает задаток полученным при любом положительном deposit/advance.
-  const paid = new Set(transactions.filter((item) => item.type === 'income' &&
-    ['deposit', 'advance'].includes(item.category || '') && item.amount > 0).map((item) => item.eventId))
-  const deposits = open.filter((event) => event.status === 'active' && event.waitDeposit && !paid.has(event._id))
+  const deposits = open.filter((event) => isWaitingForDeposit(event, transactions))
     .sort((a, b) => (parseDate(a.depositDueAt)?.getTime() ?? Infinity) - (parseDate(b.depositDueAt)?.getTime() ?? Infinity))
   for (const event of deposits) {
-    const due = parseDate(event.depositDueAt)
-    if (!due || due > now) continue
-    groups.overdue.push({ key: `${event._id}:deposit`, event, index: -1, kind: 'deposit', task: {
-      title: 'Просрочен задаток', date: event.depositDueAt,
+    const segment = getTaskSegment(event.depositDueAt, now)
+    if (!segment) continue
+    groups[segment].push({ key: `${event._id}:deposit`, event, index: -1, kind: 'deposit', task: {
+      title: segment === 'overdue' ? 'Просрочен задаток' : 'Ожидается задаток', date: event.depositDueAt,
       description: Number(event.depositExpectedAmount) > 0
         ? `Ожидается: ${Number(event.depositExpectedAmount).toLocaleString('ru-RU')} ₽` : '',
     } })

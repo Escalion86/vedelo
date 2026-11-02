@@ -1,41 +1,58 @@
 import React from 'react'
-import fs from 'node:fs'
-import path from 'node:path'
-import { act, fireEvent, render } from '@testing-library/react-native'
-import { Linking } from 'react-native'
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
+import { Alert } from 'react-native'
 import { CalendarImportSection } from './CalendarImportSection'
-import { calendarImportEntry } from './calendarImportApi'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { exportDeferred } from './exportFixtures'
-let mockFocus = true, mockUser: any = { _id: 'a', tenantId: 'ta' }
-jest.mock('expo-router', () => ({ useFocusEffect: (fn: any) => require('react').useEffect(() => mockFocus ? fn() : undefined, [fn, mockFocus]) }))
+const mockStatus = jest.fn(), mockCalendars = jest.fn(), mockPreview = jest.fn(), mockImport = jest.fn(), mockRead = jest.fn(), mockSave = jest.fn(), mockConnect = jest.fn(), mockSync = jest.fn()
+let mockFocus = true, mockUser: any = { _id: 'a', tenantId: 'ta' }, mockEpoch = 0
+jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: (fn: any) => require('react').useEffect(() => mockFocus ? fn() : undefined, [fn, mockFocus]) }))
 jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: mockUser }) }))
+jest.mock('../../shared/auth/tokenStore', () => ({ getAuthSessionEpoch: () => mockEpoch }))
+jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }))
+jest.mock('../../shared/sync/syncEngine', () => ({ runSync: (...args: any[]) => mockSync(...args) }))
+jest.mock('./calendarImportApi', () => ({ calendarRange: () => ({ timeMin: '2026-01-01', timeMax: '2026-02-01' }), getCalendarImportStatus: () => mockStatus(), getImportCalendars: () => mockCalendars(), previewImportCalendar: (...a: any[]) => mockPreview(...a), importCalendarBatch: (...a: any[]) => mockImport(...a), connectImportCalendar: (...a: any[]) => mockConnect(...a) }))
+jest.mock('./calendarImportStore', () => ({ readPendingCalendarImport: () => mockRead(), savePendingCalendarImport: (...a: any[]) => mockSave(...a) }))
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
+jest.mock('expo-crypto', () => ({ randomUUID: () => '01234567-1234-1234-1234-123456789abc' }))
+const status = { allowCalendarSync: true, allowAi: true, connected: true, calendarId: 'own', calendarName: 'Рабочий' }
+const preview = { calendarId: 'own', calendarName: 'Рабочий', maxEvents: 100, batchSize: 10, quote: { billingMode: 'artistcrm', costPerEvent: 2, balance: 100, platformConfigured: true }, candidates: [{ id: 'google-1', title: 'Тестовая работа', eventDate: '2026-01-15', needsAi: true, alreadyImported: false, canceled: false }] }
 const draw = (mode: 'light' | 'dark' = 'light') => <ThemeProvider forcedMode={mode} storage={null}><CalendarImportSection /></ThemeProvider>
-beforeEach(() => { jest.clearAllMocks(); mockFocus = true; mockUser = { _id: 'a', tenantId: 'ta' }; jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined) })
+const confirm = async () => { const calls = (Alert.alert as jest.Mock).mock.calls; await act(async () => calls.at(-1)[2].at(-1).onPress()) }
+beforeEach(() => {
+  jest.clearAllMocks(); mockFocus = true; mockUser = { _id: 'a', tenantId: 'ta' }; mockEpoch = 0
+  mockStatus.mockResolvedValue(status); mockCalendars.mockResolvedValue([]); mockRead.mockResolvedValue(null); mockSave.mockResolvedValue(undefined); mockPreview.mockResolvedValue(preview); mockImport.mockResolvedValue({ results: [{ id: 'google-1', title: 'Тестовая работа', status: 'created' }], actualCost: 1.5 }); mockSync.mockResolvedValue(undefined)
+  jest.spyOn(Alert, 'alert').mockImplementation(() => undefined)
+})
 afterEach(() => jest.restoreAllMocks())
-it.each(['light', 'dark'] as const)('честная граница %s без native подключения/статусов/смет', async mode => {
-  const screen = render(draw(mode)); expect(screen.getByText(/Обычная синхронизация Google/)).toBeTruthy(); expect(screen.queryByText('Подключён')).toBeNull(); expect(screen.queryByText('Запустить импорт')).toBeNull()
-  fireEvent.press(screen.getByText('Открыть Google-импорт в web')); await act(async () => {})
-  expect(Linking.openURL).toHaveBeenCalledWith('https://vedelo.ru/cabinet/import'); expect(calendarImportEntry.nativeSupported).toBe(false)
-  const url = new URL((Linking.openURL as jest.Mock).mock.calls[0][0]); expect(url.search).toBe(''); expect(url.hash).toBe(''); expect(url.username).toBe(''); expect(url.password).toBe(''); screen.unmount()
+it.each(['light', 'dark'] as const)('preview and price are read without payment; %s import needs confirmation', async mode => {
+  const screen = render(draw(mode)); fireEvent.press(await screen.findByText('Посмотреть события Google'))
+  await screen.findByText(/оценка ИИ: 2.00/); expect(mockImport).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByText('Импортировать выбранные события')); expect(mockImport).not.toHaveBeenCalled(); expect(mockSave).not.toHaveBeenCalled()
+  await confirm(); await screen.findByText(/Заявка создана/)
+  expect(mockSave.mock.invocationCallOrder[0]).toBeLessThan(mockImport.mock.invocationCallOrder[0]); expect(mockImport).toHaveBeenCalledTimes(1); expect(mockSave).toHaveBeenLastCalledWith(null, expect.any(Function)); screen.unmount()
 })
-it('повторы заблокированы, late error после blur/profile switch скрыт', async () => {
-  const wait = exportDeferred<any>(); (Linking.openURL as jest.Mock).mockReturnValueOnce(wait.promise); const screen = render(draw()); fireEvent.press(screen.getByText('Открыть Google-импорт в web')); fireEvent.press(screen.getByText('Открыть Google-импорт в web')); expect(Linking.openURL).toHaveBeenCalledTimes(1)
-  mockFocus = false; screen.rerender(draw()); mockUser = { _id: 'b' }; mockFocus = true; screen.rerender(draw()); await act(async () => wait.reject(new Error('SECRET')))
-  expect(screen.queryByText(/Не удалось открыть/)).toBeNull(); expect(screen.queryByText('SECRET')).toBeNull(); screen.unmount()
+it('lost response retains pending request and does not automatically retry', async () => {
+  mockImport.mockRejectedValueOnce(new Error('SECRET'))
+  const screen = render(draw()); fireEvent.press(await screen.findByText('Посмотреть события Google')); fireEvent.press(await screen.findByText('Импортировать выбранные события')); await confirm()
+  await screen.findByText(/Действие не подтверждено/); expect(mockImport).toHaveBeenCalledTimes(1); expect(mockSave.mock.calls[0][0].groupId).toBeTruthy(); expect(mockSave).toHaveBeenCalledTimes(1); expect(screen.queryByText('SECRET')).toBeNull(); screen.unmount()
 })
-it('ошибка позволяет retry без сообщения об импорте', async () => {
-  (Linking.openURL as jest.Mock).mockRejectedValueOnce(new Error('SECRET')); const screen = render(draw()); fireEvent.press(screen.getByText('Открыть Google-импорт в web')); await screen.findByText(/Не удалось открыть web-кабинет/)
-  fireEvent.press(screen.getByText('Открыть Google-импорт в web')); await act(async () => {}); expect(Linking.openURL).toHaveBeenCalledTimes(2); screen.unmount()
+it('restored operation never starts before explicit confirmation', async () => {
+  const pending = { _id: 'pending', groupId: 'saved-group', calendarId: 'own', timeMin: '2026-01-01', timeMax: '2026-02-01', eventIds: ['google-1'], preview }
+  mockRead.mockResolvedValue(pending)
+  const screen = render(draw()); await screen.findByText('Продолжить Google-импорт'); expect(mockImport).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByText('Продолжить Google-импорт')); await confirm(); expect(mockImport.mock.calls[0][0].groupId).toBe('saved-group'); screen.unmount()
 })
-it('код repo подтверждает web cookie import и отдельный mobile sync', () => {
-  const root = path.resolve(__dirname, '../../../../'), read = (name: string) => fs.readFileSync(path.join(root, name), 'utf8')
-  for (const route of ['import-status', 'import-calendars', 'import-select', 'auth-url']) expect(read(`app/api/google-calendar/${route}/route.js`)).toContain('getTenantContext()')
-  expect(read('app/api/google-calendar/auth-url/route.js')).toContain("response.cookies.set('gc_oauth_state'")
-  expect(read('app/api/google-calendar/callback/route.js')).toContain("req.cookies.get('gc_oauth_state')")
-  expect(read('app/api/mobile/v1/integrations/google-calendar/auth-url/route.js')).toContain('scope: [WRITE_SCOPE]')
-  expect(read('server/mobile/googleCalendarOAuth.js')).toContain('user.googleCalendar ='); expect(read('server/mobile/googleCalendarOAuth.js')).not.toContain('user.googleCalendarImport =')
-  expect(read('layouts/content/contentsMap.js')).toContain('import: {'); expect(read('components/GoogleCalendarImportSettings.js')).toContain("const redirect = '/cabinet/import'")
-  const own = read('mobile/src/features/import/calendarImportApi.ts'); expect(own).not.toContain('api.get('); expect(own).not.toContain('auth-url?')
+it('account change after confirmation cancels old mutation', async () => {
+  const screen = render(draw()); fireEvent.press(await screen.findByText('Посмотреть события Google')); fireEvent.press(await screen.findByText('Импортировать выбранные события'))
+  mockUser = { _id: 'b', tenantId: 'tb' }; mockEpoch++; screen.rerender(draw()); await confirm(); expect(mockImport).not.toHaveBeenCalled(); screen.unmount()
+})
+it('late preview after blur cannot publish or mutate', async () => {
+  const wait = exportDeferred<any>(); mockPreview.mockReturnValueOnce(wait.promise)
+  const screen = render(draw()); fireEvent.press(await screen.findByText('Посмотреть события Google')); await waitFor(() => expect(mockPreview).toHaveBeenCalled())
+  mockFocus = false; screen.rerender(draw()); await act(async () => wait.resolve(preview)); expect(screen.queryByText('Импортировать выбранные события')).toBeNull(); expect(mockImport).not.toHaveBeenCalled(); screen.unmount()
+})
+it('changed calendar blocks resume before first POST', async () => {
+  mockRead.mockResolvedValue({ _id: 'pending', groupId: 'saved', calendarId: 'different', eventIds: ['google-1'], preview })
+  const screen = render(draw()); fireEvent.press(await screen.findByText('Продолжить Google-импорт')); await confirm(); await screen.findByText(/Действие не подтверждено/); expect(mockImport).not.toHaveBeenCalled(); screen.unmount()
 })

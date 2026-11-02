@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native'
 import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
 import { ThemeSystemUI } from '../src/shared/ui/ThemeSystemUI'
@@ -17,6 +17,9 @@ import { flushPendingLogout } from '../src/shared/auth/pendingLogout'
 import { normalizeRegistrationReferrer } from '../src/shared/auth/registrationReferral'
 import { useTheme, useThemeStyles } from '../src/shared/ui/ThemeProvider'
 import type { Palette } from '../src/shared/ui/theme'
+import { useDeviceProjection } from '../src/shared/native/useDeviceProjection'
+import { useAppLock } from '../src/shared/auth/AppLockProvider'
+import { pendingNativeIntent, subscribeNativeIntents } from '../src/shared/native/intents'
 
 const RootNavigator = () => {
   const { palette } = useTheme()
@@ -26,7 +29,10 @@ const RootNavigator = () => {
   const segments = useSegments()
   const params = useGlobalSearchParams<{ ref?: string }>()
   const referralId = normalizeRegistrationReferrer(params.ref)
-  useExpoPushNotifications(authenticated)
+  const { locked } = useAppLock()
+  const pendingIntent = useSyncExternalStore(subscribeNativeIntents, pendingNativeIntent, pendingNativeIntent)
+  useExpoPushNotifications(authenticated && !locked)
+  useDeviceProjection()
 
   useEffect(() => {
     getDatabase().catch((error) =>
@@ -72,8 +78,10 @@ const RootNavigator = () => {
       return
     }
     if (authenticated && !onboardingRequired && (inAuthGroup || inOnboarding)) {
-      router.replace('/(tabs)')
+      router.replace(pendingIntent ? `/native/open?intent=${pendingIntent.key}` as never : '/(tabs)')
+      return
     }
+    if (authenticated && !onboardingRequired && !locked && pendingIntent && !pendingIntent.systemNavigation && segments.join('/') !== 'native/open') router.replace(`/native/open?intent=${pendingIntent.key}` as never)
   }, [
     authenticated,
     loading,
@@ -81,6 +89,8 @@ const RootNavigator = () => {
     router,
     segments,
     referralId,
+    pendingIntent,
+    locked,
   ])
 
   if (loading) {

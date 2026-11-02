@@ -97,7 +97,7 @@ export const ConversationDetail = ({ provider, id }: { provider: string; id: str
     finally { if (session.valid(token)) setLoading(false); session.end(token) }
   }
   const send = async () => {
-    if (!verified || !conversation || pending.current || !path || !conversationProvider(provider)) return
+    if (!verified || !conversation || conversation.canReply === false || pending.current || !path || !conversationProvider(provider)) return
     const value = draft.current.value.trim(); const revision = draft.current.revision
     if (!value || value.length > messageLimit[provider]) return
     const token = session.begin(); if (token === null) return
@@ -156,7 +156,7 @@ export const ConversationDetail = ({ provider, id }: { provider: string; id: str
   }
   const disabled = loading || !verified || needsCheck
   return <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Screen keyboardShouldPersistTaps="handled">
-    <PageHeader title={conversation?.clientName || 'Диалог'} subtitle={provider === 'avito' ? conversation?.avitoItemTitle || 'Avito' : provider === 'vk' ? 'Сообщество VK' : 'Канал недоступен'} action={conversation ? <StatusChip label={conversationStatus(conversation.status)} tone={conversation.status === 'open' ? 'success' : 'neutral'} /> : null} />
+    <PageHeader title={conversation?.clientName || 'Диалог'} subtitle={provider === 'avito' ? conversation?.avitoItemTitle || 'Avito' : provider === 'vk' ? 'Сообщество VK' : provider === 'telegram' ? 'Telegram Business' : 'Канал недоступен'} action={conversation ? <StatusChip label={conversationStatus(conversation.status)} tone={conversation.status === 'open' ? 'success' : 'neutral'} /> : null} />
     {loading ? <Notice message={conversation ? 'Обновляем переписку…' : 'Загружаем переписку…'} /> : null}
     {error ? <Notice tone="danger" message={error} /> : null}
     {notice ? <Notice tone="success" message={notice} /> : null}
@@ -174,7 +174,8 @@ export const ConversationDetail = ({ provider, id }: { provider: string; id: str
         </View>) : !loading ? <EmptyState title="Сообщений нет" description="История этого диалога пуста." /> : null}
       </ScrollView>
       <Text style={styles.muted}>История ограничена 300 сообщениями. Медиа-вложения не передаются текущим мобильным API.</Text>
-      <Surface><CompactField label="Ответ клиенту" value={text} onChangeText={(value) => { draft.current.value = value; draft.current.revision += 1; setText(value) }} multiline maxLength={conversationProvider(provider) ? messageLimit[provider] : undefined} editable={verified} placeholder="Введите ответ клиенту" style={styles.editor} /><Button title="Отправить" onPress={() => void send()} disabled={disabled || !text.trim()} /></Surface>
+      {conversation.canReply === false ? <Notice tone="warning" message="Окно ответа Telegram истекло. Клиент должен написать снова. После нового сообщения обновите переписку." /> : null}
+      <Surface><CompactField label="Ответ клиенту" value={text} onChangeText={(value) => { draft.current.value = value; draft.current.revision += 1; setText(value) }} multiline maxLength={conversationProvider(provider) ? messageLimit[provider] : undefined} editable={verified} placeholder="Введите ответ клиенту" style={styles.editor} /><Button title="Отправить" onPress={() => void send()} disabled={disabled || conversation.canReply === false || !text.trim()} /></Surface>
       {Boolean(conversation.unreadCount) ? <Button title="Отметить прочитанным" variant="secondary" disabled={disabled} onPress={() => void patch({ markRead: true }, conversation)} /> : null}
       <Surface><SectionTitle>Статус диалога</SectionTitle>{conversation.status === 'open' ? <><Button title="Закрыть диалог" variant="secondary" disabled={disabled} onPress={() => updateStatus('closed')} /><Button title="Игнорировать" variant="secondary" disabled={disabled} onPress={() => updateStatus('ignored')} /></> : <Button title="Вернуть в работу" variant="secondary" disabled={disabled} onPress={() => updateStatus('open')} />}</Surface>
     </> : null}

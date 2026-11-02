@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import Users from '@models/Users'
-import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import { getGoogleImportContext, googleImportUserFilter } from '@server/googleImportContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import {
   listUserImportCalendars,
@@ -12,7 +11,7 @@ import {
 export const runtime = 'nodejs'
 
 export const POST = async (req) => {
-  const { user } = await getTenantContext()
+  const { user, tenantId } = await getGoogleImportContext(req)
   if (!user?._id) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
@@ -40,14 +39,7 @@ export const POST = async (req) => {
     )
   }
 
-  await dbConnect()
-  const dbUser = await Users.findById(user._id)
-  if (!dbUser) {
-    return NextResponse.json(
-      { success: false, error: 'Пользователь не найден' },
-      { status: 404 }
-    )
-  }
+  const dbUser = user
 
   const settings = normalizeImportCalendarSettings(dbUser)
   if (!settings.refreshToken) {
@@ -66,13 +58,11 @@ export const POST = async (req) => {
     )
   }
 
-  dbUser.googleCalendarImport = {
-    ...settings,
-    enabled: true,
-    calendarId,
-    calendarName: selectedCalendar.summary || '',
-  }
-  await dbUser.save()
+  const saved = await Users.updateOne(
+    { ...googleImportUserFilter(user._id, tenantId), 'googleCalendarImport.refreshToken': settings.refreshToken },
+    { $set: { 'googleCalendarImport.enabled': true, 'googleCalendarImport.calendarId': calendarId, 'googleCalendarImport.calendarName': selectedCalendar.summary || '' } }
+  )
+  if (!saved.matchedCount) return NextResponse.json({ success: false, error: 'Подключение изменилось. Обновите список календарей.' }, { status: 409 })
 
   return NextResponse.json(
     {

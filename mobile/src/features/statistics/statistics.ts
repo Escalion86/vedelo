@@ -24,7 +24,7 @@ export function statisticsPath(filters: StatisticsFilters) {
   if (filters.town) query.set('town', filters.town)
   return `/mobile/v1/statistics?${query}`
 }
-export function calculateStatistics(data: StatisticsPayload, now = new Date()) {
+export function calculateStatistics(data: StatisticsPayload, now = new Date(), countEvents = data.events) {
   const eventFinance = new Map(data.events.map((event) => [event._id, { income: 0, expense: 0 }]))
   let income = 0; let expense = 0; let taxes = 0; let commissions = 0
   const categories = new Map<string, number>()
@@ -48,7 +48,7 @@ export function calculateStatistics(data: StatisticsPayload, now = new Date()) {
     if (!eligible) return sum
     return sum + data.transactions.filter(tx => tx.eventId === event._id && tx.type === 'income' && tx.amount > 0).reduce((total, tx) => total + tx.amount, 0)
   }, 0)
-  const months = buildStatisticsChartData({ selectedYear: data.filters.year, filteredEvents: data.events, filteredTransactions: data.transactions, eventsMap: new Map(data.events.map(event => [event._id, event])), eventFinanceMap: eventFinance, currentDate: now })
+  const months = buildStatisticsChartData({ selectedYear: data.filters.year, filteredEvents: data.events, filteredTransactions: data.transactions, countEvents, eventsMap: new Map(data.events.map(event => [event._id, event])), eventFinanceMap: eventFinance, currentDate: now })
   return { income, expense, taxes, commissions, depositPaid, months, net: income - expense, margin: income > 0 ? ((income - expense) / income) * 100 : 0, paymentLeft, eventFinance,
     topExpenses: Array.from(categories, ([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5),
     topEvents: data.events.map((event) => { const finance = eventFinance.get(event._id)!; return { event, profit: finance.income - finance.expense } }).sort((a, b) => b.profit - a.profit).slice(0, 5) }

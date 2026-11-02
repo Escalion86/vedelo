@@ -3,6 +3,7 @@ import { GET as getAvitoConversations } from '../../../../integrations/avito/con
 import { GET as getVkConversations } from '../../../../integrations/vk/conversations/route'
 import { mobileError } from '@server/mobile/routeHelpers'
 import { sanitizeMobileConversationPayload } from '@server/mobile/conversations'
+import { telegramConversations } from '@server/mobile/telegramConversations'
 
 const sanitizeResponse = async (response) => {
   const payload = await response.json()
@@ -13,6 +14,7 @@ const sanitizeResponse = async (response) => {
 
 export const GET = async (req, { params }) => {
   const { provider } = await params
+  if (provider === 'telegram') return telegramConversations(req)
   if (provider === 'avito') {
     return sanitizeResponse(await getAvitoConversations(req))
   }

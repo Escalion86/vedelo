@@ -16,6 +16,7 @@ export type MobileUser = {
   tariffId: string | null
   tariffTitle?: string
   registrationType?: string
+  yandexLinked?: boolean
 }
 
 export type AuthSession = {

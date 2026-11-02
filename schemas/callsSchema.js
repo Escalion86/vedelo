@@ -121,6 +121,15 @@ const callsSchema = {
     type: Date,
     default: null,
   },
+  androidResultOperation: {
+    type: {
+      fingerprint: { type: String, required: true },
+      state: { type: String, enum: ['pending', 'confirmed'], default: 'pending' },
+      createdBy: { type: Schema.Types.ObjectId, ref: 'Users' },
+      taskId: { type: Schema.Types.ObjectId, default: null },
+    },
+    default: undefined,
+  },
   recordingPushSentAt: {
     type: Date,
     default: null,

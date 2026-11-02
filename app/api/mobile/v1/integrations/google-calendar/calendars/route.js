@@ -2,6 +2,7 @@ import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
+import { googleImportUserFilter } from '@server/googleImportContext'
 import {
   listUserCalendars,
   normalizeCalendarSettings,
@@ -18,10 +19,7 @@ export const GET = async (req) => {
     return mobileError('CALENDAR_TARIFF_REQUIRED', 'Синхронизация недоступна по тарифу', 403)
   }
   await dbConnect()
-  const user = await Users.findOne({
-    _id: context.user._id,
-    tenantId: context.tenantId,
-  })
+  const user = await Users.findOne(googleImportUserFilter(context.user._id, context.tenantId))
   if (!user) return mobileError('USER_NOT_FOUND', 'Пользователь не найден', 404)
   const settings = normalizeCalendarSettings(user)
   if (!settings.refreshToken) {
@@ -30,11 +28,10 @@ export const GET = async (req) => {
   try {
     const calendars = await listUserCalendars(user)
     return mobileSuccess({
-      calendars,
+      calendars: calendars.filter((item) => ['owner', 'writer'].includes(item.accessRole)),
       selectedId: settings.calendarId || 'primary',
     })
-  } catch (error) {
-    console.error('[mobile/google-calendar/calendars]', error?.message || error)
+  } catch {
     return mobileError('CALENDAR_PROVIDER_ERROR', 'Не удалось получить календари Google', 502)
   }
 }

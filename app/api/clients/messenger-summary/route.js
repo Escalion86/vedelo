@@ -13,7 +13,7 @@ import {
 } from '@helpers/messengerAttention'
 import { mergeMessengerUnreadGroups } from '@helpers/messengerUnreadSummary'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { hasIntegrationAccess } from '@server/integrationAccess'
 
@@ -29,7 +29,7 @@ const conversationPipeline = (tenantId) => [
 ]
 
 const callsPipeline = (tenantId) => [
-  { $match: { tenantId, linkedClientId: { $ne: null } } },
+  { $match: { tenantId, provider: { $ne: 'android' }, linkedClientId: { $ne: null } } },
   {
     $group: {
       _id: '$linkedClientId',
@@ -175,8 +175,8 @@ const enrichUnreadItems = async ({ tenantObjectId, groups }) => {
   })
 }
 
-export const GET = async () => {
-  const { tenantId } = await getTenantContext()
+export const GET = async (req) => {
+  const { tenantId } = await getRequestContext(req)
   if (!tenantId) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },

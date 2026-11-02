@@ -75,7 +75,7 @@ beforeEach(() => {
 })
 const open = async (screen: ReturnType<typeof render>, name: string) => { const row = await screen.findByLabelText(`Настроить ${name}`); await act(async () => { fireEvent.press(row) }); await waitFor(() => expect(screen.queryByLabelText('Загрузка состояния интеграции')).toBeNull()) }
 const noPrivileged = () => {
-  for (const mock of [mockGet, mockPost, mockPatch, mockDelete]) for (const [path] of mock.mock.calls) expect(path).not.toMatch(/adminUsage|\/ai\/settings|coefficient|operator|telegram\/(connect|disconnect)|integrations\/telegram/)
+  for (const mock of [mockGet, mockPost, mockPatch, mockDelete]) for (const [path] of mock.mock.calls) expect(path).not.toMatch(/adminUsage|\/ai\/settings|coefficient|operator|telegram\/(connect|disconnect)/)
 }
 
 it('форма ИИ и расходы находятся в выбранной строке, до следующего провайдера',async()=>{

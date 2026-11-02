@@ -4,7 +4,7 @@ import { saveLocalEntity } from '../storage/mutations'
 
 // Read the current tenant cache before queuing a minimal patch. Never recreate a
 // removed client or confirm a phone/contact changed while the external app was open.
-export async function confirmPhoneContact(client: Client, provider: 'whatsapp' | 'telegram' | 'max', phone: string, confirmed: boolean) {
+export async function confirmPhoneContact(client: Client, provider: 'whatsapp' | 'telegram' | 'max', phone: string, confirmed: boolean, preferred = false) {
   const current = await getCachedEntity<Client>('clients', client._id)
   const field = { whatsapp: 'whatsapp', telegram: 'telegramPhone', max: 'max' } as const
   if (!current || String(current.phone) !== String(client.phone) ||
@@ -14,6 +14,7 @@ export async function confirmPhoneContact(client: Client, provider: 'whatsapp' |
   const patch: Partial<Client> = {
     [`${provider}PhoneUnavailable`]: !confirmed,
     ...(confirmed ? { [field[provider]]: provider === 'max' ? phone : current.phone } : {}),
+    ...(confirmed && preferred ? { preferredContactChannel: provider, preferredContactChannelOther: '' } : {}),
   }
   await saveLocalEntity({ entityType: 'clients', entityId: client._id, values: patch })
   return patch

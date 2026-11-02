@@ -20,7 +20,9 @@ const MAX_RECORDING_MS = 120_000
 
 type Props = {
   onApply: (fields: VoiceDraftFields) => void
+  onAnalyzeText?: (text: string) => Promise<void>
   initialMode?: 'manual' | 'voice' | 'text'
+  initialText?: string
 }
 
 type TranscriptResponse = { success: boolean; transcript?: string }
@@ -41,7 +43,7 @@ export const VoiceDraftSection = (props: Props) => {
   return <VoiceDraftEditor {...props} access={access} />
 }
 
-const VoiceDraftEditor = ({ onApply, initialMode, access }: Props & { access: ReturnType<typeof useAiDraftAccess> }) => {
+const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, access }: Props & { access: ReturnType<typeof useAiDraftAccess> }) => {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
@@ -50,7 +52,7 @@ const VoiceDraftEditor = ({ onApply, initialMode, access }: Props & { access: Re
   const recordingRef = useRef(false)
   const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [transcript, setTranscript] = useState('')
+  const [transcript, setTranscript] = useState(initialText || '')
   const [pendingFields, setPendingFields] = useState<VoiceDraftFields | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -62,6 +64,11 @@ const VoiceDraftEditor = ({ onApply, initialMode, access }: Props & { access: Re
 
   const requestDraft = async (text: string) => {
     await access.assertAvailable()
+    if (onAnalyzeText) {
+      await onAnalyzeText(text)
+      setMessage('Проверьте результат перед сохранением.')
+      return
+    }
     const response = await api.post<DraftResponse>('/mobile/v1/events/ai-draft', { text })
     const fields = response.fields || null
     if (!fields || countApplicableVoiceDraftFields(fields) === 0) {

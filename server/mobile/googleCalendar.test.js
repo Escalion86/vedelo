@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   clearGoogleCalendarCredentials,
   serializeMobileGoogleCalendar,
+  normalizeMobileGoogleCalendarPatch,
 } from './googleCalendar.js'
 
 test('mobile Google Calendar status не раскрывает OAuth credentials', () => {
@@ -21,6 +22,20 @@ test('mobile Google Calendar status не раскрывает OAuth credentials'
   assert.equal(json.includes('refresh-secret'), false)
   assert.equal(json.includes('access-secret'), false)
   assert.equal(json.includes('sync-secret'), false)
+})
+
+test('partial calendar settings do not replace PWA settings or credentials', () => {
+  assert.deepEqual(normalizeMobileGoogleCalendarPatch({ syncSettings: { showClient: false }, statusColors: { draft: '2' } }), {
+    'googleCalendar.syncSettings.showClient': false, 'googleCalendar.statusColors.draft': '2',
+  })
+  assert.deepEqual(normalizeMobileGoogleCalendarPatch({ enabled: false }), { 'googleCalendar.enabled': false })
+})
+test('rejects identities, credentials, Mongo fields and invalid nested settings', () => {
+  for (const body of [{ tenantId: 'other' }, { accessToken: 'secret' }, { enabled: 'false' }, { statusColors: { draft: '12' } }, { syncSettings: { showClient: 'false' } }, { syncSettings: { titleMode: 'unknown' } }, { syncSettings: { $set: {} } }, []]) assert.throws(() => normalizeMobileGoogleCalendarPatch(body))
+})
+test('reminders respect provider limits and keep an explicit empty default list', () => {
+  assert.deepEqual(normalizeMobileGoogleCalendarPatch({ reminders: { useDefault: true, overrides: [] } }), { 'googleCalendar.reminders': { useDefault: true, overrides: [] } })
+  for (const overrides of [[], [{ method: 'popup', minutes: 40321 }], [{ method: 'popup', minutes: 1.5 }], Array.from({ length: 6 }, () => ({ method: 'popup', minutes: 60 }))]) assert.throws(() => normalizeMobileGoogleCalendarPatch({ reminders: { useDefault: false, overrides } }))
 })
 
 test('отключение очищает токены, календарь и email', () => {

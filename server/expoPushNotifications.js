@@ -6,6 +6,7 @@ import {
   persistDevicePushToken,
 } from './mobile/pushTokens.js'
 import { getActiveExpoPushTokensFilter } from './pushSubscriptionState.mjs'
+import { currentMobilePushSubscriptions, deactivateRegisteredMobilePush, migratedPushDevices, sendRegisteredMobilePush } from './mobilePushDelivery'
 
 let expo = null
 
@@ -78,27 +79,30 @@ const deactivateExpoPushTokenByDevice = async ({ tenantId, deviceId }) => {
 
 const deactivateAllExpoPushTokens = async (tenantId) => {
   if (!tenantId) return 0
-  const result = await ExpoPushTokens.updateMany(
-    getActiveExpoPushTokensFilter(tenantId),
-    { $set: { isActive: false } }
-  )
-  return Number(result?.modifiedCount || 0)
+  const [result, current] = await Promise.all([
+    ExpoPushTokens.updateMany(getActiveExpoPushTokensFilter(tenantId), { $set: { isActive: false } }),
+    deactivateRegisteredMobilePush(tenantId),
+  ])
+  return Number(result?.modifiedCount || 0) + current
 }
 
 const countActiveExpoPushTokens = async (tenantId) => {
   if (!tenantId) return 0
-  return ExpoPushTokens.countDocuments(getActiveExpoPushTokensFilter(tenantId))
+  const [legacy, current] = await Promise.all([getActiveTokensForTenant(tenantId), currentMobilePushSubscriptions(tenantId)])
+  return legacy.length + current.length
 }
 
 const getActiveTokensForTenant = async (tenantId) => {
   if (!tenantId) return []
-  const docs = await ExpoPushTokens.find({ tenantId, isActive: true })
-    .select('pushToken')
-    .lean()
+  const migrated = await migratedPushDevices(tenantId)
+  const docs = await ExpoPushTokens.find({ tenantId, isActive: true,
+    pushToken: { $nin: migrated.map(row => row.pushToken) },
+    deviceId: { $nin: migrated.map(row => row.deviceId).filter(Boolean) },
+  }).select('pushToken').lean()
   return docs.map((d) => normalizePushToken(d?.pushToken)).filter(Boolean)
 }
 
-const sendExpoPushToTenant = async ({ tenantId, payload }) => {
+const sendLegacyExpoPushToTenant = async ({ tenantId, payload }) => {
   if (!tenantId || !payload || typeof payload !== 'object') {
     return { ok: false, sent: 0, failed: 0, invalid: 0 }
   }
@@ -169,6 +173,18 @@ const sendExpoPushToTenant = async ({ tenantId, payload }) => {
     invalidTokens,
     invalid: invalidTokens.length,
   }
+}
+
+// Historical export is retained for all existing callers. New installations use
+// the session-bound registry; legacy APK subscriptions retain the original path.
+const sendExpoPushToTenant = async ({ tenantId, payload }) => {
+  if (!tenantId || !payload || typeof payload !== 'object') return { ok: false, sent: 0, failed: 0, invalid: 0 }
+  const [legacy, current] = await Promise.all([
+    sendLegacyExpoPushToTenant({ tenantId, payload }),
+    sendRegisteredMobilePush({ tenantId, payload, expoClient: getExpoClient() }),
+  ])
+  return { ok: legacy.ok || current.ok, sent: legacy.sent + current.sent, failed: legacy.failed + current.failed,
+    invalid: legacy.invalid + current.invalid, invalidTokens: legacy.invalidTokens || [] }
 }
 
 export {

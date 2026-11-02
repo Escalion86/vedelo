@@ -10,6 +10,7 @@ import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { useSettingsEditor, type SettingsConfig } from './settingsEditor'
 import { ThemePreferenceSection } from './ThemePreferenceSection'
 import { ClientTypesSection } from './ClientTypesSection'
+import { PromoCodeRedeem } from '../billing/PromoCodeRedeem'
 
 export const terminologyConfig: SettingsConfig<PrimaryEntityTerminology> = {
   scope: 'terminology', endpoint: '/mobile/v1/settings/terminology',
@@ -28,6 +29,7 @@ export const SettingsSection = () => {
   const terms = resolveMobileWorkItemTerminology(editor.settings)
   return <>
     <ThemePreferenceSection />
+    <PromoCodeRedeem />
     <Button title={typesOpen ? 'Закрыть типы клиентов' : 'Типы клиентов'} variant="secondary" onPress={() => setTypesOpen(!typesOpen)} />
     {typesOpen ? <ClientTypesSection /> : null}
     {editor.reading ? <Notice message="Загружаем настройки…" /> : null}

@@ -4,7 +4,9 @@ import {
   type ProposalOperation,
   type BoundProposalOperation,
 } from './identity'
-import { proposalOperations } from './operations'
+import { proposalOperations, type Outcome } from './operations'
+import { assertCreationOwner, beginCreationAttempt, finishCreationAttempt, readCreationAttempt, recordCreatedId, requestCreationCancellation, type CreationAttempt, type CreationKind } from './creationStore'
+import { localDataEpoch } from '../../shared/storage/localEntityCoordination'
 import { resolveUploadedFileUrl } from './uploadUrl.generated'
 import { PROPOSAL_LINES_LIMIT, PROPOSAL_PACKAGES_LIMIT } from './limits'
 
@@ -13,7 +15,7 @@ const lineSchema = z.object({
   title: z.string(),
   description: z.string().default(''),
   price: z.number().nonnegative(),
-})
+}).passthrough()
 const packageSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -22,7 +24,7 @@ const packageSchema = z.object({
   total: z.number().nonnegative(),
   manualTotal: z.boolean().default(true),
   recommended: z.boolean().default(false),
-})
+}).passthrough()
 const blockSchema = z
   .object({
     id: z.string().optional(),
@@ -42,16 +44,20 @@ const mediaSchema = z.object({
   fileName: z.string().optional(),
   contentType: z.string().optional(),
   size: z.number().optional(),
-})
+}).passthrough()
 const appearanceSchema = z.object({
   theme: z.enum(['classic', 'light', 'blue', 'dark']).default('classic'),
   logoUrl: z.string().default(''),
-})
+  logoAlignment: z.enum(['left', 'center', 'right']).optional(),
+}).passthrough()
 const proposalSchema = z.object({
   _id: z.string().min(1),
   eventId: z.string().min(1),
   title: z.string(),
   version: z.number().int().positive(),
+  contentRevision: z.number().int().nonnegative().optional(),
+  applyOperation: z.object({ id: z.string().optional(), state: z.string().optional() }).nullable().optional(),
+  applicationPending: z.boolean().optional(),
   status: z.enum(['draft', 'published', 'expired', 'revoked']),
   packages: z.array(packageSchema).max(PROPOSAL_PACKAGES_LIMIT),
   blocksSnapshot: z.array(blockSchema),
@@ -84,10 +90,11 @@ const templateSchema = z.object({
   blocks: z.array(blockSchema),
   media: z.array(mediaSchema),
   messageTemplate: z.string(),
+  appearance: appearanceSchema.optional(),
   defaults: z.object({
     packages: z.array(packageSchema).max(PROPOSAL_PACKAGES_LIMIT),
     servicesIds: z.array(z.string()).default([]),
-  }),
+  }).passthrough(),
 })
 const eventSchema = z.object({
   _id: z.string(),
@@ -125,67 +132,130 @@ export type PickedMedia = {
 
 const createBoundApi = (check: BoundProposalOperation) => {
   const ledger = proposalOperations
+  const owner = Symbol('creation-owner'), storeOwner = { identity: check.identity, epoch: localDataEpoch() }
+  const restoreCreation = async (kind: CreationKind, target: string) => {
+    const attempt = await readCreationAttempt(check, kind, target)
+    await check()
+    if (attempt && !ledger.get(check.identity, kind, target)?.inflight) ledger.set(check.identity, kind, target, {
+      inflight: false, phase: attempt.resultId ? 'known' : 'unknown', id: attempt.resultId, recoverable: true, cancelRequested: attempt.cancelRequested,
+    })
+    return attempt
+  }
+  const creationFailed = async (kind: CreationKind, target: string, attempt: CreationAttempt | null, id?: string, previous?: Outcome) => {
+    if (!await assertCreationOwner(storeOwner).then(() => true, () => false) || ledger.get(check.identity, kind, target)?.owner !== owner) return
+    const persisted = await readCreationAttempt(check, kind, target).catch(() => attempt)
+    if (!await assertCreationOwner(storeOwner).then(() => true, () => false) || ledger.get(check.identity, kind, target)?.owner !== owner) return
+    if (persisted || id) ledger.set(check.identity, kind, target, {
+      inflight: false, phase: id || persisted?.resultId ? 'known' : 'unknown', id: id || persisted?.resultId, recoverable: !!persisted, cancelRequested: persisted?.cancelRequested,
+    })
+    else if (previous) ledger.set(check.identity, kind, target, { ...previous, inflight: false })
+    else ledger.clear(check.identity, kind, target)
+  }
+  const finishRemovedCreation = async (cause: unknown, kind: CreationKind, target: string, attempt: CreationAttempt | null, id?: string) => {
+    const error = cause as { status?: number; code?: string }
+    if (!attempt || !(error?.status === 410 && ['created_resource_deleted', 'creation_cancelled'].includes(error.code || '') || id && error?.status === 404 && error.code === 'not_found')) return
+    try {
+      await check()
+      await finishCreationAttempt(check, attempt)
+      ledger.clear(check.identity, kind, target)
+    } catch (error) {
+      await creationFailed(kind, target, attempt, id)
+      throw error
+    }
+    throw new Error(error.code === 'creation_cancelled' ? 'CREATION_CANCELLED' : 'CREATED_RESOURCE_GONE')
+  }
   const created = async <T extends { _id: string }>(
-    kind: string,
+    kind: CreationKind,
     target: string,
-    write: () => Promise<T>,
+    input: Record<string, unknown>,
+    write: (attempt: CreationAttempt) => Promise<T>,
     read: (id: string) => Promise<T>
   ) => {
-    if (ledger.get(check.identity, kind, target))
-      throw new Error('CREATE_OUTCOME_PENDING')
-    ledger.set(check.identity, kind, target, {
-      inflight: true,
-      phase: 'unknown',
-    })
-    const before = check.dispatched
-    let id: string | undefined
+    if (ledger.get(check.identity, kind, target)) throw new Error('CREATE_OUTCOME_PENDING')
+    ledger.set(check.identity, kind, target, { inflight: true, phase: 'unknown', owner })
+    let attempt: CreationAttempt | null = null, id: string | undefined
     try {
-      const saved = await write()
+      attempt = await beginCreationAttempt(check, kind, target, input)
+      const saved = await write(attempt)
       id = saved._id
-      ledger.set(check.identity, kind, target, {
-        inflight: true,
-        phase: 'known',
-        id,
-      })
+      await recordCreatedId(storeOwner, attempt, id)
       await check()
+      ledger.set(check.identity, kind, target, { inflight: true, phase: 'known', id, recoverable: true, owner })
       const fresh = await read(id)
       await check()
-      if (
-        kind === 'create-template' &&
-        JSON.stringify(saved) !== JSON.stringify(fresh)
-      )
-        throw new Error('READBACK_MISMATCH')
+      if (kind === 'create-template' && JSON.stringify(saved) !== JSON.stringify(fresh)) throw new Error('READBACK_MISMATCH')
+      await finishCreationAttempt(check, attempt)
       ledger.clear(check.identity, kind, target)
       return fresh
     } catch (cause) {
-      if (check.dispatched === before)
-        ledger.clear(check.identity, kind, target)
-      else
-        ledger.set(check.identity, kind, target, {
-          inflight: false,
-          phase: id ? 'known' : 'unknown',
-          id,
-        })
-      if (id)
-        throw Object.assign(new Error('READBACK_FAILED'), { readbackId: id })
+      await finishRemovedCreation(cause, kind, target, attempt, id)
+      await creationFailed(kind, target, attempt, id)
+      if (id) throw Object.assign(new Error('READBACK_FAILED'), { readbackId: id })
       throw cause
     }
   }
   const recoverCreated = async <T extends { _id: string }>(
-    kind: string,
+    kind: CreationKind,
     target: string,
+    write: (attempt: CreationAttempt) => Promise<T>,
     read: (id: string) => Promise<T>
   ) => {
-    const state = ledger.get(check.identity, kind, target)
-    if (!state?.id || state.inflight) throw new Error('CREATE_OUTCOME_PENDING')
-    ledger.set(check.identity, kind, target, { ...state, inflight: true })
+    const previous = ledger.get(check.identity, kind, target)
+    if (previous?.inflight) throw new Error('CREATE_OUTCOME_PENDING')
+    ledger.set(check.identity, kind, target, { ...previous, inflight: true, phase: 'unknown', owner })
+    let attempt: CreationAttempt | null = null, id: string | undefined
     try {
-      const fresh = await read(state.id)
+      attempt = await readCreationAttempt(check, kind, target)
+      if (attempt?.cancelRequested) throw new Error('CREATION_CANCELLATION_PENDING')
+      id = attempt?.resultId || ledger.get(check.identity, kind, target)?.id
+      if (!id) {
+        if (!attempt) throw new Error('CREATE_OUTCOME_PENDING')
+        const saved = await write(attempt)
+        id = saved._id
+        await recordCreatedId(storeOwner, attempt, id)
+      }
       await check()
+      ledger.set(check.identity, kind, target, { inflight: true, phase: 'known', id, recoverable: !!attempt, owner })
+      const fresh = await read(id)
+      await check()
+      if (attempt) await finishCreationAttempt(check, attempt)
       ledger.clear(check.identity, kind, target)
       return fresh
     } catch (cause) {
-      ledger.set(check.identity, kind, target, { ...state, inflight: false })
+      await finishRemovedCreation(cause, kind, target, attempt, id)
+      await creationFailed(kind, target, attempt, id, previous)
+      throw cause
+    }
+  }
+  const cancelCreated = async <T extends { _id: string }>(kind: CreationKind, target: string, path: string, read: (id: string) => Promise<T>) => {
+    const previous = ledger.get(check.identity, kind, target)
+    if (previous?.inflight) throw new Error('CREATE_OUTCOME_PENDING')
+    ledger.set(check.identity, kind, target, { ...previous, inflight: true, phase: previous?.phase || 'unknown', owner })
+    let attempt: CreationAttempt | null = null, id: string | undefined
+    try {
+      attempt = await readCreationAttempt(check, kind, target)
+      if (!attempt) throw new Error('CREATE_OUTCOME_PENDING')
+      attempt = await requestCreationCancellation(check, attempt)
+      id = attempt.resultId
+      if (!id) {
+        const result = data(z.discriminatedUnion('state', [
+          z.object({ state: z.literal('cancelled') }),
+          z.object({ state: z.literal('created'), id: z.string().min(1) }),
+        ]), await request(path, { method: 'POST', body: { ...attempt.input, requestId: attempt.requestId } }))
+        if (result.state === 'created') {
+          id = result.id
+          await recordCreatedId(storeOwner, attempt, id)
+        }
+      }
+      await check()
+      const fresh = id ? await read(id) : null
+      await check()
+      await finishCreationAttempt(check, attempt)
+      ledger.clear(check.identity, kind, target)
+      return fresh
+    } catch (cause) {
+      await finishRemovedCreation(cause, kind, target, attempt, id)
+      await creationFailed(kind, target, attempt, id, previous)
       throw cause
     }
   }
@@ -238,16 +308,16 @@ const createBoundApi = (check: BoundProposalOperation) => {
     name: true,
     status: true,
   })
-  const validateMedia = (file: PickedMedia, logo = false) => {
+  const validateMedia = (file: PickedMedia, logo = false, gallery = false) => {
     const image = [
       'image/jpeg',
       'image/png',
       'image/webp',
-      ...(!logo ? ['image/gif'] : []),
+      ...(!logo && !gallery ? ['image/gif'] : []),
     ].includes(file.mimeType || '')
     const video =
-      !logo && ['video/mp4', 'video/webm'].includes(file.mimeType || '')
-    const limit = (logo ? 5 : image ? 10 : 40) * 1024 * 1024
+      !logo && (gallery ? file.mimeType === 'video/mp4' : ['video/mp4', 'video/webm'].includes(file.mimeType || ''))
+    const limit = (logo ? 5 : image ? 10 : gallery ? 50 : 40) * 1024 * 1024
     if (
       (!image && !video) ||
       !file.uri ||
@@ -266,6 +336,24 @@ const createBoundApi = (check: BoundProposalOperation) => {
         type: file.mimeType,
       } as unknown as Blob)
   }
+  const uploadMedia = async (
+      kind: 'proposal' | 'template',
+      id: string,
+      file: PickedMedia,
+      gallery = false
+    ) => {
+      validateMedia(file, false, gallery)
+      const directory = `${kind === 'proposal' ? 'proposals' : 'proposal-templates'}/${pathId(id)}`
+      const form = new FormData()
+      form.append('directory', directory)
+      appendFile(form, 'files', file)
+      const response = z
+        .object({ success: z.literal(true), data: z.unknown() })
+        .parse(await check.upload<unknown>('/escalioncloud', form))
+      const url = resolveUploadedFileUrl(response.data, { directory })
+      if (!url) throw new Error('UPLOAD_URL_MISSING')
+      return url as string
+    }
   const templates = async () =>
     data(z.array(templateSchema), await request('/proposal-templates'))
   const event = async (eventId: string) =>
@@ -273,6 +361,21 @@ const createBoundApi = (check: BoundProposalOperation) => {
       data(eventSchema, await request(`/mobile/v1/events/${pathId(eventId)}`)),
       eventId
     )
+  const writeProposal = async (eventId: string, attempt: CreationAttempt) => {
+    const item = data(proposalSchema, await request(`/mobile/v1/events/${pathId(eventId)}/proposals`, {
+      method: 'POST', body: { ...attempt.input, requestId: attempt.requestId },
+    }))
+    if (item.eventId !== eventId) throw new Error('EVENT_MISMATCH')
+    return item
+  }
+  const readCreatedProposal = async (eventId: string, id: string) => {
+    const item = await get(id)
+    if (item.eventId !== eventId) throw new Error('EVENT_MISMATCH')
+    return item
+  }
+  const writeTemplate = async (attempt: CreationAttempt) => data(templateSchema, await request('/mobile/v1/proposal-templates', {
+    method: 'POST', body: { ...attempt.input, requestId: attempt.requestId },
+  }))
   return {
     get,
     readEvent: event,
@@ -297,6 +400,8 @@ const createBoundApi = (check: BoundProposalOperation) => {
       })),
     templateDefaults: async () =>
       data(defaultsSchema, await request('/proposal-templates/defaults')),
+    templateFromProposal: async (id: string) =>
+      data(templateSchema.omit({ _id: true }), await request(`/proposals/${pathId(id)}?view=template-draft`)),
     previewTemplate: async (id: string, body: Record<string, unknown>) =>
       data(
         previewSchema,
@@ -313,23 +418,8 @@ const createBoundApi = (check: BoundProposalOperation) => {
           body,
         })
       ),
-    uploadMedia: async (
-      kind: 'proposal' | 'template',
-      id: string,
-      file: PickedMedia
-    ) => {
-      validateMedia(file)
-      const directory = `${kind === 'proposal' ? 'proposals' : 'proposal-templates'}/${pathId(id)}`
-      const form = new FormData()
-      form.append('directory', directory)
-      appendFile(form, 'files', file)
-      const response = z
-        .object({ success: z.literal(true), data: z.unknown() })
-        .parse(await check.upload<unknown>('/escalioncloud', form))
-      const url = resolveUploadedFileUrl(response.data, { directory })
-      if (!url) throw new Error('UPLOAD_URL_MISSING')
-      return url as string
-    },
+    uploadMedia: (kind: 'proposal' | 'template', id: string, file: PickedMedia) => uploadMedia(kind, id, file),
+    uploadGallery: (kind: 'proposal' | 'template', id: string, file: PickedMedia) => uploadMedia(kind, id, file, true),
     uploadLogo: async (id: string, file: PickedMedia) => {
       validateMedia(file, true)
       const form = new FormData()
@@ -340,6 +430,19 @@ const createBoundApi = (check: BoundProposalOperation) => {
       )
       await check()
       await get(id)
+      await check()
+      return saved.url
+    },
+    uploadTemplateLogo: async (id: string, file: PickedMedia) => {
+      validateMedia(file, true)
+      const form = new FormData()
+      appendFile(form, 'file', file)
+      const saved = data(
+        z.object({ url: z.string().url() }),
+        await check.upload<unknown>(`/proposal-templates/${pathId(id)}/logo`, form)
+      )
+      await check()
+      if (id !== 'new') await template(id)
       await check()
       return saved.url
     },
@@ -379,37 +482,19 @@ const createBoundApi = (check: BoundProposalOperation) => {
         throw Error('DELETE_UNCONFIRMED')
       return { archived: Boolean(response.archived), items }
     },
-    recoverCreate: (eventId: string) =>
-      recoverCreated('create-proposal', eventId, async (id) => {
-        const fresh = await get(id)
-        if (fresh.eventId !== eventId) throw new Error('EVENT_MISMATCH')
-        return fresh
-      }),
-    recoverTemplate: () => recoverCreated('create-template', 'new', template),
-    create: (
-      eventId: string,
-      body: { templateId?: string; sourceProposalId?: string }
-    ) =>
-      created(
-        'create-proposal',
-        eventId,
-        async () => {
-          const item = data(
-            proposalSchema,
-            await request(`/events/${pathId(eventId)}/proposals`, {
-              method: 'POST',
-              body,
-            })
-          )
-          if (item.eventId !== eventId) throw new Error('EVENT_MISMATCH')
-          return item
-        },
-        async (id) => {
-          const fresh = await get(id)
-          if (fresh.eventId !== eventId) throw new Error('EVENT_MISMATCH')
-          return fresh
-        }
-      ),
+    restoreCreate: (eventId: string) => restoreCreation('create-proposal', eventId),
+    restoreTemplate: async () => {
+      const attempt = await restoreCreation('create-template', 'new')
+      return attempt ? templateSchema.parse({ ...attempt.input, _id: 'new' }) : null
+    },
+    recoverCreate: (eventId: string) => recoverCreated('create-proposal', eventId,
+      attempt => writeProposal(eventId, attempt), id => readCreatedProposal(eventId, id)),
+    recoverTemplate: () => recoverCreated('create-template', 'new', writeTemplate, template),
+    cancelCreate: (eventId: string) => cancelCreated('create-proposal', eventId,
+      `/mobile/v1/events/${pathId(eventId)}/proposals/cancel`, id => readCreatedProposal(eventId, id)),
+    cancelTemplate: () => cancelCreated('create-template', 'new', '/mobile/v1/proposal-templates/cancel', template),
+    create: (eventId: string, body: { templateId?: string; sourceProposalId?: string }) =>
+      created('create-proposal', eventId, body, attempt => writeProposal(eventId, attempt), id => readCreatedProposal(eventId, id)),
     save: async (id: string, body: Record<string, unknown>) => {
       const saved = exact(
         data(
@@ -476,7 +561,7 @@ const createBoundApi = (check: BoundProposalOperation) => {
       if (!state || state.inflight) throw new Error('APPLY_READ_PENDING')
       const fresh = await get(proposalId)
       await check()
-      if (fresh.eventId !== eventId || !fresh.appliedAt)
+      if (fresh.eventId !== eventId || !fresh.appliedAt || fresh.applicationPending || (fresh.applyOperation && fresh.applyOperation.state !== 'confirmed'))
         throw new Error('APPLY_UNCONFIRMED')
       const freshEvent = await event(eventId)
       await check()
@@ -506,16 +591,7 @@ const createBoundApi = (check: BoundProposalOperation) => {
       id: string | undefined,
       body: Record<string, unknown>
     ) => {
-      if (!id)
-        return created(
-          'create-template',
-          'new',
-          () =>
-            Promise.resolve(
-              request('/proposal-templates', { method: 'POST', body })
-            ).then((response) => data(templateSchema, response)),
-          template
-        )
+      if (!id) return created('create-template', 'new', body, writeTemplate, template)
       const saved = exact(
         data(
           templateSchema,
@@ -609,8 +685,12 @@ type WithOperation<F> = F extends (...args: infer A) => infer R
   ? (...args: [...A, operation?: ProposalOperation]) => R
   : never
 const arities: Record<keyof BoundApi, number> = {
+  restoreCreate: 1,
+  restoreTemplate: 0,
   recoverCreate: 1,
   recoverTemplate: 0,
+  cancelCreate: 1,
+  cancelTemplate: 0,
   reconcileSend: 1,
   recoverApply: 2,
   get: 1,
@@ -620,10 +700,13 @@ const arities: Record<keyof BoundApi, number> = {
   templates: 0,
   services: 0,
   templateDefaults: 0,
+  templateFromProposal: 1,
   previewTemplate: 2,
   previewProposal: 2,
   uploadMedia: 3,
+  uploadGallery: 3,
   uploadLogo: 2,
+  uploadTemplateLogo: 2,
   removeTemplate: 1,
   create: 2,
   save: 2,

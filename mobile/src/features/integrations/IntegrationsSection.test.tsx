@@ -8,6 +8,7 @@ import { IntegrationsSection } from './IntegrationsSection'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import { unconfirmed } from './integrationContract'
+import { GOOGLE_STATUS_COLORS, GOOGLE_SYNC_DEFAULTS } from './googleCalendarSettings'
 installReadiness('integrations')
 const render = measureRender(nativeRender)
 const fireEvent = measureEvents(nativeFireEvent)
@@ -16,6 +17,7 @@ const mockGet = jest.fn(); const mockPost = jest.fn(); const mockPatch = jest.fn
 let mockFocus = true
 jest.mock('expo-router', () => ({ router: { push: (...args: any[]) => mockPush(...args) }, useFocusEffect: (fn: any) => require('react').useEffect(() => mockFocus ? fn() : undefined, [fn, mockFocus]) }))
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
+jest.mock('react-native-safe-area-context', () => ({ ...jest.requireActual('react-native-safe-area-context'), useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }))
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }))
 jest.mock('../../shared/config/env', () => ({ env: { appScheme: 'vedelo' } }))
@@ -66,7 +68,7 @@ beforeEach(() => {
     const provider = path.split('/').pop()!
     if (provider === 'avito' || provider === 'vk') return ok(states[provider])
     if (provider === 'public-leads' && body.keyId) states[provider] = { ...states[provider], keys: states[provider].keys.map((key: any) => key.id === body.keyId ? { ...key, enabled: body.enabled } : key) }
-    else states[provider] = { ...states[provider], ...body, ...(provider === 'ai' ? { provider: 'ai' } : {}) }
+    else states[provider] = { ...states[provider], ...body, ...(provider === 'ai' ? { provider: 'ai' } : {}), ...(body.syncSettings ? { syncSettings: { ...states[provider].syncSettings, ...body.syncSettings } } : {}), ...(body.statusColors ? { statusColors: { ...states[provider].statusColors, ...body.statusColors } } : {}) }
     return ok(states[provider])
   })
   mockDelete.mockImplementation(async (path: string, body: any) => {
@@ -80,7 +82,7 @@ beforeEach(() => {
 })
 const open = async (screen: ReturnType<typeof render>, name: string) => { const row = await screen.findByLabelText(`Настроить ${name}`); await act(async () => { fireEvent.press(row) }); await waitFor(() => expect(screen.queryByLabelText('Загрузка состояния интеграции')).toBeNull()) }
 const noPrivileged = () => {
-  for (const mock of [mockGet, mockPost, mockPatch, mockDelete]) for (const [path] of mock.mock.calls) expect(path).not.toMatch(/adminUsage|\/ai\/settings|coefficient|operator|telegram\/(connect|disconnect)|integrations\/telegram/)
+  for (const mock of [mockGet, mockPost, mockPatch, mockDelete]) for (const [path] of mock.mock.calls) expect(path).not.toMatch(/adminUsage|\/ai\/settings|coefficient|operator|telegram\/(connect|disconnect)/)
 }
 it.each(['light', 'dark'] as const)('единый компактный список %s, длинные данные и только пользовательские запросы', async (mode) => {
   const screen = render(draw(mode))
@@ -137,11 +139,35 @@ it('выбор конкретного календаря, email/popup reminders 
   fireEvent.press(screen.getByLabelText(`Выбрать календарь ${mockCalendars[1].summary}`)); await screen.findByText(`Выбран календарь «${mockCalendars[1].summary}»`)
   expect(mockPost).toHaveBeenLastCalledWith('/mobile/v1/integrations/google-calendar/select', { calendarId: 'second' }, { skipRefresh: true })
   fireEvent.press(screen.getByLabelText('Использовать стандартные уведомления Google')); fireEvent.press(screen.getByText('Сохранить напоминания'))
-  await screen.findByText('Укажите хотя бы одно напоминание и положительное число минут.')
+  await screen.findByText('Добавьте от 1 до 5 напоминаний, от 1 до 40320 минут каждое.')
   fireEvent.press(screen.getByText('Добавить напоминание')); fireEvent.press(screen.getByLabelText('Напоминание 1: Уведомление'))
   fireEvent.changeText(screen.getByLabelText('Минут до события — напоминание 1'), '90'); fireEvent.press(screen.getByText('Сохранить напоминания')); await screen.findByText('Напоминания Google Calendar сохранены')
   expect(mockPatch).toHaveBeenLastCalledWith('/mobile/v1/integrations/google-calendar', { reminders: { useDefault: false, overrides: [{ method: 'email', minutes: 90 }] } }, { skipRefresh: true })
   fireEvent.press(screen.getByText('Отключить Google Calendar')); expect(mockDelete).not.toHaveBeenCalled(); fireEvent.press(screen.getByText('Подтвердить отключение Google Calendar')); await screen.findByText('Google Calendar отключён, OAuth-токены удалены')
+})
+it.each(['light', 'dark'] as const)('Google: состав, заголовок и цвет сохраняются отдельными полями (%s)', async mode => {
+  states['google-calendar'].syncSettings = { ...GOOGLE_SYNC_DEFAULTS, showFinanceComment: false, future: 'keep' }
+  states['google-calendar'].statusColors = { ...GOOGLE_STATUS_COLORS, closed: '5' }
+  const screen = render(draw(mode)); await open(screen, 'Google Calendar')
+  expect(screen.getByLabelText('Финансовый комментарий').props.accessibilityState.checked).toBe(false)
+  fireEvent.press(screen.getByLabelText('Клиент и его контакты')); await screen.findByText('Состав записи сохранён')
+  expect(mockPatch).toHaveBeenLastCalledWith('/mobile/v1/integrations/google-calendar', { syncSettings: { showClient: false } }, { skipRefresh: true })
+  expect(states['google-calendar'].syncSettings.future).toBe('keep')
+  fireEvent.press(screen.getByText('Заголовок: Тип и услуги')); fireEvent.press(screen.getByLabelText('Клиент и тип')); await screen.findByText('Заголовок записи сохранён')
+  expect(mockPatch).toHaveBeenLastCalledWith('/mobile/v1/integrations/google-calendar', { syncSettings: { titleMode: 'client_eventType' } }, { skipRefresh: true })
+  fireEvent.press(screen.getByText('Цвет: Подтверждено: Черника')); fireEvent.press(screen.getByLabelText('Виноград')); await screen.findByText('Цвет статуса сохранён')
+  expect(mockPatch).toHaveBeenLastCalledWith('/mobile/v1/integrations/google-calendar', { statusColors: { active: '3' } }, { skipRefresh: true })
+  expect(states['google-calendar'].statusColors.closed).toBe('5')
+  expect(states['google-calendar'].syncSettings.showFinanceComment).toBe(false)
+})
+it('Google: серверный readback обязателен для вложенного параметра, повтор чтения не повторяет PATCH', async () => {
+  const original = mockGet.getMockImplementation()!; let stale = true
+  mockGet.mockImplementation(async (path: string) => path.endsWith('/google-calendar') && stale ? ok({ ...states['google-calendar'], syncSettings: { ...GOOGLE_SYNC_DEFAULTS, showClient: true } }) : original(path))
+  const screen = render(draw()); await open(screen, 'Google Calendar')
+  fireEvent.press(screen.getByLabelText('Клиент и его контакты')); await screen.findByText(unconfirmed)
+  expect(screen.queryByText('Состав записи сохранён')).toBeNull()
+  stale = false; fireEvent.press(screen.getByText('Повторить чтение состояния')); await screen.findByText('Состав записи сохранён')
+  expect(mockPatch).toHaveBeenCalledTimes(1)
 })
 it.each(['network', 'mismatch', 'success:false'])('Google pause %s -> read-back warning, GET-only retry', async (failure) => {
   const screen = render(draw()); await open(screen, 'Google Calendar'); await screen.findByText('Основной')
@@ -215,6 +241,33 @@ it('Novofon ротация с подтверждением, один POST; се�
   expect(mockPost).toHaveBeenCalledTimes(1); expect(mockPatch.mock.calls.some(([path]) => path.endsWith('/telephony'))).toBe(false)
   fireEvent.press(screen.getByText('Скопировать webhook URL')); await screen.findByText('Webhook URL скопирован'); fireEvent.press(screen.getByText('Закрыть без сохранения')); expect(screen.queryByText(novofonSecret)).toBeNull()
 })
+it.each(['light', 'dark'] as const)('Novofon %s: пауза и возобновление сохраняют подключение, без POST и DELETE', async mode => {
+  const screen = render(draw(mode)); await open(screen, 'Novofon')
+  const button = screen.getByText('Приостановить Novofon')
+  act(() => { fireEvent.press(button); fireEvent.press(button) })
+  await screen.findByText('Novofon приостановлен. Ключи и адрес webhook сохранены.')
+  expect(mockPatch).toHaveBeenCalledTimes(1)
+  expect(mockPatch.mock.calls[0]).toEqual(['/mobile/v1/integrations/telephony', { enabled: false }, { skipRefresh: true }])
+  expect(states.telephony.hasApiKey).toBe(true)
+  expect(states.telephony.configured).toBe(true)
+  fireEvent.press(screen.getByText('Возобновить Novofon'))
+  await screen.findByText('Novofon возобновлён. Адрес webhook сохранён.')
+  expect(mockPatch).toHaveBeenCalledTimes(2)
+  expect(mockPost).not.toHaveBeenCalled(); expect(mockDelete).not.toHaveBeenCalled()
+})
+it('Novofon pause readback failure retries GET only and does not claim success prematurely', async () => {
+  const screen = render(draw()); await open(screen, 'Novofon')
+  const base = mockGet.getMockImplementation()!; let failure = true
+  mockGet.mockImplementation(async (path: string) => path.endsWith('/telephony') && failure ? Promise.reject(new Error('network')) : base(path))
+  fireEvent.press(screen.getByText('Приостановить Novofon'))
+  await screen.findByText(unconfirmed)
+  expect(screen.queryByText('Novofon приостановлен. Ключи и адрес webhook сохранены.')).toBeNull()
+  failure = false
+  fireEvent.press(screen.getByText('Повторить чтение состояния'))
+  await screen.findByText('Novofon приостановлен. Ключи и адрес webhook сохранены.')
+  expect(mockPatch).toHaveBeenCalledTimes(1)
+  expect(mockPost).not.toHaveBeenCalled(); expect(mockDelete).not.toHaveBeenCalled()
+})
 it('создание API key идентифицирует именно issued ID; read-back GET-only retry сохраняет одноразовый секрет', async () => {
   const screen = render(draw()); await open(screen, 'Входящие заявки API'); fireEvent.changeText(screen.getByLabelText('Название нового источника'), 'Новый сайт')
   const base = mockGet.getMockImplementation()!; let wrong = true
@@ -258,9 +311,10 @@ it('одноразовый секрет, уже показанный польз�
   const screen = render(draw()); await open(screen, 'Входящие заявки API'); fireEvent.changeText(screen.getByLabelText('Название нового источника'), 'Новый сайт'); fireEvent.press(screen.getByText('Создать новый API key')); await screen.findByText(secret)
   mockFocus = false; screen.rerender(draw()); await waitFor(() => expect(screen.queryByText(secret)).toBeNull()); mockFocus = true; screen.rerender(draw()); await open(screen, 'Входящие заявки API'); expect(screen.queryByText(secret)).toBeNull()
 })
-it('Telegram read-only: bot_ready/unknown, никаких mutations даже при dev-capability', async () => {
-  const screen = render(draw()); await open(screen, 'Telegram Business'); expect(screen.getByText('Бот: @test_bot')).toBeTruthy(); expect(screen.getByText(/В Android доступен только просмотр/)).toBeTruthy()
-  expect(screen.queryByText('Подключить Telegram')).toBeNull(); expect(mockPost).not.toHaveBeenCalled(); expect(mockPatch).not.toHaveBeenCalled(); expect(mockDelete).not.toHaveBeenCalled(); noPrivileged()
+it('Telegram открывает управление без автоматического изменения подключения', async () => {
+  const screen = render(draw()); await open(screen, 'Telegram Business'); await screen.findByText('Бот: @test_bot')
+  expect(screen.getByLabelText('Токен бота Telegram').props.secureTextEntry).toBe(true)
+  expect(mockPost).not.toHaveBeenCalled(); expect(mockPatch).not.toHaveBeenCalled(); expect(mockDelete).not.toHaveBeenCalled(); noPrivileged()
 })
 it('Avito webhook_manual отражается как неполная настройка, без заявления о работе webhook', async () => {
   states.avito.status = 'webhook_manual'
@@ -318,9 +372,9 @@ it('недоступный тариф блокирует connect/check/pause, н
   fireEvent.press(screen.getByText('Отключить интеграцию')); fireEvent.press(screen.getByText('Подтвердить отключение Avito')); await screen.findByText('Avito отключён, реквизиты удалены')
   await open(screen, 'Входящие заявки API'); fireEvent.press(screen.getByLabelText('Удалить ключ Первый сайт')); fireEvent.press(screen.getByLabelText('Удалить ключ Первый сайт')); await screen.findByText('Ключ «Первый сайт» удалён')
 })
-it('отсутствующий Telegram summary отображает неизвестное состояние', async () => {
+it('отсутствующий Telegram summary восстанавливается отдельным запросом состояния', async () => {
   const base = mockOverview; mockOverview = () => { const data = base(); delete data.telegram; return data }
-  const screen = render(draw()); await open(screen, 'Telegram Business'); await screen.findByText('Статус Telegram Business не получен. Обновите список интеграций.'); expect(screen.queryByText('Не подключено')).toBeNull(); noPrivileged()
+  const screen = render(draw()); await open(screen, 'Telegram Business'); await screen.findByText('Бот: @test_bot'); expect(mockGet).toHaveBeenCalledWith('/mobile/v1/integrations/telegram'); noPrivileged()
 })
 it('Novofon выданный секрет переживает невалидные метаданные POST, но успех не заявляется', async () => {
   mockPost.mockResolvedValueOnce(ok({ available: true, setup: { webhookSecret: novofonSecret, webhookUrl: `https://vedelo.example/api/telephony/novofon/webhook?tenantId=own-tenant&secret=${novofonSecret}` } }))

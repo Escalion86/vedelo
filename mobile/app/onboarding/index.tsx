@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { DetectTownButton } from '../../src/shared/native/DetectTownButton'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { api } from '../../src/shared/api/client'
@@ -128,6 +129,7 @@ export default function OnboardingScreen() {
       {step === 1 ? <Surface>
         <Text style={styles.explanation}>Город и часовой пояс нужны для правильных напоминаний, календаря и дат документов.</Text>
         <CompactField editable={!loading} label="Основной город" value={town} onChangeText={setTown} />
+        <DetectTownButton value={town} onConfirm={setTown} disabled={loading} />
         <SectionTitle>Часовой пояс</SectionTitle>
         <View style={styles.options}>{timeZones.map(([value, label]) => <Choice disabled={loading} key={value} label={label} active={timeZone === value} onPress={() => setTimeZone(value)} />)}</View>
         <SectionTitle>Тема</SectionTitle>

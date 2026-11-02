@@ -12,7 +12,10 @@ export type MenuGroup = { title: string; items: readonly MenuItem[] }
 export const menuGroups: readonly MenuGroup[] = [
   { title: 'Статистика', items: [{ title: 'Статистика', href: '/more/statistics', icon: 'chart-box-outline' }] },
   { title: 'Транзакции', items: [{ title: 'Транзакции', href: '/(tabs)/finance', icon: 'wallet-outline' }] },
-  { title: 'Звонки', items: [{ title: 'Звонки', href: '/more/calls', icon: 'phone-log-outline' }] },
+  { title: 'Звонки', items: [
+    { title: 'IP-телефония', href: '/more/calls', icon: 'phone-log-outline' },
+    { title: 'Итоги сотовых звонков', href: '/native/call-results', icon: 'phone-check-outline' },
+  ] },
   { title: 'Отзывы', items: [
     { title: 'Отзывы клиентов', href: '/more/client-reviews', icon: 'comment-text-outline' },
     { title: 'Настройка страницы отзывов', href: '/more/review-page', icon: 'card-account-details-outline' },
@@ -20,9 +23,11 @@ export const menuGroups: readonly MenuGroup[] = [
   { title: 'История действий', items: [{ title: 'История действий', href: '/history', icon: 'history' }] },
   { title: 'Поддержка', items: [
     { title: 'Обратная связь', href: '/support', icon: 'message-alert-outline' },
-    { title: 'Обучение', href: '/more/learning', icon: 'book-open-outline', pendingDescription: 'Уроки и персональный прогресс обучения пока доступны в веб-версии. Раздел появится в одном из следующих обновлений Android.' },
+    { title: 'Обучение', href: '/more/learning', icon: 'book-open-outline' },
+    { title: 'Что нового', href: '/more/news', icon: 'newspaper-variant-outline' },
   ] },
   { title: 'Настройки', items: [
+    { title: 'Возможности Android', href: '/native/settings', icon: 'cellphone-cog' },
     { title: 'Общие настройки', href: '/more/settings', icon: 'cog-outline' },
     { title: 'Личный профиль', href: '/(tabs)/profile', icon: 'account-circle-outline' },
     { title: 'Мои услуги', href: '/more/services', icon: 'briefcase-outline' },

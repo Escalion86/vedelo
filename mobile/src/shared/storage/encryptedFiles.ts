@@ -5,6 +5,8 @@ import { getDatabase } from './database'
 import { api } from '../api/client'
 import { upsertEntities } from './cache'
 import { markSyncPending, refreshSyncStateFromQueue } from '../sync/syncState'
+import { assertLocalDataEpoch, localDataEpoch, withLocalEntityWrite } from './localEntityCoordination'
+import { getAuthSessionEpoch } from '../auth/tokenStore'
 import {
   extractRemoteFileUrl,
   FILE_QUEUE_MAX_ATTEMPTS,
@@ -84,6 +86,8 @@ export const encryptAndQueueFile = async ({
   entityType,
   entityId,
   attachmentKind,
+  requestId,
+  current = () => true,
 }: {
   uri: string
   name: string
@@ -92,47 +96,75 @@ export const encryptAndQueueFile = async ({
   entityType?: string
   entityId?: string
   attachmentKind?: string
+  requestId?: string
+  current?: () => boolean
 }) => {
-  const source = new File(uri)
-  const actualSize = validateLocalFileSize(Number(size || source.size || 0))
-  encryptedDirectory.create({ idempotent: true, intermediates: true })
-  const id = Crypto.randomUUID()
-  const key = await getKey()
-  const sealed = await Crypto.aesEncryptAsync(await source.bytes(), key)
-  const destination = new File(encryptedDirectory, `${id}.acrm`)
-  destination.create({ overwrite: true, intermediates: true })
-  destination.write(await sealed.combined())
-  const now = new Date().toISOString()
-  const database = await getDatabase()
-  await database.runAsync(
-    `INSERT INTO file_queue (
-      id, operation_id, local_uri, display_name, remote_path, mime_type, size,
-      entity_type, entity_id, attachment_kind, status, attempts, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`,
-    id,
-    '',
-    destination.uri,
-    name,
-    mimeType || 'application/octet-stream',
-    actualSize,
-    entityType || null,
-    entityId || null,
-    attachmentKind || null,
-    now,
-    now
-  )
-  await markSyncPending()
-  return {
-    id,
-    localUri: destination.uri,
-    name,
-    mimeType: mimeType || '',
-    size: actualSize,
-    status: 'pending',
-    entityType: entityType || undefined,
-    entityId: entityId || undefined,
-    attachmentKind: attachmentKind || undefined,
+  const epoch = localDataEpoch(), authEpoch = getAuthSessionEpoch()
+  const assertCurrent = () => {
+    assertLocalDataEpoch(epoch)
+    if (!current() || authEpoch !== getAuthSessionEpoch()) throw new Error('SESSION_CHANGED')
   }
+  return withLocalEntityWrite(async () => {
+    assertCurrent()
+    const id = requestId || Crypto.randomUUID()
+    if (requestId && !/^[a-f\d-]{36}$/i.test(requestId)) throw new Error('Некорректный идентификатор вложения')
+    const database = await getDatabase()
+    assertCurrent()
+    const existing = requestId ? await database.getFirstAsync<{ entity_type: string; entity_id: string; attachment_kind: string; local_uri: string; status: string }>('SELECT entity_type, entity_id, attachment_kind, local_uri, status FROM file_queue WHERE id = ?', id) : null
+    if (existing) {
+      if (existing.entity_type !== entityType || existing.entity_id !== entityId || existing.attachment_kind !== attachmentKind) throw new Error('Вложение принадлежит другой записи')
+      assertCurrent()
+      return { id, localUri: existing.local_uri, name, mimeType: mimeType || '', size: Number(size || 0), status: existing.status, entityType, entityId, attachmentKind }
+    }
+    const source = new File(uri)
+    const actualSize = validateLocalFileSize(Number(size || source.size || 0))
+    encryptedDirectory.create({ idempotent: true, intermediates: true })
+    const key = await getKey()
+    const bytes = await source.bytes()
+    validateLocalFileSize(bytes.length)
+    if (bytes.length !== actualSize) throw new Error('Размер вложения изменился. Выберите файл заново.')
+    assertCurrent()
+    const sealed = await Crypto.aesEncryptAsync(bytes, key)
+    const combined = await sealed.combined()
+    assertCurrent()
+    const destination = new File(encryptedDirectory, `${id}.acrm`)
+    destination.create({ overwrite: true, intermediates: true })
+    destination.write(combined)
+    const now = new Date().toISOString()
+    try {
+      assertCurrent()
+      await database.runAsync(
+        `INSERT INTO file_queue (
+          id, operation_id, local_uri, display_name, remote_path, mime_type, size,
+          entity_type, entity_id, attachment_kind, status, attempts, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`,
+        id,
+        '',
+        destination.uri,
+        name,
+        mimeType || 'application/octet-stream',
+        actualSize,
+        entityType || null,
+        entityId || null,
+        attachmentKind || null,
+        now,
+        now
+      )
+    } catch (reason) { if (destination.exists) destination.delete(); throw reason }
+    assertCurrent()
+    await markSyncPending()
+    return {
+      id,
+      localUri: destination.uri,
+      name,
+      mimeType: mimeType || '',
+      size: actualSize,
+      status: 'pending',
+      entityType: entityType || undefined,
+      entityId: entityId || undefined,
+      attachmentKind: attachmentKind || undefined,
+    }
+  })
 }
 
 export const listEncryptedFiles = async (filter?: {

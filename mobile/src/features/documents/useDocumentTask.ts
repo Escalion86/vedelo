@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { safeDocumentError } from './documentUi'
+import { getAuthSessionEpoch } from '../../shared/auth/tokenStore'
 
 export const useDocumentTask = (key: string) => {
   const lifecycle = useRef(0)
@@ -12,11 +13,12 @@ export const useDocumentTask = (key: string) => {
     if (busy.current || activeKey.current !== key) return
     busy.current = true
     const token = lifecycle.current
-    const current = () => lifecycle.current === token
+    const session = getAuthSessionEpoch()
+    const current = () => lifecycle.current === token && session === getAuthSessionEpoch()
     setPhase(label); setError('')
     try { await action(current) }
     catch (cause) { if (current()) setError(safeDocumentError(cause, fallback)) }
-    finally { if (current()) { busy.current = false; setPhase('') } }
+    finally { if (lifecycle.current === token) { busy.current = false; setPhase('') } }
   }
   return { busy, phase, error, setError, run, isActive: () => activeKey.current === key }
 }

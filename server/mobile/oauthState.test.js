@@ -40,3 +40,16 @@ test('mobile OAuth state не принимает произвольный redire
   })
   assert.equal(verifyMobileOAuthState(state, 'test-secret')?.appScheme, 'vedelo')
 })
+
+test('purpose imports is signed, sync remains default, unknown purpose and suffix fail', () => {
+  const args = { userId: 'user-a', tenantId: 'tenant-a', sessionId: 'session-a', secret: 'test-secret' }
+  const state = createMobileOAuthState({ ...args, purpose: 'import' })
+  assert.equal(verifyMobileOAuthState(state, args.secret).purpose, 'import')
+  assert.equal(verifyMobileOAuthState(createMobileOAuthState(args), args.secret).purpose, 'sync')
+  assert.equal(createMobileOAuthState({ ...args, purpose: 'tasks-beta' }), '')
+  assert.equal(verifyMobileOAuthState(`${state}.extra`, args.secret), null)
+  const [prefix, body, signature] = state.split('.')
+  const changed = JSON.parse(Buffer.from(body, 'base64url').toString())
+  changed.purpose = 'sync'
+  assert.equal(verifyMobileOAuthState(`${prefix}.${Buffer.from(JSON.stringify(changed)).toString('base64url')}.${signature}`, args.secret), null)
+})

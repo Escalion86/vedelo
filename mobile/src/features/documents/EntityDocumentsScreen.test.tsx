@@ -9,6 +9,13 @@ let mockId = 'a'.repeat(24)
 let mockEntity: any
 let mockLocalFiles: any[]
 let mockRemote: any
+let mockGeneration: any
+const requestId = '16be4a0d-ef5c-4858-a7ce-c883adcedfbb'
+jest.mock('./generationStore', () => ({
+  readGeneration: async () => mockGeneration,
+  beginGeneration: async (input: any) => { mockGeneration = { ...input, requestId: '16be4a0d-ef5c-4858-a7ce-c883adcedfbb' }; return mockGeneration },
+  finishGeneration: async () => { mockGeneration = null },
+}))
 const mockGetEntity = jest.fn()
 const mockList = jest.fn()
 const mockGet = jest.fn()
@@ -32,7 +39,11 @@ jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => mockQuery }))
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...args: any[]) => mockPick(...args) }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ labelCapitalized: 'Заказ' }) }))
 jest.mock('../../shared/api/client', () => ({ api: { get: (...args: any[]) => mockGet(...args), post: (...args: any[]) => mockPost(...args), delete: (...args: any[]) => mockDelete(...args) } }))
-jest.mock('../../shared/storage/cache', () => ({ getCachedEntity: (...args: any[]) => mockGetEntity(...args), upsertEntities: (...args: any[]) => mockUpsert(...args) }))
+jest.mock('../../shared/storage/cache', () => ({ getCachedEntity: (...args: any[]) => mockGetEntity(...args), publishEntityReadback: async (kind: string, fresh: any, active: () => boolean, publish: (entity: any) => void) => {
+  const cached = await mockGetEntity(kind, fresh._id)
+  if (!active() || (cached.syncStatus && cached.syncStatus !== 'synced')) throw new Error('LOCAL_CHANGES_PENDING')
+  const merged = { ...cached, ...fresh }; await mockUpsert(kind, [merged]); if (active()) publish(merged)
+} }))
 jest.mock('../../shared/storage/mutations', () => ({ saveLocalEntity: (...args: any[]) => mockSave(...args) }))
 jest.mock('../../shared/storage/encryptedFiles', () => ({ listEncryptedFiles: (...args: any[]) => mockList(...args), encryptAndQueueFile: (...args: any[]) => mockEncrypt(...args), deleteEncryptedFile: (...args: any[]) => mockDeleteLocal(...args), retryFileQueueNow: (...args: any[]) => mockRetry(...args) }))
 jest.mock('../../shared/sync/syncEngine', () => ({ runSync: (...args: any[]) => mockSync(...args) }))
@@ -41,6 +52,7 @@ const draw = (kind: 'events' | 'clients' = 'events', mode: 'light' | 'dark' = 'l
 const localFile = (status = 'pending') => ({ id: 'f', localUri: 'encrypted://a', name: `Файл ${status}`, size: 80, mimeType: 'text/plain', status, entityType: 'events', entityId: mockId, lastError: 'secret signed-url raw-error' })
 beforeEach(() => {
   jest.clearAllMocks(); mockId = 'a'.repeat(24)
+  mockGeneration = null
   mockEntity = { _id: mockId, status: 'active', eventType: 'Съёмка', documents: [document], legacy: 'keep' }
   mockRemote = { ...mockEntity }; mockLocalFiles = []
   mockGetEntity.mockImplementation(async () => mockEntity)
@@ -206,14 +218,14 @@ it('X: legacy снимается patch с сохранением canonical и с
   expect(mockSave.mock.calls[0][0].values).toEqual({ documents: [document], documentFiles: [{ url: 'https://example.invalid/keep', name: 'Оставить' }] })
   expect(mockEntity.legacy).toBe('keep'); expect(mockDelete).not.toHaveBeenCalled(); alert.mockRestore()
 })
-it.each(['draft', 'local'])('X: generation %s запрещена и не вызывает POST', async (variant) => {
-  if (variant === 'draft') mockEntity.status = 'draft'
-  else { mockId = 'local-a'; mockEntity._id = mockId }
+it('X: generation local запрещена и не вызывает POST', async () => {
+  mockId = 'local-a'; mockEntity._id = mockId
   const screen = draw(); await screen.findByRole('radio', { name: 'Шаблон' })
   fireEvent.press(screen.getByTestId('generate-document'))
   expect(mockPost).not.toHaveBeenCalled()
 })
 it('X: generation дата, guard, POST и фактический read-back согласованы', async () => {
+  mockEntity.status = 'draft'
   const screen = draw(); await screen.findByRole('radio', { name: 'Шаблон' })
   fireEvent.changeText(screen.getByTestId('document-date'), '2026-02-31')
   fireEvent.press(screen.getByTestId('generate-document'))
@@ -223,29 +235,37 @@ it('X: generation дата, guard, POST и фактический read-back со
   mockPost.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
   fireEvent.press(screen.getByTestId('generate-document')); fireEvent.press(screen.getByTestId('generate-document'))
   await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1))
-  const generated = { id: 'new', type: 'act', title: 'Новый акт', file: { storageKey: 'private-new' } }
+  const generated = { id: requestId, type: 'act', title: 'Новый акт', file: { storageKey: 'private-new' } }
   mockRemote = { ...mockEntity, documents: [document, generated] }
   await act(async () => finish({ success: true, data: { document: generated, event: mockRemote } }))
   await screen.findByText('Документ сформирован и прочитан с сервера')
-  expect(mockPost).toHaveBeenCalledWith(`/mobile/v1/events/${mockId}/documents/generate`, { templateId: 't', documentDate: '2026-10-03' })
+  expect(mockPost).toHaveBeenCalledWith(`/mobile/v1/events/${mockId}/documents/generate`, { templateId: 't', documentDate: '2026-10-03', requestId, source: 'event', allowEmpty: false })
   expect(mockGet).toHaveBeenCalledWith(`/mobile/v1/events/${mockId}`)
   expect(mockUpsert).toHaveBeenCalledTimes(1)
 })
-it('X: неоднозначный generation failure допускает только GET проверки, без повторного POST', async () => {
+it('X: потеря ответа и перезапуск сохраняют идентификатор повторного POST', async () => {
   mockPost.mockRejectedValueOnce(new Error('network secret'))
   const screen = draw(); await screen.findByRole('radio', { name: 'Шаблон' })
   fireEvent.press(screen.getByTestId('generate-document'))
-  await screen.findByText('Результат создания не подтверждён. Проверьте документы; повторный запрос может создать дубликат.')
+  await screen.findByText('Результат создания не подтверждён. Проверьте или повторите ту же попытку.')
   expect(screen.queryByTestId('generate-document')).toBeNull()
   fireEvent.press(screen.getByText('Проверить результат создания'))
-  await screen.findByText('Новый документ пока не найден. Проверьте позднее; автоматического повторного создания нет.')
+  await screen.findByText('Документ пока не найден. Повторите ту же попытку: новый документ-дубликат не создаётся.')
   expect(mockPost).toHaveBeenCalledTimes(1)
+  const firstPayload = mockPost.mock.calls[0][1]
+  screen.unmount()
+  const reopened = draw()
+  await reopened.findByText('Повторить ту же попытку')
+  mockPost.mockRejectedValueOnce(new Error('network'))
+  fireEvent.press(reopened.getByText('Повторить ту же попытку'))
+  await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2))
+  expect(mockPost.mock.calls[1][1]).toEqual(firstPayload)
 })
 it('X: generation неверный eventId/templateId или success не подтверждается', async () => {
   const screen = draw(); await screen.findByRole('radio', { name: 'Шаблон' })
   mockGet.mockResolvedValueOnce({ success: true, data: [] })
   fireEvent.press(screen.getByTestId('generate-document'))
-  await screen.findByText('Результат создания не подтверждён. Проверьте документы; повторный запрос может создать дубликат.')
+  await screen.findByText('Результат создания не подтверждён. Проверьте или повторите ту же попытку.')
   expect(mockPost).not.toHaveBeenCalled()
   mockPost.mockResolvedValueOnce({ success: true, data: { document: { id: 'new' }, event: { _id: 'foreign', documents: [] } } })
   fireEvent.press(screen.getByTestId('generate-document'))
@@ -257,7 +277,7 @@ it('X: 403 генерации не подтверждает успех и поз
   const screen = draw(); await screen.findByRole('radio', { name: 'Шаблон' })
   fireEvent.press(screen.getByTestId('generate-document'))
   await screen.findByText('Нет доступа к документу или функция недоступна на текущем тарифе.')
-  expect(screen.getByTestId('generate-document')).toBeTruthy(); expect(mockUpsert).not.toHaveBeenCalled()
+  expect(screen.getByText('Повторить ту же попытку')).toBeTruthy(); expect(mockUpsert).not.toHaveBeenCalled()
 })
 it('X: local event может положить файл в существующую очередь, generation остаётся недоступной', async () => {
   mockId = 'local-event'; mockEntity = { _id: mockId, status: 'draft', documents: [] }
@@ -284,7 +304,7 @@ it('X: неизвестный результат POST не подтвержда�
   await screen.findByText('Проверить результат создания')
   mockRemote = { ...mockEntity, documents: [document, { id: 'other-device', type: 'other' }] }
   fireEvent.press(screen.getByText('Проверить результат создания'))
-  await screen.findByText('Список обновлён. После потери ответа нельзя однозначно подтвердить создание. Проверьте новые документы перед повторным созданием.')
+  await screen.findByText('Документ пока не найден. Повторите ту же попытку: новый документ-дубликат не создаётся.')
   expect(screen.queryByText('Документ сформирован и прочитан с сервера')).toBeNull(); expect(mockPost).toHaveBeenCalledTimes(1)
 })
 it('X: старое подтверждение удаления после смены route не отправляет DELETE', async () => {

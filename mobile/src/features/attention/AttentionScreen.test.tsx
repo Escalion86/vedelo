@@ -1,4 +1,7 @@
 import React from 'react'
+jest.mock('../learning/LearningTip', () => ({ LearningTip: () => null }))
+jest.mock('../news/NewsNotice', () => ({ NewsNotice: () => null }))
+jest.mock('../conversations/UnreadConversationsSection', () => ({ UnreadConversationsSection: () => null }))
 import { Alert, Modal, ScrollView, Text, View } from 'react-native'
 import { act, fireEvent, render, within } from '@testing-library/react-native'
 import { router } from 'expo-router'

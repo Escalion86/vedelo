@@ -9,11 +9,11 @@ export function resetClientMessengerAvailability(existing: Client | null, payloa
   const phoneChanged = Object.hasOwn(update, 'phone') && digits(update.phone) !== digits(existing?.phone)
   const telegramChanged = Object.hasOwn(update, 'telegram') && handle(update.telegram) !== handle(existing?.telegram)
   if (phoneChanged) {
-    update.telegramPhone = null
+    if (!Object.hasOwn(update, 'telegramPhone')) update.telegramPhone = null
     update.maxPhoneUnavailable = false
     if (existing?.max?.startsWith('+') && digits(existing.max) === digits(existing.phone) &&
       (!Object.hasOwn(update, 'max') || digits(update.max) === digits(existing.max))) update.max = ''
   }
-  if (phoneChanged || telegramChanged) update.telegramPhoneUnavailable = false
+  if (phoneChanged || telegramChanged || (Object.hasOwn(update, 'telegramPhone') && digits(update.telegramPhone) !== digits(existing?.telegramPhone))) update.telegramPhoneUnavailable = false
   return update
 }

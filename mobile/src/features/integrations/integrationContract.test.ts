@@ -1,6 +1,7 @@
 import { readOverview, readProvider, readGoogle, readCalendars, validIdentifier, validOAuthCallback, readOAuthUrl, statusPresentation } from './integrationContract'
+import { GOOGLE_STATUS_COLORS, GOOGLE_SYNC_DEFAULTS, matchesGoogleSettingsPatch } from './googleCalendarSettings'
 const envelope = (data: unknown) => ({ success: true, data })
-const google = { available: true, connected: true, enabled: false, calendarId: 'primary', calendarName: 'Рабочий', deleteCanceledFromCalendar: false, skipTransferredFromCalendar: true, reminders: { useDefault: true, overrides: [] } }
+const google = { available: true, connected: true, enabled: false, calendarId: 'primary', calendarName: 'Рабочий', deleteCanceledFromCalendar: false, skipTransferredFromCalendar: true, reminders: { useDefault: true, overrides: [] }, statusColors: GOOGLE_STATUS_COLORS, syncSettings: GOOGLE_SYNC_DEFAULTS }
 const provider = { available: true, configured: true, enabled: true, status: 'connected' }
 it('unknown/invalid DTO никогда не выдаётся за отключение; overview ИИ проигнорирован', () => {
   expect(readOverview(envelope({ googleCalendar: google, avito: provider, vk: { ...provider, enabled: 'false' }, ai: provider }))).toEqual({ 'google-calendar': google, avito: provider })
@@ -35,3 +36,12 @@ it.each(['vedelo', 'artistcrm', 'vedelo-dev', 'artistcrm-dev'])('OAuth exact sch
 })
 it.each(['https://evil.example/auth?state=x', 'http://accounts.google.com/o/oauth2/v2/auth?state=x', 'https://accounts.google.com.evil.example/o/oauth2/v2/auth?state=x', 'https://accounts.google.com/o/oauth2/v2/auth', 'https://accounts.google.com/o/oauth2/v2/auth?state=x&access_token=secret'])('OAuth auth URL rejects %p', (url) => expect(() => readOAuthUrl(envelope({ url }))).toThrow())
 it('валидный auth URL без bearer', () => expect(readOAuthUrl(envelope({ url: 'https://accounts.google.com/o/oauth2/v2/auth?state=signed-state' }))).toBe('https://accounts.google.com/o/oauth2/v2/auth?state=signed-state'))
+it('читает цвета и состав PWA без credential-полей и подтверждает частичную правку', () => {
+  const dto = readGoogle({ ...google, statusColors: { ...GOOGLE_STATUS_COLORS, active: '3' }, syncSettings: { ...GOOGLE_SYNC_DEFAULTS, showClient: false, titleMode: 'client_eventType', future: 'not-a-mobile-field' }, refreshToken: 'secret' })
+  expect(dto.statusColors.active).toBe('3'); expect(dto.syncSettings.showClient).toBe(false); expect(dto.syncSettings.titleMode).toBe('client_eventType')
+  expect(dto).not.toHaveProperty('refreshToken'); expect(dto.syncSettings).not.toHaveProperty('future')
+  expect(matchesGoogleSettingsPatch(dto, { syncSettings: { showClient: false } })).toBe(true)
+  expect(matchesGoogleSettingsPatch(dto, { syncSettings: { showClient: true } })).toBe(false)
+  expect(() => readGoogle({ ...google, syncSettings: { showClient: 'false' } })).toThrow()
+  expect(() => readGoogle({ ...google, statusColors: { draft: '12' } })).toThrow()
+})

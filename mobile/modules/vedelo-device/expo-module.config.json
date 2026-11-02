@@ -1,0 +1,4 @@
+{
+  "platforms": ["android"],
+  "android": { "modules": ["ru.escalion.vedelo.device.VedeloDeviceModule"] }
+}

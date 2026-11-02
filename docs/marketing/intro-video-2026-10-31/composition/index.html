@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=864, height=1080">
+<title>Ведело — вставки для обращения автора</title>
+<script src="assets/gsap.min.js"></script>
+<style>
+@font-face{font-family:'Inter Tight';src:url('assets/InterTight-Regular.woff2');font-weight:400}
+@font-face{font-family:'Inter Tight';src:url('assets/InterTight-SemiBold.woff2');font-weight:600}
+@font-face{font-family:'Inter Tight';src:url('assets/InterTight-Bold.woff2');font-weight:700}
+@font-face{font-family:'Futura PT';src:url('assets/FuturaPT-Bold.woff2');font-weight:700}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f3f1eb;color:#1c1d1f;font-family:'Inter Tight',sans-serif}
+#root{position:relative;width:100%;height:100%;overflow:hidden}
+.backdrop{position:absolute;inset:0;background:#f3f1eb}
+.halo{position:absolute;width:540px;height:540px;border-radius:50%;border:2px solid #d8c5a4;right:-260px;top:290px;opacity:.55}
+.halo-small{position:absolute;width:260px;height:260px;border:1px solid #d8c5a4;border-radius:50%;left:-165px;bottom:10px;opacity:.45}
+.brand{position:absolute;top:48px;left:56px;display:flex;gap:12px;align-items:center;height:58px;z-index:4}
+.brand img{width:48px;height:48px}.brand span{font-family:'Futura PT',sans-serif;font-size:38px;font-weight:700;color:#80551c;line-height:1}
+.domain{position:absolute;right:58px;top:66px;font-size:24px;font-weight:600;color:#5d574b;z-index:4}
+.clip{position:absolute;inset:0}.content{position:absolute;inset:0}
+.eyebrow{position:absolute;left:64px;top:161px;font-size:24px;color:#675c48;letter-spacing:.035em;font-weight:600}
+h1,h2{position:absolute;left:60px;top:204px;width:748px;margin:0;font-family:'Futura PT',sans-serif;font-weight:700;font-size:68px;line-height:1.04;letter-spacing:-.025em}
+h1 span,h2 span{display:block}
+.product{position:absolute;left:26px;top:390px;width:812px;height:auto;filter:drop-shadow(0 15px 16px rgba(66,45,15,.10));transform-origin:center center}
+.labels{position:absolute;top:868px;left:64px;width:736px;display:flex;gap:22px;align-items:center;font-size:30px;font-weight:600;color:#534736}
+.label{display:block}.dot{display:block;width:5px;height:5px;flex:0 0 5px;border-radius:50%;background:#9a6b27}
+.support{position:absolute;left:64px;top:917px;width:736px;font-size:27px;line-height:1.3;color:#5e594e;margin:0}
+.scene2 .product{top:488px}
+.time{position:absolute;left:64px;top:374px;font-size:60px;font-weight:600;letter-spacing:-.035em;color:#80551c;line-height:1.1}
+.time small{font-size:29px;letter-spacing:0;font-weight:400;color:#5e594e;margin-left:18px}
+.scene2 .labels{top:746px;gap:0;justify-content:space-between}
+.scene2 .support{top:806px;width:675px;font-size:32px;line-height:1.35}
+.task-line{position:absolute;left:64px;top:713px;width:736px;height:2px;background:#c8b48f;transform-origin:left center}
+.finance{position:absolute;left:64px;top:829px;display:flex;gap:54px;align-items:flex-start}
+.metric{width:300px}.metric-label{font-size:25px;line-height:1.25;color:#5e594e}
+.metric-value{font-size:55px;line-height:1.15;font-weight:600;letter-spacing:-.035em;margin-top:6px}
+.metric:first-child .metric-value{color:#08774d}.metric:last-child .metric-value{color:#80551c}
+.footer{position:absolute;left:64px;bottom:42px;font-size:20px;line-height:1.2;color:#706758;z-index:4}
+.chapter-dots{position:absolute;right:64px;bottom:47px;display:flex;gap:9px;z-index:4}
+.chapter-dots i{display:block;width:9px;height:9px;border-radius:50%;background:#c5b79f}.chapter-dots i.active{background:#80551c}
+.scene1 .label,.scene1 .dot,.scene1 .support,.scene2 .content,.scene3 .content,.scene2 .product,.scene3 .product,.scene2 .time,.scene2 .label,.scene2 .support,.scene3 .metric{opacity:0}
+.task-line{transform:scaleX(0)}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="vedelo-inserts" data-width="864" data-height="1080" data-duration="21">
+<div class="backdrop"></div><div class="halo" aria-hidden="true"></div><div class="halo-small" aria-hidden="true"></div>
+<div class="brand"><img src="assets/vedelo-mark.svg" alt=""><span>Ведело</span></div><div class="domain">vedelo.ru</div>
+<section id="scene-order" class="clip scene1" data-start="0" data-duration="7" data-track-index="1">
+<div class="content"><div class="eyebrow">КЛИЕНТЫ И ЗАКАЗЫ</div>
+<h1><span>Договорённости</span><span>рядом</span></h1>
+<img class="product" src="assets/order.png" alt="Карточка консультации Анны с датой, задачей и стоимостью">
+<div class="labels"><span class="label">Клиент</span><i class="dot"></i><span class="label">Услуга</span><i class="dot"></i><span class="label">Дата</span></div>
+<p class="support">Открыли карточку — вспомнили детали.</p></div>
+<div class="chapter-dots"><i class="active"></i><i></i><i></i></div>
+</section>
+<section id="scene-task" class="clip scene2" data-start="7" data-duration="7" data-track-index="1">
+<div class="content"><div class="eyebrow">СЛЕДУЮЩИЙ КОНТАКТ</div>
+<h2><span>Понятно,</span><span>что делать дальше</span></h2>
+<div class="time">11:00 <small>завтра</small></div>
+<img class="product" src="assets/task.png" alt="Задача уточнить вопросы Анны и подтвердить время">
+<div class="task-line"></div><div class="labels"><span class="label">Когда связаться</span><span class="label">О чём спросить</span></div>
+<p class="support">Задача с понятным временем и описанием.</p></div>
+<div class="chapter-dots"><i></i><i class="active"></i><i></i></div>
+</section>
+<section id="scene-payment" class="clip scene3" data-start="14" data-duration="7" data-track-index="1">
+<div class="content"><div class="eyebrow">ОПЛАТЫ ПО ЗАКАЗУ</div>
+<h2><span>Суммы</span><span>перед глазами</span></h2>
+<img class="product" src="assets/paid.png" alt="Карточка подтверждённого заказа с оплатой 1000 из 3000 рублей">
+<div class="finance"><div class="metric"><div class="metric-label">Получено</div><div class="metric-value">1 000 ₽</div></div>
+<div class="metric"><div class="metric-label">Осталось</div><div class="metric-value">2 000 ₽</div></div></div></div>
+<div class="chapter-dots"><i></i><i></i><i class="active"></i></div>
+</section>
+<div class="footer">Учебный пример</div>
+</div>
+<script>
+const tl=gsap.timeline({paused:true});
+// Adapted from the installed staggered-fade-up primitive, with readable label holds.
+const reveal=(selector,at)=>tl.fromTo(selector,{opacity:0,y:20,scale:.97},{opacity:1,y:0,scale:1,duration:.5,stagger:.15,ease:'power3.out',immediateRender:false},at);
+tl.fromTo('.halo',{rotation:0,scale:1},{rotation:18,scale:1.13,duration:21,ease:'none'},0);
+tl.fromTo('.halo-small',{y:0},{y:-36,duration:21,ease:'sine.inOut'},0);
+tl.fromTo('#scene-order .product',{scale:.965,y:14},{scale:1,y:0,duration:.8,ease:'power2.out'},0);
+reveal('#scene-order .label',.65);reveal('#scene-order .dot',.8);reveal('#scene-order .support',1.25);
+for(const pair of [['scene-task',7],['scene-payment',14]]){
+ const id=pair[0],start=pair[1];
+ tl.fromTo('#'+id+' .content',{opacity:0,x:28},{opacity:1,x:0,duration:.45,ease:'power2.out',immediateRender:false},start);
+ tl.fromTo('#'+id+' .product',{opacity:0,y:35,scale:.96},{opacity:1,y:0,scale:1,duration:.65,ease:'power3.out',immediateRender:false},start+.3);
+}
+reveal('#scene-task .time',7.5);
+tl.fromTo('.task-line',{scaleX:0},{scaleX:1,duration:.6,ease:'power2.inOut',immediateRender:false},8.2);
+reveal('#scene-task .label',8.4);reveal('#scene-task .support',8.8);reveal('#scene-payment .metric',15.1);
+tl.to('#scene-order .content',{opacity:0,x:-20,duration:.3,ease:'power1.in'},6.7);
+tl.to('#scene-task .content',{opacity:0,x:-20,duration:.3,ease:'power1.in'},13.7);
+window.__timelines['vedelo-inserts']=tl;
+</script>
+</body>
+</html>

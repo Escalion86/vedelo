@@ -1,4 +1,7 @@
 import React from 'react'
+jest.mock('../learning/LearningTip', () => ({ LearningTip: () => null }))
+jest.mock('../news/NewsNotice', () => ({ NewsNotice: () => null }))
+jest.mock('../conversations/UnreadConversationsSection', () => ({ UnreadConversationsSection: () => null }))
 import { Alert } from 'react-native'
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -27,8 +30,14 @@ jest.mock('../../shared/auth/AuthProvider',()=>({useAuth:()=>{require('react').u
 jest.mock('../../shared/api/client',()=>({api:{get:(...a:any[])=>mockGet(...a),request:(...a:any[])=>mockRequest(...a)}}))
 jest.mock('../../shared/hooks/useCachedEntities',()=>({useCachedEntities:(kind:string)=>jest.requireActual('@tanstack/react-query').useQuery({queryKey:['cached-entities',kind],queryFn:async()=>kind==='events'?[mockEvent]:[]})}))
 // Synthetic storage boundary for component rendering; real SQL readback is tested separately.
+// The real identity guard now also cleans old aliases after reading a durable
+// proposal attempt. Keep that guard; replace only the unavailable native DB.
+jest.mock('../../shared/storage/database',()=>({getDatabase:async()=>({runAsync:async(sql:string)=>{
+ if(!sql.startsWith('DELETE FROM entity_cache WHERE substr(entity_type'))throw Error('Unexpected native SQL')
+ return {changes:0}
+}})}))
 jest.mock('../../shared/storage/cache',()=>{
- const read=async(kind:string,id:string)=>kind==='events'?(mockEvent._id===id?mockEvent:null):{_id:id,firstName:'Клиент'}
+ const read=async(kind:string,id:string)=>kind==='__proposal_creation'?null:kind==='events'?(mockEvent._id===id?mockEvent:null):{_id:id,firstName:'Клиент'}
  const write=(...a:any[])=>mockUpsert(...a)
  return {getCachedEntity:read,listCachedEntities:async()=>[],upsertEntities:write,publishEntityReadback:(kind:string,fresh:any,active:any,publish:any)=>require('../../../../tests/stageN-fixtures/componentStorage.cjs').publishStorageBoundary(kind,fresh,active,publish,read,write)}
 })

@@ -83,6 +83,13 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
     } }
     proposal = { actions: [payment, { entity: 'event', operation: 'update', id: String(event._id), patch: { contractSum: 30000 } }] }
     const plan = await prepare()
+    const read = (planId, ctx = context) => service.getAiEditPlan({ planId, tenantId: ctx.tenantId, userId: ctx.user._id })
+    const storedBeforeRead = await Plans.findById(plan.planId).lean()
+    assert.equal((await read(plan.planId)).done, false)
+    await assert.rejects(() => read(plan.planId, { tenantId: other, user: { _id: other } }), /не найден/)
+    await assert.rejects(() => read(plan.planId, { tenantId, user: { _id: other } }), /не найден/)
+    await assert.rejects(() => read('invalid'), /идентификатор/)
+    assert.deepEqual(await Plans.findById(plan.planId).lean(), storedBeforeRead, 'recovery read never changes a plan')
     assert.deepEqual(plan.eventPatch, { contractSum: 30000 })
     assert.equal(plan.clientPatch, null)
     assert.equal(await Transactions.countDocuments({ tenantId }), 0, 'preparation never changes business records')
@@ -98,6 +105,11 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
     assert.equal(providerCalls, 1, 'apply never calls or charges AI')
     // Simulate a lost progress write after the actual mutations.
     await Plans.updateOne({ _id: plan.planId, tenantId }, { $set: { completed: [] } })
+    const recovered = await read(plan.planId)
+    assert.equal(recovered.done, true)
+    assert.deepEqual(recovered.completed, [0, 1])
+    assert.deepEqual((await Plans.findById(plan.planId)).completed, [], 'receipts are reconciled without writes on GET')
+    assert.equal(providerCalls, 1, 'recovery read never calls or charges AI')
     assert.equal((await apply(plan.planId)).done, true)
     assert.equal(await Transactions.countDocuments({ tenantId }), 1)
     proposal = { actions: [
@@ -105,6 +117,9 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
       { entity: 'event', operation: 'update', id: String(event._id), patch: { contractSum: 50000 } },
     ] }
     const stale = await prepare()
+    await Plans.updateOne({ _id: stale.planId, tenantId }, { $set: { expiresAt: new Date(0) } })
+    assert.equal((await read(stale.planId)).expired, true)
+    await Plans.updateOne({ _id: stale.planId, tenantId }, { $set: { expiresAt: new Date(Date.now() + 60000) } })
     assert.deepEqual(stale.clientPatch, { _id: String(client._id), firstName: 'Мария' })
     await Events.updateOne({ _id: event._id, tenantId }, { $set: { contractSum: 40000 }, $inc: { syncVersion: 1 } })
     assert.equal((await apply(stale.planId)).conflict, true)
@@ -139,6 +154,9 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
       '@helpers/aiAssistantClipboard.mjs': await import('../../helpers/aiAssistantClipboard.mjs'),
     })
     assert.equal((await route.POST(new Request('http://test', { method: 'POST', body: '{}' }))).status, 401)
+    assert.equal((await route.GET(new Request(`http://test?planId=${plan.planId}`))).status, 401)
+    await Events.deleteOne({ _id: event._id, tenantId })
+    await assert.rejects(() => read(plan.planId), /не найден/)
   } finally {
     await mongoose.disconnect()
     child.kill()

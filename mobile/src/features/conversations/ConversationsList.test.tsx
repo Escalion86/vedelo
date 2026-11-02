@@ -28,7 +28,7 @@ it('Y: partial provider failure не маскируется успешным п�
 it('Y: success:false отдельно от пусто, focus reload', async () => {
   mockGet.mockResolvedValue({ success: false, data: [] }); const screen = render(draw())
   await screen.findByText('Avito: Не удалось загрузить диалоги. Повторите чтение.'); expect(screen.queryByText('Диалогов нет')).toBeNull()
-  mockGet.mockResolvedValue({ success: true, data: [] }); mockFocus += 1; screen.rerender(draw()); await screen.findByText('Диалогов нет'); expect(mockGet).toHaveBeenCalledTimes(4)
+  mockGet.mockResolvedValue({ success: true, data: [] }); mockFocus += 1; screen.rerender(draw()); await screen.findByText('Диалогов нет'); expect(mockGet).toHaveBeenCalledTimes(6)
 })
 it('Y: invalid/local scope не превращается в все диалоги', async () => {
   mockParams = { clientId: 'local-client' }; const screen = render(draw())

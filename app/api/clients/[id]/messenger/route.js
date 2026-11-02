@@ -23,10 +23,8 @@ import {
 import { normalizeVkSettings, sendVkMessage } from '@server/vkGroup'
 import {
   isTelegramReplyWindowOpen,
-  normalizeTelegramSettings,
-  saveTelegramBusinessMessage,
-  sendTelegramBusinessMessage,
 } from '@server/telegramBusiness'
+import { sendTelegramConversationReply } from '@server/telegramConversationReply'
 
 const isObjectId = (value) =>
   Boolean(value && mongoose.Types.ObjectId.isValid(String(value)))
@@ -417,64 +415,11 @@ export const POST = async (req, { params }) => {
   }
 
   if (provider === 'telegram') {
-    const conversation = await TelegramConversations.findOne({
-      _id: conversationId,
-      tenantId,
-      clientId,
-    })
-    if (!conversation) {
-      return jsonError('Переписка Telegram не найдена', 404, 'not_found')
-    }
-
-    const siteSettings = await SiteSettings.findOne({ tenantId }).lean()
-    const telegram = normalizeTelegramSettings(siteSettings?.custom)
-    if (
-      !telegram.enabled ||
-      !telegram.botToken ||
-      !telegram.businessConnectionId
-    ) {
-      return jsonError(
-        'Telegram Business не подключен',
-        403,
-        'not_connected'
-      )
-    }
-    if (!isTelegramReplyWindowOpen(conversation.lastIncomingAt)) {
-      return jsonError(
-        'Окно ответа Telegram истекло. Клиент должен сначала написать снова.',
-        400,
-        'reply_window_closed'
-      )
-    }
-    if (telegram.rights?.can_reply === false) {
-      return jsonError(
-        'Боту не выдано право отвечать на сообщения',
-        403,
-        'reply_not_allowed'
-      )
-    }
-
-    let sentMessage
     try {
-      sentMessage = await sendTelegramBusinessMessage({
-        botToken: telegram.botToken,
-        businessConnectionId: telegram.businessConnectionId,
-        chatId: conversation.telegramChatId,
-        text,
-      })
+      await sendTelegramConversationReply({ tenantId, conversationId, clientId, text })
     } catch (error) {
-      return jsonError(
-        'Telegram не принял сообщение. Проверьте подключение и окно ответа.',
-        400,
-        'send_failed'
-      )
+      return jsonError(error.status ? error.message : 'Не удалось сохранить ответ Telegram', error.status || 500, error.code || 'save_failed')
     }
-
-    await saveTelegramBusinessMessage({
-      tenantId,
-      settings: telegram,
-      message: sentMessage,
-    })
     const data = await loadClientMessenger({ tenantId, clientId, access })
     return NextResponse.json({ success: true, data }, { status: 201 })
   }

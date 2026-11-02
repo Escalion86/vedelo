@@ -1,5 +1,6 @@
 import type { Client, Event, Service, Transaction } from '../../shared/domain/types'
 import { eventFilterStatus } from './filters'
+import { isWaitingForDeposit } from '../../shared/domain/deposits'
 
 export type EventCardTone = 'neutral' | 'success' | 'warning' | 'danger' | 'blue'
 
@@ -150,11 +151,9 @@ export const getEventCardAttention = (
   const finance = getEventCardFinance(event, transactions)
   const depositDueAt = validDate(event.depositDueAt)
   const hasOverdueDeposit = Boolean(
-    event.status === 'active' &&
-      event.waitDeposit &&
+    isWaitingForDeposit(event, transactions) &&
       depositDueAt &&
-      depositDueAt.getTime() <= now.getTime() &&
-      finance.depositPaid <= 0
+      depositDueAt.getTime() <= now.getTime()
   )
   if (hasOverdueDeposit && depositDueAt) {
     const amount = Number(event.depositExpectedAmount || 0)

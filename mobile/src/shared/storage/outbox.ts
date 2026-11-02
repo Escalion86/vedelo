@@ -58,15 +58,23 @@ const mapOperation = (row: Record<string, unknown>): OutboxOperation => ({
   updatedAt: String(row.updated_at),
 })
 
+export const getOutboxOperation = async (operationId: string) => {
+  const database = await getDatabase()
+  const row = await database.getFirstAsync<Record<string, unknown>>('SELECT * FROM outbox WHERE operation_id = ?', operationId)
+  return row ? mapOperation(row) : null
+}
+
 export const enqueueOperation = async (
   operation: Omit<
     OutboxOperation,
     'operationId' | 'status' | 'attempts' | 'createdAt' | 'updatedAt'
-  >
+  >,
+  stableOperationId?: string,
+  notifyPending = true,
 ) => {
   const database = await getDatabase()
   const now = new Date().toISOString()
-  const operationId = Crypto.randomUUID()
+  const operationId = stableOperationId || Crypto.randomUUID()
   await database.runAsync(
     `INSERT INTO outbox (
       operation_id, entity_type, entity_id, method, payload, base_version,
@@ -83,7 +91,7 @@ export const enqueueOperation = async (
     now,
     now
   )
-  await markSyncPending()
+  if (notifyPending) await markSyncPending()
   return operationId
 }
 

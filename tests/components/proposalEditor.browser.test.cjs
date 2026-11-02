@@ -486,7 +486,7 @@ test(
               fullPage: true,
             })
             // Сохранённый HTML именно отрендеренного UI с настоящим CSS, без запуска JS заново.
-            await titleInput.scrollIntoViewIfNeeded()
+            await page.getByRole('region', { name: 'Варианты и цены', exact: true }).scrollIntoViewIfNeeded()
             await page.screenshot({ path: path.join(artifactDir, 'screenshots', `${suffix}-packages.png`) })
             await preview.scrollIntoViewIfNeeded()
             await page.screenshot({ path: path.join(artifactDir, 'screenshots', `${suffix}-preview.png`) })
@@ -684,7 +684,8 @@ test(
       // Regression: opening an existing published offer must never persist a copy.
       for (const width of [390, 1365]) for (const dark of [false, true]) {
         const page = await browser.newPage({ viewport: { width, height: 900 } })
-        const source = { ...structuredClone(proposal), status: 'published', validUntil: dark ? null : proposal.validUntil }
+        const source = { ...structuredClone(proposal), status: 'published', validUntil: dark ? null : proposal.validUntil,
+          selectedPackageId: 'one', appliedPackageId: 'one', appliedAt: '2026-11-02T00:00:00Z' }
         let rows = [source], writes = [], rejectSave = false
         const errors = []
         page.on('pageerror', error => errors.push(error.message))
@@ -712,6 +713,10 @@ test(
         }
         await edit()
         await page.getByText('Редактирование предложения', { exact: true }).waitFor()
+        await page.getByText(/Варианты программ зафиксированы/).waitFor()
+        const packageButtons = page.getByRole('region', { name: 'Варианты и цены', exact: true }).getByRole('button', { name: /Редактировать вариант|Удалить вариант|Добавить вариант/ })
+        assert.ok(await packageButtons.count() > 0)
+        for (const button of await packageButtons.all()) assert.equal(await button.isDisabled(), true)
         assert.equal(await page.getByRole('button', { name: 'Сохранить', exact: true }).count(), 0)
         await close()
         assert.equal(writes.length, 0)
@@ -731,6 +736,8 @@ test(
         assert.equal(rows.length, 1)
         assert.equal(await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().inputValue(), 'Новые условия')
         rejectSave = false
+        const closing = page.getByRole('region', { name: 'Условия и контакты', exact: true }).locator('[contenteditable="true"]').first()
+        await closing.fill('Новые условия и контакты: +7 900 123 45 67')
         await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
         await page.getByText('Редактирование предложения', { exact: true }).waitFor()
         await page.getByRole('button', { name: 'Сохранить', exact: true }).waitFor({ state: 'hidden' })
@@ -739,6 +746,9 @@ test(
         assert.equal(rows[0].status, 'published')
         assert.equal(rows[0].validUntil || null, source.validUntil || null)
         assert.equal(rows[0].title, 'Новые условия')
+        assert.match(JSON.stringify(rows[0].blocksSnapshot), /Новые условия и контакты/)
+        assert.equal(rows[0].selectedPackageId, 'one')
+        assert.deepEqual(rows[0].packages, source.packages)
         await page.getByRole('region', { name: 'Редактор КП', exact: true }).locator('input[type="text"]').first().fill('Уточнённые условия')
         await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
         await page.getByRole('button', { name: 'Сохранить', exact: true }).waitFor({ state: 'hidden' })

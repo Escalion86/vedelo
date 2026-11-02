@@ -4,8 +4,15 @@ node_modules
 .env*.local
 dist
 dist-android
-android
-ios
+/android
+/artifacts
+.gradle-native
+/ios
+/modules/*/android/build
+/modules/*/android/.gradle
+/.test-last.json
+/.test-full.json
+/.test-full-*.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

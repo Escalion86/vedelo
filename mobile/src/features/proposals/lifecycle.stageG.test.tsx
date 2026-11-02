@@ -1,4 +1,5 @@
 import React from 'react'
+import { Alert } from 'react-native'
 import { act, configure, fireEvent, render, waitFor } from '@testing-library/react-native'
 import { ProposalEditorScreen } from './ProposalEditorScreen'
 import { ProposalTemplatesScreen } from './ProposalTemplatesScreen'
@@ -6,6 +7,11 @@ import { EventProposalsSection } from './EventProposalsSection'
 import { proposalsApi } from './api'
 configure({ asyncUtilTimeout: 5000 })
 const mockRequest = jest.fn(), mockUpload = jest.fn(), mockPicker = jest.fn(), mockPush = jest.fn()
+let mockDatabase: any
+jest.mock('expo-sqlite', () => ({ openDatabaseAsync: async () => mockDatabase ||= require('../../../__tests__/sqlitePlatform.cjs')() }))
+jest.mock('expo-secure-store', () => ({ getItemAsync: async () => 'synthetic-key', WHEN_UNLOCKED_THIS_DEVICE_ONLY: 1 }))
+jest.mock('expo-file-system', () => ({ Directory: class { exists = false }, Paths: { document: 'unused' } }))
+jest.mock('expo-crypto', () => ({ randomUUID: () => process.getBuiltinModule('node:crypto').randomUUID() }))
 let mockUser = { _id: 'u1', tenantId: 't1' }, mockFocused = true
 jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: mockUser }) }))
 let mockSessionSequence = 0
@@ -31,7 +37,7 @@ function reads(path: string) {
  if (path === '/proposals/created') return data(proposal)
  throw Error(path)
 }
-beforeEach(() => { mockUser = { _id: `u1-${++mockSessionSequence}`, tenantId: 't1' }; mockFocused = true; jest.clearAllMocks(); mockRequest.mockReset().mockImplementation(async path => reads(path)) })
+beforeEach(async () => { mockUser = { _id: `u1-${++mockSessionSequence}`, tenantId: 't1' }; mockFocused = true; jest.clearAllMocks(); mockRequest.mockReset().mockImplementation(async path => reads(path)); await require('../../shared/storage/database').clearLocalData() })
 it.each(['user', 'tenant'])('C-SESSION-01 editor resets draft and rejects late load on %s change', async field => {
  const late = deferred(); mockRequest.mockImplementationOnce(() => Promise.resolve(data([])))
  const s = render(<ProposalEditorScreen kind="template" id="template" />)
@@ -134,4 +140,39 @@ it('C-CREATE-01 confirmed create permits a subsequent intentional create after r
  fireEvent.press(s.getByTestId('proposal-create')); fireEvent.press(s.getByText('Без шаблона'))
  await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(2))
  expect(mockRequest.mock.calls.filter(c => c[1]?.method === 'POST')).toHaveLength(2)
+})
+it.each(['proposal', 'template'])('cancellation of %s survives remount without silently resuming creation', async kind => {
+ let cancellations = 0
+ mockRequest.mockImplementation(async (path, options) => {
+  if (path.endsWith('/cancel')) { if (++cancellations === 1) throw Error('reply lost'); return data({ state: 'cancelled' }) }
+  if (options?.method === 'POST') throw Error('create reply lost')
+  return reads(path)
+ })
+ const element = () => kind === 'proposal' ? <EventProposalsSection eventId="event" /> : <ProposalEditorScreen kind="template" id="new" />
+ let screen = render(element())
+ if (kind === 'proposal') {
+  await screen.findByText('Предложений пока нет')
+  fireEvent.press(screen.getByTestId('proposal-create')); fireEvent.press(screen.getByText('Без шаблона'))
+ } else {
+  fireEvent.changeText(await screen.findByLabelText('Название шаблона'), 'Сохранить ввод')
+  fireEvent.press(screen.getByTestId('proposal-save'))
+ }
+ const cancel = await screen.findByText('Отменить попытку создания')
+ await waitFor(() => expect(screen.getByTestId(kind === 'proposal' ? 'proposal-create' : 'proposal-save').props.accessibilityState.disabled).toBe(true))
+ const alert = jest.spyOn(Alert, 'alert')
+ fireEvent.press(cancel)
+ act(() => alert.mock.calls[0][2]?.find(button => button.text === 'Отменить попытку')?.onPress?.())
+ await screen.findByText('Завершить отмену')
+ await waitFor(() => expect(cancellations).toBe(1))
+ screen.unmount()
+ require('./operations').proposalOperations.clear(JSON.stringify([mockUser._id, mockUser.tenantId]), kind === 'proposal' ? 'create-proposal' : 'create-template', kind === 'proposal' ? 'event' : 'new')
+ screen = render(element())
+ const finish = await screen.findByText('Завершить отмену')
+ expect(screen.queryByText(kind === 'proposal' ? 'Продолжить создание КП' : 'Продолжить создание шаблона')).toBeNull()
+ if (kind === 'template') expect(screen.getByDisplayValue('Сохранить ввод')).toBeTruthy()
+ fireEvent.press(finish)
+ await screen.findByText(kind === 'proposal' ? 'Попытка создания отменена.' : 'Попытка создания отменена. Можно изменить форму и сохранить заново.')
+ await waitFor(() => expect(screen.getByTestId(kind === 'proposal' ? 'proposal-create' : 'proposal-save').props.accessibilityState.disabled).toBe(false))
+ expect(mockRequest.mock.calls.filter(([path, options]) => options?.method === 'POST' && !path.endsWith('/cancel'))).toHaveLength(1)
+ alert.mockRestore()
 })

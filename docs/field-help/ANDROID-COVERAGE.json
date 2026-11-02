@@ -776,17 +776,17 @@
       {
         "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
         "line": 233,
-        "anchor": "? `В Android можно добавить файл, а для подтверждённой синхронизированной работы — сформировать DOCX по шаблону. Вложения доступны и в заявке; создание ссылок на документы в этом экране отсутствует.\\n\\nОбщая справка: ${getFieldHelp('documents.event')}`"
+        "anchor": "? `Добавьте файл или сформируйте DOCX по шаблону для синхронизированной заявки или заказа.\\n\\n${getFieldHelp('documents.event')}`"
       }
     ],
-    "reason": "есть: вложения доступны в заявке, генерация DOCX запрещена для draft; сохранить предупреждение",
+    "reason": "есть: вложения и общая идемпотентная генерация DOCX доступны для синхронизированных заявок и заказов",
     "evidence": {
       "path": "mobile/src/features/documents/EntityDocumentsScreen.tsx",
       "line": 231,
       "anchor": "<SectionTitle>"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
-    "adaptation": "Перед исходным текстом указаны вложения в заявках, запрет генерации DOCX для draft и несинхронизированных работ, отсутствие создания ссылок в нативном экране.",
+    "adaptation": "Генерация DOCX доступна для синхронизированных заявок и заказов; незавершённая попытка повторяется с тем же requestId. Создание ссылок в этом экране пока отсутствует.",
     "nativeDeviceVerified": false
   },
   "documents.client": {
@@ -968,7 +968,7 @@
       {
         "path": "mobile/src/features/attention/AttentionScreen.tsx",
         "line": 136,
-        "anchor": "<SectionTitle help={getFieldHelp('attention.withoutNextStep')}>{`Заявки без следующего шага · ${data.withoutNextStep.length}`}</SectionTitle>"
+        "anchor": "</>, { help: getFieldHelp('attention.withoutNextStep'), tone: 'today' })}"
       }
     ],
     "reason": "есть",
@@ -987,7 +987,7 @@
       {
         "path": "mobile/src/features/attention/AttentionScreen.tsx",
         "line": 113,
-        "anchor": "<SectionTitle help={getFieldHelp('attention.pastRequests')}>{`Заявки с прошедшей датой · ${data.pastRequests.length}`}</SectionTitle>"
+        "anchor": "</>, { help: getFieldHelp('attention.pastRequests'), tone: 'today' }) : null}"
       }
     ],
     "reason": "есть",
@@ -1037,18 +1037,18 @@
     "host": [
       {
         "path": "mobile/src/features/statistics/StatisticsSection.tsx",
-        "line": 48,
-        "anchor": "<HelpLabel style={styles.meta} label=\"Статус\" help={`${getFieldHelp('statistics.includeRequests')}\\n\\nВ Android вместо флажка используется выбор статуса: «Все» включает заявки вместе с другими работами; «Заявки» оставляет только заявки. Это не добавление заявок к выбранному статусу. Суммы по обращениям могут быть ещё не согласованы.`} /><View style={styles.wrap}>{statuses.map(([value, label]) => <FilterControl key={value} title={label} selected={status === value} onPress={() => setStatus(value)} />)}</View>"
+        "line": 54,
+        "anchor": "<HelpLabel style={styles.meta} label=\"Заявки в статистике\" help={getFieldHelp('statistics.includeRequests')} />"
       }
     ],
-    "reason": "частично: фильтр «Все»/«Заявки» вместо веб-флажка; не прикреплять исходный текст к фильтру «Заявки» как будто он добавляет их к остальным",
+    "reason": "Реализовано: отдельный переключатель добавляет заявки к подтверждённым работам, как в PWA.",
     "evidence": {
       "path": "mobile/src/features/statistics/StatisticsSection.tsx",
-      "line": 13,
-      "anchor": "const statuses:"
+      "line": 24,
+      "anchor": "const [includeRequests, setIncludeRequests] = useState(false)"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
-    "adaptation": "Сохраняется исходный текст; явно объяснён отдельный Android-фильтр: Все включает заявки, Заявки оставляет только заявки и не добавляет их к выбранному статусу.",
+    "adaptation": "Нативный FilterControl с состоянием selected и отдельной подсказкой; семантика добавления заявок совпадает с флажком PWA.",
     "nativeDeviceVerified": false
   },
   "statistics.monthGrouping": {

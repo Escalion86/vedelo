@@ -16,6 +16,7 @@ export const runWebDocumentWorkflowSmoke = async ({
   draftEventId,
   otherEventId,
 }) => {
+  const previousGenerations = await db.collection('documentgenerations').countDocuments({ tenantId })
   const cookies = new Map()
   const request = async (url, options = {}) => {
     const response = await fetch(`${baseUrl}${url}`, {
@@ -48,6 +49,12 @@ export const runWebDocumentWorkflowSmoke = async ({
   })
   assert.ok((await (await request('/api/auth/session')).json()).user?._id)
   const post = async (url, body) => {
+    // Public selection carries the revision rendered to the client. Explicit
+    // stale revisions in negative tests are never replaced here.
+    if (url.startsWith('/api/public/proposals/') && body.packageId && !Object.hasOwn(body, 'contentRevision')) {
+      const visible = await db.collection('proposals').findOne({ tenantId, publicId: url.split('/')[4] }, { projection: { contentRevision: 1 } })
+      body = { ...body, contentRevision: visible?.contentRevision ?? 0 }
+    }
     const response = await request(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -174,7 +181,7 @@ export const runWebDocumentWorkflowSmoke = async ({
   assert.deepEqual(preview.body.data.preview.unknown, [])
   assert.equal(
     await db.collection('documentgenerations').countDocuments({ tenantId }),
-    0
+    previousGenerations
   )
   assert.equal(
     (await post(endpoint, { ...payload, templateId: 'unknown-fields' })).status,
@@ -534,18 +541,20 @@ export const runWebDocumentWorkflowSmoke = async ({
     ).status,
     400
   )
-  const appearance = { theme: 'blue', logoUrl }
+  const appearance = { theme: 'blue', logoUrl, logoAlignment: 'left' }
   assert.equal((await patch(proposalPath, { appearance })).status, 200)
   assert.deepEqual(
     (await (await request(proposalPath)).json()).data.appearance,
     appearance
   )
   const published = await patch(proposalPath, { action: 'publish' })
-  assert.equal((await uploadLogo(proposalId)).status, 409)
-  assert.equal(
-    (await patch(proposalPath, { appearance: { theme: 'dark' } })).status,
-    409
-  )
+  assert.equal((await uploadLogo(proposalId)).status, 200)
+  appearance.theme = 'dark'
+  const publishedEdit = await patch(proposalPath, { appearance, contentRevision: published.body.data.contentRevision })
+  assert.equal(publishedEdit.status, 200, JSON.stringify(publishedEdit.body))
+  assert.equal(publishedEdit.body.data._id, proposalId)
+  assert.equal(publishedEdit.body.data.publicUrl, published.body.data.publicUrl)
+  assert.equal((await patch(proposalPath, { title: 'Stale overwrite', contentRevision: published.body.data.contentRevision })).status, 409)
   const cloned = await post(`/api/events/${draftEventId}/proposals`, {
     sourceProposalId: proposalId,
   })
@@ -567,7 +576,8 @@ export const runWebDocumentWorkflowSmoke = async ({
   const deletableLive = await patch(deletablePath, { action: 'publish' })
   const deletedPublicPath = `/api/public${new URL(deletableLive.body.data.publicUrl).pathname.replace('/proposal/', '/proposals/')}`
   assert.equal((await post(deletedPublicPath, { packageId: 'basic' })).status, 200)
-  assert.equal((await patch(deletablePath, { action: 'apply' })).status, 200)
+  const deleteApply = await patch(deletablePath, { action: 'apply' })
+  assert.equal(deleteApply.status, 200, JSON.stringify(deleteApply.body))
   const agreedBeforeDelete = (await db.collection('events').findOne({ _id: draftEventId })).agreedProposal
   assert.equal((await request(deletablePath, { method: 'DELETE' })).status, 200)
   assert.deepEqual((await db.collection('events').findOne({ _id: draftEventId })).agreedProposal, agreedBeforeDelete)
@@ -579,6 +589,7 @@ export const runWebDocumentWorkflowSmoke = async ({
   )
   await db.collection('proposals').updateOne({ _id: new mongoose.Types.ObjectId(proposalId) }, { $set: { sentAt: new Date() } })
   assert.equal((await (await request('/api/proposals/statuses')).json()).data[String(draftEventId)], 'sent')
+  assert.equal((await post(publicPath, { packageId: 'basic', contentRevision: published.body.data.contentRevision })).status, 409)
   const selected = await post(publicPath, { packageId: 'basic' })
   assert.equal(selected.status, 200, JSON.stringify(selected.body))
   assert.equal((await (await request('/api/proposals/statuses')).json()).data[String(draftEventId)], 'accepted')

@@ -91,6 +91,11 @@ async function main() {
     '// @ts-nocheck\n// Generated verbatim from helpers/escalionCloudUpload.mjs.\n' +
       output.uploadHelper
   )
+  await fs.writeFile(
+    feature + '/proposalMedia.generated.ts',
+    '// @ts-nocheck\n// Generated verbatim from helpers/proposalMedia.mjs.\n' +
+      await fs.readFile(root + '/helpers/proposalMedia.mjs', 'utf8')
+  )
   console.log(
     'Built local editor, actual ProposalPageView, sanitizer, CSS and original upload resolver'
   )

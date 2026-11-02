@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'ru.escalion.vedelo'
+version = '1.0.0'
+android {
+  namespace 'ru.escalion.vedelo.device'
+  defaultConfig { minSdkVersion 29; versionCode 1; versionName '1.0.0' }
+}
+repositories { maven { url = uri('https://nexus-external.rustore.ru/repository/maven-rustore-exposed/') } }
+dependencies {
+  implementation expoModule.getExpoDependency('expo-notifications')
+  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+  implementation 'ru.rustore.sdk:pushclient:7.5.0'
+  implementation 'androidx.core:core-ktx:1.17.0'
+  implementation 'androidx.work:work-runtime-ktx:2.10.1'
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.json:json:20240303'
+}

@@ -2,8 +2,11 @@ import mongoose from 'mongoose'
 
 const schema = new mongoose.Schema({
   hash: { type: String, required: true, unique: true },
-  kind: { type: String, enum: ['oauth', 'pending', 'ticket'], required: true },
+  kind: { type: String, enum: ['oauth', 'pending', 'mobile', 'ticket'], required: true },
   verifier: String,
+  mobileRedirect: String,
+  mobileChallenge: String,
+  mobileState: String,
   referrerId: String,
   yandexId: String,
   phone: String,

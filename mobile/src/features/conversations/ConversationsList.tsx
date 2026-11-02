@@ -8,10 +8,10 @@ import { useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
 import { communicationError, localDateLabel, serverId, successfulData } from '../calls/communication'
 import { useCommunicationSession } from '../calls/useCommunicationSession'
-import { checkedConversation, conversationStatus } from './conversationUi'
+import { checkedConversation, conversationStatus, conversationProviders, providerLabels } from './conversationUi'
 
 type ProviderState = { items: Conversation[]; error: string; ready: boolean }
-const initial = (): Record<ConversationProvider, ProviderState> => ({ avito: { items: [], error: '', ready: false }, vk: { items: [], error: '', ready: false } })
+const initial = (): Record<ConversationProvider, ProviderState> => ({ avito: { items: [], error: '', ready: false }, vk: { items: [], error: '', ready: false }, telegram: { items: [], error: '', ready: false } })
 export const ConversationsList = ({ clientId, eventId }: { clientId?: string; eventId?: string }) => {
   const styles = useThemeStyles(createStyles)
   const session = useCommunicationSession()
@@ -27,7 +27,7 @@ export const ConversationsList = ({ clientId, eventId }: { clientId?: string; ev
     if (clientId) query.set('clientId', clientId)
     if (eventId) query.set('eventId', eventId)
     const suffix = query.toString() ? `?${query.toString()}` : ''
-    if (validScope) await Promise.allSettled((['avito', 'vk'] as const).map(async (provider) => {
+    if (validScope) await Promise.allSettled(conversationProviders.map(async (provider) => {
       try {
         const data = successfulData(await api.get<unknown>(`/mobile/v1/conversations/${provider}${suffix}`))
         if (!Array.isArray(data)) throw new Error('invalid_list')
@@ -40,23 +40,23 @@ export const ConversationsList = ({ clientId, eventId }: { clientId?: string; ev
     session.end(token)
   }, [clientId, eventId, validScope, session])
   useFocusEffect(useCallback(() => { void load() }, [load]))
-  const providers = filter === 'all' ? ['avito', 'vk'] as const : [filter]
+  const providers = filter === 'all' ? conversationProviders : [filter]
   const items = providers.flatMap((provider) => channels[provider].items).sort((a, b) => (new Date(b.lastMessageAt || 0).getTime() || 0) - (new Date(a.lastMessageAt || 0).getTime() || 0))
   return <Screen>
-    <PageHeader title="Переписки" subtitle={clientId ? 'Диалоги клиента' : eventId ? 'Диалоги работы' : 'Avito и VK'} />
-    <View style={styles.filters}>{([['all', 'Все'], ['avito', 'Avito'], ['vk', 'VK']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={({ pressed }) => [styles.filter, filter === value && styles.selected, pressed && styles.pressed]}><Text style={styles.text}>{label}</Text></Pressable>)}</View>
+    <PageHeader title="Переписки" subtitle={clientId ? 'Диалоги клиента' : eventId ? 'Диалоги работы' : 'Avito, VK и Telegram'} />
+    <View style={styles.filters}>{([['all', 'Все'], ['avito', 'Avito'], ['vk', 'VK'], ['telegram', 'Telegram']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={({ pressed }) => [styles.filter, filter === value && styles.selected, pressed && styles.pressed]}><Text style={styles.text}>{label}</Text></Pressable>)}</View>
     {!validScope ? <Notice tone="danger" message="Некорректный ID клиента или работы. Для локальной записи переписки доступны после синхронизации." /> : <>
       {loading ? <Notice message={items.length ? 'Обновляем диалоги…' : 'Загружаем диалоги…'} /> : null}
-      {providers.map((provider) => channels[provider].error ? <Notice key={provider} tone="danger" message={`${provider === 'avito' ? 'Avito' : 'VK'}: ${channels[provider].error}`} /> : null)}
+      {providers.map((provider) => channels[provider].error ? <Notice key={provider} tone="danger" message={`${providerLabels[provider]}: ${channels[provider].error}`} /> : null)}
       {items.map((conversation) => <Pressable key={`${conversation.provider}/${conversation._id}`} accessibilityRole="button" onPress={() => router.push(`/conversations/${conversation.provider}/${encodeURIComponent(conversation._id)}` as never)} style={({ pressed }) => pressed && styles.pressed}><Surface style={styles.card}>
         <View style={styles.row}><Text style={styles.title} numberOfLines={2}>{conversation.clientName || conversation.avitoItemTitle || 'Диалог'}</Text><StatusChip label={conversationStatus(conversation.status)} tone="neutral" /></View>
         <Text style={styles.text} numberOfLines={2}>{conversation.lastMessageText || 'Сообщений пока нет'}</Text>
-        <View style={styles.row}><Text style={styles.muted}>{conversation.provider === 'avito' ? 'Avito' : 'VK'} · {localDateLabel(conversation.lastMessageAt)}</Text>{conversation.unreadCount ? <StatusChip label={`Непрочитано: ${conversation.unreadCount}`} tone="blue" /> : null}</View>
+        <View style={styles.row}><Text style={styles.muted}>{providerLabels[conversation.provider]} · {localDateLabel(conversation.lastMessageAt)}</Text>{conversation.unreadCount ? <StatusChip label={`Непрочитано: ${conversation.unreadCount}`} tone="blue" /> : null}</View>
       </Surface></Pressable>)}
       {!loading && !items.length && providers.every((provider) => channels[provider].ready) ? <EmptyState title="Диалогов нет" description="Переписки появятся после подключения канала и первого сообщения клиента." /> : null}
-      {!loading ? providers.map((provider) => channels[provider].ready && !channels[provider].items.length ? <Text key={provider} style={styles.muted}>{provider === 'avito' ? 'Avito' : 'VK'}: диалогов нет.</Text> : null) : null}
+      {!loading ? providers.map((provider) => channels[provider].ready && !channels[provider].items.length ? <Text key={provider} style={styles.muted}>{providerLabels[provider]}: диалогов нет.</Text> : null) : null}
       <Button title="Обновить диалоги" variant="secondary" onPress={() => void load()} loading={loading} />
-      <Text style={styles.muted}>Каждый канал показывает до 100 последних диалогов. Telegram Business пока недоступен в приложении.</Text>
+      <Text style={styles.muted}>Каждый канал показывает до 100 последних диалогов.</Text>
     </>}
   </Screen>
 }

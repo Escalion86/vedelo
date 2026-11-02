@@ -1,4 +1,5 @@
 import { typography } from '../../../src/shared/ui/theme'
+import { device } from '../../../src/shared/native/device'
 import { useCallback, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
@@ -80,6 +81,7 @@ export default function ClientDetailScreen() {
         </View>
       </View>
       <QuickContacts client={client} maxVisible={8} />
+      {device ? <Button title="Сохранить контакт в телефон" variant="secondary" onPress={() => void device?.saveContact(name, String(client.phone || '')).catch(() => setError('Не удалось открыть системную форму контакта'))} /> : null}
       {contactChannelLabel(client) || client.comment ? <View style={styles.summary}>
         {contactChannelLabel(client) ? <Text style={styles.text}>Приоритетная связь: {contactChannelLabel(client)}</Text> : null}
         {client.comment ? <Text style={styles.text}>Комментарий: {plainComment(client.comment)}</Text> : null}

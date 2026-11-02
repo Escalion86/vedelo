@@ -1,4 +1,5 @@
 import { normalizeProposalAppearance } from '@helpers/proposalAppearance.mjs'
+import { deleteCreatedResource } from '@server/idempotentResourceCreation'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import mongoose from 'mongoose'
 import { NextResponse } from 'next/server'
@@ -78,7 +79,15 @@ export const PATCH = async (req, { params }) => {
     { returnDocument: 'after' }
   )
   if (!item) return error('Шаблон не найден', 404, 'not_found')
-  return NextResponse.json({ success: true, data: item })
+  // Match GET for legacy templates whose packages are materialized from the
+  // service catalogue. A partial title/appearance edit must not rewrite them.
+  const services = await Services.find({ tenantId: auth.context.tenantId })
+    .sort({ index: 1 })
+    .lean()
+  return NextResponse.json({ success: true, data: {
+    ...(item.toObject?.() ?? item),
+    defaults: materializeProposalTemplateDefaults(item.defaults, services),
+  } })
 }
 
 export const DELETE = async (req, { params }) => {
@@ -96,7 +105,7 @@ export const DELETE = async (req, { params }) => {
     )
     return NextResponse.json({ success: true, data: item, archived: true })
   }
-  const item = await ProposalTemplates.findOneAndDelete({ _id: id, tenantId: auth.context.tenantId })
+  const item = await deleteCreatedResource(ProposalTemplates, { _id: id, tenantId: auth.context.tenantId })
   if (!item) return error('Шаблон не найден', 404, 'not_found')
   return NextResponse.json({ success: true, data: { id } })
 }

@@ -2,6 +2,8 @@ import { Schema } from 'mongoose'
 
 const proposalsSchema = {
   tenantId: { type: Schema.Types.ObjectId, ref: 'Users', required: true },
+  creationRequest: { type: Schema.Types.Mixed, select: false, default: undefined },
+  creationDeletedAt: { type: Date, select: false, default: undefined },
   eventId: { type: Schema.Types.ObjectId, ref: 'Events', required: true },
   clientId: { type: Schema.Types.ObjectId, ref: 'Clients', default: null },
   templateId: { type: Schema.Types.ObjectId, ref: 'ProposalTemplates', default: null },

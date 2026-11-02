@@ -18,6 +18,7 @@ import { runRestartSmoke } from '../web/restartSmoke.mjs'
 import { runPublicLeadSmoke } from '../web/publicLeadSmoke.mjs'
 import { runDocumentsHttpSmoke } from '../server/documentsHttpSmoke.mjs'
 import { runPaymentProcessingSmoke } from '../server/paymentProcessingSmoke.cjs'
+import { runAndroidParityHttpSmoke } from '../server/androidParityHttpSmoke.mjs'
 
 const projectRoot = path.resolve(import.meta.dirname, '..', '..')
 const mongodBinary = process.env.MONGOD_BINARY || 'mongod'
@@ -299,6 +300,10 @@ test(
             ],
           })
         )
+        return
+      }
+      if (req.url?.startsWith('/calendar/v3/calendars/team-calendar/events')) {
+        res.end(JSON.stringify({ items: [{ id: 'mobile-import-http', summary: 'Synthetic Google import', start: { dateTime: '2026-11-10T10:00:00Z' }, end: { dateTime: '2026-11-10T11:00:00Z' } }] }))
         return
       }
       res.end(JSON.stringify({ error: 'unknown_mock_route' }))
@@ -848,6 +853,9 @@ test(
             VK_AUTH_ENABLED: 'true',
             VK_ID_CLIENT_SECRET: 'mock-vk-client-secret',
             VK_ID_REDIRECT_URI: 'vedelo://auth/vk',
+            YANDEX_ID_CLIENT_ID: 'synthetic-yandex-client',
+            YANDEX_ID_CLIENT_SECRET: 'synthetic-yandex-secret',
+            YANDEX_ID_REDIRECT_URI: `${baseUrl}/api/yandex-id/callback`,
             GOOGLE_OAUTH_CLIENT_ID: 'mock-google-client-id',
             GOOGLE_OAUTH_CLIENT_SECRET: 'mock-google-client-secret',
             GOOGLE_OAUTH_REDIRECT_URI: `${baseUrl}/api/google-calendar/callback`,
@@ -1805,6 +1813,24 @@ test(
             false
           )
 
+          for (const enabled of [false, true]) {
+            const paused = await mutate('/api/mobile/v1/integrations/telephony', tokenB, 'PATCH', { enabled })
+            assert.equal(paused.response.status, 200, JSON.stringify(paused.body))
+            assert.equal(paused.body.data.enabled, enabled)
+            assert.equal(paused.body.data.configured, true)
+            assert.equal(paused.body.data.hasApiKey, true)
+            assert.equal(JSON.stringify(paused.body).includes(firstWebhookSecret), false)
+            const read = await get('/api/mobile/v1/integrations/telephony', tokenB)
+            assert.equal(read.body.data.enabled, enabled)
+          }
+          for (const invalid of [{ enabled: 'false' }, { enabled: false, tenantId: String(tenantA) }, { apiKey: 'must-not-rotate' }]) {
+            const rejected = await mutate('/api/mobile/v1/integrations/telephony', tokenB, 'PATCH', invalid)
+            assert.equal(rejected.response.status, 400)
+          }
+          const pausedSettings = await db.collection('sitesettings').findOne({ tenantId: tenantB })
+          assert.equal(pausedSettings.custom.novofonWebhookSecret, firstWebhookSecret)
+          assert.equal(pausedSettings.custom.novofonApiKey, novofonApiKey)
+
           const novofonRotated = await mutate(
             '/api/mobile/v1/integrations/telephony',
             tokenB,
@@ -2088,6 +2114,17 @@ test(
           assert.equal(patched.body.data.reminders.overrides[0].minutes, 60)
           assert.equal(patched.body.data.deleteCanceledFromCalendar, true)
           assert.equal(patched.body.data.skipTransferredFromCalendar, true)
+          await db.collection('users').updateOne({ _id: tenantA, tenantId: tenantA }, { $set: { 'googleCalendar.syncSettings.showFinanceComment': false, 'googleCalendar.statusColors.closed': '5' } })
+          const appearance = await mutate('/api/mobile/v1/integrations/google-calendar', loginA.body.data.accessToken, 'PATCH', { syncSettings: { showClient: false, titleMode: 'client_eventType' }, statusColors: { draft: '3' } })
+          assert.equal(appearance.response.status, 200, JSON.stringify(appearance.body))
+          const readAppearance = await get('/api/mobile/v1/integrations/google-calendar', loginA.body.data.accessToken)
+          assert.equal(readAppearance.body.data.syncSettings.showClient, false)
+          assert.equal(readAppearance.body.data.syncSettings.showFinanceComment, false)
+          assert.equal(readAppearance.body.data.syncSettings.titleMode, 'client_eventType')
+          assert.equal(readAppearance.body.data.statusColors.draft, '3')
+          assert.equal(readAppearance.body.data.statusColors.closed, '5')
+          assert.equal((await mutate('/api/mobile/v1/integrations/google-calendar', loginA.body.data.accessToken, 'PATCH', { refreshToken: 'injected' })).response.status, 400)
+          assert.equal((await mutate('/api/mobile/v1/integrations/google-calendar', loginA.body.data.accessToken, 'PATCH', { tenantId: String(tenantB), syncSettings: { showClient: true } })).response.status, 400)
           const storedA = await db.collection('users').findOne({ _id: tenantA })
           const storedBBeforeOAuth = await db
             .collection('users')
@@ -2235,6 +2272,44 @@ test(
             )
         }
       )
+
+      await t.test('Google import bearer: separate OAuth, preview, tenant and replay over HTTP', async () => {
+        const tariffBefore = await db.collection('tariffs').findOne({ _id: tariffId })
+        await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowCalendarSync: true, allowAi: true } })
+        const request = (path, token = loginA.body.data.accessToken, body) => readJson(apiRequest(baseUrl, path, { headers: authHeaders(token), ...(body ? { method: 'POST', body: JSON.stringify(body) } : {}) }))
+        try {
+          const before = await request('/api/google-calendar/import-status')
+          assert.equal(before.response.status, 200); assert.equal(before.body.data.connected, false)
+          const auth = await request('/api/mobile/v1/integrations/google-calendar/auth-url?purpose=import&appScheme=vedelo-dev')
+          assert.equal(auth.response.status, 200)
+          const url = new URL(auth.body.data.url)
+          assert.equal(url.searchParams.get('scope'), 'https://www.googleapis.com/auth/calendar.readonly')
+          const callbackPath = `/api/google-calendar/callback?code=google-import-http&state=${encodeURIComponent(url.searchParams.get('state'))}`
+          const callback = await apiRequest(baseUrl, callbackPath, { redirect: 'manual' })
+          assert.equal(callback.headers.get('location'), 'vedelo-dev://more/import?gc_import_connected=1')
+          assert.match((await apiRequest(baseUrl, callbackPath, { redirect: 'manual' })).headers.get('location'), /gc_error=state/)
+          const stored = await db.collection('users').findOne({ _id: tenantA })
+          assert.equal(stored.googleCalendar.refreshToken, 'google-refresh-secret-a')
+          assert.equal((await request('/api/google-calendar/import-status', loginB.body.data.accessToken)).body.data.connected, false)
+          assert.equal((await request('/api/google-calendar/import-select', undefined, { calendarId: 'foreign-calendar' })).response.status, 404)
+          assert.equal((await request('/api/google-calendar/import-select', undefined, { calendarId: 'team-calendar' })).response.status, 200)
+          const preview = await request('/api/events/google-import?timeMin=2026-11-01&timeMax=2026-12-01')
+          assert.equal(preview.response.status, 200, JSON.stringify(preview.body)); assert.equal(preview.body.data.candidates[0].id, 'mobile-import-http')
+          const body = { timeMin: '2026-11-01', timeMax: '2026-12-01', calendarId: 'team-calendar', eventIds: ['mobile-import-http'], groupId: randomUUID() }
+          const imported = await request('/api/events/google-import', undefined, body)
+          assert.equal(imported.response.status, 200, JSON.stringify(imported.body)); assert.equal(imported.body.data.created, 1, JSON.stringify(imported.body))
+          assert.equal((await request('/api/events/google-import', undefined, body)).body.data.results[0].status, 'duplicate')
+          assert.equal(await db.collection('events').countDocuments({ tenantId: tenantA, googleCalendarId: 'mobile-import-http' }), 1)
+          assert.equal(await db.collection('events').countDocuments({ tenantId: tenantB, googleCalendarId: 'mobile-import-http' }), 0)
+          assert.equal((await request('/api/events/google-import', undefined, { ...body, calendarId: 'other' })).response.status, 409)
+          const state = await request('/api/google-calendar/import-status'); assert.ok(!JSON.stringify(state.body).includes('mock-google-callback-refresh'))
+          await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowAi: false } })
+          assert.equal((await request('/api/events/google-import', undefined, body)).response.status, 403)
+          assert.equal((await request('/api/google-calendar/import-disconnect', undefined, {})).response.status, 200)
+        } finally {
+          await db.collection('tariffs').updateOne({ _id: tariffId }, { $set: { allowCalendarSync: tariffBefore.allowCalendarSync, allowAi: tariffBefore.allowAi } })
+        }
+      })
 
       await t.test(
         'sync push/pull передаёт CRUD и tombstone между устройствами',
@@ -3129,7 +3204,8 @@ test(
             cloudRequests[0].body,
             new RegExp(`artistcrm/${tenantB}/mobile`)
           )
-          assert.match(cloudRequests[0].body, /\.\._\.\._unsafe_\.docx/)
+          assert.match(cloudRequests[0].body, /filename="[a-f\d-]{36}\.docx"/)
+          assert.doesNotMatch(cloudRequests[0].body, /unsafe|\.\.\//)
           assert.doesNotMatch(cloudRequests[0].body, /another-tenant/)
           assert.equal(
             cloudRequests[0].headers['x-api-password'],
@@ -3621,6 +3697,9 @@ test(
           await runPaymentProcessingSmoke({ db })
         }
       )
+      await t.test('Android parity: bearer, tenant, revoked sessions, manual calls, learning and Telegram', async () => {
+        await runAndroidParityHttpSmoke({ baseUrl, db, password, passwordHash })
+      })
     } finally {
       await terminate(appProcess)
       await new Promise((resolve) => cloudServer.close(resolve))

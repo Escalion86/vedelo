@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { z } from 'zod'
 import * as ExpoAuthSession from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import { api } from '../../src/shared/api/client'
 import { useAuth } from '../../src/shared/auth/AuthProvider'
+import { beginYandex, inspectYandex, loginYandex, linkYandex, isYandexProofCurrent, type YandexProof } from '../../src/shared/auth/yandex'
 import {
   captureRegistrationReferrer,
   normalizeRegistrationReferrer,
@@ -95,6 +96,18 @@ export default function LoginScreen() {
   const [personalDataAccepted, setPersonalDataAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [yandexPending, setYandexPending] = useState<{ proof: YandexProof; phone: string } | null>(null)
+  const socialBusy = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const [socialAuth, setSocialAuth] = useState({ allowVkAuth: false, allowYandexAuth: false, appId: '' })
+  useEffect(() => {
+    let active = true
+    api.get<{ data: { allowVkAuth: boolean; allowYandexAuth?: boolean; appId: string } }>('/global/auth/vk-status', { skipAuth: true, skipRefresh: true })
+      .then(response => { if (active) setSocialAuth({ allowVkAuth: response.data?.allowVkAuth === true, allowYandexAuth: response.data?.allowYandexAuth === true, appId: response.data?.appId || '' }) })
+      .catch(() => { if (active) setSocialAuth({ allowVkAuth: false, allowYandexAuth: false, appId: '' }) })
+    return () => { active = false }
+  }, [])
   const hasRegistrationConsents =
     termsAccepted && privacyAccepted && personalDataAccepted
   const redirectUri = ExpoAuthSession.makeRedirectUri({
@@ -103,7 +116,7 @@ export default function LoginScreen() {
   })
   const [vkRequest, vkResult, promptVk] = ExpoAuthSession.useAuthRequest(
     {
-      clientId: env.vkIdAppId || 'not-configured',
+      clientId: socialAuth.appId || env.vkIdAppId || 'not-configured',
       responseType: ExpoAuthSession.ResponseType.Code,
       redirectUri,
       scopes: ['phone', 'email'],
@@ -161,13 +174,40 @@ export default function LoginScreen() {
   ])
 
   const changeMode = (next: Mode) => {
+    setYandexPending(null)
     setMode(next)
     setVerification(null)
     setSmsMode(false)
     setError('')
   }
 
+  const startYandex = async () => {
+    if (socialBusy.current || loading) return
+    socialBusy.current = true
+    setLoading(true); setError(''); setYandexPending(null)
+    try {
+      const referrer = await captureRegistrationReferrer(referralId)
+      const proof = await beginYandex(false, referrer)
+      if (!proof || !mounted.current) return
+      const account = await inspectYandex(proof)
+      if (!mounted.current) return
+      if (account.accountExists) {
+        const session = await loginYandex(proof)
+        if (!mounted.current) return
+        await completeSignIn(session)
+        router.replace('/(tabs)')
+      } else {
+        await captureRegistrationReferrer(account.referrerId || referrer)
+        if (!mounted.current) return
+        setYandexPending({ proof, phone: account.phone })
+        setPhone(formatRussianPhone(account.phone)); setMode('register'); setVerification(null)
+      }
+    } catch (reason) { if (mounted.current) setError(reason instanceof Error ? reason.message : 'Не удалось войти через Яндекс') }
+    finally { socialBusy.current = false; if (mounted.current) setLoading(false) }
+  }
+
   const finish = async () => {
+    if (yandexPending && !isYandexProofCurrent(yandexPending.proof)) return
     const referrerId = await captureRegistrationReferrer(referralId)
     const path =
       mode === 'register'
@@ -186,6 +226,18 @@ export default function LoginScreen() {
       },
       { skipAuth: true, skipRefresh: true }
     )
+    if (yandexPending && normalizeRussianPhone(phone) === yandexPending.phone) {
+      try {
+        await linkYandex(yandexPending.proof, response.data.accessToken)
+        response.data.user.yandexLinked = true
+      } catch {
+        if (!mounted.current || !isYandexProofCurrent(yandexPending.proof)) return
+        // Registration has already succeeded. Keep its session even if the optional
+        // link expired or its response was lost; the user can retry in the profile.
+        Alert.alert('Аккаунт создан', 'Подключение Яндекс ID не подтверждено. Его можно повторить в профиле.')
+      }
+    }
+    if (!mounted.current || (yandexPending && !isYandexProofCurrent(yandexPending.proof))) return
     await completeSignIn(response.data)
     router.replace('/(tabs)')
   }
@@ -193,6 +245,10 @@ export default function LoginScreen() {
   const submitCredentials = async () => {
     setError('')
     const normalizedPhone = normalizeRussianPhone(phone)
+    if (yandexPending && normalizedPhone !== yandexPending.phone) {
+      setError('Для подключения Яндекс ID используйте подтверждённый в нём номер или отмените подключение.')
+      return
+    }
     const parsed = credentialsSchema.safeParse({
       phone: normalizedPhone,
       password,
@@ -225,16 +281,17 @@ export default function LoginScreen() {
 
       const response = await api.post<{
         success: true
-        data: { id: number; auth_phone?: string }
+        data: { id?: number; auth_phone?: string; method?: 'sms' | 'call' }
       }>(
         '/phone/verify/start',
-        { phone: normalizedPhone, flow: mode },
+        { phone: normalizedPhone, flow: mode, method: 'preferred' },
         { skipAuth: true, skipRefresh: true }
       )
       setVerification({
-        callId: response.data.id,
+        callId: response.data.id || 0,
         authPhone: response.data.auth_phone,
       })
+      setSmsMode(response.data.method === 'sms')
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : 'Не удалось выполнить запрос'
@@ -364,6 +421,10 @@ export default function LoginScreen() {
 
         {!verification ? (
           <>
+            {yandexPending ? <>
+              <Notice tone="info" message="С этим номером ещё нет аккаунта. Задайте пароль, примите соглашения и подтвердите телефон. Затем Яндекс ID подключится автоматически. На завершение есть 15 минут." />
+              <Button title="Отменить подключение Яндекс ID" variant="secondary" disabled={loading} onPress={() => setYandexPending(null)} />
+            </> : null}
             <CompactField editable={!loading}
               testID="auth-phone"
               label="Телефон"
@@ -426,7 +487,7 @@ export default function LoginScreen() {
               onPress={submitCredentials}
               loading={loading}
             />
-            {mode !== 'recovery' && env.vkIdAppId ? (
+            {mode !== 'recovery' && socialAuth.allowVkAuth && (socialAuth.appId || env.vkIdAppId) ? (
               <Button
                 testID="submit-vk-auth"
                 title={
@@ -438,6 +499,9 @@ export default function LoginScreen() {
                 onPress={startVk}
                 disabled={!vkRequest || loading}
               />
+            ) : null}
+            {mode !== 'recovery' && socialAuth.allowYandexAuth ? (
+              <Button testID="submit-yandex-auth" title="Войти через Яндекс ID" variant="secondary" onPress={startYandex} disabled={loading} />
             ) : null}
           </>
         ) : (

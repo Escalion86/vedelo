@@ -14,6 +14,8 @@ const mockDispatch = jest.fn()
 let mockPrevented = false
 let mockOnRemove: (event: any) => void
 const mockGet = jest.fn(async () => null as any)
+const mockAiRead = jest.fn(), mockAiSave = jest.fn()
+jest.mock('../events/aiCreateReview', () => ({ readAiCreateReview: (...args: unknown[]) => mockAiRead(...args), saveAiSuggestedClient: (...args: unknown[]) => mockAiSave(...args) }))
 
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
 jest.mock('../../shared/hooks/useClientTypes', () => ({ useClientTypes: () => ({ items: [
@@ -44,6 +46,39 @@ beforeEach(() => {
   mockGet.mockResolvedValue(null)
   mockParams = { id: 'new', returnTo: 'event' }
   mockSave.mockResolvedValue({ _id: 'local-new-client' })
+  mockAiRead.mockReset(); mockAiSave.mockReset()
+})
+
+it('AI suggested client is editable and created only by confirmation, then handed back to its work', async () => {
+  mockParams = { id: 'new', returnTo: 'event', aiDraft: 'review' }
+  mockAiRead.mockResolvedValue({ _id: 'review', clientDraft: { firstName: 'Анна', phone: 79992222222 } })
+  mockAiSave.mockResolvedValue({ _id: 'local-confirmed' })
+  const screen = renderScreen()
+  await waitFor(() => expect(screen.getByLabelText('ФИО').props.value).toBe('Анна'))
+  expect(mockAiSave).not.toHaveBeenCalled(); expect(mockSave).not.toHaveBeenCalled()
+  fireEvent.changeText(screen.getByTestId('client-first-name'), 'Проверенное имя')
+  fireEvent.press(screen.getByTestId('save-client'))
+  await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1))
+  expect(mockAiSave).toHaveBeenCalledWith('review', expect.objectContaining({ firstName: 'Проверенное имя', phone: 79992222222 }), expect.any(Object), expect.any(Function))
+  expect(consumePendingEventClient()).toBe('local-confirmed'); expect(mockSave).not.toHaveBeenCalled()
+})
+
+it('failed AI client confirmation restores a readable frozen form and repeats the same review', async () => {
+  mockParams = { id: 'new', returnTo: 'event', aiDraft: 'review' }
+  const review = { _id: 'review', clientDraft: { firstName: 'Анна', phone: 79992222222 } }
+  mockAiRead.mockResolvedValue(review)
+  mockAiSave.mockImplementationOnce(async (_id, values, form) => {
+    mockAiRead.mockResolvedValue({ ...review, clientAttempt: { operationId: 'stable', values, form } }); throw new Error('Сбой диска')
+  }).mockResolvedValueOnce({ _id: 'local-confirmed' })
+  const screen = renderScreen()
+  await screen.findByTestId('save-client')
+  fireEvent.press(screen.getByTestId('save-client'))
+  await screen.findByText('Продолжить сохранение')
+  expect(screen.getByText('Имя: Анна')).toBeTruthy()
+  expect(screen.queryByLabelText('ФИО')).toBeNull()
+  fireEvent.press(screen.getByTestId('save-client'))
+  await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1))
+  expect(mockAiSave.mock.calls[0][0]).toBe(mockAiSave.mock.calls[1][0]); expect(mockSave).not.toHaveBeenCalled()
 })
 
 it('custom type is included in the offline client payload', async () => {
@@ -85,7 +120,7 @@ it('S: единое ФИО как web, порядок контактов и св
   fireEvent.press(screen.getByRole('button', { name: /^Реквизиты для договора/ }))
   fireEvent.changeText(screen.getByLabelText('Комментарий'), 'изменение')
   fireEvent.press(screen.getByTestId('save-client'))
-  await waitFor(() => expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ values: expect.objectContaining({ inn: '1234567890', legalName: 'ООО Тест', messengerPushMuted: true, firstName: 'Анна', secondName: 'Иванова' }) })))
+  await waitFor(() => expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ values: { comment: 'изменение' } })))
 })
 it('S: чтение отсутствующего клиента не предлагает пустую форму или сохранение', async () => {
   mockParams = { id: 'missing' }

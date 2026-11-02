@@ -32,7 +32,13 @@ import { RichTextEditor } from './RichTextEditor'
 import { ProposalPreview } from './ProposalPreview'
 import { useProposalIdentity } from './identity'
 import { proposalOperations } from './operations'
+import { proposalPatch } from './proposalPatch'
+import { normalizeProposalMedia } from './proposalMedia.generated'
 const blockLabels: Record<string, string> = {
+  header: 'Шапка',
+  packagesIntro: 'Описание под шапкой',
+  packagesOutro: 'Описание после вариантов',
+  closing: 'Условия и контакты',
   cover: 'Обложка',
   intro: 'Вступление',
   packages: 'Варианты',
@@ -54,9 +60,16 @@ type Draft = {
   media: ProposalMedia[]
   packages: ProposalPackage[]
   servicesIds: string[]
+  defaults?: ProposalTemplate['defaults']
   message: string
   validUntil: string
-  appearance: { theme: 'classic' | 'light' | 'blue' | 'dark'; logoUrl: string }
+  contentRevision?: number
+  conditionsLocked?: boolean
+  appearance: {
+    theme: 'classic' | 'light' | 'blue' | 'dark'
+    logoUrl: string
+    logoAlignment?: 'left' | 'center' | 'right'
+  }
 }
 const fromTemplate = (item: ProposalTemplate): Draft => ({
   title: item.name,
@@ -65,9 +78,10 @@ const fromTemplate = (item: ProposalTemplate): Draft => ({
   media: item.media,
   packages: item.defaults.packages,
   servicesIds: item.defaults.servicesIds,
+  defaults: item.defaults,
   message: item.messageTemplate,
   validUntil: '',
-  appearance: { theme: 'classic', logoUrl: '' },
+  appearance: item.appearance || { theme: 'classic', logoUrl: '' },
 })
 const fromProposal = (item: Proposal): Draft => ({
   title: item.title,
@@ -78,19 +92,28 @@ const fromProposal = (item: Proposal): Draft => ({
   servicesIds: [],
   message: item.messageText,
   validUntil: item.validUntil ? item.validUntil.slice(0, 10) : '',
+  contentRevision: item.contentRevision ?? 0,
+  conditionsLocked: Boolean(
+    item.applyOperation ||
+    item.applicationPending ||
+    item.appliedAt ||
+    item.appliedPackageId ||
+    item.appliedSelectionAt
+  ),
   appearance: item.appearance || { theme: 'classic', logoUrl: '' },
 })
 export type ProposalEditorScreenProps = {
   kind: 'template' | 'proposal'
   id: string
   eventId?: string
+  sourceProposalId?: string
   initialPreview?: boolean
 }
 export function ProposalEditorScreen(props: ProposalEditorScreenProps) {
   const identity = useProposalIdentity()
   return identity ? (
     <IdentityEditor
-      key={`${identity}:${props.kind}:${props.id}:${props.eventId || ''}`}
+      key={`${identity}:${props.kind}:${props.id}:${props.eventId || ''}:${props.sourceProposalId || ''}`}
       {...props}
       identity={identity}
     />
@@ -101,6 +124,7 @@ function IdentityEditor({
   kind,
   id,
   eventId,
+  sourceProposalId,
   initialPreview = false,
 }: ProposalEditorScreenProps & { identity: string }) {
   const navigation = useNavigation(),
@@ -121,6 +145,7 @@ function IdentityEditor({
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false),
     [pending, setPending] = useState(false),
+    [videoLink, setVideoLink] = useState(''),
     [attempt, setAttempt] = useState(0),
     [preview, setPreview] = useState<Record<string, unknown> | null>(null)
   const baseline = useRef(''),
@@ -148,7 +173,8 @@ function IdentityEditor({
   )
   const isTemplate = kind === 'template',
     dirty = Boolean(draft && JSON.stringify(draft) !== baseline.current),
-    editable = isTemplate || draft?.status === 'draft',
+    editable = true,
+    conditionsLocked = !isTemplate && Boolean(draft?.conditionsLocked),
     blocked = busy || pending || Boolean(creation)
   usePreventRemove(dirty || blocked, ({ data }) => {
     if (lock.current) return
@@ -163,30 +189,34 @@ function IdentityEditor({
       },
     ])
   })
-  const body = (value: Draft): Record<string, unknown> =>
-    isTemplate
-      ? {
-          name: value.title,
-          status: value.status,
-          blocks: value.blocks,
-          media: value.media,
-          messageTemplate: value.message,
-          defaults: {
-            packages: value.packages,
-            servicesIds: value.servicesIds,
-          },
-        }
-      : {
-          title: value.title,
-          blocks: value.blocks,
-          media: value.media,
-          packages: value.packages,
-          messageText: value.message,
-          validUntil: value.validUntil || null,
-          appearance: value.appearance,
-        }
+  const templateBody = (value: Draft): Record<string, unknown> => ({
+    name: value.title,
+    status: value.status,
+    blocks: value.blocks,
+    media: value.media,
+    messageTemplate: value.message,
+    appearance: value.appearance,
+    defaults: {
+      ...value.defaults,
+      packages: value.packages,
+      servicesIds: value.servicesIds,
+    },
+  })
+  const body = (value: Draft, full = false): Record<string, unknown> => {
+    if (!isTemplate) return proposalPatch(value, baseline.current)
+    const payload = templateBody(value)
+    if (full || !targetId.current || !baseline.current) return payload
+    const original = templateBody(JSON.parse(baseline.current) as Draft)
+    return Object.fromEntries(
+      Object.entries(payload).filter(
+        ([key, item]) => JSON.stringify(item) !== JSON.stringify(original[key])
+      )
+    )
+  }
   const change = (patch: Partial<Draft>) => {
-    if (!draft || lock.current || !editable) return
+    if (!draft || !alive.current || lock.current || creation || !editable)
+      return
+    if (conditionsLocked && patch.packages) return
     setDraft({ ...draft, ...patch })
     setMessage('')
     setError('')
@@ -240,15 +270,18 @@ function IdentityEditor({
       try {
         let next: Draft
         if (isTemplate) {
+          const restored = id === 'new' ? await proposalsApi.restoreTemplate(operation()) : null
           const item =
-            id === 'new'
-              ? {
+            restored || (id === 'new'
+              ? sourceProposalId
+                ? { ...(await proposalsApi.templateFromProposal(sourceProposalId, operation())), _id: 'new' }
+                : {
                   _id: 'new',
                   name: '',
                   status: 'active' as const,
                   ...(await proposalsApi.templateDefaults(operation())),
                 }
-              : await proposalsApi.template(id, operation())
+              : await proposalsApi.template(id, operation()))
           next = fromTemplate(item)
         } else {
           const item = await proposalsApi.get(id, operation())
@@ -261,7 +294,11 @@ function IdentityEditor({
         if (initialPreview) {
           try {
             const data = isTemplate
-              ? await proposalsApi.previewTemplate(id, body(next), operation())
+              ? await proposalsApi.previewTemplate(
+                  id,
+                  body(next, true),
+                  operation()
+                )
               : await proposalsApi.previewProposal(id, body(next), operation())
             if (alive.current && token === generation.current) setPreview(data)
           } catch {
@@ -279,7 +316,7 @@ function IdentityEditor({
       lifetime.current.abort()
       generation.current++
     }
-  }, [kind, id, eventId, attempt])
+  }, [kind, id, eventId, sourceProposalId, attempt])
   const run = async (work: () => Promise<void>, failure: string) => {
     if (lock.current || !alive.current) return
     lock.current = true
@@ -299,7 +336,13 @@ function IdentityEditor({
               proposalOperations.get(identity, 'create-template', 'new')
             )
         }
-        setError(failure)
+        if (cause instanceof Error && cause.message === 'CREATION_CANCELLED') {
+          targetId.current = undefined
+          setMessage('Попытка создания отменена. Можно изменить форму и сохранить заново.')
+        } else if (cause instanceof Error && cause.message === 'CREATED_RESOURCE_GONE') {
+          targetId.current = undefined
+          setError('Созданный шаблон уже удалён. Он не восстановлен. При необходимости сохраните форму как новый шаблон.')
+        } else setError(failure)
       }
     } finally {
       if (alive.current && token === generation.current) {
@@ -351,7 +394,7 @@ function IdentityEditor({
     }, 'Не удалось сохранить. Введённые данные сохранены на экране.')
   }
   const recoverCreation = () => {
-    if (!creation?.id || busy || lock.current) return
+    if ((!creation?.id && !creation?.recoverable) || busy || lock.current) return
     const token = generation.current
     void run(async () => {
       const item = await proposalsApi.recoverTemplate(operation())
@@ -364,6 +407,26 @@ function IdentityEditor({
       setMessage('Сохранено')
     }, 'Не удалось перечитать созданный шаблон. Повторите чтение.')
   }
+  const cancelCreation = () => {
+    if (!creation?.recoverable || creation.inflight || busy || lock.current) return
+    const cancel = () => void run(async () => {
+      const token = generation.current
+      const item = await proposalsApi.cancelTemplate(operation())
+      if (!alive.current || token !== generation.current) return
+      setCreation(undefined)
+      targetId.current = item?._id
+      if (item) {
+        const next = fromTemplate(item)
+        baseline.current = JSON.stringify(next)
+        setDraft(next)
+        setMessage('Шаблон уже был сохранён. Открыта сохранённая версия.')
+      } else setMessage('Попытка создания отменена. Можно изменить форму и сохранить заново.')
+    }, 'Не удалось подтвердить отмену. Продолжите проверку отмены.')
+    if (creation.cancelRequested) cancel()
+    else Alert.alert('Отменить попытку создания?', 'Форма останется на экране. Если шаблон уже сохранён, откроется его сохранённая версия; она не будет удалена.', [
+      { text: 'Назад', style: 'cancel' }, { text: 'Отменить попытку', onPress: cancel },
+    ])
+  }
   const showPreview = () => {
     if (!draft || blocked) return
     const token = generation.current
@@ -371,7 +434,7 @@ function IdentityEditor({
       const data = isTemplate
         ? await proposalsApi.previewTemplate(
             targetId.current || 'new',
-            body(draft),
+            body(draft, true),
             operation()
           )
         : await proposalsApi.previewProposal(id, body(draft), operation())
@@ -396,19 +459,15 @@ function IdentityEditor({
     change({ blocks })
   }
   const upload = (mediaKind: 'image' | 'video', logo = false) => {
-    if (!draft || blocked || !editable) return
+    if (!draft || blocked || !editable || (!logo && draft.media.length >= 10))
+      return
     const token = generation.current
     void run(async () => {
       const result = await DocumentPicker.getDocumentAsync({
         type:
           mediaKind === 'image'
-            ? [
-                'image/png',
-                'image/jpeg',
-                'image/webp',
-                ...(!logo ? ['image/gif'] : []),
-              ]
-            : ['video/mp4', 'video/webm'],
+            ? ['image/png', 'image/jpeg', 'image/webp']
+            : ['video/mp4'],
         copyToCacheDirectory: true,
         multiple: false,
       })
@@ -416,8 +475,14 @@ function IdentityEditor({
         return
       const asset = result.assets[0]
       const url = logo
-        ? await proposalsApi.uploadLogo(id, asset, operation())
-        : await proposalsApi.uploadMedia(
+        ? isTemplate
+          ? await proposalsApi.uploadTemplateLogo(
+              targetId.current || 'new',
+              asset,
+              operation()
+            )
+          : await proposalsApi.uploadLogo(targetId.current!, asset, operation())
+        : await proposalsApi.uploadGallery(
             kind,
             targetId.current || uploadKey,
             asset,
@@ -482,6 +547,95 @@ function IdentityEditor({
       ]
     )
   }
+  const modernSections = Boolean(
+    draft &&
+    ['header', 'packagesIntro', 'closing'].every((type) =>
+      draft.blocks.some((block) => block.type === type)
+    )
+  )
+  // Keep the persisted snapshot intact. Missing optional sections are only
+  // materialized after an explicit user action; legacy blocks are not removed.
+  const editorBlocks = !draft
+    ? []
+    : modernSections
+      ? ['header', 'packagesIntro', 'packages', 'packagesOutro', 'closing'].map(
+          (type) =>
+            draft.blocks.find((block) => block.type === type) || {
+              id: type,
+              type,
+              enabled: false,
+              contentHtml: '',
+            }
+        )
+      : draft.blocks
+  const updateSection = (
+    block: ProposalBlock,
+    patch: Partial<ProposalBlock>
+  ) => {
+    if (!draft) return
+    const index = draft.blocks.findIndex((item) => item.type === block.type)
+    if (index < 0) change({ blocks: [...draft.blocks, { ...block, ...patch }] })
+    else patchBlock(index, patch)
+  }
+  const moveMedia = (index: number, delta: number) => {
+    if (
+      !draft ||
+      blocked ||
+      index + delta < 0 ||
+      index + delta >= draft.media.length
+    )
+      return
+    const media = [...draft.media]
+    ;[media[index], media[index + delta]] = [media[index + delta], media[index]]
+    change({ media })
+  }
+  const addVideoLink = () => {
+    if (!draft || blocked || draft.media.length >= 10) return
+    const media = normalizeProposalMedia([
+      {
+        id: Crypto.randomUUID(),
+        kind: 'video_link',
+        url: videoLink,
+        title: 'Видео',
+      },
+    ]) as ProposalMedia[]
+    if (!media.length) {
+      setError(
+        'Укажите корректную http(s)-ссылку на VK Video, Rutube, YouTube или Vimeo'
+      )
+      return
+    }
+    change({ media: [...draft.media, ...media] })
+    setVideoLink('')
+  }
+  const packagesEditor = draft ? (
+    <>
+      <SectionTitle>Варианты предложения</SectionTitle>
+      {servicesLoading ? <Notice message="Загружаем каталог услуг…" /> : null}
+      {catalogError ? (
+        <>
+          <Notice
+            tone="warning"
+            message="Каталог услуг не загрузился. Снимки позиций сохранены; повторите чтение каталога."
+          />
+          <Button
+            title="Повторить каталог"
+            variant="secondary"
+            onPress={() => void fetchServices()}
+            disabled={busy}
+          />
+        </>
+      ) : null}
+      <ProposalPackagesEditor
+        packages={draft.packages}
+        services={services}
+        catalogUnavailable={catalogError || servicesLoading}
+        disabled={conditionsLocked || !editable || busy || Boolean(creation)}
+        onChange={(packages) => change({ packages })}
+        onPendingChange={setPending}
+      />
+    </>
+  ) : null
   return (
     <Screen keyboardShouldPersistTaps="handled">
       <PageHeader
@@ -517,24 +671,34 @@ function IdentityEditor({
               <Notice
                 tone="warning"
                 message={
-                  creation.id
+                  creation.cancelRequested
+                    ? 'Отмена ещё не подтверждена. Завершите её проверку; сохранённый шаблон не будет удалён.'
+                    : creation.id
                     ? 'Создание не подтверждено чтением. Повторите точное чтение шаблона.'
-                    : 'Результат создания неизвестен. Новое создание заблокировано: ответ сервера потерян. Проверьте шаблоны; автоматическое восстановление недоступно.'
+                    : creation.recoverable ? 'Создание не подтверждено. Форма сохранена на устройстве. Продолжите эту попытку без создания дубля.'
+                    : 'Результат создания неизвестен. Проверьте шаблоны; для этой старой попытки автоматическое восстановление недоступно.'
                 }
               />
-              {creation.id ? (
+              {!creation.cancelRequested && (creation.id || creation.recoverable) ? (
                 <Button
-                  title="Повторить чтение созданного шаблона"
+                  title={creation.id ? 'Повторить чтение созданного шаблона' : 'Продолжить создание шаблона'}
                   variant="secondary"
                   disabled={busy}
                   onPress={recoverCreation}
                 />
               ) : null}
+              {creation.recoverable && (!creation.id || creation.cancelRequested) ? (
+                <Button title={creation.cancelRequested ? 'Завершить отмену' : 'Отменить попытку создания'}
+                  variant="secondary" disabled={busy || creation.inflight} onPress={cancelCreation} />
+              ) : null}
             </>
           ) : null}
           {message ? <Notice tone="success" message={message} /> : null}
-          {!editable ? (
-            <Notice message="Опубликованный снимок доступен для просмотра. Чтобы изменить его, создайте новую версию в списке КП." />
+          {draft.status === 'published' ? (
+            <Notice message="Изменения сохранят прежнюю ссылку КП. Если изменить ещё не применённые условия, клиенту потребуется выбрать вариант заново." />
+          ) : null}
+          {conditionsLocked ? (
+            <Notice message="Варианты программ зафиксированы. Все остальные поля, включая условия и контакты, можно редактировать. Принятый выбор и данные заказа сохранятся." />
           ) : null}
           <Surface>
             <CompactField
@@ -566,49 +730,64 @@ function IdentityEditor({
                   maxLength={10}
                   onChangeText={(validUntil) => change({ validUntil })}
                 />
-                <SectionTitle>Оформление клиентской страницы</SectionTitle>
-                <View style={styles.row}>
-                  {(
-                    [
-                      ['classic', 'Классика'],
-                      ['light', 'Светлое'],
-                      ['blue', 'Синее'],
-                      ['dark', 'Тёмное'],
-                    ] as const
-                  ).map(([theme, title]) => (
-                    <Button
-                      key={theme}
-                      title={`${draft.appearance.theme === theme ? '✓ ' : ''}${title}`}
-                      variant="secondary"
-                      disabled={!editable || blocked}
-                      onPress={() =>
-                        change({ appearance: { ...draft.appearance, theme } })
-                      }
-                      style={styles.flex}
-                    />
-                  ))}
-                </View>
+              </>
+            ) : null}
+            <SectionTitle>Оформление клиентской страницы</SectionTitle>
+            <View style={styles.row}>
+              {(
+                [
+                  ['classic', 'Классика'],
+                  ['light', 'Светлое'],
+                  ['blue', 'Синее'],
+                  ['dark', 'Тёмное'],
+                ] as const
+              ).map(([theme, title]) => (
                 <Button
-                  title="Загрузить логотип"
+                  key={theme}
+                  title={`${draft.appearance.theme === theme ? '✓ ' : ''}${title}`}
                   variant="secondary"
                   disabled={!editable || blocked}
-                  onPress={() => upload('image', true)}
+                  onPress={() =>
+                    change({ appearance: { ...draft.appearance, theme } })
+                  }
+                  style={styles.flex}
                 />
-                {draft.appearance.logoUrl ? (
-                  <>
-                    <Text style={styles.muted}>Логотип загружен</Text>
-                    <Button
-                      title="Убрать логотип"
-                      variant="secondary"
-                      disabled={!editable || blocked}
-                      onPress={() =>
-                        change({
-                          appearance: { ...draft.appearance, logoUrl: '' },
-                        })
-                      }
-                    />
-                  </>
-                ) : null}
+              ))}
+            </View>
+            <View style={styles.row}>
+              {(['left', 'center', 'right'] as const).map((logoAlignment) => (
+                <Button
+                  key={logoAlignment}
+                  title={`${(draft.appearance.logoAlignment || 'left') === logoAlignment ? '✓ ' : ''}Логотип: ${{ left: 'слева', center: 'по центру', right: 'справа' }[logoAlignment]}`}
+                  disabled={blocked}
+                  variant="secondary"
+                  onPress={() =>
+                    change({
+                      appearance: { ...draft.appearance, logoAlignment },
+                    })
+                  }
+                />
+              ))}
+            </View>
+            <Button
+              title="Загрузить логотип"
+              variant="secondary"
+              disabled={!editable || blocked}
+              onPress={() => upload('image', true)}
+            />
+            {draft.appearance.logoUrl ? (
+              <>
+                <Text style={styles.muted}>Логотип загружен</Text>
+                <Button
+                  title="Убрать логотип"
+                  variant="secondary"
+                  disabled={!editable || blocked}
+                  onPress={() =>
+                    change({
+                      appearance: { ...draft.appearance, logoUrl: '' },
+                    })
+                  }
+                />
               </>
             ) : null}
             {isTemplate ? (
@@ -628,100 +807,130 @@ function IdentityEditor({
               />
             ) : null}
           </Surface>
-          <SectionTitle>Варианты предложения</SectionTitle>
-          {servicesLoading ? (
-            <Notice message="Загружаем каталог услуг…" />
-          ) : null}
-          {catalogError ? (
-            <>
-              <Notice
-                tone="warning"
-                message="Каталог услуг не загрузился. Снимки позиций сохранены; повторите чтение каталога."
-              />
-              <Button
-                title="Повторить каталог"
-                variant="secondary"
-                onPress={() => void fetchServices()}
-                disabled={busy}
-              />
-            </>
-          ) : null}
-          <ProposalPackagesEditor
-            packages={draft.packages}
-            services={services}
-            catalogUnavailable={catalogError || servicesLoading}
-            disabled={!editable || busy || Boolean(creation)}
-            onChange={(packages) => change({ packages })}
-            onPendingChange={setPending}
-          />
+          {!modernSections ? packagesEditor : null}
           <SectionTitle help={getFieldHelp('proposal.blocks')}>
             Блоки клиентской страницы
           </SectionTitle>
-          {draft.blocks.map((block, index) => (
+          {editorBlocks.map((block, index) => (
             <Surface key={block.id || block.type}>
-              <Button
-                title={`${block.enabled !== false ? '✓ ' : '○ '}${blockLabels[block.type] || 'Блок'} · ${block.enabled !== false ? 'показывается' : 'скрыт'}`}
-                variant="secondary"
-                disabled={!editable || blocked}
-                onPress={() =>
-                  patchBlock(index, { enabled: block.enabled === false })
-                }
-              />
-              <CompactField
-                label={`Заголовок блока ${index + 1}`}
-                value={block.title || ''}
-                maxLength={300}
-                editable={editable && !blocked}
-                onChangeText={(title) => patchBlock(index, { title })}
-              />
-              {['intro', 'benefits', 'terms', 'cta'].includes(block.type) ? (
-                <RichTextEditor
-                  kind={kind}
-                  id={targetId.current || uploadKey}
-                  block={block}
-                  value={block.contentHtml}
-                  disabled={!editable || busy || pending || Boolean(creation)}
-                  onBusyChange={setPending}
-                  operation={operation}
-                  onChange={(contentHtml) => patchBlock(index, { contentHtml })}
-                />
-              ) : block.type === 'cover' ? (
-                <CompactField
-                  label="Подзаголовок"
-                  value={block.text || ''}
-                  multiline
-                  maxLength={8000}
-                  editable={editable && !blocked}
-                  onChangeText={(text) => patchBlock(index, { text })}
-                />
-              ) : null}
-              <View style={styles.row}>
+              {modernSections &&
+              block.enabled !== false &&
+              ['header', 'closing'].includes(block.type) ? (
+                <SectionTitle>{blockLabels[block.type]}</SectionTitle>
+              ) : (
                 <Button
-                  title="Выше"
+                  title={`${block.enabled !== false ? '✓ ' : '○ '}${blockLabels[block.type] || 'Блок'} · ${block.enabled !== false ? 'показывается' : 'скрыт'}`}
                   variant="secondary"
-                  disabled={!editable || blocked || index === 0}
-                  onPress={() => move(index, -1)}
-                  style={styles.flex}
-                />
-                <Button
-                  title="Ниже"
-                  variant="secondary"
-                  disabled={
-                    !editable || blocked || index === draft.blocks.length - 1
+                  disabled={!editable || blocked}
+                  onPress={() =>
+                    updateSection(block, { enabled: block.enabled === false })
                   }
-                  onPress={() => move(index, 1)}
-                  style={styles.flex}
                 />
-              </View>
+              )}
+              {block.enabled !== false ? (
+                <>
+                  {!modernSections || block.type === 'packages' ? (
+                    <CompactField
+                      label={
+                        modernSections
+                          ? 'Заголовок вариантов'
+                          : `Заголовок блока ${index + 1}`
+                      }
+                      value={block.title || ''}
+                      maxLength={300}
+                      editable={editable && !blocked}
+                      onChangeText={(title) => updateSection(block, { title })}
+                    />
+                  ) : null}
+                  {modernSections && block.type === 'packages'
+                    ? packagesEditor
+                    : null}
+                  {[
+                    'intro',
+                    'benefits',
+                    'terms',
+                    'cta',
+                    'header',
+                    'packagesIntro',
+                    'packagesOutro',
+                    'closing',
+                  ].includes(block.type) ? (
+                    <RichTextEditor
+                      kind={kind}
+                      id={targetId.current || uploadKey}
+                      block={block}
+                      value={block.contentHtml}
+                      disabled={
+                        !editable ||
+                        busy ||
+                        pending ||
+                        Boolean(creation)
+                      }
+                      onBusyChange={setPending}
+                      operation={operation}
+                      onChange={(contentHtml) =>
+                        updateSection(block, { contentHtml })
+                      }
+                    />
+                  ) : block.type === 'cover' ? (
+                    <CompactField
+                      label="Подзаголовок"
+                      value={block.text || ''}
+                      multiline
+                      maxLength={8000}
+                      editable={editable && !blocked}
+                      onChangeText={(text) => updateSection(block, { text })}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {!modernSections ? (
+                <View style={styles.row}>
+                  <Button
+                    title="Выше"
+                    variant="secondary"
+                    disabled={
+                      !editable || blocked || index === 0
+                    }
+                    onPress={() => move(index, -1)}
+                    style={styles.flex}
+                  />
+                  <Button
+                    title="Ниже"
+                    variant="secondary"
+                    disabled={
+                      !editable ||
+                      blocked ||
+                      index === draft.blocks.length - 1
+                    }
+                    onPress={() => move(index, 1)}
+                    style={styles.flex}
+                  />
+                </View>
+              ) : null}
             </Surface>
           ))}
           <Surface>
             <SectionTitle>Медиа предложения</SectionTitle>
-            {draft.media.map((media) => (
+            {draft.media.map((media, index) => (
               <View key={media.id} style={{ gap: 8 }}>
                 <Text style={styles.text}>
                   {media.title || media.fileName || mediaLabels[media.kind]}
                 </Text>
+                <View style={styles.row}>
+                  <Button
+                    title={`Выше: ${media.title || media.fileName || mediaLabels[media.kind]}`}
+                    variant="secondary"
+                    disabled={blocked || index === 0}
+                    onPress={() => moveMedia(index, -1)}
+                  />
+                  <Button
+                    title={`Ниже: ${media.title || media.fileName || mediaLabels[media.kind]}`}
+                    variant="secondary"
+                    disabled={blocked || index === draft.media.length - 1}
+                    onPress={() => moveMedia(index, 1)}
+                  />
+                </View>
                 <Button
                   title="Удалить медиа из предложения"
                   variant="danger"
@@ -748,6 +957,25 @@ function IdentityEditor({
                 />
               </View>
             ))}
+            <CompactField
+              label="Ссылка на видео"
+              value={videoLink}
+              onChangeText={setVideoLink}
+              maxLength={2000}
+              autoCapitalize="none"
+              editable={!blocked && draft.media.length < 10}
+            />
+            <Button
+              title="Добавить видео-ссылку"
+              variant="secondary"
+              disabled={
+                blocked || !videoLink.trim() || draft.media.length >= 10
+              }
+              onPress={addVideoLink}
+            />
+            <Text style={styles.muted}>
+              До 10 файлов или ссылок. JPG, PNG, WebP до 10 МБ; MP4 до 50 МБ.
+            </Text>
             <View style={styles.row}>
               <Button
                 title="Добавить фото в медиа"

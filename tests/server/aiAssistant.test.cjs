@@ -32,11 +32,47 @@ async function harness({ intent = 'create', clients = [], parsed = {}, context =
     },
   })
   const route = load('app/api/events/ai-edit/route.js')
-  return { created, calls, searches, post: async (body) => {
-    const response = await route.POST(new Request('http://test/api/events/ai-edit', { method: 'POST', body: JSON.stringify(body) }))
+  const native = load('app/api/mobile/v1/events/ai-assistant/route.js')
+  const postTo = route => async body => {
+    const response = await route.POST(new Request('http://test/api/events/ai-edit', { method: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify(body) }))
     return { status: response.status, body: await response.json() }
-  } }
+  }
+  return { created, calls, searches, post: postTo(route), postNative: postTo(native) }
 }
+
+test('native assistant returns a proposed client without writing, even if the caller requests early creation or a foreign tenant', async () => {
+  const h = await harness({ clients: [{ _id: 'foreign', tenantId: 'tenant-b', phone: 79992222222 }], parsed: { clientName: 'Анна' } })
+  const r = await h.postNative({ mode: 'apply', planId: 'foreign', tenantId: 'tenant-b', deferClientCreation: false, text: 'Создай заявку, клиент Анна', clipboardPhone: '79992222222' })
+  assert.equal(r.status, 200)
+  assert.equal(r.body.clientCreated, false)
+  assert.equal(String(r.body.clientDraft.phone), '79992222222')
+  assert.equal(r.body.clientDraft.firstName, 'Анна')
+  assert.equal(r.body.fields.clientId, undefined)
+  assert.equal(h.created.length, 0)
+  assert.equal(h.calls.length, 2)
+})
+
+test('native creation links an existing own client, while duplicate phone remains an explicit choice', async () => {
+  for (const count of [1, 2]) {
+    const h = await harness({ clients: Array.from({ length: count }, (_, index) => ({ _id: `own-${index}`, tenantId: 'tenant-a', phone: 79992222222 })) })
+    const r = await h.postNative({ text: 'Создай заявку', clipboardPhone: '79992222222' })
+    assert.equal(r.status, 200)
+    assert.equal(r.body.clientCreated, false)
+    assert.equal(r.body.clientDraft, null)
+    assert.equal(r.body.fields.clientId, count === 1 ? 'own-0' : undefined)
+    if (count === 2) assert.match(r.body.aiWarnings[0], /нескольких клиентов/)
+    assert.equal(h.created.length, 0)
+  }
+})
+
+test('native wrapper retains authentication and tariff checks before paid work or writes', async () => {
+  for (const [options, status] of [[{ context: {} }, 401], [{ access: { allowAi: false } }, 403], [{ access: { allowAi: true, hasTariff: false } }, 403]]) {
+    const h = await harness(options)
+    assert.equal((await h.postNative({ text: 'Создай заявку' })).status, status)
+    assert.equal(h.calls.length, 0)
+    assert.equal(h.created.length, 0)
+  }
+})
 
 test('auto create uses the clipboard phone, not the model-selected namesake or another tenant', async () => {
   const h = await harness({ clients: [

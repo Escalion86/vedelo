@@ -2,9 +2,9 @@ import { checkedConversation, confirmSentMessage, conversationHistory, conversat
 const id = '111111111111111111111111'
 const conversation = { _id: id, status: 'open', unreadCount: 0 }
 const message = { _id: '222222222222222222222222', direction: 'outgoing', status: 'sent', text: 'Ответ' }
-it.each(['telegram', '', 'VK', 'avito/', ['vk'], undefined])('Y: provider %p не принимается', (value) => expect(conversationProvider(value)).toBe(false))
+it.each(['email', '', 'VK', 'avito/', ['vk'], undefined])('Y: provider %p не принимается', (value) => expect(conversationProvider(value)).toBe(false))
 it('Y: реальные лимиты обоих API и DTO без обязательного conversationId', () => {
-  expect(messageLimit).toEqual({ avito: 4000, vk: 4000 })
+  expect(messageLimit).toEqual({ avito: 4000, vk: 4000, telegram: 4000 })
   expect(sentMessage({ success: true, data: { message } })).toEqual(message)
 })
 it('Y: exact conversation ID/provider и server links обязательны', () => {

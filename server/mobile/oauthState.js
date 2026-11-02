@@ -16,13 +16,15 @@ export const createMobileOAuthState = ({
   tenantId,
   sessionId,
   appScheme = 'vedelo',
+  purpose = 'sync',
   secret,
   now = Date.now(),
   ttlMs = DEFAULT_TTL_MS,
 }) => {
-  if (!userId || !tenantId || !sessionId || !secret) return ''
+  if (!userId || !tenantId || !sessionId || !secret || !['sync', 'import'].includes(purpose)) return ''
   const payload = encode(JSON.stringify({
     type: 'google-calendar',
+    purpose,
     userId: String(userId),
     tenantId: String(tenantId),
     sessionId: String(sessionId),
@@ -37,7 +39,9 @@ export const createMobileOAuthState = ({
 }
 
 export const verifyMobileOAuthState = (state, secret, now = Date.now()) => {
-  const [prefix, payload, providedSignature] = String(state || '').split('.')
+  const parts = String(state || '').split('.')
+  if (parts.length !== 3) return null
+  const [prefix, payload, providedSignature] = parts
   if (prefix !== PREFIX || !payload || !providedSignature || !secret) return null
   const signedValue = `${prefix}.${payload}`
   const expectedSignature = signature(signedValue, secret)
@@ -48,6 +52,8 @@ export const verifyMobileOAuthState = (state, secret, now = Date.now()) => {
   try {
     const parsed = JSON.parse(decode(payload))
     if (parsed?.type !== 'google-calendar') return null
+    if (parsed.purpose !== undefined && !['sync', 'import'].includes(parsed.purpose)) return null
+    if (!['vedelo', 'vedelo-dev', 'artistcrm', 'artistcrm-dev'].includes(parsed.appScheme)) return null
     if (!parsed.userId || !parsed.tenantId || !parsed.sessionId) return null
     if (!Number.isFinite(Number(parsed.exp)) || Number(parsed.exp) <= now) return null
     return parsed

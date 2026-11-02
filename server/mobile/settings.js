@@ -25,6 +25,10 @@ const sanitizeMobileSettings = (settings) => {
       onboardingStarterServicesCreated:
         custom.onboardingStarterServicesCreated === true,
       showColleagueTransferFields: custom.showColleagueTransferFields === true,
+      eventFormVariant: custom.eventFormVariant === 'classic' ? 'classic' : 'compact',
+      cancelReasons: Array.isArray(custom.cancelReasons)
+        ? custom.cancelReasons.filter((item) => typeof item === 'string')
+        : [],
       mobileTheme: custom.mobileTheme === 'dark' ? 'dark' : 'light',
       eventTypes: Array.isArray(custom.eventTypes)
         ? custom.eventTypes.filter((item) => typeof item === 'string')

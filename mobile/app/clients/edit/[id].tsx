@@ -1,6 +1,11 @@
 import { resetClientMessengerAvailability } from '../../../src/shared/domain/clientMessengerAvailability'
 import { normalizeMaxContactInput } from '../../../src/shared/domain/maxContact'
+import { normalizeAvitoContactUrl } from '../../../src/shared/domain/avitoContact'
+import * as Clipboard from 'expo-clipboard'
+import { normalizeDevicePhone } from '../../../src/shared/native/contactImport'
 import { setPendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
+import { consumeSharedDraft, readSharedDraft } from '../../../src/shared/native/shareDraft'
+import { deviceSession } from '../../../src/shared/native/device'
 import { useEffect, useRef, useState } from 'react'
 import { usePreventRemove } from '@react-navigation/native'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -33,6 +38,11 @@ import { FieldHelp } from '../../../src/shared/ui/FieldHelp'
 import { useClientTypes } from '../../../src/shared/hooks/useClientTypes'
 import { clientTypeOptions } from '../../../src/shared/domain/clientTypes'
 import { ClientTypesSection } from '../../../src/features/settings/ClientTypesSection'
+import { readAiCreateReview, saveAiSuggestedClient, type AiCreateReview } from '../../../src/features/events/aiCreateReview'
+import { aiReviewError } from '../../../src/features/events/aiReview'
+import { ConfirmedAiClient } from '../../../src/features/events/ConfirmedAiForm'
+import { getAuthSessionEpoch } from '../../../src/shared/auth/tokenStore'
+import { localDataEpoch } from '../../../src/shared/storage/localEntityCoordination'
 
 const CONTACT_CHANNELS = [
   ['phone', 'Телефон'],
@@ -40,11 +50,12 @@ const CONTACT_CHANNELS = [
   ['whatsapp', 'WhatsApp'],
   ['max', 'MAX'],
   ['vk', 'VK'],
+  ['avito', 'Avito'],
   ['other', 'Другое'],
 ] as const
 
 const emptyValues = {
-  firstName: '', secondName: '', thirdName: '', phone: '', email: '', telegram: '',
+  firstName: '', secondName: '', thirdName: '', phone: '', email: '', telegram: '', telegramPhone: '', avitoUrl: '',
   whatsapp: '', max: '', viber: '', instagram: '', vk: '', town: '', clientType: 'none',
   preferredContactChannel: '' as NonNullable<Client['preferredContactChannel']>,
   preferredContactChannelOther: '', messengerPushMuted: false, comment: '',
@@ -64,23 +75,42 @@ export default function ClientEditScreen() {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const navigation = useNavigation()
-  const params = useLocalSearchParams<{ id: string; returnTo?: string }>()
+  const params = useLocalSearchParams<{ id: string; returnTo?: string; phone?: string; name?: string; shareDraft?: string; aiDraft?: string }>()
   const { id } = params
   const isNew = id === 'new'
+  const [aiScope] = useState(() => isNew && params.aiDraft ? { epoch: localDataEpoch(), auth: getAuthSessionEpoch() } : null)
+  const [aiCreate, setAiCreate] = useState<AiCreateReview | null>(null)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const aiCurrent = () => alive.current && !!aiScope && aiScope.epoch === localDataEpoch() && aiScope.auth === getAuthSessionEpoch()
   // Создание клиента из редактора работы: после сохранения возвращаемся назад и передаём id формы.
   const returnToEvent = params.returnTo === 'event'
   const queryClient = useQueryClient()
-  const [values, setValues] = useState(emptyValues)
+  const [sharedDraft] = useState(() => isNew && params.shareDraft ? readSharedDraft(params.shareDraft, deviceSession()?.generation) : null)
+  useEffect(() => { if (sharedDraft) consumeSharedDraft(sharedDraft.id, sharedDraft.generation) }, [sharedDraft])
+  const [values, setValues] = useState(() => isNew ? { ...emptyValues, phone: params.phone || '', firstName: params.name || '', comment: sharedDraft?.text || '' } : emptyValues)
+  const initialValues = useRef<typeof emptyValues | null>(null)
+  const initialDates = useRef('[]')
   const [significantDates, setSignificantDates] = useState<SignificantDateDraft[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [ready, setReady] = useState(isNew)
+  const [ready, setReady] = useState(isNew && !params.aiDraft)
   const [attempt, setAttempt] = useState(0)
   const [loadError, setLoadError] = useState('')
   const [requisitesOpen, setRequisitesOpen] = useState(false)
-  const [dirty, setDirty] = useState(false)
+  const [dirty, setDirty] = useState(Boolean(sharedDraft))
   const [savedId, setSavedId] = useState('')
   const busy = useRef(false)
+  const hydrateAiClient = (review: AiCreateReview) => {
+    const source = review.clientAttempt?.form.values || review.clientDraft
+    if (!source) throw new Error('Предложенный клиент недоступен')
+    setValues(Object.fromEntries(Object.entries(emptyValues).map(([key, fallback]) => {
+      const value = (source as Record<string, unknown>)[key]
+      return [key, typeof fallback === 'boolean' ? value === true : value == null ? fallback : String(value)]
+    })) as typeof emptyValues)
+    setSignificantDates(review.clientAttempt?.form.dates || [])
+    setAiCreate(review); setDirty(true)
+  }
   usePreventRemove((dirty || loading) && !savedId, ({ data }) => {
     if (busy.current) return
     Alert.alert('Есть несохранённые изменения', 'Остаться в редакторе или выйти без сохранения?', [
@@ -97,15 +127,25 @@ export default function ClientEditScreen() {
 
   useEffect(() => {
     let active = true
+    if (isNew && params.aiDraft) {
+      setReady(false); setLoadError('')
+      readAiCreateReview(params.aiDraft).then(review => {
+        if (!active || !aiCurrent()) return
+        if (!review) throw new Error('Предложения уже закрыты. Откройте помощника заново')
+        hydrateAiClient(review); setReady(true)
+      }).catch(reason => { if (active && aiCurrent()) setLoadError(aiReviewError(reason)) })
+      return () => { active = false }
+    }
     if (isNew) { setReady(true); return }
     setReady(false); setLoadError('')
     getCachedEntity<Client>('clients', id).then((client) => {
       if (!active) return
       if (!client) throw new Error('Клиент не найден в локальных данных')
-      setValues({
+      const loadedValues: typeof emptyValues = {
         firstName: client.firstName || '', secondName: client.secondName || '',
         thirdName: client.thirdName || '', phone: String(client.phone || ''),
         max: client.max || '', email: client.email || '', telegram: client.telegram || '',
+        telegramPhone: String(client.telegramPhone || ''), avitoUrl: client.avitoUrl || '',
         whatsapp: String(client.whatsapp || ''), viber: String(client.viber || ''),
         instagram: client.instagram || '', vk: client.vk || '', town: client.town || '',
         clientType: client.clientType || 'none',
@@ -118,7 +158,10 @@ export default function ClientEditScreen() {
         checkingAccount: client.checkingAccount || '',
         correspondentAccount: client.correspondentAccount || '',
         legalAddress: client.legalAddress || '',
-      })
+      }
+      initialValues.current = loadedValues
+      setValues(loadedValues)
+      initialDates.current = JSON.stringify(serializeSignificantDates((client.significantDates || []).map(item => ({ ...item, localKey: '', dateInput: formatSignificantDateInput(item.date) }))))
       setSignificantDates((client.significantDates || []).map((item) => ({
         ...item,
         localKey: localKey(),
@@ -127,7 +170,7 @@ export default function ClientEditScreen() {
       setReady(true); setDirty(false)
     }).catch((cause) => { if (active) setLoadError(cause instanceof Error ? cause.message : 'Не удалось загрузить клиента') })
     return () => { active = false }
-  }, [id, isNew, attempt])
+  }, [id, isNew, attempt, params.aiDraft])
 
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => {
     setDirty(true); setValues((current) => ({ ...current, [key]: value }))
@@ -148,6 +191,7 @@ export default function ClientEditScreen() {
       setError('MAX: укажите ссылку max.ru на контакт или российский номер телефона')
       return
     }
+    if (values.avitoUrl.trim() && !normalizeAvitoContactUrl(values.avitoUrl)) { setError('Avito: укажите HTTPS-ссылку на профиль пользователя avito.ru/user/…/profile'); return }
     const dateError = validateSignificantDates(significantDates)
     if (dateError) {
       setError(dateError)
@@ -158,30 +202,50 @@ export default function ClientEditScreen() {
     try {
       const existing = isNew ? null : await getCachedEntity<Client>('clients', id)
       if (!isNew && !existing) throw new Error('Клиент удалён. Изменения не сохранены.')
-      const entity = await saveLocalEntity({
+      const prepared = {
+        ...values,
+        firstName: values.firstName.trim(), secondName: values.secondName.trim(), thirdName: values.thirdName.trim(),
+        phone: phoneNumber(values.phone), whatsapp: phoneNumber(values.whatsapp), viber: phoneNumber(values.viber),
+        telegramPhone: phoneNumber(values.telegramPhone), avitoUrl: normalizeAvitoContactUrl(values.avitoUrl),
+        max: normalizeMaxContactInput(values.max), email: values.email.trim(), telegram: values.telegram.trim(),
+        instagram: values.instagram.trim(), vk: values.vk.trim(), town: values.town.trim(), comment: values.comment.trim(),
+        preferredContactChannelOther: values.preferredContactChannel === 'other' ? values.preferredContactChannelOther.trim() : '',
+        significantDates: serializeSignificantDates(significantDates),
+      }
+      const patch = isNew ? prepared : Object.fromEntries(Object.entries(prepared).filter(([key]) => {
+        if (key === 'significantDates') return JSON.stringify(prepared.significantDates) !== initialDates.current
+        if (key === 'preferredContactChannelOther' && values.preferredContactChannel !== initialValues.current?.preferredContactChannel) return true
+        return values[key as keyof typeof values] !== initialValues.current?.[key as keyof typeof values]
+      }))
+      const safeValues = resetClientMessengerAvailability(existing, { ...patch,
+        ...(Object.hasOwn(patch, 'phone') && !Object.hasOwn(patch, 'telegramPhone') ? { telegramPhone: existing?.telegramPhone ?? null } : {}),
+      })
+      const entity = aiCreate ? await saveAiSuggestedClient(aiCreate._id, safeValues, { values, dates: significantDates }, aiCurrent) : await saveLocalEntity({
         entityType: 'clients',
         entityId: isNew ? undefined : id,
-        values: resetClientMessengerAvailability(existing, {
-          ...values,
-          firstName: values.firstName.trim(), secondName: values.secondName.trim(),
-          thirdName: values.thirdName.trim(), phone: phoneNumber(values.phone),
-          whatsapp: phoneNumber(values.whatsapp), viber: phoneNumber(values.viber),
-          max: normalizeMaxContactInput(values.max), email: values.email.trim(), telegram: values.telegram.trim(),
-          instagram: values.instagram.trim(), vk: values.vk.trim(), town: values.town.trim(),
-          comment: values.comment.trim(),
-          preferredContactChannelOther: values.preferredContactChannel === 'other'
-            ? values.preferredContactChannelOther.trim()
-            : '',
-          significantDates: serializeSignificantDates(significantDates),
-        }),
+        values: safeValues,
       })
+      if (aiCreate && !aiCurrent()) return
       await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'clients'] })
       setDirty(false); setSavedId(entity._id)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Не удалось сохранить клиента')
+      setError(aiCreate ? aiReviewError(reason) : reason instanceof Error ? reason.message : 'Не удалось сохранить клиента')
+      if (aiCreate && aiCurrent()) {
+        const pending = await readAiCreateReview(aiCreate._id).catch(() => null)
+        if (pending?.clientAttempt && aiCurrent()) hydrateAiClient(pending)
+      }
     } finally {
       busy.current = false; setLoading(false)
     }
+  }
+
+  const pastePhone = async (field: 'phone' | 'telegramPhone') => {
+    try {
+      const text = await Clipboard.getStringAsync()
+      const number = normalizeDevicePhone(text)
+      if (number.length < 7 || number.length > 15 || /[a-zа-я]/i.test(text.replace(/^tel:/i, ''))) { setError('В буфере нет корректного номера телефона'); return }
+      set(field, number)
+    } catch { setError('Не удалось прочитать буфер обмена') }
   }
 
   const remove = () => Alert.alert(
@@ -210,11 +274,20 @@ export default function ClientEditScreen() {
   return (
     <Screen keyboardShouldPersistTaps="handled">
       <PageHeader title={isNew ? 'Создание клиента' : 'Редактирование клиента'} />
+      {aiCreate?.clientAttempt ? <ConfirmedAiClient form={aiCreate.clientAttempt.form} clientTypeLabel={clientTypes.items.find(item => item.value === aiCreate.clientAttempt?.form.values.clientType)?.name} /> : null}
+      <View style={{ gap: spacing.md }} pointerEvents={loading || aiCreate?.clientAttempt ? 'none' : 'auto'} accessibilityElementsHidden={!!aiCreate?.clientAttempt} importantForAccessibility={aiCreate?.clientAttempt ? 'no-hide-descendants' : 'auto'}>
       <Surface>
         <Field testID="client-first-name" label="ФИО" value={[values.secondName, values.firstName, values.thirdName].filter(Boolean).join(' ')} onChangeText={(value) => { setDirty(true); setValues((current) => ({ ...current, firstName: value, secondName: '', thirdName: '' })) }} maxLength={300} />
         <Field testID="client-phone" label="Телефон" value={values.phone} onChangeText={(value) => set('phone', value)} keyboardType="phone-pad" />
+        <Button title="Вставить телефон из буфера" variant="secondary" onPress={() => void pastePhone('phone')} disabled={loading} />
         <Field label="WhatsApp" value={values.whatsapp} onChangeText={(value) => set('whatsapp', value)} keyboardType="phone-pad" />
-        <Field label="Telegram" value={values.telegram} onChangeText={(value) => set('telegram', value)} autoCapitalize="none" />
+        <Field label="Telegram" value={values.telegram} onChangeText={(value) => {
+          if (/^[+\d\s()-]+$/.test(value) && value.replace(/\D/g, '').length >= 10) set('telegramPhone', normalizeDevicePhone(value))
+          else set('telegram', value)
+        }} autoCapitalize="none" />
+        <Field label="Телефон Telegram" value={values.telegramPhone} onChangeText={(value) => set('telegramPhone', value)} keyboardType="phone-pad" />
+        <Button title="Вставить телефон Telegram" variant="secondary" onPress={() => void pastePhone('telegramPhone')} disabled={loading} />
+        <Field label="Профиль Avito" value={values.avitoUrl} onChangeText={(value) => set('avitoUrl', value)} autoCapitalize="none" />
         <Field label="Instagram" value={values.instagram} onChangeText={(value) => set('instagram', value)} autoCapitalize="none" />
         <Field label="VK" value={values.vk} onChangeText={(value) => set('vk', value)} autoCapitalize="none" />
         <Field label="MAX" value={values.max} onChangeText={(value) => set('max', value)} placeholder="Ссылка max.ru или +7 999 123-45-67" maxLength={500} />
@@ -276,8 +349,9 @@ export default function ClientEditScreen() {
         <Field label="Город" value={values.town} onChangeText={(value) => set('town', value)} />
       </Surface>
 
+      </View>
       {error ? <ErrorNotice message={error} /> : null}
-      <Button testID="save-client" title="Сохранить" onPress={save} loading={loading} />
+      <Button testID="save-client" title={aiCreate?.clientAttempt ? 'Продолжить сохранение' : 'Сохранить'} onPress={save} loading={loading} />
       {!isNew ? <Button title="Удалить клиента" variant="danger" onPress={remove} disabled={loading} /> : null}
       <Text style={styles.hint}>Если сети нет, запись получит статус «Ожидает отправки».</Text>
     </Screen>

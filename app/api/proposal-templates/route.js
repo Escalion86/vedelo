@@ -5,6 +5,7 @@ import ProposalTemplates from '@models/ProposalTemplates'
 import Services from '@models/Services'
 import dbConnect from '@server/dbConnect'
 import getProposalRequestContext from '@server/proposalRequestContext'
+import { prepareResourceCreation, withCreationErrors } from '@server/idempotentResourceCreation'
 import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
@@ -37,16 +38,19 @@ export const GET = async (req) => {
   return NextResponse.json({ success: true, data })
 }
 
-export const POST = async (req) => {
+export const POST = withCreationErrors(async (req, { creationIntent } = {}) => {
   const { tenantId, user } = await getProposalRequestContext(req)
   if (!tenantId || !user?._id) return error('Не авторизован', 401, 'unauthorized')
   if (!canUseProposalBuilder(await getUserTariffAccess(user._id)))
     return error(PROPOSAL_BUILDER_ACCESS_ERROR, 403, 'proposal_tariff_required')
   const body = await req.json().catch(() => ({}))
+  await dbConnect()
+  const creation = await prepareResourceCreation({ model: ProposalTemplates, kind: 'proposal-template', context: { tenantId, user }, body })
+  if (creationIntent === 'cancel') return NextResponse.json({ success: true, data: await creation.cancel() })
+  if (creation.existing) return NextResponse.json({ success: true, data: creation.existing })
   const name = String(body?.name || '').trim().slice(0, 160)
   if (!name) return error('Укажите название шаблона', 400, 'name_required')
-  await dbConnect()
-  const item = await ProposalTemplates.create({
+  const item = await creation.create({
     tenantId,
     name,
     status: body?.status === 'archived' ? 'archived' : 'active',
@@ -57,4 +61,4 @@ export const POST = async (req) => {
     defaults: normalizeProposalTemplateDefaults(body?.defaults),
   })
   return NextResponse.json({ success: true, data: item }, { status: 201 })
-}
+})

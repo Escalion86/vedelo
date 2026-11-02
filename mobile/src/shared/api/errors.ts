@@ -25,7 +25,7 @@ export const parseApiError = async (res: Response) => {
 
   try {
     const json = (await res.json()) as Partial<ApiErrorShape>
-    const message = json?.error?.message || `HTTP ${res.status}`
+    const message = (typeof json?.error === 'string' ? json.error : json?.error?.message) || `HTTP ${res.status}`
     const err = new ApiError(message, res.status)
     err.code = json?.error?.code
     err.type = json?.error?.type || 'unknown'

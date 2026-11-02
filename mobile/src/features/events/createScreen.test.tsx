@@ -4,6 +4,9 @@ import { act, fireEvent as nativeFireEvent, render as nativeRender, waitFor, wit
 import { Alert, Keyboard } from 'react-native'
 import EventEditScreen from '../../../app/events/edit/[id]'
 import { resetPendingEventClient, setPendingEventClient } from '../../shared/domain/eventClientHandoff'
+import { clearSharedDraft, setSharedDraft } from '../../shared/native/shareDraft'
+import { ThemeProvider } from '../../shared/ui/ThemeProvider'
+import { createEventDraft } from '../../shared/domain/eventForm'
 
 require('../../../__tests__/stageO/measuredCleanup.cjs').installMeasuredCleanup()
 installReadiness('create')
@@ -11,6 +14,11 @@ const render = measureRender(nativeRender)
 const fireEvent = measureEvents(nativeFireEvent)
 require('../../../__tests__/stageN/nativeHosts.cjs').initializeNativeHosts(nativeRender)
 let mockParams: Record<string, unknown>
+const mockAiRead = jest.fn(), mockAiSave = jest.fn(), mockAiDiscard = jest.fn(), mockAiRefresh = jest.fn()
+const mockCreateRead = jest.fn(), mockCreateSave = jest.fn(), mockCreateDiscard = jest.fn()
+jest.mock('./aiCreateReview', () => ({ readAiCreateReview: (...args: unknown[]) => mockCreateRead(...args), saveAiCreatedEvent: (...args: unknown[]) => mockCreateSave(...args), discardAiCreateReview: (...args: unknown[]) => mockCreateDiscard(...args) }))
+jest.mock('../../shared/storage/localEntityIds', () => ({ resolveLocalEntityId: async (_kind: string, id: string) => id }))
+jest.mock('./aiReview', () => ({ ...jest.requireActual('./aiReview'), readAiReview: (...args: unknown[]) => mockAiRead(...args), saveAiReview: (...args: unknown[]) => mockAiSave(...args), discardAiReview: (...args: unknown[]) => mockAiDiscard(...args), refreshAiReview: (...args: unknown[]) => mockAiRefresh(...args) }))
 let mockPrevented = false
 let mockOnRemove: (event: any) => void
 let mockClients: any[] = []
@@ -39,6 +47,7 @@ const mockReplace = jest.fn()
 const mockPush = jest.fn()
 const mockInvalidate = jest.fn(async () => undefined)
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon', FontAwesome5: 'Icon' }))
+jest.mock('../../shared/native/device', () => ({ deviceSession: () => ({ generation: 'share-test-session' }) }))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(async () => true) }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock('expo-router', () => ({
@@ -65,6 +74,18 @@ jest.mock('./VoiceDraftSection', () => {
   return { VoiceDraftSection: ({ initialMode }: { initialMode: string }) => <Text>{`mode:${initialMode}`}</Text> }
 })
 
+it.each(['classic', 'compact'])('shared text is visible in the ordinary %s form and survives cache hydration', async variant => {
+  mockSettings = [{ custom: { eventFormVariant: variant } }]
+  mockParams = { id: 'new', initialStatus: 'draft', shareDraft: 'shared-input' }
+  setSharedDraft({ id: 'shared-input', generation: 'share-test-session', text: 'Текст из другой программы', mode: 'manual' })
+  const screen = render(<EventEditScreen />)
+  const description = await screen.findByLabelText('Описание')
+  expect(description.props.value).toBe('Текст из другой программы')
+  expect(screen.queryByText('mode:manual')).toBeNull()
+  await runFocus(); expect(screen.getByLabelText('Описание').props.value).toBe('Текст из другой программы')
+  expect(mockSave).not.toHaveBeenCalled()
+})
+
 const runFocus = async () => {
   const callback = mockFocusCallbacks[mockFocusCallbacks.length - 1]
   mockFocusCallbacks = []
@@ -74,6 +95,7 @@ const runFocus = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  clearSharedDraft()
   mockSavedEntity = null
   mockReadbackFail = false
   mockFocusCallbacks = []
@@ -87,6 +109,85 @@ beforeEach(() => {
   mockSave.mockResolvedValue({ _id: 'local-event' })
   mockGetEntity.mockResolvedValue({ _id: 'existing', status: 'closed', clientId: 'client', eventDate: '2026-10-15', description: 'Существующая работа' })
   resetPendingEventClient()
+  mockAiRead.mockReset(); mockAiSave.mockReset(); mockAiDiscard.mockReset(); mockAiRefresh.mockReset()
+  mockCreateRead.mockReset(); mockCreateSave.mockReset(); mockCreateDiscard.mockReset()
+})
+
+const reviewFixture = () => ({ _id: 'ai-plan', preview: { _id: 'existing', clientId: 'client', status: 'draft' as const, eventType: 'Предложение', description: '<p>Сохранить HTML</p>', syncVersion: 2 },
+  plan: { planId: 'ai-plan', eventId: 'existing', eventTitle: 'Предложение', completed: [], expiresAt: '2030-01-01', eventPatch: { eventType: 'Предложение' }, clientPatch: null,
+    steps: [{ entity: 'event' as const, operation: 'update' as const, description: '', changes: [{ field: 'eventType', label: 'Название', before: 'Было', after: 'Предложение' }] }] } })
+const creationFixture = () => ({ _id: 'ai-create', fields: { status: 'draft', eventType: 'Новая работа', description: 'Из запроса', clientId: 'client' }, sourceText: 'Создай новую работу', aiFilledFields: ['eventType', 'description'], aiWarnings: [], clientDraft: { firstName: 'Анна', phone: 79992222222 } })
+it.each(['light', 'dark'] as const)('AI creation populates an editable ordinary form; new client requires a separate review: %s', async mode => {
+  mockParams = { id: 'new', aiDraft: 'ai-create' }; mockCreateRead.mockResolvedValue(creationFixture())
+  mockCreateSave.mockResolvedValue({ _id: 'created' })
+  const screen = render(<ThemeProvider storage={null} forcedMode={mode}><EventEditScreen /></ThemeProvider>)
+  expect((await screen.findByLabelText('Описание')).props.value).toBe('Из запроса')
+  fireEvent.press(screen.getByText('Проверить нового клиента'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/clients/edit/[id]', params: { id: 'new', returnTo: 'event', aiDraft: 'ai-create' } })
+  expect(mockSave).not.toHaveBeenCalled(); expect(mockCreateSave).not.toHaveBeenCalled()
+  fireEvent.changeText(screen.getByTestId('event-type'), 'Исправлено до сохранения')
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/events/created'))
+  expect(mockCreateSave.mock.calls[0][1]).toMatchObject({ eventType: 'Исправлено до сохранения', clientId: 'client', description: 'Из запроса' })
+  expect(mockSave).not.toHaveBeenCalled()
+})
+it('frozen creation can resume after a client ID remap without revalidating stale form IDs', async () => {
+  const form = createEventDraft(); form.values.clientId = 'local-old-client'; form.values.eventType = 'Подтверждено'
+  const payload = { clientId: 'local-old-client', eventType: 'Подтверждено', status: 'draft' }
+  mockParams = { id: 'new', aiDraft: 'ai-create' }
+  mockCreateRead.mockResolvedValue({ ...creationFixture(), eventAttempt: { operationId: 'same-operation', values: payload, form } })
+  mockCreateSave.mockResolvedValue({ _id: 'created' })
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('Тип работы: Подтверждено')
+  expect(mockCreateSave).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/events/created'))
+  expect(mockCreateSave.mock.calls[0][1]).toEqual(payload)
+})
+it('cancelling AI creation discards only the local review', async () => {
+  mockParams = { id: 'new', aiDraft: 'ai-create' }; mockCreateRead.mockResolvedValue(creationFixture())
+  const screen = render(<EventEditScreen />)
+  await screen.findByTestId('event-type')
+  fireEvent.press(screen.getByTestId('cancel-event'))
+  await waitFor(() => expect(mockCreateDiscard).toHaveBeenCalledWith('ai-create', expect.any(Function)))
+  expect(mockCreateSave).not.toHaveBeenCalled(); expect(mockSave).not.toHaveBeenCalled()
+})
+it.each(['light', 'dark'] as const)('AI review opens the ordinary form and sends only manual corrections: %s', async mode => {
+  mockParams = { id: 'existing', aiPlan: 'ai-plan' }; mockAiRead.mockResolvedValue(reviewFixture())
+  mockAiSave.mockResolvedValue({ _id: 'existing' })
+  const screen = render(<ThemeProvider storage={null} forcedMode={mode}><EventEditScreen /></ThemeProvider>)
+  const input = await screen.findByTestId('event-type')
+  expect(input.props.value).toBe('Предложение')
+  expect(screen.getByTestId('ai-plan-summary')).toBeTruthy()
+  expect(screen.queryByText('mode:manual')).toBeNull()
+  expect(mockAiSave).not.toHaveBeenCalled()
+  fireEvent.changeText(input, 'Исправлено вручную')
+  fireEvent.press(screen.getByTestId('save-event'))
+  await waitFor(() => expect(mockAiSave).toHaveBeenCalledTimes(1))
+  expect(mockAiSave.mock.calls[0][2]).toEqual({ eventType: 'Исправлено вручную' })
+  expect(mockSave).not.toHaveBeenCalled()
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/events/existing'))
+})
+it('recovery restores the confirmed form and does not apply until an explicit save', async () => {
+  const review = reviewFixture(), draft = createEventDraft(review.preview)
+  draft.values.eventType = 'Подтверждённая правка'
+  mockParams = { id: 'existing', aiPlan: 'ai-plan' }
+  mockAiRead.mockResolvedValue({ ...review, attempt: { operationId: 'stable', manualChanges: { eventType: 'Подтверждённая правка' }, draft } })
+  const screen = render(<EventEditScreen />)
+  await screen.findByText('Продолжить сохранение')
+  expect(screen.getByTestId('event-type', { includeHiddenElements: true }).props.value).toBe('Подтверждённая правка')
+  expect(screen.getByText('Тип работы: Подтверждённая правка')).toBeTruthy()
+  expect(mockAiSave).not.toHaveBeenCalled(); expect(mockSave).not.toHaveBeenCalled()
+  expect(screen.getByText('Вернуться позже')).toBeTruthy()
+})
+it('cancelling unconfirmed AI suggestions never calls ordinary save', async () => {
+  mockParams = { id: 'existing', aiPlan: 'ai-plan' }; mockAiRead.mockResolvedValue(reviewFixture())
+  mockAiDiscard.mockResolvedValue(undefined)
+  const screen = render(<EventEditScreen />)
+  await screen.findByTestId('ai-plan-summary')
+  fireEvent.press(screen.getByTestId('cancel-event'))
+  await waitFor(() => expect(mockAiDiscard).toHaveBeenCalledWith('ai-plan', expect.any(Function)))
+  expect(mockAiSave).not.toHaveBeenCalled(); expect(mockSave).not.toHaveBeenCalled()
 })
 
 it.each([
@@ -106,15 +207,16 @@ it.each([
 })
 
 it('смена URL не перезаписывает статус и введённые поля в уже открытой форме', async () => {
-  mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'text' }
+  mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'manual' }
   const screen = render(<EventEditScreen />)
   await act(async () => undefined)
-  expect(screen.getByText('mode:text')).toBeTruthy()
+  expect(screen.getByText('Помощник ИИ')).toBeTruthy()
   fireEvent.changeText(screen.getByTestId('event-type'), 'Введённая работа')
   fireEvent.press(screen.getByText('Заявка'))
   mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'voice' }
   screen.rerender(<EventEditScreen />)
-  expect(screen.getByText('mode:text')).toBeTruthy()
+  expect(screen.getByText('Помощник ИИ')).toBeTruthy()
+  expect(mockReplace).not.toHaveBeenCalled()
   fireEvent.press(screen.getByTestId('save-event'))
   await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
   expect(mockSave.mock.calls[0][0].values).toMatchObject({ status: 'draft', eventType: 'Введённая работа' })
@@ -124,17 +226,19 @@ it.each([['existing', undefined, 'closed'], ['new', 'existing', 'draft']])('URL 
   mockParams = { id, cloneId, initialStatus: 'active', mode: 'voice' }
   const screen = render(<EventEditScreen />)
   await screen.findByDisplayValue('Существующая работа')
-  expect(screen.getByText('mode:manual')).toBeTruthy()
+  if (cloneId) expect(screen.getByText('Помощник ИИ')).toBeTruthy()
+  else { expect(screen.queryByText('mode:manual')).toBeNull(); expect(screen.getByText('Изменить с ИИ')).toBeTruthy() }
   fireEvent.press(screen.getByTestId('save-event'))
   await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
-  expect(mockSave.mock.calls[0][0].values.status).toBe(status)
+  if (mockParams.id === 'new') expect(mockSave.mock.calls[0][0].values.status).toBe(status)
+  else expect(mockSave.mock.calls[0][0].values).not.toHaveProperty('status')
 })
 
-it('уход из новой формы ничего не сохраняет', async () => {
+it('legacy voice entry redirects to the unified assistant without saving', async () => {
   mockParams = { id: 'new', clientId: 'client', initialStatus: 'active', mode: 'voice' }
   const screen = render(<EventEditScreen />)
   await act(async () => undefined)
-  expect(screen.getByText('mode:voice')).toBeTruthy()
+  expect(mockReplace).toHaveBeenCalledWith({ pathname: '/events/assistant', params: { mode: 'voice' } })
   screen.unmount()
   expect(mockSave).not.toHaveBeenCalled()
 })
@@ -316,7 +420,6 @@ it('Q: финансы и факт задатка сериализуются бе
   await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
   const values = mockSave.mock.calls[0][0].values
   expect(values).toMatchObject({
-    waitDeposit: false, depositExpectedAmount: null, depositDueAt: null,
     financeComment: 'Оплачен задаток', isByContract: true,
   })
   for (const key of ['documents', 'documentFiles', 'tenantId', '_id', 'syncVersion']) expect(values).not.toHaveProperty(key)
@@ -501,7 +604,7 @@ it('A: передача видна в сводке и несвязанная п�
   await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1))
   const payload = mockSave.mock.calls[0][0].values
   for (const key of ['isTransferred', 'colleagueId', 'eventType', 'description', 'servicesIds', 'eventDate', 'dateEnd', 'address', 'requestCreatedAt', 'calendarImportChecked', 'fileImportChecked', 'contractSum', 'waitDeposit', 'depositExpectedAmount', 'depositDueAt', 'isByContract', 'otherContacts', 'additionalEvents']) {
-    expect(payload[key]).toEqual((source as any)[key])
+    expect(payload).not.toHaveProperty(key)
   }
   expect(payload.financeComment).toBe('Новая заметка')
 })

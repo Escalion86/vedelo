@@ -1,6 +1,7 @@
 'use client'
 
 import AiBadge from '@components/AiBadge'
+import AndroidCallResults from '@components/AndroidCallResults'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import {
@@ -732,6 +733,7 @@ const CallsContent = () => {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <AndroidCallResults user={loggedUser} />
         {!canUseTelephony && (
           <Notice tone="warning" className="rounded-md p-5">
             IP-телефония, журнал звонков и AI-заявки доступны на тарифе с

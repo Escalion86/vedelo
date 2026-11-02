@@ -1,4 +1,5 @@
 import React from 'react'
+jest.mock('../billing/PromoCodeRedeem', () => ({ PromoCodeRedeem: () => null }))
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
 import { Alert, StyleSheet } from 'react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

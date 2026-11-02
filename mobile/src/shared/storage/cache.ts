@@ -2,6 +2,12 @@ import { getDatabase } from './database'
 import { assertLocalEntityIdentity, localEntityIdentity, resolveLocalEntityId } from './localEntityIds'
 import { assertLocalDataEpoch, localDataEpoch, withLocalEntityWrite } from './localEntityCoordination'
 
+const cacheListeners = new Set<(entityType: string) => void>()
+export const subscribeCacheChanges = (listener: (entityType: string) => void) => {
+  cacheListeners.add(listener)
+  return () => { cacheListeners.delete(listener) }
+}
+
 export type CachedEntity<T extends object> = T & {
   _id: string
   syncVersion?: number
@@ -10,7 +16,10 @@ export type CachedEntity<T extends object> = T & {
 
 export const upsertEntities = async <T extends object>(
   entityType: string,
-  entities: Array<CachedEntity<T>>
+  entities: Array<CachedEntity<T>>,
+  // SQL-only companion write. Used to commit a durable local edit and its
+  // outbox row together; no network or nested transaction belongs here.
+  companionWrite?: () => Promise<unknown>
 ) => {
   if (entities.length === 0) return
   const database = await getDatabase()
@@ -32,7 +41,9 @@ export const upsertEntities = async <T extends object>(
         entity.updatedAt || new Date().toISOString()
       )
     }
+    await companionWrite?.()
   })
+  cacheListeners.forEach(listener => listener(entityType))
 }
 
 export const listCachedEntities = async <T extends object>(
@@ -72,7 +83,8 @@ export const publishEntityReadback = async <T extends { syncStatus?: string }>(
   entityType: string,
   fresh: Record<string, unknown> & { _id: string },
   isActive: () => boolean,
-  publish: (entity: CachedEntity<T>) => void
+  publish: (entity: CachedEntity<T>) => void,
+  options: { allowMissing?: boolean } = {}
 ) => {
   const epoch = localDataEpoch()
   const identity = await localEntityIdentity()
@@ -93,8 +105,8 @@ export const publishEntityReadback = async <T extends { syncStatus?: string }>(
     )
     await assertLocalEntityIdentity(identity)
     live()
-    if (!saved || saved._id !== fresh._id || queued ||
-      (saved.syncStatus && saved.syncStatus !== 'synced'))
+    if ((!saved && !options.allowMissing) || saved && saved._id !== fresh._id || queued ||
+      (saved?.syncStatus && saved.syncStatus !== 'synced'))
       throw new Error('EVENT_HAS_LOCAL_CHANGES')
     const changes = Object.fromEntries(Object.entries(fresh).filter(([, value]) => value !== undefined))
     const merged = { ...saved, ...changes } as CachedEntity<T>
@@ -114,6 +126,7 @@ export const removeCachedEntity = async (entityType: string, entityId: string) =
     entityType,
     entityId
   )
+  cacheListeners.forEach(listener => listener(entityType))
 }
 
 export const applyTombstones = async (
@@ -130,6 +143,7 @@ export const applyTombstones = async (
       )
     }
   })
+  new Set(tombstones.map(item => item.entityType)).forEach(type => cacheListeners.forEach(listener => listener(type)))
 }
 
 export const getSyncCursor = async (scope = 'default') => {

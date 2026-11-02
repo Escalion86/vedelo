@@ -1,3 +1,4 @@
+let mockRevision = 0
 jest.mock('expo-application', () => ({
   getAndroidId: jest.fn(() => 'test-device'),
   nativeApplicationVersion: 'test',
@@ -8,6 +9,7 @@ jest.mock('../config/env', () => ({
   env: { apiBaseUrl: 'https://artistcrm.test/api' },
 }))
 jest.mock('../auth/tokenStore', () => ({
+  getAuthRevision: () => mockRevision,
   clearAuthSession: jest.fn(),
   getAccessToken: jest.fn(),
   getRefreshToken: jest.fn(),
@@ -55,6 +57,8 @@ const session: AuthSession = {
 describe('mobile api refresh policy', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockRevision = 0
+    save.mockImplementation(async value => { mockRevision++; access.mockResolvedValue(value.accessToken) })
     access.mockResolvedValue('expired-access')
     refresh.mockResolvedValue('current-refresh')
     global.fetch = jest.fn()
@@ -164,5 +168,29 @@ it('платный photo POST с skipRefresh не повторяется пос�
   global.fetch = jest.fn().mockResolvedValue(response(401, { error: 'Не авторизован' }))
   await expect(createApiClient().post('/mobile/v1/events/ai-photo-draft', { image: 'data:image/png;base64,test' }, { skipRefresh: true })).rejects.toMatchObject({ status: 401 })
   expect(global.fetch).toHaveBeenCalledTimes(1)
+  expect(refresh).not.toHaveBeenCalled()
+})
+
+it('late refresh after logout cannot restore the old session', async () => {
+  jest.clearAllMocks(); mockRevision = 0; access.mockResolvedValue('old'); refresh.mockResolvedValue('old-refresh')
+  let finish!: (value: Response) => void
+  global.fetch = jest.fn().mockResolvedValueOnce(response(401, {})).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  const pending = createApiClient().get('/mobile/v1/bootstrap')
+  while (!finish) await Promise.resolve()
+  mockRevision++; access.mockResolvedValue(null)
+  finish(response(200, { success: true, data: session }))
+  await expect(pending).rejects.toMatchObject({ status: 401 })
+  expect(save).not.toHaveBeenCalled()
+})
+
+it('late data from another account cannot reach the cache consumer', async () => {
+  jest.clearAllMocks(); mockRevision = 0; access.mockResolvedValue('old')
+  let finish!: (value: Response) => void
+  global.fetch = jest.fn(() => new Promise(resolve => { finish = resolve })) as typeof fetch
+  const pending = createApiClient().get('/mobile/v1/clients')
+  while (!finish) await Promise.resolve()
+  mockRevision++; access.mockResolvedValue('new-account')
+  finish(response(200, { success: true, data: [{ _id: 'old-client' }] }))
+  await expect(pending).rejects.toMatchObject({ status: 401 })
   expect(refresh).not.toHaveBeenCalled()
 })

@@ -10,6 +10,7 @@ export type Client = {
   phone?: number | string | null
   whatsapp?: number | string | null
   telegram?: string
+  avitoUrl?: string
   email?: string
   vk?: string
   viber?: number | string | null
@@ -25,6 +26,7 @@ export type Client = {
     | 'whatsapp'
     | 'max'
     | 'vk'
+    | 'avito'
     | 'other'
     | ''
   preferredContactChannelOther?: string
@@ -90,6 +92,7 @@ export type Event = {
   waitDeposit?: boolean
   depositDueAt?: string | null
   depositExpectedAmount?: number | null
+  agreedProposal?: { proposalId?: string; packageId?: string; [key: string]: unknown } | null
   address?: {
     town?: string
     street?: string
@@ -105,6 +108,7 @@ export type Event = {
   }
   servicesIds?: string[]
   otherContacts?: Array<{
+    _id?: string
     clientId?: string | null
     comment?: string
   }>
@@ -115,6 +119,9 @@ export type Event = {
     date?: string | null
     done?: boolean
     doneAt?: string | null
+    googleCalendarEventId?: string
+    googleSyncMode?: 'event' | 'task' | 'none'
+    googleDurationMinutes?: number
   }>
   calendarImportChecked?: boolean
   calendarSyncError?: string
@@ -253,7 +260,7 @@ export type DocumentTemplate = {
   updatedAt?: string
 }
 
-export type ConversationProvider = 'avito' | 'vk'
+export type ConversationProvider = 'avito' | 'vk' | 'telegram'
 
 export type Conversation = {
   _id: string
@@ -266,6 +273,7 @@ export type Conversation = {
   lastMessageAt?: string | null
   unreadCount?: number
   avitoItemTitle?: string
+  canReply?: boolean
 }
 
 export type ConversationMessage = {

@@ -1,40 +1,22 @@
 import { NextResponse } from 'next/server'
-import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
+import { markUserNewsSeen, newsReaderScope } from '@server/newsReader'
 
 export const POST = async (req) => {
   try {
-    const { tenantId, user } = await getRequestContext(req)
-    if (!tenantId || !user?._id) {
-      return NextResponse.json(
-        { success: false, error: 'Не авторизован' },
-        { status: 401 }
-      )
-    }
-
+    const context = await getRequestContext(req)
+    newsReaderScope(context)
     await dbConnect()
     const body = await req.json().catch(() => null)
-    const now = new Date()
-    const requestedSeenAt = body?.seenAt ? new Date(body.seenAt) : now
-    const lastSeenNewsAt =
-      Number.isNaN(requestedSeenAt.getTime()) || requestedSeenAt > now
-        ? now
-        : requestedSeenAt
-    await Users.updateOne(
-      { _id: user._id },
-      { $max: { lastSeenNewsAt } }
-    )
-
     return NextResponse.json(
-      { success: true, data: { lastSeenNewsAt } },
+      { success: true, data: await markUserNewsSeen(context, body) },
       { status: 200 }
     )
   } catch (error) {
-    console.error('POST /api/news/seen error', error)
     return NextResponse.json(
-      { success: false, error: 'Ошибка сервера' },
-      { status: 500 }
+      { success: false, error: error.status ? error.message : 'Не удалось сохранить отметку прочтения' },
+      { status: error.status || 500 }
     )
   }
 }

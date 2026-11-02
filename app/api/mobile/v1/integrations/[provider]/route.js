@@ -338,11 +338,22 @@ export const PATCH = async (req, { params }) => {
   }
   const body = await req.clone().json().catch(() => ({}))
   if (provider === 'telephony') {
-    return mobileError(
-      'ROTATE_WITH_POST',
-      'Для выпуска нового webhook используйте повторное подключение',
-      400
+    if (!body || Array.isArray(body) || typeof body.enabled !== 'boolean' ||
+      Object.keys(body).some(key => key !== 'enabled'))
+      return mobileError('INVALID_SETTINGS', 'Передайте только состояние интеграции', 400)
+    const custom = await getSiteCustom(context.tenantId)
+    const secret = readCustom(custom, 'novofonWebhookSecret')
+    if (typeof secret !== 'string' || !secret.trim())
+      return mobileError('SETUP_REQUIRED', 'Сначала подключите Novofon', 409)
+    // Pause/resume keeps the webhook and API key. A concurrent disconnect or
+    // rotation must not be undone by a late response from the old form.
+    const saved = await SiteSettings.updateOne(
+      { tenantId: context.tenantId, 'custom.novofonWebhookSecret': secret },
+      { $set: { 'custom.novofonEnabled': body.enabled } }
     )
+    if (!saved.matchedCount)
+      return mobileError('SETTINGS_CHANGED', 'Подключение изменилось. Обновите состояние', 409)
+    return mobileSuccess(await getState({ provider, tenantId: context.tenantId, access, req }))
   }
   if (provider === 'ai') {
     const custom = await getSiteCustom(context.tenantId)

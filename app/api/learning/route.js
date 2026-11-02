@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import getTenantContext from '@server/getTenantContext'
+import getRequestContext from '@server/getRequestContext'
 import dbConnect from '@server/dbConnect'
 import LearningProgress from '@models/LearningProgress'
 import {
@@ -23,9 +23,9 @@ const failure = (error) =>
     error.status || 500
   )
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const scope = learningScope(await getTenantContext())
+    const scope = learningScope(await getRequestContext(req))
     await dbConnect()
     const row = await LearningProgress.findOne(scope).lean()
     return response({ data: learningSnapshot(row || {}) })
@@ -36,7 +36,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const context = await getTenantContext()
+    const context = await getRequestContext(req)
     learningScope(context)
     const command = await req.json().catch(() => null)
     await dbConnect()

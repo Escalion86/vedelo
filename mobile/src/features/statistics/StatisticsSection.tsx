@@ -1,5 +1,5 @@
 import { typography } from '../../shared/ui/theme'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useFocusEffect } from 'expo-router'
 import { api } from '../../shared/api/client'
@@ -9,29 +9,33 @@ import type { Palette } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { HelpLabel } from '../../shared/ui/FieldHelp'
 import { useWorkItemTerminology } from '../../shared/hooks/useWorkItemTerminology'
-import { calculateStatistics, categoryLabel, money, readStatistics, statisticsCsv, statisticsPath, type StatisticsStatus } from './statistics'
+import { calculateStatistics, categoryLabel, money, readStatistics, statisticsCsv, statisticsPath } from './statistics'
 import { useSectionData } from './useSectionData'
 import { MonthlyProfitChart } from './MonthlyProfitChart'
 import { shareStatisticsCsv } from './exportCsv'
+import { selectStatistics, statisticsYears } from './statisticsSelection'
 
-const statuses: [StatisticsStatus, string][] = [['all', 'Все'], ['draft', 'Заявки'], ['active', 'Предстоящие'], ['finished', 'Прошедшие'], ['closed', 'Закрытые'], ['canceled', 'Отменённые']]
+const allFilters = { year: null, town: '', status: 'all' as const }
 export function StatisticsSection() {
   const terms = useWorkItemTerminology()
   const { palette } = useTheme(); const styles = useThemeStyles(createStyles)
   const currentYear = new Date().getFullYear()
-  const [year, setYear] = useState<number | null>(currentYear)
-  const [status, setStatus] = useState<StatisticsStatus>('all')
+  const [chosenYear, setYear] = useState<number | null | undefined>(undefined)
+  const [includeRequests, setIncludeRequests] = useState(false)
   const [town, setTown] = useState(''); const [townDraft, setTownDraft] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const query = statisticsPath({ year, town, status })
-  const read = useCallback(async (signal: AbortSignal) => readStatistics(await api.get(query, { signal }), { year, town, status }), [query, year, town, status])
+  const query = JSON.stringify([chosenYear === undefined ? 'default' : chosenYear, town, includeRequests])
+  const read = useCallback(async (signal: AbortSignal) => readStatistics(await api.get(statisticsPath(allFilters), { signal }), allFilters), [])
   const session = useSectionData(query, read)
+  const years = useMemo(() => session.data ? statisticsYears(session.data) : [], [session.data])
+  const year = chosenYear === undefined ? (years.includes(currentYear) ? currentYear : years[0] ?? null) : chosenYear
+  const selection = useMemo(() => session.data ? selectStatistics(session.data, { year, town, includeRequests }) : null, [session.data, year, town, includeRequests])
   const exportLock = useRef(false)
   const [exporting, setExporting] = useState(false)
   const [notice, setNotice] = useState<{ key: string; message: string } | null>(null)
   useFocusEffect(useCallback(() => { setExporting(exportLock.current); setNotice(null) }, [session.key]))
-  const data = session.data
-  const analytics = data ? calculateStatistics(data) : null
+  const data = selection?.data
+  const analytics = data ? calculateStatistics(data, undefined, selection?.chartCountEvents) : null
   const exportCsv = async () => {
     const epoch = session.token()
     if (!data || session.loading || session.error || exportLock.current || !session.current(epoch)) return
@@ -44,10 +48,11 @@ export function StatisticsSection() {
   const busy = exporting && exportLock.current
   return <>
     <Surface variant="toolbar">
-      <FilterControl title={`Фильтры: ${year || 'все годы'} · ${statuses.find(([value]) => value === status)?.[1]}${town ? ` · ${town}` : ''}`} expanded={filtersOpen} onPress={() => setFiltersOpen(!filtersOpen)} />
+      <FilterControl title={`Фильтры: ${year || 'все годы'} · ${includeRequests ? 'с заявками' : 'без заявок'}${town ? ` · ${town}` : ''}`} expanded={filtersOpen} onPress={() => setFiltersOpen(!filtersOpen)} />
       {filtersOpen ? <>
-        <Text style={styles.meta}>Период</Text><View style={styles.wrap}>{[currentYear, currentYear - 1, currentYear - 2].map((value) => <FilterControl key={value} title={String(value)} selected={year === value} onPress={() => setYear(value)} />)}<FilterControl title="Все годы" selected={year === null} onPress={() => setYear(null)} /></View>
-        <HelpLabel style={styles.meta} label="Статус" help={`${getFieldHelp('statistics.includeRequests')}\n\nВ Android вместо флажка используется выбор статуса: «Все» включает заявки вместе с другими работами; «Заявки» оставляет только заявки. Это не добавление заявок к выбранному статусу. Суммы по обращениям могут быть ещё не согласованы.`} /><View style={styles.wrap}>{statuses.map(([value, label]) => <FilterControl key={value} title={label} selected={status === value} onPress={() => setStatus(value)} />)}</View>
+        <Text style={styles.meta}>Период</Text><View style={styles.wrap}>{Array.from(new Set([currentYear, ...years])).map((value) => <FilterControl key={value} title={String(value)} selected={year === value} onPress={() => setYear(value)} />)}<FilterControl title="Все годы" selected={year === null} onPress={() => setYear(null)} /></View>
+        <HelpLabel style={styles.meta} label="Заявки в статистике" help={getFieldHelp('statistics.includeRequests')} />
+        <FilterControl title="Учитывать заявки" selected={includeRequests} onPress={() => setIncludeRequests(value => !value)} />
         <CompactField label="Город" value={townDraft} onChangeText={setTownDraft} placeholder="Все города" />
         <Button title="Применить город" variant="secondary" onPress={() => setTown(townDraft.trim())} />
         {town ? <Button title="Сбросить город" variant="secondary" onPress={() => { setTown(''); setTownDraft('') }} /> : null}
@@ -58,7 +63,7 @@ export function StatisticsSection() {
     {data && analytics ? <>
       {!data.events.length && !data.transactions.length ? <EmptyState title="За выбранный период данных нет" description="Выберите другой год, статус или город." /> : null}
       <Surface variant="kpi"><Text style={styles.meta}>{terms.pluralCapitalized}: {data.events.length} · Транзакции: {data.transactions.length}</Text><SectionTitle help={getFieldHelp('statistics.profitMargin')}>Финансовый результат</SectionTitle><Text testID="statistics-net" style={styles.total}>{money(analytics.net)}</Text><Text style={styles.income}>Доходы: {money(analytics.income)}</Text><Text style={styles.expense}>Расходы: {money(analytics.expense)}</Text><Text style={styles.text}>Маржа: {analytics.margin.toFixed(1)}%</Text><Text style={styles.meta}>Остатки к оплате: {money(analytics.paymentLeft)}</Text><Text style={styles.meta}>Налоги: {money(analytics.taxes)} · Комиссии: {money(analytics.commissions)}</Text></Surface>
-      <Surface variant="kpi"><Text style={styles.meta}>Получено по предстоящим {terms.pluralDative || terms.plural}</Text><Text testID="statistics-received-upcoming" style={styles.income}>{money(analytics.depositPaid)}</Text><Text style={styles.meta}>Сумма положительных доходов по заявкам и предстоящим работам. Обязательства также могут входить в сумму.</Text></Surface>
+      <Surface variant="kpi"><Text style={styles.meta}>Получено по предстоящим {terms.pluralDative || terms.plural}</Text><Text testID="statistics-received-upcoming" style={styles.income}>{money(analytics.depositPaid)}</Text><Text style={styles.meta}>Сумма положительных доходов по выбранным заявкам и предстоящим работам. Обязательства также могут входить в сумму.</Text></Surface>
       <MonthlyProfitChart months={analytics.months} />
       {analytics.topExpenses.length ? <Surface><SectionTitle>Основные расходы</SectionTitle>{analytics.topExpenses.map((item) => <View key={item.category} style={styles.row}><Text style={styles.grow}>{categoryLabel(item.category)}</Text><Text style={styles.text}>{money(item.amount)}</Text></View>)}</Surface> : null}
       {analytics.topEvents.length ? <Surface><SectionTitle>Самые прибыльные {terms.plural}</SectionTitle>{analytics.topEvents.map(({ event, profit }) => <Pressable key={event._id} accessibilityRole="button" accessibilityLabel={`Открыть: ${event.description || event.eventType || terms.label}`} style={styles.row} onPress={() => { if (/^[a-f\d]{24}$/i.test(event._id)) router.push(`/events/${event._id}` as never) }}><View style={styles.flex}><Text style={styles.text}>{event.description || event.eventType || terms.labelCapitalized}</Text><Text style={styles.meta}>{event.eventDate ? new Date(event.eventDate).toLocaleDateString('ru-RU') : 'Дата не указана'}</Text></View><Text style={profit >= 0 ? styles.income : styles.expense}>{money(profit)}</Text></Pressable>)}</Surface> : null}

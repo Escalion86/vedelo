@@ -40,7 +40,7 @@ jest.mock('expo-secure-store', () => ({
   },
 }))
 jest.mock('../api/client', () => ({
-  api: { post: (path: string, body: unknown) => mockPost(path, body) },
+  api: { post: (path: string, body: unknown) => mockPost(path, body), get: async () => ({ data: { allowVkAuth: true, appId: 'test-app' } }) },
 }))
 jest.mock('./AuthProvider', () => ({
   useAuth: () => ({ completeSignIn: mockCompleteSignIn }),
@@ -85,9 +85,9 @@ describe('Android referral registration', () => {
   }
   it('deep link -> legal acceptance -> VK callback sends the invitation', async () => {
     const screen = render(<LoginScreen />)
-    expect(screen.getByText('Зарегистрироваться через VK ID')).toBeTruthy()
+    expect(await screen.findByText('Зарегистрироваться через VK ID')).toBeTruthy()
     consent(screen)
-    fireEvent.press(screen.getByTestId('submit-vk-auth'))
+    fireEvent.press(await screen.findByTestId('submit-vk-auth'))
     expect(mockPrompt).toHaveBeenCalledTimes(1)
     mockVkResult = {
       type: 'success',

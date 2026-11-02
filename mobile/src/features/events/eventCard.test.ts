@@ -89,9 +89,9 @@ it('finance fixture: matches PWA totals, legacy deposit, refunds and obligation 
   const webExpense = rows.filter((row) => row.type === 'expense').reduce((sum, row) => sum + row.amount, 0)
   expect({ paid: webIncome, expense: webExpense, net: webIncome - webExpense }).toEqual({ paid: 6000, expense: 1400, net: 4600 })
 })
-it('positive deposit/advance suppresses the PWA warning, including obligations', () => {
+it('an obligation is not a received deposit; a real advance suppresses the warning', () => {
   const work = event({ waitDeposit: true, depositDueAt: '2026-09-01' })
   const now = new Date('2026-10-01')
-  expect(getEventCardAttention(work, [transaction({ amount: 500, category: 'deposit', paymentMethod: 'obligation' })], now)).toBeNull()
+  expect(getEventCardAttention(work, [transaction({ amount: 500, category: 'deposit', paymentMethod: 'obligation' })], now)?.label).toContain('Просрочен задаток')
   expect(getEventCardAttention(work, [transaction({ amount: 500, category: 'advance' })], now)).toBeNull()
 })

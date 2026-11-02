@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import * as Notifications from 'expo-notifications'
 import { Platform, AppState } from 'react-native'
-import { router } from 'expo-router'
 import * as Application from 'expo-application'
 import * as Device from 'expo-device'
 import Constants from 'expo-constants'
@@ -11,6 +10,10 @@ import { api } from '../api/client'
 import { performNotificationTaskAction } from './taskActions'
 import { createNotificationResponseProcessor } from './responseProcessor'
 import { activateExpoPushToken } from './tokenLifecycle'
+import { queueNativeIntent, resolveNotificationDestination } from '../native/intents'
+import { device } from '../native/device'
+import { getAuthSessionEpoch } from '../auth/tokenStore'
+import { disableMobilePush, flushMobilePushDisable, hasMobilePushRegistry, mobilePushIsCurrent, registerMobilePush, type MobilePushProvider } from './mobileSubscription'
 import {
   flushPendingPushUnsubscribe,
   queuePendingPushUnsubscribe,
@@ -24,18 +27,19 @@ import {
 
 // Configure notification handler
 Notifications.setNotificationHandler({
-  handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
+  handleNotification: async (notification): Promise<Notifications.NotificationBehavior> => ({
+    shouldShowAlert: mobilePushIsCurrent(notification.request.content.data?.deliveryId),
+    shouldShowBanner: mobilePushIsCurrent(notification.request.content.data?.deliveryId),
+    shouldShowList: mobilePushIsCurrent(notification.request.content.data?.deliveryId),
+    shouldPlaySound: mobilePushIsCurrent(notification.request.content.data?.deliveryId),
+    shouldSetBadge: mobilePushIsCurrent(notification.request.content.data?.deliveryId),
     priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 })
 
-const registerPushTokenOnServer = async (token: string) => {
+const registerPushTokenOnServer = async (token: string, provider: MobilePushProvider = 'expo') => {
   try {
+    if (hasMobilePushRegistry()) return await registerMobilePush(token, provider)
     await api.post('/push/expo/subscribe', {
       pushToken: token,
       deviceId: Platform.OS === 'android' ? Application.getAndroidId() : '',
@@ -45,7 +49,7 @@ const registerPushTokenOnServer = async (token: string) => {
     })
     return true
   } catch (error) {
-    console.log('Failed to register push token', error)
+    console.warn('Failed to register push token')
     return false
   }
 }
@@ -108,6 +112,7 @@ const configureAndroidChannel = async () => {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#FF231F7C',
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
   })
 }
 
@@ -121,13 +126,22 @@ const getExpoToken = async (requestPermission: boolean) => {
   if (finalStatus !== 'granted') return { token: null, permission: finalStatus }
 
   await configureAndroidChannel()
+  if (hasMobilePushRegistry()) {
+    const capability = await device!.pushCapabilities()
+    if (!capability.googleAvailable) {
+      if (!capability.ruStoreConfigured) throw new Error('RuStore Push ещё не настроен для этой сборки')
+      if (!capability.ruStoreAvailable) throw new Error('Для уведомлений требуется RuStore или поддерживаемое приложение VK')
+      return { token: await device!.ruStorePushToken(), permission: finalStatus, provider: 'rustore' as const }
+    }
+  }
   const projectId = Constants.expoConfig?.extra?.eas?.projectId
   const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
-  return { token: tokenData.data, permission: finalStatus }
+  return { token: tokenData.data, permission: finalStatus, provider: 'expo' as const }
 }
 
 const getPushSetupError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error || '')
+  if (/^RuStore Push ещё|^Для уведомлений требуется/.test(message)) return message
   if (
     /Default FirebaseApp is not initialized|FCM credentials|google-services/i.test(
       message
@@ -150,10 +164,13 @@ export const getExpoPushDeviceState = async () => {
 export const enableExpoPushNotifications = async () => {
   try {
     await flushPendingPushUnsubscribe()
+    await flushMobilePushDisable()
     await registerNotificationCategories()
-    const { token, permission } = await getExpoToken(true)
+    const epoch = getAuthSessionEpoch()
+    const { token, permission, provider } = await getExpoToken(true)
     if (!token) return { ok: false, permission, error: 'Разрешение на уведомления не выдано' }
-    const registered = await registerPushTokenOnServer(token)
+    if (epoch !== getAuthSessionEpoch()) return { ok: false, permission, error: 'Сессия изменилась. Повторите подключение.' }
+    const registered = await registerPushTokenOnServer(token, provider)
     if (!registered) return { ok: false, permission, error: 'Не удалось зарегистрировать устройство' }
     await Promise.all([setStoredPushToken(token), setPushEnabledPreference(true)])
     return { ok: true, permission, token }
@@ -168,6 +185,12 @@ export const enableExpoPushNotifications = async () => {
 export const disableExpoPushNotifications = async () => {
   const token = await getStoredPushToken()
   await setPushEnabledPreference(false)
+  if (hasMobilePushRegistry()) {
+    const pending = await disableMobilePush()
+    await setStoredPushToken(null)
+    await Notifications.dismissAllNotificationsAsync().catch(() => undefined)
+    return { ok: true, pending }
+  }
   if (!token) return { ok: true, pending: false }
   await queuePendingPushUnsubscribe(token)
   try {
@@ -180,6 +203,7 @@ export const disableExpoPushNotifications = async () => {
 
 const handleNotificationResponse = async (response: Notifications.NotificationResponse) => {
   const data = response?.notification?.request?.content?.data as Record<string, string> | undefined
+  if (!mobilePushIsCurrent(data?.deliveryId)) return
   const taskAction = TASK_ACTIONS[response.actionIdentifier]
   if (taskAction && data?.eventId && data?.taskId) {
     try {
@@ -190,7 +214,7 @@ const handleNotificationResponse = async (response: Notifications.NotificationRe
       })
       return { eventChanged: true }
     } catch (error) {
-      console.log('Failed to perform notification action', error)
+      console.warn('Failed to perform notification action')
       throw error
     }
   }
@@ -202,25 +226,13 @@ const handleNotificationResponse = async (response: Notifications.NotificationRe
     )
     const eventId = result?.data?.event?._id
     if (callDecision === 'create_event' && eventId) {
-      router.push(`/events/${eventId}` as never)
+      queueNativeIntent(`/events/${eventId}`)
     } else {
-      router.push('/more/calls' as never)
+      queueNativeIntent('/more/calls')
     }
     return { eventChanged: callDecision === 'create_event' }
   }
-  if (!data?.url) return
-
-  const url = data.url
-  if (url.includes('openEvent=')) {
-    const eventId = new URL(url, 'https://vedelo.local').searchParams.get('openEvent')
-    router.push(eventId ? (`/events/${eventId}` as never) : '/(tabs)/events')
-  } else if (/^(?:vedelo|artistcrm):\/\//.test(url)) {
-    router.push(url.replace(/^(?:vedelo|artistcrm):\/\//, '/') as never)
-  } else if (url.includes('/cabinet/')) {
-    router.push('/(tabs)')
-  } else {
-    router.push('/(tabs)')
-  }
+  queueNativeIntent(resolveNotificationDestination(data))
 }
 
 export const useExpoPushNotifications = (enabled = true) => {
@@ -238,10 +250,17 @@ export const useExpoPushNotifications = (enabled = true) => {
     }
 
     try {
+      await flushMobilePushDisable()
       const preferenceEnabled = await getPushEnabledPreference()
       if (!preferenceEnabled) return null
-      const { token } = await getExpoToken(false)
+      const epoch = getAuthSessionEpoch()
+      const { token, provider } = await getExpoToken(false)
       if (!token) return null
+      if (epoch !== getAuthSessionEpoch()) return null
+      if (hasMobilePushRegistry()) {
+        if (!await registerPushTokenOnServer(token, provider) || epoch !== getAuthSessionEpoch()) return null
+        await setStoredPushToken(token); pushTokenRef.current = token; return token
+      }
       const previousToken = pushTokenRef.current || await getStoredPushToken()
       const activated = await activateExpoPushToken(token, previousToken, {
         register: registerPushTokenOnServer,
@@ -250,7 +269,7 @@ export const useExpoPushNotifications = (enabled = true) => {
       pushTokenRef.current = activated
       return activated
     } catch (error) {
-      console.log('Failed to get push token', error)
+      console.warn('Failed to get push token')
       return null
     }
   }, [])
@@ -271,17 +290,19 @@ export const useExpoPushNotifications = (enabled = true) => {
     const retryLastResponse = () =>
       Notifications.getLastNotificationResponseAsync()
         .then(processResponse)
-        .catch((error) => console.log('Failed to handle pending notification', error))
+        .catch(() => console.warn('Failed to handle pending notification'))
 
     registerNotificationCategories().catch((error) => {
-      console.log('Failed to register notification categories', error)
+      console.warn('Failed to register notification categories')
     })
     registerForPushNotifications()
     flushPendingPushUnsubscribe().catch(() => undefined)
+    flushMobilePushDisable().catch(() => undefined)
     void retryLastResponse()
 
     pushTokenListenerRef.current = Notifications.addPushTokenListener(
       (devicePushToken) => {
+        if (hasMobilePushRegistry()) { void registerForPushNotifications(); return }
         void (async () => {
           const preferenceEnabled = await getPushEnabledPreference()
           if (!preferenceEnabled) return
@@ -300,9 +321,10 @@ export const useExpoPushNotifications = (enabled = true) => {
             }
           )
           pushTokenRef.current = activated
-        })().catch((error) => console.log('Failed to rotate push token', error))
+        })().catch(() => console.warn('Failed to rotate push token'))
       }
     )
+    const nativeTokenSubscription = hasMobilePushRegistry() ? device!.addListener('pushTokenChanged', () => { void registerForPushNotifications() }) : null
 
     notificationListener.current = Notifications.addNotificationReceivedListener(
       () => {
@@ -313,7 +335,7 @@ export const useExpoPushNotifications = (enabled = true) => {
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         void processResponse(response).catch((error) => {
-          console.log('Failed to handle notification response', error)
+          console.warn('Failed to handle notification response')
         })
       }
     )
@@ -332,7 +354,9 @@ export const useExpoPushNotifications = (enabled = true) => {
       ) {
         void retryLastResponse()
         flushPendingPushUnsubscribe().catch(() => undefined)
-        if (pushTokenRef.current) {
+        if (hasMobilePushRegistry()) {
+          void flushMobilePushDisable().then(() => registerForPushNotifications()).catch(() => undefined)
+        } else if (pushTokenRef.current) {
           getPushEnabledPreference().then((preferenceEnabled) => {
             if (!preferenceEnabled || !pushTokenRef.current) return
             registerPushTokenOnServer(pushTokenRef.current)
@@ -353,6 +377,7 @@ export const useExpoPushNotifications = (enabled = true) => {
         pushTokenListenerRef.current.remove()
       }
       networkSubscription()
+      nativeTokenSubscription?.remove()
       subscription?.remove()
     }
   }, [enabled, queryClient, registerForPushNotifications])

@@ -1,6 +1,8 @@
 import { getProposalSocialContacts } from '@server/proposalSocialContacts'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { applyProposalDraftChanges } from '@server/proposalDraftChanges'
+import { deleteCreatedResource } from '@server/idempotentResourceCreation'
+import { proposalTemplateFromProposal } from '@helpers/proposalTemplateFromProposal.mjs'
 import mongoose from 'mongoose'
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
@@ -74,6 +76,14 @@ export const GET = async (req, { params }) => {
   const { id } = await params
   const auth = await authorize(req, id)
   if (auth.response) return auth.response
+  if (req.nextUrl?.searchParams?.get('view') === 'template-draft') {
+    if (!(await Events.exists({ _id: auth.proposal.eventId, tenantId: auth.context.tenantId })))
+      return error('Работа не найдена', 404, 'not_found')
+    return NextResponse.json({
+      success: true,
+      data: proposalTemplateFromProposal(auth.proposal.toJSON?.() ?? auth.proposal),
+    })
+  }
   return NextResponse.json({
     success: true,
     data: await serialize(auth.proposal, req),
@@ -228,8 +238,15 @@ export const PATCH = async (req, { params }) => {
       // Store the winning write time with the opID. A delayed retry must not
       // backdate updatedAt to reservation time and disappear from sync cursors.
       const writtenAt = new Date()
+      const { servicesIds: guardedServiceIds, ...otherGuard } = guard
       await Events.findOneAndUpdate(
-        { _id: auth.proposal.eventId, tenantId: auth.context.tenantId, ...guard },
+        { _id: auth.proposal.eventId, tenantId: auth.context.tenantId, ...otherGuard,
+          // Legacy orders may omit this array. Missing/null and [] describe the
+          // same empty selection; retain CAS on every other captured field.
+          ...(guardedServiceIds.length ? { servicesIds: guardedServiceIds } : {
+            $or: [{ servicesIds: [] }, { servicesIds: null }],
+          }),
+        },
         {
           $set: { servicesIds: operation.servicesIds, contractSum: operation.agreement.total,
             agreedProposal: { ...agreement, applyOperationWrittenAt: writtenAt }, updatedAt: writtenAt },
@@ -288,8 +305,9 @@ export const PATCH = async (req, { params }) => {
       draft.blocksSnapshot, normalizeProposalBlocks(toProposalEditorBlocks(current.blocksSnapshot, current.artistSnapshot)))
     // The validity window controls availability, not the client's selected terms.
     const conditionsChanged = changed('packages') || blocksChanged
-    if (conditionsChanged && isProposalSelectionLocked(current))
-      return error('Условия уже применены к заказу. Можно изменить срок действия, название, оформление, медиа и сообщение.', 409, 'selection_locked')
+    const selectionLocked = isProposalSelectionLocked(current)
+    if (changed('packages') && selectionLocked)
+      return error('В принятом предложении нельзя менять варианты программ. Остальные поля доступны для редактирования.', 409, 'selection_locked')
     if (current.status === 'published') {
       const candidate = { ...current, ...draft }
       if (!candidate.packages?.length) return error('Добавьте хотя бы один вариант', 400, 'packages_required')
@@ -300,7 +318,7 @@ export const PATCH = async (req, { params }) => {
       })
       if (unknown.length) return error(`Заполните переменные: ${unknown.join(', ')}`, 400, 'unknown_variables')
     }
-    if (conditionsChanged && current.selectedPackageId) {
+    if (conditionsChanged && !selectionLocked && current.selectedPackageId) {
       draft.selectedPackageId = ''
       draft.selectedAt = null
       draft.selectionTaskCreatedAt = null
@@ -330,7 +348,7 @@ export const DELETE = async (req, { params }) => {
   const { id } = await params
   const auth = await authorize(req, id)
   if (auth.response) return auth.response
-  const deleted = await Proposals.findOneAndDelete({
+  const deleted = await deleteCreatedResource(Proposals, {
     _id: id,
     tenantId: auth.context.tenantId,
   })

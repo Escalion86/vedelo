@@ -17,6 +17,9 @@ import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import { spacing, type Palette, type TemporalStatus } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { UnreadClientReviewsSection } from '../reviews/ClientReviewsSection'
+import { LearningTip } from '../learning/LearningTip'
+import { NewsNotice } from '../news/NewsNotice'
+import { UnreadConversationsSection } from '../conversations/UnreadConversationsSection'
 import { MobileEventCard } from '../events/MobileEventCard'
 import { useEventsScope } from '../navigation/EventsScope'
 import { performAttentionAction } from './actions'
@@ -166,6 +169,9 @@ export default function AttentionScreen() {
             render={(item) => <ClientDateRow key={item.key} item={item} />} />, { tone: 'upcoming' }) : null}
       </> : null}
       <UnreadClientReviewsSection />
+      <UnreadConversationsSection />
+      <LearningTip />
+      <NewsNotice />
     </ScrollView>
   </Screen>
 }

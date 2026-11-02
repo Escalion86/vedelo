@@ -2,6 +2,7 @@ import ExpoPushTokens from '@models/ExpoPushTokens'
 import SiteSettings from '@models/SiteSettings'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
+import { currentMobilePushSubscriptions, migratedPushDevices } from '@server/mobilePushDelivery'
 import { mobileError, mobileSuccess } from '@server/mobile/routeHelpers'
 import {
   normalizeMobileReminderTime,
@@ -11,17 +12,17 @@ import {
 const getDeviceId = (req) => String(req.headers.get('x-device-id') || '').trim().slice(0, 200)
 
 const loadSettings = async ({ tenantId, deviceId }) => {
-  const [siteSettings, activeDeviceCount, deviceSubscribed] = await Promise.all([
+  const [siteSettings, oldRecords, current, migrated] = await Promise.all([
     SiteSettings.findOne({ tenantId }).lean(),
-    ExpoPushTokens.countDocuments({ tenantId, isActive: true }),
-    deviceId
-      ? ExpoPushTokens.exists({ tenantId, deviceId, isActive: true })
-      : null,
+    ExpoPushTokens.find({ tenantId, isActive: true }).select('pushToken deviceId').lean(),
+    currentMobilePushSubscriptions(tenantId),
+    migratedPushDevices(tenantId),
   ])
+  const legacy = oldRecords.filter(row => !migrated.some(item => item.pushToken === row.pushToken || item.deviceId && item.deviceId === row.deviceId))
   return serializeMobileNotificationSettings({
     siteSettings,
-    activeDeviceCount,
-    deviceSubscribed: Boolean(deviceSubscribed),
+    activeDeviceCount: legacy.length + current.length,
+    deviceSubscribed: Boolean(deviceId && [...legacy, ...current].some(row => row.deviceId === deviceId)),
   })
 }
 

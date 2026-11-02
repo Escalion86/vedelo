@@ -28,6 +28,13 @@ beforeEach(async () => { await runSync(); await clearLocalData(); await session(
 afterEach(async () => { await runSync(); global.fetch = originalFetch })
 afterAll(async () => { await clearLocalData(); platform.close() })
 
+it('an explicitly verified deep link may cache a missing record but cannot bypass a pending local change', async () => {
+  await publishEntityReadback('events', { _id: 'new-remote', status: 'draft' }, () => true, publish, { allowMissing: true })
+  expect(await getCachedEntity('events', 'new-remote')).toMatchObject({ _id: 'new-remote', status: 'draft' })
+  await saveLocalEntity({ entityType: 'events', entityId: 'new-remote', values: { eventType: 'Несохранённое' } })
+  await expect(publishEntityReadback('events', { _id: 'new-remote', eventType: 'С сервера' }, () => true, publish, { allowMissing: true })).rejects.toThrow('EVENT_HAS_LOCAL_CHANGES')
+})
+
 it('real bound API schema read is merged, committed and reread before UI publication', async () => {
   await seed()
   const transport = jest.fn(async (_url: unknown, options: any) => {

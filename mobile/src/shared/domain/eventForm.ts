@@ -101,7 +101,7 @@ export const emptyEventValues = {
   requestCreatedAt: '', cancelReason: '',
 }
 export type EventFormValues = typeof emptyEventValues
-export type OtherContactDraft = { localKey: string; clientId: string; comment: string }
+export type OtherContactDraft = { localKey: string; _id?: string; clientId: string; comment: string }
 export type EventDraft = {
   values: EventFormValues
   serviceIds: string[]
@@ -137,6 +137,7 @@ export const createEventDraft = (event?: Event, cloning = false): EventDraft => 
     description: eventPlainText(task.description),
   })),
   otherContacts: (event?.otherContacts || []).map((contact, index) => ({
+    ...(!cloning && contact._id ? { _id: contact._id } : {}),
     localKey: `contact-${index}`, clientId: contact.clientId || '', comment: contact.comment || '',
   })),
 })
@@ -162,16 +163,21 @@ export const validateEventDraft = (draft: EventDraft) => {
 // Preserve seconds, milliseconds and the original offset for untouched values.
 const serializeDate = (value: string, source?: string | null) =>
   source && value === formatEventDateInput(source) ? source : parseEventDateInput(value) ?? null
-export const serializeEventDraft = (draft: EventDraft, allowed: { clientIds: ReadonlySet<string>; serviceIds: ReadonlySet<string>; depositPaid?: boolean }) => {
+type EventAllowedValues = { clientIds: ReadonlySet<string>; serviceIds: ReadonlySet<string>; depositPaid?: boolean }
+export const serializeEventDraft = (draft: EventDraft, allowed: EventAllowedValues) => {
   const error = validateEventDraft(draft)
   if (error) throw new Error(error)
   const { values: v, source } = draft
-  // Факт оплаченного задатка (транзакция) сильнее незавершённого ожидания в форме.
-  const depositPaid = Boolean(allowed.depositPaid)
   const knownClient = (id: string) => allowed.clientIds.has(id) ||
     [source?.clientId, source?.colleagueId, ...(source?.otherContacts || []).map((c) => c.clientId)].includes(id)
   if ([v.clientId, ...(v.isTransferred ? [v.colleagueId] : []), ...draft.otherContacts.map((c) => c.clientId)]
     .some((id) => id && !knownClient(id))) throw new Error('Выбранный контакт недоступен. Выберите клиента из списка')
+  return serializeEventValues(draft, allowed)
+}
+
+const serializeEventValues = (draft: EventDraft, allowed: EventAllowedValues) => {
+  const { values: v, source } = draft
+  const depositPaid = Boolean(allowed.depositPaid)
   const locationUnchanged = ['town', 'street', 'house'].every((key) =>
     v[key as 'town' | 'street' | 'house'].trim() === (source?.address?.[key as 'town' | 'street' | 'house'] || '').trim())
   return {
@@ -199,13 +205,26 @@ export const serializeEventDraft = (draft: EventDraft, allowed: { clientIds: Rea
     depositDueAt: depositPaid || !v.waitDeposit ? null : serializeDate(v.depositDueAt, source?.depositDueAt),
     financeComment: v.financeComment.trim(),
     isByContract: v.isByContract,
-    otherContacts: draft.otherContacts.map(({ clientId, comment }) => ({ clientId, comment: comment.trim() })),
+    otherContacts: draft.otherContacts.map(({ _id, clientId, comment }) => ({ ...(_id && !draft.cloning ? { _id } : {}), clientId, comment: comment.trim() })),
     additionalEvents: serializeEventTasks(draft.tasks).map((task, index) => {
       const original = draft.cloning ? undefined : task._id
         ? source?.additionalEvents?.find((item) => item._id === task._id)
         : source?.additionalEvents?.[Number(draft.tasks[index].localKey.replace(/^task-/, ''))]
-      return { ...task, date: serializeDate(draft.tasks[index].dateInput, original?.date),
+      return { ...task,
+        ...(original?.googleCalendarEventId ? { googleCalendarEventId: original.googleCalendarEventId } : {}),
+        ...(draft.tasks[index].googleSyncMode ? { googleSyncMode: draft.tasks[index].googleSyncMode } : {}),
+        ...(draft.tasks[index].googleDurationMinutes !== undefined ? { googleDurationMinutes: draft.tasks[index].googleDurationMinutes } : {}),
+        date: serializeDate(draft.tasks[index].dateInput, original?.date),
         description: draft.tasks[index].description === eventPlainText(original?.description) ? original?.description || '' : task.description }
     }),
   }
+}
+
+/** Edit only touched fields; preserve server fields and unrelated updates received while the form was open. */
+export const serializeEventChanges = (draft: EventDraft, allowed: EventAllowedValues): Partial<ReturnType<typeof serializeEventDraft>> => {
+  const values = serializeEventDraft(draft, allowed)
+  if (!draft.source || draft.cloning) return values
+  const baseline = serializeEventValues(createEventDraft(draft.source), { ...allowed, depositPaid: false })
+  return Object.fromEntries(Object.entries(values).filter(([key, value]) =>
+    JSON.stringify(value) !== JSON.stringify(baseline[key as keyof typeof baseline])))
 }

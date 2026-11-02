@@ -19,6 +19,7 @@ jest.mock(
   './api',
   () => ({
     proposalsApi: {
+      restoreCreate: async () => null,
       readEvent: (...a: any[]) => mockReadEvent(...a),
       list: (...a: any[]) => mockList(...a),
       templates: () => mockTemplates(),
@@ -74,6 +75,25 @@ it('accepted/applied visible after expiry and selected revoke disabled', async (
   expect(
     screen.getByTestId('proposal-revoke-p').props.accessibilityState.disabled
   ).toBe(true)
+})
+it('save as template opens an unsaved editor without creating a template or proposal', async () => {
+  const screen = draw()
+  await screen.findByText('Принятое КП')
+  fireEvent.press(screen.getByText('Сохранить как шаблон'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/more/proposal-templates/[id]', params: { id: 'new', sourceProposalId: 'p' } })
+  expect(mockCreate).not.toHaveBeenCalled()
+  expect(mockAction).not.toHaveBeenCalled()
+})
+it('published editing preserves the proposal ID, and interrupted application can be completed', async () => {
+  mockList.mockResolvedValue([{ ...chosen, status: 'published', applyOperation: { state: 'event_updated' }, applicationPending: true }])
+  const screen = draw()
+  await screen.findByText('Применение не завершено')
+  expect(screen.queryByText('Принято клиентом · применено')).toBeNull()
+  expect(screen.getByTestId('proposal-apply-p').props.accessibilityState.disabled).toBe(false)
+  expect(screen.getByText('Завершить применение')).toBeTruthy()
+  fireEvent.press(screen.getByTestId('proposal-edit-p'))
+  expect(mockPush).toHaveBeenCalledWith('/events/e/proposals/p')
+  expect(mockCreate).not.toHaveBeenCalled()
 })
 it('create from template delegates POST and opens independent editor', async () => {
   const screen = draw()

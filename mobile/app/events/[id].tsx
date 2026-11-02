@@ -19,6 +19,7 @@ import { detailDate, eventDuration, getEventDetailFinance } from '../../src/feat
 import { EventOnlineSections } from '../../src/features/proposals/EventOnlineSections'
 import { EventFinanceSummary } from '../../src/features/events/EventFinanceSummary'
 import { editEventSection, EventDetailActions } from '../../src/features/events/EventDetailActions'
+import { isWaitingForDeposit } from '../../src/shared/domain/deposits'
 
 export default function EventDetailScreen() {
   const terms = useWorkItemTerminology()
@@ -106,9 +107,10 @@ export default function EventDetailScreen() {
         : relatedServices.length ? relatedServices.map((service) => <View key={service._id}>
           <Text style={styles.text}>{service.title || 'Услуга'}</Text>{service.description ? <Text style={styles.muted}>{eventPlainText(service.description)}</Text> : null}
         </View>) : <Text style={styles.muted}>Услуги не указаны</Text>}
-      {event.waitDeposit ? <Text style={styles.text}>Ожидается задаток{event.depositExpectedAmount != null ? `: ${event.depositExpectedAmount} ₽` : ''}{event.depositDueAt ? `, срок: ${detailDate(event.depositDueAt)}` : ''}</Text> : null}
+      {isWaitingForDeposit(event, transactions.data || []) ? <><Text style={styles.text}>Ожидается задаток{event.depositExpectedAmount != null ? `: ${event.depositExpectedAmount} ₽` : ''}{event.depositDueAt ? `, срок: ${detailDate(event.depositDueAt)}` : ''}</Text><Button title="Задаток получен" disabled={!online || transactions.isPending || transactions.isError} onPress={() => router.push(`/events/deposit/${id}` as never)} /></> : null}
       {event.calendarSyncError ? <Notice tone="warning" message="Не удалось синхронизировать календарь. Проверьте подключение в интеграциях." /> : null}
       <Button title="Изменить общие данные" variant="secondary" onPress={() => editEventSection(event._id, 'general')} />
+      {!event._id.startsWith('local-') ? <Button title="Изменить с ИИ" variant="secondary" onPress={() => router.push({ pathname: '/events/assistant', params: { eventId: event._id } } as never)} /> : null}
     </Surface>
     <Surface testID="event-contacts"><SectionTitle>Контакты</SectionTitle>
       {clients.isError ? <><Notice tone="danger" message="Не удалось прочитать контакты" /><Button title="Повторить загрузку контактов" onPress={() => void clients.refetch()} /></>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import SiteSettings from '@models/SiteSettings'
 import dbConnect from '@server/dbConnect'
-import getTenantContext from '@server/getTenantContext'
+import getRequestContext from '@server/getRequestContext'
 import {
   deleteTelegramWebhook,
   normalizeTelegramSettings,
@@ -9,8 +9,8 @@ import {
   updateTelegramCustom,
 } from '@server/telegramBusiness'
 
-export const POST = async () => {
-  const { tenantId } = await getTenantContext()
+export const POST = async (req) => {
+  const { tenantId } = await getRequestContext(req)
   if (!tenantId) {
     return NextResponse.json(
       {

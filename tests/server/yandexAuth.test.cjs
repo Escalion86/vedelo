@@ -86,6 +86,28 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
     const start = load('app/api/yandex-id/start/route.js', mocks, env).GET
     const callback = load('app/api/yandex-id/callback/route.js', mocks, env).GET
     const complete = load('app/api/yandex-id/complete/route.js', mocks)
+    let mobileContext = { user: { _id: aId }, tenantId: String(aId), mobileSessionId: 'mobile-session' }
+    const mobile = load('app/api/mobile/v1/auth/yandex/route.js', {
+      ...mocks,
+      '@server/getRequestContext': async () => mobileContext,
+      '@server/mobile/routeHelpers': load('server/mobile/routeHelpers.js', { 'next/server': { NextResponse } }),
+      '@server/mobile/sessions': { createMobileSession: async ({ user }) => ({ user: { _id: String(user._id), tenantId: String(user.tenantId) }, tokenType: 'Bearer' }) },
+    }).POST
+    const mobileMe = load('app/api/mobile/v1/auth/me/route.js', {
+      ...mocks, '@server/dbConnect': async () => {},
+      '@server/getRequestContext': async () => mobileContext,
+      '@server/mobile/profile': {},
+      '@server/mobile/routeHelpers': load('server/mobile/routeHelpers.js', { 'next/server': { NextResponse } }),
+      '@server/mobile/tariff': { serializeMobileUserWithTariff: user => ({ _id: String(user._id), tenantId: String(user.tenantId || user._id), yandexLinked: Boolean(user.yandexId) }) },
+    }).GET
+    const mobileRequest = body => new NextRequest('https://vedelo.test/api/mobile/v1/auth/yandex', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const mobileProof = async (fields = {}) => {
+      const verifier = service.randomToken()
+      const mobileChallenge = require('node:crypto').createHash('sha256').update(verifier).digest('base64url')
+      return { verifier, code: await service.createFlow('mobile', { yandexId: '123', phone: a.phone, mobileChallenge, ...fields }) }
+    }
     const request = (secret, body, origin = 'https://vedelo.test') => new NextRequest('https://vedelo.test/api/yandex-id/complete', {
       method: body ? 'POST' : 'GET',
       headers: { cookie: `${service.YANDEX_COOKIE}=${secret}`, origin, 'Content-Type': 'application/json' },
@@ -204,6 +226,78 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       const archived = await service.createFlow('pending', { yandexId: '555', phone })
       assert.equal((await complete.POST(request(archived, { action: 'login' }))).status, 409)
     })
+    await t.test('mobile profile remains scoped to tenant and accepts a legacy owner without tenantId', async () => {
+      mobileContext = { user: { _id: aId }, tenantId: String(bId), mobileSessionId: 'session' }
+      assert.equal((await mobileMe(mobileRequest({}))).status, 404)
+      await Users.updateOne({ _id: bId }, { $unset: { tenantId: 1 } })
+      mobileContext = { user: { _id: bId }, tenantId: String(bId), mobileSessionId: 'session' }
+      assert.equal((await mobileMe(mobileRequest({}))).status, 200)
+      await Users.updateOne({ _id: bId }, { $set: { tenantId: bId } })
+    })
+    await t.test('mobile OAuth allows only exact application callbacks and binds opaque code to app proof', async () => {
+      for (const mobileRedirect of ['https://evil.test', 'vedelo://auth/yandex?next=evil', 'vedelo://auth/yandex.evil']) {
+        assert.equal((await start(new NextRequest(`https://vedelo.test/api/yandex-id/start?mobileRedirect=${encodeURIComponent(mobileRedirect)}`))).status, 400)
+      }
+      const verifier = service.randomToken(), mobileState = service.randomToken()
+      const mobileChallenge = require('node:crypto').createHash('sha256').update(verifier).digest('base64url')
+      const params = new URLSearchParams({ mobileRedirect: 'vedelo-dev://auth/yandex', mobileState, mobileChallenge, ref: String(bId) })
+      const started = await start(new NextRequest(`https://vedelo.test/api/yandex-id/start?${params}`))
+      const state = new URL(started.headers.get('location')).searchParams.get('state')
+      const returned = await callback(new NextRequest(`https://vedelo.test/api/yandex-id/callback?state=${state}&code=test`, { headers: { cookie: `${service.YANDEX_COOKIE}=${state}` } }))
+      const location = new URL(returned.headers.get('location'))
+      assert.equal(`${location.protocol}//${location.host}${location.pathname}`, 'vedelo-dev://auth/yandex')
+      assert.equal(location.searchParams.get('state'), mobileState)
+      assert.equal(location.searchParams.has('phone'), false)
+      const code = location.searchParams.get('code')
+      assert.equal((await mobile(mobileRequest({ action: 'inspect', code, verifier: service.randomToken() }))).status, 410)
+      assert.equal((await complete.GET(request(code))).status, 410)
+      const info = await mobile(mobileRequest({ action: 'inspect', code, verifier }))
+      assert.equal(info.status, 200)
+      assert.equal(info.headers.get('cache-control'), 'no-store')
+      assert.deepEqual((await info.json()).data, { accountExists: true, phone: a.phone, referrerId: String(bId) })
+      const results = await Promise.all([mobile(mobileRequest({ action: 'login', code, verifier, tenantId: bId, userId: bId, phone: b.phone })), mobile(mobileRequest({ action: 'login', code, verifier }))])
+      assert.equal(results.filter(result => result.status === 200).length, 1)
+      assert.equal((await results.find(result => result.ok).json()).data.user.tenantId, String(aId))
+      assert.equal((await mobile(mobileRequest({ action: 'inspect', code, verifier }))).status, 410)
+    })
+    await t.test('mobile linking rejects revoked, foreign tenant and wrong phone without consuming the proof', async () => {
+      const proof = await mobileProof()
+      mobileContext = { user: { _id: aId }, tenantId: String(aId), mobileSessionId: null }
+      assert.equal((await mobile(mobileRequest({ ...proof, action: 'link' }))).status, 401)
+      mobileContext = { user: { _id: aId }, tenantId: String(bId), mobileSessionId: 'session' }
+      assert.equal((await mobile(mobileRequest({ ...proof, action: 'link' }))).status, 403)
+      mobileContext = { user: { _id: bId }, tenantId: String(bId), mobileSessionId: 'session' }
+      assert.equal((await mobile(mobileRequest({ ...proof, action: 'link', userId: aId, tenantId: aId }))).status, 409)
+      mobileContext = { user: { _id: aId }, tenantId: String(aId), mobileSessionId: 'session' }
+      assert.equal((await mobile(mobileRequest({ ...proof, action: 'link' }))).status, 200)
+      assert.equal((await Users.findById(bId)).yandexId, undefined)
+    })
+    await t.test('mobile new account stays uncreated until phone registration; expired and archived flows fail', async () => {
+      const proof = await mobileProof({ phone: '79000000008', yandexId: '888' })
+      assert.equal((await (await mobile(mobileRequest({ ...proof, action: 'inspect' }))).json()).data.accountExists, false)
+      assert.equal((await mobile(mobileRequest({ ...proof, action: 'login' }))).status, 409)
+      assert.equal(await Users.exists({ phone: '79000000008' }), null)
+      const id = new mongoose.Types.ObjectId()
+      await Users.create({ _id: id, tenantId: id, phone: '79000000008' })
+      mobileContext = { user: { _id: id }, tenantId: String(id), mobileSessionId: 'new-session' }
+      assert.equal((await mobile(mobileRequest({ ...proof, action: 'link' }))).status, 200)
+      const expired = await mobileProof()
+      await Flows.updateOne({ hash: service.hashToken(expired.code) }, { $set: { expiresAt: new Date(0) } })
+      assert.equal((await mobile(mobileRequest({ ...expired, action: 'login' }))).status, 410)
+      const archived = await mobileProof({ phone: '79000000008', yandexId: '888' })
+      await Users.updateOne({ _id: id }, { $set: { archive: true } })
+      assert.equal((await mobile(mobileRequest({ ...archived, action: 'inspect' }))).status, 409)
+    })
+    await t.test('mobile provider cancellation returns to the validated app without a code', async () => {
+      const params = new URLSearchParams({ mobileRedirect: 'artistcrm://auth/yandex-link', mobileState: service.randomToken(), mobileChallenge: service.randomToken() })
+      const started = await start(new NextRequest(`https://vedelo.test/api/yandex-id/start?${params}`))
+      const state = new URL(started.headers.get('location')).searchParams.get('state')
+      const result = await callback(new NextRequest(`https://vedelo.test/api/yandex-id/callback?state=${state}&error=access_denied`, { headers: { cookie: `${service.YANDEX_COOKIE}=${state}` } }))
+      const url = new URL(result.headers.get('location'))
+      assert.equal(url.searchParams.get('state'), params.get('mobileState'))
+      assert.equal(url.searchParams.get('error'), '1')
+      assert.equal(url.searchParams.has('code'), false)
+    })
     await t.test('repeat login uses saved ID, rejects archived account, expired state and disabled provider', async () => {
       const secret = await service.createFlow('pending', { yandexId: '123', phone: a.phone })
       const response = await complete.POST(request(secret, { action: 'login' }))
@@ -220,6 +314,7 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       assert.equal((await complete.POST(request(expired, { action: 'login' }))).status, 403)
       assert.equal((await start(new NextRequest('https://vedelo.test/api/yandex-id/start'))).status, 403)
       assert.equal(await service.consumeYandexTicket(ticket), null)
+      assert.equal((await mobile(mobileRequest({ ...await mobileProof(), action: 'login' }))).status, 403)
     })
     await t.test('provider application mismatch rejected', async () => {
       profileClient = 'another-client'

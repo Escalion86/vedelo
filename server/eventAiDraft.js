@@ -87,7 +87,7 @@ const getAmbiguousClientWarning = (candidates) => {
   return `Не удалось однозначно определить клиента: подходят ${names.join(', ')}${suffix}. Выберите клиента вручную.`
 }
 
-export async function processEventAiDraft({ text, tenantId, userId, clientPhone = '', strict = false, aiSettings: providedAiSettings }) {
+export async function processEventAiDraft({ text, tenantId, userId, clientPhone = '', strict = false, deferClientCreation = false, aiSettings: providedAiSettings }) {
   try {
     // --- получаем данные для матчинга клиентов и услуг ---
     await dbConnect()
@@ -271,15 +271,16 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
     }
 
     let clientCreated = false
+    let clientDraft = null
     if (!selectedClient && phoneMatches.length < 2 && hasAiClientContacts(contacts)) {
-      selectedClient = await Clients.create({
-        ...buildAiClientPayload({
-          clientName: getVerifiedClientName(fields.clientName, text),
-          contacts,
-        }),
-        tenantId,
-      })
-      clientCreated = true
+      const proposed = buildAiClientPayload({ clientName: getVerifiedClientName(fields.clientName, text), contacts })
+      if (deferClientCreation) {
+        clientDraft = proposed
+        delete fields.clientId
+      } else {
+        selectedClient = await Clients.create({ ...proposed, tenantId })
+        clientCreated = true
+      }
     }
 
     if (selectedClient?._id) fields.clientId = String(selectedClient._id)
@@ -293,6 +294,7 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
       aiFilledFields,
       client: toSafeClient(selectedClient),
       clientCreated,
+      ...(deferClientCreation ? { clientDraft } : {}),
       aiWarnings: Array.from(new Set(aiWarnings)).slice(0, 3),
     })
 

@@ -16,6 +16,7 @@
       "backgroundColor": "#F7F2E8"
     },
     "plugins": [
+      "./plugins/withVedeloDevice",
       "expo-router",
       "expo-secure-store",
       [
@@ -63,7 +64,7 @@
                 "fontFamily": "InterTight",
                 "fontDefinitions": [
                   {
-                    "path": "../fonts/InterTight-VariableFont_wght.ttf",
+                    "path": "../fonts/InterTight-Regular.ttf",
                     "weight": 400
                   },
                   {
@@ -71,11 +72,11 @@
                     "weight": 500
                   },
                   {
-                    "path": "../fonts/InterTight-VariableFont_wght.ttf",
+                    "path": "../fonts/InterTight-SemiBold.ttf",
                     "weight": 600
                   },
                   {
-                    "path": "../fonts/InterTight-VariableFont_wght.ttf",
+                    "path": "../fonts/InterTight-Bold.ttf",
                     "weight": 700
                   }
                 ]
@@ -113,8 +114,7 @@
       "blockedPermissions": [
         "android.permission.READ_CALL_LOG",
         "android.permission.WRITE_CALL_LOG",
-        "android.permission.PROCESS_OUTGOING_CALLS",
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.PROCESS_OUTGOING_CALLS"
       ]
     },
     "web": {

@@ -53,13 +53,37 @@ describe('event form dates', () => {
   })
 })
 
-import { createEventDraft, eventPlainText, eventSection, serializeEventDraft, validateEventDraft } from './eventForm'
+import { createEventDraft, eventPlainText, eventSection, serializeEventChanges, serializeEventDraft, validateEventDraft } from './eventForm'
 import type { Event } from './types'
 const allowed = { clientIds: new Set(['local-client']), serviceIds: new Set(['service']) }
 const fixture: Event = { _id: 'local-event', status: 'active', eventType: 'Заказ',
   eventDate: '2026-10-03T11:32:17.123+07:00', dateEnd: '2026-10-03T12:00:00+07:00',
   description: '<p>Описание &amp; условия</p>', clientId: 'local-client',
   contractSum: 100, servicesIds: ['archived-service'], calendarImportChecked: false }
+
+it('правка названия не отправляет неизменённые данные PWA и настройки следующего контакта', () => {
+  const source: Event = { ...fixture, additionalEvents: [{ _id: 'task', title: 'Позвонить',
+    date: fixture.eventDate, description: '<p>Уточнить</p>', googleCalendarEventId: 'google-event',
+    googleSyncMode: 'task', googleDurationMinutes: 90 }], agreedProposal: { proposalId: 'proposal' } }
+  const draft = createEventDraft(source)
+  draft.values.eventType = 'Новое название'
+  expect(serializeEventChanges(draft, allowed)).toEqual({ eventType: 'Новое название' })
+  draft.tasks[0].title = 'Перезвонить'
+  expect(serializeEventChanges(draft, allowed).additionalEvents).toEqual([
+    expect.objectContaining({ ...source.additionalEvents![0], title: 'Перезвонить' }),
+  ])
+  const cloned = serializeEventChanges(createEventDraft(source, true), allowed)
+  expect(cloned.additionalEvents![0]).not.toHaveProperty('googleCalendarEventId')
+  expect(cloned.additionalEvents![0]).not.toHaveProperty('_id')
+  expect(cloned.additionalEvents![0].googleSyncMode).toBe('task')
+})
+
+it('неизменённая форма не создаёт замену вложенных данных, явная очистка отправляется', () => {
+  const draft = createEventDraft(fixture)
+  expect(serializeEventChanges(draft, allowed)).toEqual({})
+  draft.values.description = ''
+  expect(serializeEventChanges(draft, allowed)).toEqual({ description: '' })
+})
 
 it('дата без времени разбирается и отображается в локальной зоне', () => {
   expect(parseEventDateInput('2026-10-03')).toBe(new Date(2026, 9, 3).toISOString())
