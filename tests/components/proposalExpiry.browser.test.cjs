@@ -29,6 +29,7 @@ test('продление убирает истечение из Важного �
   try {
     for (const width of [390, 1365]) for (const dark of [false, true]) {
       const page = await browser.newPage({ viewport: { width, height: 950 } })
+      await page.clock.setFixedTime(new Date('2026-11-05T09:00:00.000Z'))
       const errors = [], writes = []
       page.on('pageerror', error => errors.push(error.message))
       page.on('console', msg => {
@@ -36,6 +37,7 @@ test('продление убирает истечение из Важного �
       })
       let proposal = structuredClone(initial)
       let failExpiry = false
+      let failRenew = false
       const templates = [{ _id: 'first', name: 'Детское', status: 'active' }, { _id: 'second', name: 'Свадебное торжество с длинным названием программы и индивидуальными пожеланиями клиента', status: 'active' }]
       await page.route('**/api/**', async route => {
         const req = route.request(), url = new URL(req.url())
@@ -53,6 +55,7 @@ test('продление убирает истечение из Важного �
         } else if (url.pathname === '/api/proposals/proposal') {
           if (req.method() === 'PATCH') {
             writes.push(req.postDataJSON())
+            if (failRenew) return route.fulfill({ status: 500, json: { success: false, error: { message: 'Не удалось продлить срок. Попробуйте ещё раз.' } } })
             // Server renewal/public-link/tenant behaviour is tested by the real route suite.
             proposal = { ...proposal, ...req.postDataJSON(), status: 'published' }
           }
@@ -87,9 +90,46 @@ test('продление убирает истечение из Важного �
       await section.getByRole('button', { name: 'Повторить' }).click()
       await section.waitFor({ state: 'detached' })
 
+      proposal = { ...proposal, status: 'published', validUntil: '2020-01-01', contentRevision: 7 }
       await page.goto(`${origin}/?kind=list`)
       await page.locator('body').evaluate((body, dark) => body.classList.toggle('theme-dark', dark), dark)
       await page.locator('summary').filter({ hasText: 'Коммерческие предложения' }).click()
+      const renew = page.getByRole('button', { name: 'Продлить срок', exact: true })
+      await renew.waitFor({ timeout: 5000 })
+      await page.screenshot({ path: path.join(artifacts, `renew-card-${width}-${dark}.png`), fullPage: true, animations: 'disabled' })
+      const beforeRenew = writes.length
+      await renew.click()
+      const calendar = page.getByRole('group', { name: 'Новый срок действия КП', exact: true })
+      await calendar.waitFor()
+      assert.ok(await page.evaluate(() => document.activeElement?.hasAttribute('data-date')))
+      assert.equal(writes.length, beforeRenew)
+      await page.getByRole('button', { name: 'Отмена', exact: true }).click()
+      await calendar.waitFor({ state: 'detached' })
+      assert.equal(writes.length, beforeRenew)
+      await renew.click()
+      await calendar.waitFor()
+      // Клиент выбрал вариант / другая вкладка сохранила КП после открытия календаря.
+      proposal.contentRevision = 11
+      proposal.selectedPackageId = 'main'
+      const unavailableDays = calendar.locator('button:disabled')
+      assert.ok(await unavailableDays.count() > 0)
+      await page.getByRole('button', { name: 'Следующий месяц' }).click()
+      const chosen = calendar.locator('button:not(:disabled)').last()
+      const chosenDate = await chosen.getAttribute('data-date')
+      await chosen.click()
+      await page.screenshot({ path: path.join(artifacts, `renew-calendar-${width}-${dark}.png`), fullPage: true, animations: 'disabled' })
+      failRenew = true
+      await page.getByRole('button', { name: 'Продлить', exact: true }).click()
+      await page.getByRole('alert').getByText('Не удалось продлить срок. Попробуйте ещё раз.', { exact: true }).waitFor()
+      assert.equal(proposal.validUntil, '2020-01-01')
+      failRenew = false
+      await page.getByRole('button', { name: 'Продлить', exact: true }).evaluate(button => { button.click(); button.click() })
+      await calendar.waitFor({ state: 'detached' })
+      assert.deepEqual(writes.at(-1), { contentRevision: 11, validUntil: chosenDate })
+      assert.equal(writes.length, beforeRenew + 2)
+      assert.equal(proposal.publicUrl, initial.publicUrl)
+      assert.equal(proposal.selectedPackageId, 'main')
+      await renew.waitFor({ state: 'detached' })
       await page.getByRole('button', { name: 'Создать предложение', exact: true }).click()
       const group = page.getByRole('group', { name: 'Шаблон предложения', exact: true })
       await group.getByRole('radio', { name: 'Детское', exact: true }).waitFor()

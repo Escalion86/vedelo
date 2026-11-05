@@ -23,6 +23,7 @@ import Input from '@components/Input'
 import Textarea from '@components/Textarea'
 import { getProposalStatus } from '@helpers/proposalStatus.mjs'
 import AppButton from '@components/AppButton'
+import ProposalRenewButton from '@components/ProposalRenewButton'
 import AddIconButton from '@components/AddIconButton'
 import IconActionButton from '@components/IconActionButton'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
@@ -845,6 +846,7 @@ const EventProposalsSection = ({
                   </div>
                 </div>
                 <div className="tablet:grid-cols-3 mt-3 grid grid-cols-2 gap-2">
+                  <ProposalRenewButton proposal={proposal} eventId={eventId} disabled={busy} />
                   {proposal.status === 'published' ? (
                     <AppButton
                       variant="secondary"

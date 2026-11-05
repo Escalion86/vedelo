@@ -49,6 +49,7 @@ const mocks = {
   '@state/atoms': { modalsFuncAtom: 'modals' },
   'next/dynamic': () => () => null,
   '@components/Notice': Box,
+  '@components/ProposalRenewButton': () => null,
   '@components/ProposalShareDialog': Box,
   '@helpers/copyProposalText': { copyProposalText: async () => {} },
   '@components/LoadingSpinner': Box,

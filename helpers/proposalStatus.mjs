@@ -1,10 +1,15 @@
 // Acceptance remains meaningful after expiry; revoked and draft copies do not.
 // A published link is visible on the order card even before it was sent.
+export const isProposalExpired = (proposal, now = Date.now()) => Boolean(
+  proposal && ['published', 'expired'].includes(proposal.status) &&
+  (proposal.status === 'expired' ||
+    (proposal.validUntil && new Date(proposal.validUntil).getTime() <= now))
+)
+
 export const getProposalStatus = (proposal, now = Date.now()) => {
   if (!proposal || !['published', 'expired'].includes(proposal.status)) return null
   if (proposal.selectedPackageId) return 'accepted'
-  if (proposal.status === 'expired' ||
-      (proposal.validUntil && new Date(proposal.validUntil).getTime() <= now)) return 'expired'
+  if (isProposalExpired(proposal, now)) return 'expired'
   return proposal.sentAt ? 'sent' : 'published'
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getProposalStatus, summarizeProposalStatuses } from '../helpers/proposalStatus.mjs'
+import { getProposalStatus, isProposalExpired, summarizeProposalStatuses } from '../helpers/proposalStatus.mjs'
 
 const now = Date.parse('2026-09-28')
 const sent = { eventId: 'event-a', status: 'published', sentAt: '2026-09-27' }
@@ -20,6 +20,16 @@ test('expiry is visible but preserves a recorded acceptance', () => {
   assert.equal(getProposalStatus({ ...sent, status: 'expired' }, now), 'expired')
   assert.equal(getProposalStatus({ ...published, validUntil: new Date(now).toISOString() }, now), 'expired')
   assert.equal(getProposalStatus({ ...sent, status: 'expired', selectedPackageId: 'main' }, now), 'accepted')
+})
+
+test('renewal detects expired dates even for accepted proposals, while drafts and revoked links stay excluded', () => {
+  for (const status of ['published', 'expired']) {
+    assert.equal(isProposalExpired({ status, validUntil: '2020-01-01', selectedPackageId: 'main' }, now), true)
+  }
+  for (const status of ['draft', 'revoked'])
+    assert.equal(isProposalExpired({ status, validUntil: '2020-01-01' }, now), false)
+  assert.equal(isProposalExpired({ status: 'published', validUntil: '2030-01-01' }, now), false)
+  assert.equal(isProposalExpired({ status: 'published' }, now), false)
 })
 test('accepted proposal takes priority across versions in either order', () => {
   const accepted = { ...sent, selectedPackageId: 'main' }
