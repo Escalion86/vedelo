@@ -14,7 +14,8 @@ const QuickActionButtons = ({
       {validActions.map((action, index) => (
         <AppButton
           key={action?.key || `${action?.label || 'action'}-${index}`}
-          variant={action?.variant || 'secondary'}
+          variant={action?.selected ? 'primary' : action?.variant || 'secondary'}
+          aria-pressed={action?.selected}
           size={action?.size || 'sm'}
           className={cn(buttonClassName, action?.className)}
           disabled={Boolean(action?.disabled)}

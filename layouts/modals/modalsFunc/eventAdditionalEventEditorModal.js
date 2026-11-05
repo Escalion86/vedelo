@@ -111,6 +111,14 @@ const openEventAdditionalEventEditorModal = ({
       return Number.isNaN(parsed.getTime()) ? null : parsed
     }
     const getBaseDate = () => parseDateSafe(date) || new Date()
+    const selectedDate = parseDateSafe(date)
+    const isPresetDateSelected = (days) => {
+      const target = new Date()
+      target.setDate(target.getDate() + days)
+      return Boolean(selectedDate && selectedDate.toDateString() === target.toDateString())
+    }
+    const isPresetTimeSelected = (hours, minutes) =>
+      Boolean(selectedDate && selectedDate.getHours() === hours && selectedDate.getMinutes() === minutes)
     const applyPresetTime = (hours, minutes) => {
       const next = getBaseDate()
       next.setHours(hours, minutes, 0, 0)
@@ -185,21 +193,25 @@ const openEventAdditionalEventEditorModal = ({
           actions={[
             {
               key: 'date-tomorrow',
+              selected: isPresetDateSelected(1),
               label: 'Завтра',
               onClick: () => applyPresetDateFromToday(1),
             },
             {
               key: 'date-after-tomorrow',
+              selected: isPresetDateSelected(2),
               label: 'Послезавтра',
               onClick: () => applyPresetDateFromToday(2),
             },
             {
               key: 'date-plus-2',
+              selected: isPresetDateSelected(3),
               label: 'Через 2 дня',
               onClick: () => applyPresetDateFromToday(3),
             },
             {
               key: 'date-plus-7',
+              selected: isPresetDateSelected(7),
               label: 'Через неделю',
               onClick: () => applyPresetDateFromToday(7),
             },
@@ -211,21 +223,25 @@ const openEventAdditionalEventEditorModal = ({
           actions={[
             {
               key: 'time-11',
+              selected: isPresetTimeSelected(11, 0),
               label: '11:00',
               onClick: () => applyPresetTime(11, 0),
             },
             {
               key: 'time-12',
+              selected: isPresetTimeSelected(12, 0),
               label: '12:00',
               onClick: () => applyPresetTime(12, 0),
             },
             {
               key: 'time-18',
+              selected: isPresetTimeSelected(18, 0),
               label: '18:00',
               onClick: () => applyPresetTime(18, 0),
             },
             {
               key: 'time-19',
+              selected: isPresetTimeSelected(19, 0),
               label: '19:00',
               onClick: () => applyPresetTime(19, 0),
             },
