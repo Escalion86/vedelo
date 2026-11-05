@@ -17,12 +17,8 @@ import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 import DropDown from '@components/DropDown'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
-  faCheck,
-  faFilter,
-  faUser,
-  faUserPlus,
-} from '@fortawesome/free-solid-svg-icons'
+import FiltersButton from '@components/FiltersButton'
+import { faCheck, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons'
 import { getEventStatusFlags } from '@helpers/eventStatusFilter'
 
 const normalizeDigits = (value) => String(value ?? '').replace(/[^\d]/g, '')
@@ -270,17 +266,15 @@ const ClientsContent = ({ onHeaderCountChange }) => {
             menuPadding={false}
             menuClassName="filter-menu w-[min(260px,calc(100vw-24px))] flex-col items-stretch overflow-hidden"
             trigger={
-              <button
-                type="button"
-                className="filter-control filter-control--outline"
-                aria-label="Фильтры клиентов"
-              >
-                <FontAwesomeIcon icon={faFilter} className="h-4 w-4" />
-                Фильтры
-                {clientFilter !== 'all' ? (
-                  <span className="text-[var(--ui-primary)]">1</span>
-                ) : null}
-              </button>
+              <FiltersButton
+                active={clientFilter !== 'all'}
+                count={clientFilter !== 'all' ? 1 : 0}
+                aria-label={
+                  clientFilter !== 'all'
+                    ? 'Фильтры клиентов, есть активные фильтры'
+                    : 'Фильтры клиентов'
+                }
+              />
             }
           >
             {CLIENT_FILTER_OPTIONS.map((option) => {

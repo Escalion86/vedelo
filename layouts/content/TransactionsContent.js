@@ -26,6 +26,7 @@ import {
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import FiltersButton from '@components/FiltersButton'
 import {
   faCheck,
   faChevronDown,
@@ -102,17 +103,15 @@ const TransactionRelationFilter = ({ value, onChange }) => {
       menuPadding="sm"
       menuClassName="min-w-52 flex-col items-stretch !border-gray-200 !bg-white"
       trigger={
-        <button
-          type="button"
-          className="filter-control min-w-[96px]"
-          aria-label="Дополнительные фильтры транзакций"
-        >
-          <FontAwesomeIcon icon={faFilter} className="h-4 w-4" />
-          <span>Фильтры</span>
-          {activeCount > 0 ? (
-            <span className="text-[var(--ui-primary)]">{activeCount}</span>
-          ) : null}
-        </button>
+        <FiltersButton
+          active={activeCount > 0}
+          count={activeCount}
+          aria-label={
+            activeCount > 0
+              ? 'Дополнительные фильтры транзакций, есть активные фильтры'
+              : 'Дополнительные фильтры транзакций'
+          }
+        />
       }
     >
       <div className="w-full p-1">

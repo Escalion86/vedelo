@@ -44,14 +44,6 @@
   font-size: 14px;
 }
 
-.toggle {
-  display: inline-flex;
-  min-height: 44px;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 6px;
-}
-
 .expanded {
   min-height: 0;
   max-height: min(34dvh, 260px);

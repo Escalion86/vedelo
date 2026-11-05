@@ -15,13 +15,6 @@
   gap: 8px;
 }
 
-.toggle {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-}
-
 .reset {
   min-height: 40px;
 }

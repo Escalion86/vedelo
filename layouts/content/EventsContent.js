@@ -7,6 +7,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import FiltersButton from '@components/FiltersButton'
 import NoteAddIcon from '@mui/icons-material/NoteAdd'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import ContentHeader from '@components/ContentHeader'
@@ -1299,22 +1300,14 @@ const EventsContent = ({
             menuClassName="filter-menu w-[min(340px,calc(100vw-24px))] flex-col items-stretch p-3"
             className="min-w-0"
             trigger={
-              <button
-                type="button"
-                className={`filter-control ${
-                  hasActiveFilters
-                    ? 'filter-control--primary'
-                    : 'filter-control--outline'
-                } min-w-[118px] gap-1 px-3 text-xs`}
+              <FiltersButton
+                active={hasActiveFilters}
                 aria-label={
                   hasActiveFilters
                     ? `Фильтры ${workItemTerms.pluralGenitive}, есть активные фильтры`
                     : `Фильтры ${workItemTerms.pluralGenitive}`
                 }
-              >
-                <FilterAltIcon fontSize="small" />
-                <span className="truncate">Фильтры</span>
-              </button>
+              />
             }
           >
             <div className="flex w-full flex-col gap-3">

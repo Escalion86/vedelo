@@ -3,6 +3,7 @@ import receiveDepositFunc from './receiveDepositFunc'
 import AppButton from '@components/AppButton'
 import LoadingSpinner from '@components/LoadingSpinner'
 import ModalSection from '@components/ModalSection'
+import TaskPostponeActions from '@components/TaskPostponeActions'
 import QuickActionButtons from '@components/QuickActionButtons'
 import StatusChip from '@components/StatusChip'
 import RequestsWithoutNextStep from '@components/RequestsWithoutNextStep'
@@ -44,13 +45,13 @@ import {
   getEventAddressLine,
   getEventTitle,
   getPendingAttentionCount,
-  getPostponeActionsForSegment,
   moveDateToDayOffset,
 } from '@helpers/upcomingEventsOverview'
 import AdditionalEventCard from './AdditionalEventCard'
 import EventCard from '@layouts/cards/EventCard'
 import openEventAdditionalEventEditorModal from './eventAdditionalEventEditorModal'
 import openEventAdditionalEventViewModal from './eventAdditionalEventViewModal'
+import openAttentionTaskDateModal from './attentionTaskDateFunc'
 
 const SEGMENT_META = {
   overdue: {
@@ -747,24 +748,29 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                             onClick={(event) => event.stopPropagation()}
                             onKeyDown={(event) => event.stopPropagation()}
                           >
-                            <QuickActionButtons
-                              actions={getPostponeActionsForSegment(key).map(
-                                (action) => ({
-                                  key: action.key,
-                                  label: action.label,
-                                  variant: 'secondary',
-                                  className: 'w-full tablet:w-auto',
-                                  disabled:
-                                    savingKey ===
-                                    `${item.eventId}-${item.index}`,
-                                  onClick: () =>
-                                    shiftAdditionalEventDate(
+                            <TaskPostponeActions
+                              disabled={
+                                savingKey === `${item.eventId}-${item.index}`
+                              }
+                              onPostpone={(offset) =>
+                                shiftAdditionalEventDate(
+                                  item.eventId,
+                                  item.index,
+                                  offset
+                                )
+                              }
+                              onSelectDate={() =>
+                                openAttentionTaskDateModal({
+                                  modalsFunc,
+                                  date: item.date,
+                                  onConfirm: (date) =>
+                                    updateAdditionalEventDate(
                                       item.eventId,
                                       item.index,
-                                      action.targetDayOffset
+                                      date
                                     ),
                                 })
-                              )}
+                              }
                             />
                           </div>
                         ) : null}

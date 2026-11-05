@@ -21,7 +21,7 @@ import cn from 'classnames'
 import AppButton from '@components/AppButton'
 import ComboBox from '@components/ComboBox'
 import DropDown from '@components/DropDown'
-import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import FiltersButton from '@components/FiltersButton'
 import EmptyState from '@components/EmptyState'
 import LoadingSpinner from '@components/LoadingSpinner'
 import Notice from '@components/Notice'
@@ -403,23 +403,14 @@ const BillingHistoryContent = ({
                     menuPadding={false}
                     menuClassName="filter-menu w-[min(340px,calc(100vw-24px))] flex-col items-stretch p-3"
                     trigger={
-                      <button
-                        type="button"
-                        className={cn(
-                          'filter-control min-w-[118px] gap-1 px-3 text-xs',
-                          category !== 'all'
-                            ? 'filter-control--primary'
-                            : 'filter-control--outline'
-                        )}
+                      <FiltersButton
+                        active={category !== 'all'}
                         aria-label={
                           category !== 'all'
                             ? 'Фильтры истории операций, есть активные фильтры'
                             : 'Фильтры истории операций'
                         }
-                      >
-                        <FilterAltIcon fontSize="small" />
-                        Фильтры
-                      </button>
+                      />
                     }
                   >
                     <div className="flex w-full flex-col gap-3">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import ContentHeader from '@components/ContentHeader'
 import AddIconButton from '@components/AddIconButton'
 import EmptyState from '@components/EmptyState'
@@ -8,6 +8,8 @@ import HeaderActions from '@components/HeaderActions'
 import Input from '@components/Input'
 import MutedText from '@components/MutedText'
 import NativeSelect from '@components/NativeSelect'
+import FiltersButton from '@components/FiltersButton'
+import AppButton from '@components/AppButton'
 import SectionCard from '@components/SectionCard'
 import UsersList from '@layouts/lists/UsersList'
 import { modalsFuncAtom } from '@state/atoms'
@@ -50,9 +52,21 @@ const UsersContent = () => {
   const { data: tariffs = [] } = useTariffsQuery()
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const [search, setSearch] = useState('')
-  const [sortMode, setSortMode] = useState(USER_SORT_MODES.NAME)
+  const [sortMode, setSortMode] = useState(USER_SORT_MODES.REGISTRATION)
   const [sourceFilter, setSourceFilter] = useState(ALL_SOURCES)
   const [tariffFilter, setTariffFilter] = useState(ALL_TARIFFS)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filtersId = useId()
+  const activeCount = [
+    Boolean(search.trim()),
+    sourceFilter !== ALL_SOURCES,
+    tariffFilter !== ALL_TARIFFS,
+  ].filter(Boolean).length
+  const resetFilters = () => {
+    setSearch('')
+    setSourceFilter(ALL_SOURCES)
+    setTariffFilter(ALL_TARIFFS)
+  }
 
   const knownTariffIds = useMemo(
     () => new Set(tariffs.map((tariff) => String(tariff._id))),
@@ -161,7 +175,28 @@ const UsersContent = () => {
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain pb-2">
       <ContentHeader>
         <HeaderActions
-          left={<div />}
+          className="flex-wrap gap-2"
+          left={
+            <div className="flex flex-wrap items-center gap-2">
+              <FiltersButton
+                active={activeCount > 0}
+                count={activeCount}
+                aria-expanded={filtersOpen}
+                aria-controls={filtersId}
+                onClick={() => setFiltersOpen((value) => !value)}
+              />
+              {activeCount > 0 ? (
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Сбросить фильтры"
+                  onClick={resetFilters}
+                >
+                  Сбросить
+                </AppButton>
+              ) : null}
+            </div>
+          }
           right={
             <>
               <MutedText>Всего: {users.length}</MutedText>
@@ -176,8 +211,8 @@ const UsersContent = () => {
           }
         />
       </ContentHeader>
-      <div className="tablet:grid-cols-2 desktop:grid-cols-[minmax(0,1fr)_200px_200px_220px] grid shrink-0 gap-2 p-2">
-        <div className="tablet:col-span-2 desktop:col-span-1">
+      <div className="shrink-0 space-y-2 p-2">
+        <div>
           <Input
             label="Поиск пользователя"
             value={search}
@@ -186,60 +221,73 @@ const UsersContent = () => {
             noMargin
           />
         </div>
-        <label className="input-label flex flex-col gap-1 text-xs font-semibold">
-          Источник регистрации
-          <NativeSelect
-            value={sourceFilter}
-            onChange={(event) => setSourceFilter(event.target.value)}
-            className="h-9 w-full cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800"
-            arrowClassName="right-3"
-          >
-            <option value={ALL_SOURCES}>Все источники ({users.length})</option>
-            {sourceStats.map(({ source, registered }) => (
-              <option key={source} value={source}>
-                {source === EMPTY_SOURCE
-                  ? `Без метки (${registered})`
-                  : `${formatRegistrationSource(source)} (${registered})`}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        <label className="input-label flex flex-col gap-1 text-xs font-semibold">
-          Тариф
-          <NativeSelect
-            value={tariffFilter}
-            onChange={(event) => setTariffFilter(event.target.value)}
-            className="h-9 w-full cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800"
-            arrowClassName="right-3"
-          >
-            <option value={ALL_TARIFFS}>Все тарифы ({users.length})</option>
-            <option value={NO_TARIFF}>
-              Без тарифа ({tariffStats.withoutTariff})
-            </option>
-            {tariffs.map((tariff) => (
-              <option key={tariff._id} value={String(tariff._id)}>
-                {tariff.title || 'Без названия'}
-                {tariff.hidden ? ' — скрытый' : ''} (
-                {tariffStats.counts.get(String(tariff._id)) ?? 0})
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        <label className="input-label flex flex-col gap-1 text-xs font-semibold">
-          Сортировка
-          <NativeSelect
-            value={sortMode}
-            onChange={(event) => setSortMode(event.target.value)}
-            className="h-9 w-full cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800"
-            arrowClassName="right-3"
-          >
-            {USER_SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
+        <div id={filtersId} hidden={!filtersOpen}>
+          {filtersOpen ? (
+            <div className="tablet:grid-cols-3 grid gap-2">
+              <label className="input-label flex flex-col gap-1 text-xs font-semibold">
+                Источник регистрации
+                <NativeSelect
+                  aria-label="Источник регистрации"
+                  value={sourceFilter}
+                  onChange={(event) => setSourceFilter(event.target.value)}
+                  className="h-9 w-full cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800"
+                  arrowClassName="right-3"
+                >
+                  <option value={ALL_SOURCES}>
+                    Все источники ({users.length})
+                  </option>
+                  {sourceStats.map(({ source, registered }) => (
+                    <option key={source} value={source}>
+                      {source === EMPTY_SOURCE
+                        ? `Без метки (${registered})`
+                        : `${formatRegistrationSource(source)} (${registered})`}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+              <label className="input-label flex flex-col gap-1 text-xs font-semibold">
+                Тариф
+                <NativeSelect
+                  aria-label="Тариф"
+                  value={tariffFilter}
+                  onChange={(event) => setTariffFilter(event.target.value)}
+                  className="h-9 w-full cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800"
+                  arrowClassName="right-3"
+                >
+                  <option value={ALL_TARIFFS}>
+                    Все тарифы ({users.length})
+                  </option>
+                  <option value={NO_TARIFF}>
+                    Без тарифа ({tariffStats.withoutTariff})
+                  </option>
+                  {tariffs.map((tariff) => (
+                    <option key={tariff._id} value={String(tariff._id)}>
+                      {tariff.title || 'Без названия'}
+                      {tariff.hidden ? ' — скрытый' : ''} (
+                      {tariffStats.counts.get(String(tariff._id)) ?? 0})
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+              <label className="input-label flex flex-col gap-1 text-xs font-semibold">
+                Сортировка
+                <NativeSelect
+                  aria-label="Сортировка"
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value)}
+                  className="h-9 w-full cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800"
+                  arrowClassName="right-3"
+                >
+                  {USER_SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+            </div>
+          ) : null}
+        </div>
       </div>
       {sourceStats.length > 0 ? (
         <div className="shrink-0 px-2 pb-2">

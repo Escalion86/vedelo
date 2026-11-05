@@ -7,6 +7,7 @@ import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faTimes } from '@fortawesome/free-solid-svg-icons/faTimes'
 import { formatAddressPoolShort } from '@helpers/addressPool'
 import Notice from './Notice'
+import AppButton from './AppButton'
 
 const MIN_QUERY_LENGTH = 4
 const DEBOUNCE_MS = 600
@@ -424,6 +425,14 @@ const AddressSuggestField = ({
           })}
         </div>
       )}
+      <AppButton
+        variant="ghost"
+        size="sm"
+        className="mt-1 min-h-10"
+        onClick={() => handleSelectOption({ type: 'manual' })}
+      >
+        Ввести вручную
+      </AppButton>
     </div>
   )
 }

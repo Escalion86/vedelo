@@ -2,9 +2,8 @@
 
 import { useDeferredValue, useId, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faChevronDown, faFilter } from '@fortawesome/free-solid-svg-icons'
 import AppButton from '@components/AppButton'
+import FiltersButton from '@components/FiltersButton'
 import PeriodPicker from '@components/PeriodPicker'
 import HistoryFeed from '@components/HistoryFeed'
 import Notice from '@components/Notice'
@@ -144,21 +143,13 @@ const HistoryContent = () => {
               placeholder="Карточка или пользователь"
             />
           </label>
-          <AppButton
-            variant="secondary"
-            size="sm"
-            className={styles.toggle}
+          <FiltersButton
+            active={activeCount > 0}
+            count={activeCount}
             aria-expanded={filtersOpen}
             aria-controls={filtersId}
             onClick={() => setFiltersOpen((value) => !value)}
-          >
-            <FontAwesomeIcon icon={faFilter} className="h-3 w-3" />
-            Фильтры{activeCount ? ` (${activeCount})` : ''}
-            <FontAwesomeIcon
-              icon={faChevronDown}
-              className={`h-3 w-3 ${filtersOpen ? 'rotate-180' : ''}`}
-            />
-          </AppButton>
+          />
         </div>
         {activeCount || search.trim() ? (
           <div className={styles.summaryRow}>

@@ -7,6 +7,7 @@ import {
   getPendingAttentionCount,
   getPostponeActionsForSegment,
   moveDateToDayOffset,
+  moveDateToSelectedDay,
 } from './upcomingEventsOverview.js'
 
 test('attention badge excludes completed tasks kept in the today list', () => {
@@ -74,4 +75,29 @@ test('moveDateToDayOffset moves to day relative to now and keeps original time',
   assert.equal(result.getDate(), 24)
   assert.equal(result.getHours(), 18)
   assert.equal(result.getMinutes(), 45)
+})
+
+test('выбор даты переноса сохраняет локальное время задачи и меняет день, месяц и год', () => {
+  const source = new Date(2026, 10, 5, 18, 45, 12, 123)
+  const selected = new Date(2027, 0, 2, 12)
+  const result = moveDateToSelectedDay(source, selected)
+  assert.equal(result.getFullYear(), 2027)
+  assert.equal(result.getMonth(), 0)
+  assert.equal(result.getDate(), 2)
+  assert.equal(result.getHours(), 18)
+  assert.equal(result.getMinutes(), 45)
+  assert.equal(result.getSeconds(), 12)
+  assert.equal(result.getMilliseconds(), 123)
+  assert.equal(source.getDate(), 5)
+  assert.equal(selected.getHours(), 12)
+})
+
+test('невалидный день не сохраняется; задача без даты использует текущее время', () => {
+  const now = new Date(2026, 10, 5, 9, 30)
+  assert.equal(moveDateToSelectedDay(now, 'invalid'), null)
+  assert.equal(moveDateToSelectedDay(now, null), null)
+  const result = moveDateToSelectedDay(null, new Date(2026, 10, 8), now)
+  assert.equal(result.getDate(), 8)
+  assert.equal(result.getHours(), 9)
+  assert.equal(result.getMinutes(), 30)
 })

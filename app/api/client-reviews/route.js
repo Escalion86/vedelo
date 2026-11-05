@@ -25,6 +25,17 @@ export const GET = async (req) => {
     if (!validReviewId(value)) return reviewError('Некорректный идентификатор')
     filter[key] = value
   }
+  if (params.has('status')) {
+    if (params.get('status') !== 'expired')
+      return reviewError('Некорректный статус')
+    filter.$and = [
+      {
+        submittedAt: null,
+        revokedAt: null,
+        expiresAt: { $lte: new Date() },
+      },
+    ]
+  }
   if (params.get('unread') === 'true')
     Object.assign(filter, { submittedAt: { $ne: null }, readAt: null })
   if (params.has('rating')) {

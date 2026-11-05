@@ -1,9 +1,8 @@
 'use client'
 
 import { useId, useState } from 'react'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faChevronDown, faFilter } from '@fortawesome/free-solid-svg-icons'
 import AppButton from '@components/AppButton'
+import FiltersButton from '@components/FiltersButton'
 import InputWrapper from '@components/InputWrapper'
 import PeriodPicker from '@components/PeriodPicker'
 import ClientReviewsList from '@components/ClientReviewsList'
@@ -12,14 +11,16 @@ import styles from './ClientReviewsContent.module.css'
 export default function ClientReviewsContent() {
   const [rating, setRating] = useState('')
   const [unread, setUnread] = useState('')
+  const [status, setStatus] = useState('')
   const [period, setPeriod] = useState({ from: '', to: '' })
   const { from, to } = period
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filtersId = useId()
-  const activeCount = [rating, unread, from, to].filter(Boolean).length
+  const activeCount = [rating, unread, status, from, to].filter(Boolean).length
   const summary = [
     rating && `${rating} из 5`,
     unread && 'Непрочитанные',
+    status && 'Ссылка истекла',
     from && `С ${from}`,
     to && `По ${to}`,
   ]
@@ -28,6 +29,7 @@ export default function ClientReviewsContent() {
   const resetFilters = () => {
     setRating('')
     setUnread('')
+    setStatus('')
     setPeriod({ from: '', to: '' })
   }
   return (
@@ -36,21 +38,13 @@ export default function ClientReviewsContent() {
         <h1 className="sr-only">Отзывы клиентов</h1>
         <div className={styles.panel}>
           <div className={styles.header}>
-            <AppButton
-              variant="secondary"
-              size="sm"
-              className={styles.toggle}
+            <FiltersButton
+              active={activeCount > 0}
+              count={activeCount}
               aria-expanded={filtersOpen}
               aria-controls={filtersId}
               onClick={() => setFiltersOpen((value) => !value)}
-            >
-              <FontAwesomeIcon icon={faFilter} className="h-3 w-3" />
-              Фильтры{activeCount ? ` (${activeCount})` : ''}
-              <FontAwesomeIcon
-                icon={faChevronDown}
-                className={`h-3 w-3 ${filtersOpen ? 'rotate-180' : ''}`}
-              />
-            </AppButton>
+            />
             {activeCount ? (
               <AppButton
                 variant="ghost"
@@ -71,6 +65,23 @@ export default function ClientReviewsContent() {
           <div id={filtersId} hidden={!filtersOpen}>
             {filtersOpen ? (
               <div className={styles.fields}>
+                <InputWrapper
+                  label="Статус отзыва"
+                  noMargin
+                  className="col-span-2 min-w-0"
+                  wrapperClassName="min-w-0"
+                  paddingY={false}
+                >
+                  <select
+                    aria-label="Статус отзыва"
+                    className="w-full min-w-0 cursor-pointer bg-transparent"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="">Все отзывы и запросы</option>
+                    <option value="expired">Ссылка истекла</option>
+                  </select>
+                </InputWrapper>
                 <InputWrapper
                   label="Оценка"
                   noMargin
@@ -120,8 +131,8 @@ export default function ClientReviewsContent() {
           </div>
         </div>
         <ClientReviewsList
-          key={`${rating}:${unread}:${from}:${to}`}
-          filters={{ rating, unread, from, to }}
+          key={`${rating}:${unread}:${status}:${from}:${to}`}
+          filters={{ rating, unread, status, from, to }}
         />
       </div>
     </div>

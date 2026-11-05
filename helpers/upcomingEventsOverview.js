@@ -74,3 +74,22 @@ export const moveDateToDayOffset = (
   )
   return target
 }
+
+export const moveDateToSelectedDay = (
+  sourceDateValue,
+  selectedDateValue,
+  now = new Date()
+) => {
+  if (!selectedDateValue) return null
+  const target = new Date(selectedDateValue)
+  if (Number.isNaN(target.getTime())) return null
+  const source = sourceDateValue ? new Date(sourceDateValue) : null
+  const time = source && !Number.isNaN(source.getTime()) ? source : now
+  target.setHours(
+    time.getHours(),
+    time.getMinutes(),
+    time.getSeconds(),
+    time.getMilliseconds()
+  )
+  return target
+}

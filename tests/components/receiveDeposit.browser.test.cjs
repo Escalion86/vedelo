@@ -239,6 +239,48 @@ test(
             0
           )
           assert.equal(attempts, 2)
+          // Проверяем перенос настоящей задачи из UpcomingEventsOverview:
+          // меняется её дата, остальные задачи и поля сохраняются.
+          await page.evaluate(() => {
+            const taskDate = new Date()
+            taskDate.setDate(taskDate.getDate() - 1)
+            taskDate.setHours(18, 45, 0, 0)
+            const later = new Date()
+            later.setMonth(later.getMonth() + 2)
+            window.event = {
+              ...window.event,
+              additionalEvents: [
+                { title: 'Позвонить клиенту', date: taskDate.toISOString(), done: false },
+                { title: 'Другая задача', date: later.toISOString(), done: false },
+              ],
+            }
+            window.otherTask = window.event.additionalEvents[1]
+            window.client.setQueriesData({ queryKey: ['events'] }, () => ({ data: [window.event] }))
+          })
+          const taskActions = page.getByRole('group', { name: 'Перенести задачу', exact: true })
+          await taskActions.getByRole('button', { name: 'Завтра', exact: true }).click()
+          await page.waitForFunction(() => window.postponed === 2)
+          assert.deepEqual(await page.evaluate(() => {
+            const date = new Date(window.event.additionalEvents[0].date)
+            const tomorrow = new Date()
+            tomorrow.setDate(tomorrow.getDate() + 1)
+            return [date.toDateString() === tomorrow.toDateString(), date.getHours(), date.getMinutes()]
+          }), [true, 18, 45])
+          await taskActions.getByRole('button', { name: 'Выбрать дату' }).click()
+          const calendar = page.getByRole('group', { name: 'Календарь переноса задачи' })
+          await calendar.waitFor()
+          await page.getByRole('button', { name: 'Следующий месяц' }).click()
+          const chosen = calendar.locator('button[data-date]').nth(16)
+          const chosenDate = await chosen.getAttribute('data-date')
+          await chosen.click()
+          await page.getByRole('button', { name: 'Перенести', exact: true }).click()
+          await calendar.waitFor({ state: 'detached' })
+          assert.deepEqual(await page.evaluate(() => {
+            const date = new Date(window.event.additionalEvents[0].date)
+            return [date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes()]
+          }), [...chosenDate.split('-').map(Number), 18, 45])
+          assert.equal(await page.evaluate(() => window.event.additionalEvents[0].title), 'Позвонить клиенту')
+          assert.deepEqual(await page.evaluate(() => window.event.additionalEvents[1]), await page.evaluate(() => window.otherTask))
           assert.deepEqual(errors, [])
           await page.close()
         }
