@@ -22,7 +22,6 @@ const MAX_BYTES = 5 * 1024 * 1024
 
 export function PhotoDraftSection(props: Props) {
   const access = useAiDraftAccess()
-  if (!access.isDeveloper) return <ErrorNotice message="Создание из фотографии временно доступно только разработчику. Заполните форму вручную." />
   if (access.loading) return <Surface><SectionTitle>Проверяем доступ к ИИ…</SectionTitle></Surface>
   if (!access.allowAi) return <ErrorNotice message={access.error || 'Фото-черновик доступен только в тарифе с ИИ. Заполните форму вручную.'} />
   return <PhotoEditor {...props} access={access} />

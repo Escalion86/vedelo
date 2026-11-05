@@ -14,14 +14,24 @@ for (const [name, options, status] of [['auth', { unauthorized: true }, 401], ['
 }
 for (const role of ['user', 'admin', 'performer', '', null]) {
   for (const actualContext of [false, true]) {
-    test(`photo developer rollout denies ${String(role)} (${actualContext ? 'bearer' : 'cookie'}) before body`, async () => {
+    test(`photo is available with AI tariff for role ${String(role)} (${actualContext ? 'bearer' : 'cookie'})`, async () => {
       const { POST, calls } = await harness({ role, actualContext })
-      const response = await POST({ headers: new Headers(actualContext ? { authorization: 'Bearer valid-test-token' } : {}), get body() { throw new Error('body read before developer gate') } })
-      assert.equal(response.status, 403)
-      assert.equal(calls.provider.length, 0)
+      const response = await POST(request(await imageBody(), actualContext ? { authorization: 'Bearer valid-test-token' } : {}))
+      assert.equal(response.status, 200)
+      assert.equal(calls.provider.length, 2)
       assert.equal(calls.clients.length, 0)
     })
   }
+}
+
+for (const actualContext of [false, true]) {
+  test(`ordinary user without AI tariff is denied before body (${actualContext ? 'bearer' : 'cookie'})`, async () => {
+    const { POST, calls } = await harness({ role: 'user', actualContext, denied: true })
+    const response = await POST({ headers: new Headers(actualContext ? { authorization: 'Bearer valid-test-token' } : {}), get body() { throw new Error('body read before tariff check') } })
+    assert.equal(response.status, 403)
+    assert.equal(calls.provider.length, 0)
+    assert.equal(calls.clients.length, 0)
+  })
 }
 test('valid photo: normalized bytes, tenant catalog, result contract, no EVENT write', async () => {
   const { POST, calls } = await harness({ foreign: true })

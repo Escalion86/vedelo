@@ -42,10 +42,10 @@ it('oversize and broken file, error retry and offline', async () => {
   fireEvent.press(screen.getByText('Распознать и заполнить')); await screen.findByText('Заметка'); expect(mockPost).toHaveBeenCalledTimes(2)
   mockOnline = false; screen.rerender(<PhotoDraftSection onApply={jest.fn()} />); expect(screen.getByText(/нужен интернет/i)).toBeTruthy()
 })
-it('non-developer cannot open photo controls by direct route', () => {
+it('ordinary user with AI tariff can open photo controls by direct route', () => {
   mockDeveloper = false
   const screen = render(<PhotoDraftSection onApply={jest.fn()} />)
-  expect(screen.queryByText('Выбрать изображение')).toBeNull()
+  expect(screen.getByText('Выбрать изображение')).toBeTruthy()
   expect(mockPost).not.toHaveBeenCalled()
 })
 it('denied tariff hides photo controls', () => { mockAllow = false; const screen = render(<PhotoDraftSection onApply={jest.fn()} />); expect(screen.queryByText('Выбрать изображение')).toBeNull() })

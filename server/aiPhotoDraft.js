@@ -68,8 +68,6 @@ export async function handleAiPhotoDraft(request) {
   try {
     const { tenantId, user } = await getRequestContext(request)
     if (!tenantId || !user?._id) return fail(401, 'Неавторизованный доступ')
-    // Временный запуск только для разработчика; до тела, тарифа и платных запросов.
-    if (user.role !== 'dev') return fail(403, 'Создание из фотографии временно доступно только разработчику')
     const access = await getUserTariffAccess(user._id)
     if (!access?.allowAi) return fail(403, 'Фото-черновик доступен только в тарифе с ИИ')
     // До чтения тела проверены auth и tariff. Tenant из payload не используется.

@@ -104,7 +104,7 @@ const useEventCreateMenu = () => {
         icon: <MicIcon fontSize="small" />,
         onClick: handleCreateByVoice,
       })
-      if (loggedUser?.role === 'dev') result.push({ key: 'photo', label: 'Из фотографии', usesAi: true, icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
+      result.push({ key: 'photo', label: 'Из фотографии', usesAi: true, icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
       result.push({
         key: 'text',
         label: 'Создать/Ред. свободным текстом', usesAi: true,
@@ -116,14 +116,13 @@ const useEventCreateMenu = () => {
   }, [
     createDisabled,
     allowVoiceDraft,
-    loggedUser?.role,
     handleCreateRequest,
     handleCreateByVoice,
     handleCreateByText,
     handleCreateByPhoto,
   ])
 
-  const draftModals = photoDraftOpen && allowVoiceDraft && loggedUser?.role === 'dev'
+  const draftModals = photoDraftOpen && allowVoiceDraft
     ? <PhotoDraftModal open onClose={() => setPhotoDraftOpen(false)} onDraft={handleTextDraft} />
     : null
 

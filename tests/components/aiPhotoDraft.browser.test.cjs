@@ -16,8 +16,8 @@ test('photo: actual nav/shared hook/modal, HTTP mock OCR, both themes and respon
     import useMenu from './helpers/useEventCreateMenu';import userAtom from './state/atoms/loggedUserAtom';import tariffsAtom from './state/atoms/tariffsAtom';
     import settingsAtom from './state/atoms/siteSettingsAtom';import dimensionsAtom from './state/atoms/windowDimensionsAtom';import {modalsFuncAtom} from '@state/atoms';
     import Input from './components/Input';import Compact from './components/CompactEventForm';
-    const store=createStore();store.set(userAtom,{_id:'user-a',tariffId:'ai',role:'dev'});store.set(tariffsAtom,[{_id:'ai',allowAi:true}]);
-    window.configure=(allow,term,role='dev')=>{store.set(userAtom,{_id:'user-a',tariffId:'ai',role});store.set(tariffsAtom,[{_id:'ai',allowAi:allow}]);store.set(settingsAtom,{custom:{primaryEntityTerminology:term}})};
+    const store=createStore();store.set(userAtom,{_id:'user-a',tariffId:'ai',role:'user'});store.set(tariffsAtom,[{_id:'ai',allowAi:true}]);
+    window.configure=(allow,term,role='user')=>{store.set(userAtom,{_id:'user-a',tariffId:'ai',role});store.set(tariffsAtom,[{_id:'ai',allowAi:allow}]);store.set(settingsAtom,{custom:{primaryEntityTerminology:term}})};
     store.set(dimensionsAtom,{width:innerWidth,height:innerHeight});
     window.created=[];window.openForm=()=>{};
     store.set(modalsFuncAtom,{event:{create:(status,options)=>{window.created.push({status,...options});window.openForm(options)}}});
@@ -78,19 +78,20 @@ test('photo: actual nav/shared hook/modal, HTTP mock OCR, both themes and respon
   try{
     for(const width of [390,1365])for(const dark of [false,true])for(const term of ['orders','events']){
       const page=await browser.newPage({viewport:{width,height:740}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+      page.on('console',msg=>{if(msg.type()==='error'&&!msg.text().includes('status of 502'))errors.push(msg.text())});
       await page.goto(`http://127.0.0.1:${server.address().port}`)
       await page.evaluate(({dark,term})=>{document.body.classList.toggle('theme-dark',dark);window.configure(true,term)},{dark,term})
       const title=term==='orders'?'заказ':'мероприятие'
       await page.getByRole('button',{name:`Добавить заявку или ${title}`,exact:true}).click()
-      await page.getByText(`Создать ${title}`,{exact:true}).waitFor()
-      await page.getByRole('button',{name:'Из фотографии',exact:true}).waitFor()
+      await page.getByText(`Создать / редактировать ${title}`,{exact:true}).waitFor()
+      await page.getByRole('button',{name:'Из фотографии ИИ',exact:true}).waitFor()
       await page.waitForTimeout(250)
       if(width===390){
         const m=await page.locator('.mobile-bottomnav-create-title').evaluate(el=>{const s=getComputedStyle(el);const r=el.getBoundingClientRect();return{bg:s.backgroundColor,color:s.color,border:s.borderWidth,x:r.x,y:r.y,width:r.width,height:r.height}})
         const lum=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(v=>{v=Number(v)/255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4});return rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722};const a=lum(m.bg),b=lum(m.color);const contrast=(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);assert.ok(contrast>=4.5,`Heading contrast ${contrast}`);assert.ok(m.y>=0);metrics.push({viewportWidth:width,dark,term,...m,contrast})
       }
       await capture(page,`menu-${width}-${dark?'dark':'light'}-${term}`)
-      await page.getByRole('button',{name:'Из фотографии',exact:true}).click()
+      await page.getByRole('button',{name:'Из фотографии ИИ',exact:true}).click()
       await page.getByText(`Фото заметки для ${term==='orders'?'заказа':'мероприятия'}`,{exact:true}).waitFor()
       const before=paidRequests
       assert.equal(await page.locator('input[capture=environment]').count(),1)
@@ -101,9 +102,9 @@ test('photo: actual nav/shared hook/modal, HTTP mock OCR, both themes and respon
       await page.locator('input[type=file]').first().setInputFiles({name:'note.png',mimeType:'image/png',buffer:await sharp(Buffer.from('<svg width="640" height="360"><rect width="100%" height="100%" fill="white"/><text x="25" y="60" font-size="28">Клиент Анна. Шоу 15 октября.</text><text x="25" y="110" font-size="28">Гонорар 50000 рублей.</text></svg>')).png().toBuffer()})
       await page.getByAltText('Предпросмотр выбранной заметки').waitFor();assert.equal(paidRequests,before)
       await capture(page,`dialog-${width}-${dark?'dark':'light'}-${term}`)
-      failure=true;failureGate=new Promise(resolve=>{releaseFailure=resolve});await page.getByRole('button',{name:'Распознать и заполнить',exact:true}).click();assert.equal(await page.getByRole('button',{name:'Распознаём фото…',exact:true}).isDisabled(),true);releaseFailure();await page.getByRole('alert').waitFor();assert.equal((await page.evaluate(()=>window.created)).length,0)
+      failure=true;failureGate=new Promise(resolve=>{releaseFailure=resolve});await page.getByRole('button',{name:'Распознать и заполнить ИИ',exact:true}).click();assert.equal(await page.getByRole('button',{name:'Распознаём фото… ИИ',exact:true}).isDisabled(),true);releaseFailure();await page.getByRole('alert').waitFor();assert.equal((await page.evaluate(()=>window.created)).length,0)
       await capture(page,`error-${width}-${dark?'dark':'light'}-${term}`)
-      failure=false;await page.getByRole('button',{name:'Распознать и заполнить',exact:true}).click()
+      failure=false;await page.getByRole('button',{name:'Распознать и заполнить ИИ',exact:true}).click()
       await page.getByText('Распознанный текст',{exact:true}).waitFor()
       await capture(page,`result-${width}-${dark?'dark':'light'}-${term}`)
       await page.getByRole('button',{name:'Открыть заполненную форму',exact:true}).click()
@@ -112,18 +113,18 @@ test('photo: actual nav/shared hook/modal, HTTP mock OCR, both themes and respon
       assert.equal(eventPosts,0);assert.deepEqual(errors,[])
       await page.evaluate(term=>window.configure(false,term),term)
       await page.getByRole('button',{name:`Добавить заявку или ${title}`,exact:true}).click()
-      assert.equal(await page.getByRole('button',{name:'Из фотографии',exact:true}).count(),0)
+      assert.equal(await page.getByRole('button',{name:'Из фотографии ИИ',exact:true}).count(),0)
       for (const role of ['user', 'admin', 'performer']) {
         await page.evaluate(({term,role})=>window.configure(true,term,role),{term,role})
-        assert.equal(await page.getByRole('button',{name:'Из фотографии',exact:true}).count(),0)
-        assert.equal(await page.getByRole('button',{name:'Голосом',exact:true}).count(),1)
-        assert.equal(await page.getByRole('button',{name:'Свободным текстом',exact:true}).count(),1)
+        assert.equal(await page.getByRole('button',{name:'Из фотографии ИИ',exact:true}).count(),1)
+        assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),1)
+        assert.equal(await page.getByRole('button',{name:'Создать/Ред. свободным текстом ИИ',exact:true}).count(),1)
       }
       await page.close()
     }
     await fs.writeFile(path.join(artifacts,'metrics.json'),JSON.stringify({metrics,paidRequests,eventPosts},null,2))
     // Short screen: four choices are contained in a scrollable menu.
     const page=await browser.newPage({viewport:{width:390,height:360}});await page.goto(`http://127.0.0.1:${server.address().port}`)
-    await page.getByRole('button',{name:/Добавить заявку или/}).click();await page.getByRole('button',{name:'Из фотографии',exact:true}).click();await page.close()
+    await page.getByRole('button',{name:/Добавить заявку или/}).click();await page.getByRole('button',{name:'Из фотографии ИИ',exact:true}).click();await page.close()
   }finally{releaseFailure();await browser.close();await new Promise(r=>server.close(r))}
 })

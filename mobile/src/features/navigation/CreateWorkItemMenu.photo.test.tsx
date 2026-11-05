@@ -5,10 +5,10 @@ let mockAllow = true, mockOnline = true, mockEntity = 'заказ', mockDevelope
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: 'Icon' }))
 jest.mock('../events/useAiDraftAccess', () => ({ useAiDraftAccess: () => ({ allowAi: mockAllow, online: mockOnline, isDeveloper: mockDeveloper }) }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ accusative: mockEntity }) }))
-it('non-developer with AI sees voice/text but not photo', () => {
+it('ordinary user with AI sees photo, voice and text', () => {
   mockAllow = true; mockOnline = true; mockDeveloper = false
   const screen = render(<CreateWorkItemMenu onSelect={jest.fn()} />)
-  expect(screen.queryByText('Из фотографии')).toBeNull()
+  expect(screen.getByText('Из фотографии')).toBeTruthy()
   expect(screen.getByText('Голосом')).toBeTruthy()
   expect(screen.getByText('Свободным текстом')).toBeTruthy()
 })

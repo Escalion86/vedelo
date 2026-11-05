@@ -18,9 +18,9 @@ async function harness(options = {}) {
   const mocks = {
     'next/server': { NextResponse: { json: (value, init) => Response.json(value, init) } }, sharp,
     '@server/dbConnect': async () => {},
-    '@server/getTenantContext': async () => options.unauthorized ? {} : { tenantId: 'tenant-a', user: { role: options.role === undefined ? 'dev' : options.role, _id: 'user-a' } },
-    '@server/mobile/auth': { getMobileUser: async req => req.headers.get('authorization') === 'Bearer valid-test-token' ? { user: { role: options.role === undefined ? 'dev' : options.role, _id: 'user-a', tenantId: 'tenant-a' } } : { error: 'Invalid token' } },
-    '@server/getRequestContext': async () => options.unauthorized ? {} : { tenantId: 'tenant-a', user: { role: options.role === undefined ? 'dev' : options.role, _id: 'user-a' } },
+    '@server/getTenantContext': async () => options.unauthorized ? {} : { tenantId: 'tenant-a', user: { role: options.role === undefined ? 'user' : options.role, _id: 'user-a' } },
+    '@server/mobile/auth': { getMobileUser: async req => req.headers.get('authorization') === 'Bearer valid-test-token' ? { user: { role: options.role === undefined ? 'user' : options.role, _id: 'user-a', tenantId: 'tenant-a' } } : { error: 'Invalid token' } },
+    '@server/getRequestContext': async () => options.unauthorized ? {} : { tenantId: 'tenant-a', user: { role: options.role === undefined ? 'user' : options.role, _id: 'user-a' } },
     '@server/getUserTariffAccess': async () => ({ allowAi: !options.denied }),
     '@server/aiSettings': { getTenantAiSettings: async (tenant) => { assert.equal(tenant, 'tenant-a'); return settings } },
     '@server/aiChatCompletion': {
