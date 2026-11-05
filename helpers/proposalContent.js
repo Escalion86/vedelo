@@ -6,6 +6,7 @@ import {
   renderProposalRichTextVariables,
 } from './proposalRichText.js'
 import { calculatePackageTotal } from './proposalWorkflow.js'
+import { getProposalVariableValue } from './proposalVariableValue.mjs'
 
 export const PROPOSAL_BLOCK_TYPES = Object.freeze([
   'cover',
@@ -318,15 +319,12 @@ export const materializeProposalTemplateDefaults = (
   }
 }
 
-const getByPath = (source, path) =>
-  path.split('.').reduce((value, key) => value?.[key], source)
-
 export const renderProposalVariables = (text, variables) => {
   const unknown = new Set()
   const rendered = String(text ?? '').replace(
     /{{\s*([\w.]+)\s*}}/g,
     (_, key) => {
-      const value = getByPath(variables, key)
+      const value = getProposalVariableValue(variables, key)
       if (value === undefined || value === null || value === '') {
         unknown.add(key)
         return `{{${key}}}`

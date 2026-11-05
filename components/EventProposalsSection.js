@@ -4,7 +4,7 @@ import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { pickProposalArtistContacts } from '@helpers/proposalArtistContacts.mjs'
 import fieldHelp from '@helpers/fieldHelp.json'
 import FieldHelp from '@components/FieldHelp'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import dynamic from 'next/dynamic'
@@ -21,7 +21,7 @@ import {
 } from '@helpers/useEventProposalsQuery'
 import Input from '@components/Input'
 import Textarea from '@components/Textarea'
-import ComboBox from '@components/ComboBox'
+import { getProposalStatus } from '@helpers/proposalStatus.mjs'
 import AppButton from '@components/AppButton'
 import AddIconButton from '@components/AddIconButton'
 import IconActionButton from '@components/IconActionButton'
@@ -70,6 +70,7 @@ const ProposalTemplatePicker = ({
   setOnConfirmFunc,
 }) => {
   const [templateId, setTemplateId] = useState(templates[0]?._id || '')
+  const groupId = useId()
 
   useEffect(() => {
     setOnConfirmFunc(async () => {
@@ -79,17 +80,31 @@ const ProposalTemplatePicker = ({
   }, [closeModal, onSelect, setOnConfirmFunc, templateId])
 
   return (
-    <ComboBox
-      label="Шаблон предложения"
-      value={templateId}
-      onChange={setTemplateId}
-      items={[
-        ...templates.map((item) => ({ name: item.name, value: item._id })),
-        { name: 'Без шаблона', value: WITHOUT_TEMPLATE },
-      ]}
-      noMargin
-      fullWidth
-    />
+    <fieldset className="min-w-0">
+      <legend className="card-title mb-2 text-sm">Шаблон предложения</legend>
+      <div className="max-h-72 overflow-y-auto space-y-2 p-1">
+        {[
+          ...templates.map((item) => ({ name: item.name, value: item._id })),
+          { name: 'Без шаблона', value: WITHOUT_TEMPLATE },
+        ].map((item) => (
+          <label
+            key={item.value}
+            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border p-3 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--ui-primary)]"
+            style={{ borderColor: templateId === item.value ? 'var(--ui-primary)' : 'var(--surface-card-border)' }}
+          >
+            <input
+              type="radio"
+              name={groupId}
+              value={item.value}
+              checked={templateId === item.value}
+              onChange={() => setTemplateId(item.value)}
+              className="h-4 w-4 shrink-0 cursor-pointer accent-[var(--ui-primary)]"
+            />
+            <span className="card-title min-w-0 break-words">{item.name}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   )
 }
 
@@ -413,6 +428,7 @@ const EventProposalsSection = ({
           void queryClient.invalidateQueries({
             queryKey: queryKeys.proposalStatuses,
           })
+          void queryClient.invalidateQueries({ queryKey: queryKeys.expiredProposals })
           reportMessage({
             tone: 'success',
             text:
@@ -779,11 +795,11 @@ const EventProposalsSection = ({
                       Версия {proposal.version} ·{' '}
                       {proposal.status === 'draft'
                         ? 'черновик'
-                        : proposal.status === 'published'
-                          ? 'опубликовано'
-                          : proposal.status === 'expired'
-                            ? 'срок истёк'
-                            : 'отозвано'}
+                        : getProposalStatus(proposal) === 'expired'
+                          ? 'срок истёк'
+                          : proposal.status === 'revoked'
+                            ? 'отозвано'
+                            : 'опубликовано'}
                       {proposal.selectedPackageId
                         ? ' · клиент выбрал вариант'
                         : ''}

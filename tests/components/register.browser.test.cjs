@@ -18,6 +18,8 @@ function loadRoute(file) {
   new Function('require', 'module', 'exports', code)((id) => {
     if (id === 'next-auth') return { getServerSession: async () => null }
     if (id === 'next/navigation') return { redirect: () => { throw new Error('Неожиданный redirect') } }
+    if (id === 'next/headers') return { cookies: async () => ({ get: () => undefined }) }
+    if (id === '@server/yandexAuth') return { enabled: async () => false, readFlow: async () => null, validPhone: () => false, YANDEX_COOKIE: 'test-yandex-flow' }
     if (id === '@server/phoneAuthSettings') return { getPhoneAuthSettings: async () => ({ primaryMethod: 'call' }) }
     if (id === './loginInputs') return () => null
     if (id.includes('_options')) return {}

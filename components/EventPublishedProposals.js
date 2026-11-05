@@ -29,7 +29,7 @@ export default function EventPublishedProposals({ eventId }) {
   const editingInFlight = useRef(false)
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const snackbar = useSnackbar()
-  const published = data.filter((item) => item.status === 'published' || getProposalStatus(item) === 'accepted')
+  const published = data.filter((item) => ['published', 'expired'].includes(item.status))
 
   const edit = async (proposal) => {
     if (editingInFlight.current || openingId) return
@@ -115,7 +115,7 @@ export default function EventPublishedProposals({ eventId }) {
                       <ProposalStatusChip status={getProposalStatus(proposal)} />
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
-                      {proposal.status === 'expired' ? 'Срок истёк' : 'Опубликовано'} · Версия {proposal.version}
+                      {getProposalStatus(proposal) === 'expired' ? 'Срок истёк' : 'Опубликовано'} · Версия {proposal.version}
                     </p>
                     {proposal.validUntil ? (
                       <p className="mt-1 text-sm text-gray-600">

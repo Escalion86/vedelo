@@ -5,10 +5,13 @@ import { Provider, createStore } from 'jotai'
 import modalsAtom from '../../state/atoms/modalsAtom'
 import modalsFuncAtom from '../../state/atoms/modalsFuncAtom'
 import loggedUserAtom from '../../state/atoms/loggedUserAtom'
+import tariffsAtom from '../../state/atoms/tariffsAtom'
 import ModalsPortal from '../../layouts/modals/ModalsPortal'
 import EventProposalsSection from '../../components/EventProposalsSection'
 import EventPublishedProposals from '../../components/EventPublishedProposals'
 import EventProposalsSummary from '../../components/EventProposalsSummary'
+import ExpiredProposals from '../../components/ExpiredProposals'
+import EventProposalStatus from '../../components/EventProposalStatus'
 import ProposalTemplateEditor from '../../components/ProposalTemplateEditor'
 import ProposalPageView from '../../components/ProposalPageView'
 import Compact from '../../components/CompactEventForm'
@@ -26,10 +29,12 @@ const store = createStore()
 window.submitted = 0
 store.set(loggedUserAtom, {
   _id: 'u',
+  tariffId: 'pro',
   firstName: 'Иван',
   phone: '+7 900 000 00 00',
   telegram: 'ivan', vk: 'id123', whatsapp: 79000000000, max: 'https://max.ru/u/ivan',
 })
+store.set(tariffsAtom, [{ _id: 'pro', allowProposals: true }])
 store.set(modalsFuncAtom, {
   add(config) {
     store.set(modalsAtom, (current) => [
@@ -86,6 +91,12 @@ function App() {
             <ProposalPageView proposal={publicProposal} />
           ) : kind === 'view' ? (
             <EventPublishedProposals eventId="event" />
+          ) : kind === 'expiry' ? (
+            <div className="space-y-3">
+              <ExpiredProposals onOpenEvent={(id) => { window.openedEventId = id }} />
+              <EventProposalStatus eventId="event" />
+              <EventPublishedProposals eventId="event" />
+            </div>
           ) : kind === 'list' ? (
             <Compact
               fields={{ proposals: <EventProposalsSection eventId="event" /> }}

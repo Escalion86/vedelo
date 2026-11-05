@@ -16,6 +16,43 @@ const tenant = 'a'.repeat(24),
 
 test.before(() => loadBindings())
 
+test('extending an expired proposal restores publication and the same public link, with tenant protection', async () => {
+  const f = fixture()
+  await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
+  const route = f.load('app/api/proposals/[id]/route.js')
+  const options = { params: { id: proposalId } }
+  f.proposal.validUntil = '2030-12-31'
+  f.proposal.blocksSnapshot = []
+  f.proposal.clientSnapshot = { firstName: 'Клиент' }
+  f.proposal.messageText = 'Ссылка {{proposal.url}}'
+  f.proposal.packages = [{ id: 'main', title: 'Основной', lines: [], total: 1000, manualTotal: true }]
+  const published = await route.PATCH(f.req({ action: 'publish' }), options)
+  assert.equal(published.status, 200, JSON.stringify(published.body))
+  const publicUrl = published.body.data.publicUrl
+  f.proposal.status = 'expired'
+  f.proposal.validUntil = '2020-01-01'
+  const extended = await route.PATCH(f.req({ validUntil: '2031-12-31' }), options)
+  assert.equal(extended.status, 200)
+  assert.equal(extended.body.data.status, 'published')
+  assert.equal(extended.body.data.publicUrl, publicUrl)
+  const [, , publicId, token] = new URL(publicUrl).pathname.split('/')
+  assert.equal((await f.load('app/api/public/proposals/[publicId]/[token]/route.js').GET(
+    f.req({}), { params: { publicId, token } }
+  )).status, 200)
+  assert.ok(f.filters.some(([model, filter]) => model === 'Proposals' && filter.tenantId === tenant && filter.status === 'expired'))
+  f.proposal.status = 'expired'
+  const past = await route.PATCH(f.req({ validUntil: '2021-01-01' }), options)
+  assert.equal(past.body.data.status, 'expired')
+  f.setTenant(foreign)
+  assert.equal((await route.PATCH(f.req({ validUntil: '2032-12-31' }), options)).status, 404)
+  assert.equal(f.proposal.status, 'expired')
+  f.setTenant(tenant)
+  for (const status of ['draft', 'revoked']) {
+    f.proposal.status = status
+    assert.equal((await route.PATCH(f.req({ validUntil: '2032-12-31' }), options)).body.data.status, status)
+  }
+})
+
 test('template draft uses the common PWA converter without a write and enforces tenant/tariff', async () => {
   const f = fixture()
   await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })
@@ -57,7 +94,7 @@ test('partial legacy template PATCH returns the same materialized defaults as GE
   assert.equal(f.template.name, 'Renamed')
 })
 
-function fixture() {
+function fixture({ eventDate } = {}) {
   let currentTenant = tenant,
     allowed = true,
     profile = null,
@@ -70,7 +107,7 @@ function fixture() {
       filters.push([name, filter])
       let value =
         name === 'Events'
-          ? { _id: eventId, tenantId: tenant, servicesIds: [], contractSum: 0 }
+          ? { _id: eventId, tenantId: tenant, servicesIds: [], contractSum: 0, eventDate }
           : name === 'ProposalTemplates'
             ? template
             : name === 'Proposals'
@@ -321,6 +358,32 @@ test('реальные routes: шаблон → КП → PATCH → GET → publi
   for (const [name, filter] of f.filters)
     if (name !== 'Users' && (name !== 'Proposals' || !filter.publicId))
       assert.equal(filter.tenantId, tenant)
+})
+
+test('дата словами проходит шаблон → КП → publish/public и сообщение; tenant isolation сохраняется', async () => {
+  const f = fixture({ eventDate: '2026-12-26T12:00:00.000Z' })
+  const blocks = toProposalEditorBlocks()
+  blocks.find((block) => block.type === 'header').contentHtml = '<p>{{event.dateLong}} / {{event.date}}</p>'
+  const template = await f.load('app/api/proposal-templates/route.js').POST(f.req({
+    name: 'Дата словами', blocks,
+    messageTemplate: 'Дата {{event.dateLong}}, ссылка {{proposal.url}}',
+  }))
+  assert.equal(template.status, 201)
+  const result = await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({ templateId }), { params: { id: eventId } })
+  assert.equal(result.status, 201)
+  assert.equal(result.body.data.eventSnapshot.date, '26.12.2026')
+  f.proposal.validUntil = '2030-12-31'
+  const route = f.load('app/api/proposals/[id]/route.js')
+  const published = await route.PATCH(f.req({ action: 'publish' }), { params: { id: proposalId } })
+  assert.equal(published.status, 200)
+  const reread = await route.GET(f.req({}), { params: { id: proposalId } })
+  assert.match(reread.body.data.renderedMessage, /Дата 26 декабря 2026г\./)
+  const [, , publicId, token] = new URL(published.body.data.publicUrl).pathname.split('/')
+  const publicResult = await f.load('app/api/public/proposals/[publicId]/[token]/route.js').GET(f.req({}), { params: { publicId, token } })
+  assert.equal(publicResult.status, 200)
+  assert.match(publicResult.body.data.blocks.find((block) => block.type === 'header').contentHtml, /26 декабря 2026г\. \/ 26\.12\.2026/)
+  f.setTenant(foreign)
+  assert.equal((await route.GET(f.req({}), { params: { id: proposalId } })).status, 404)
 })
 
 test('tenant-negative на чтение/сохранение КП и шаблона; тариф и авторизация сохранены', async () => {

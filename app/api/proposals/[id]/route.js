@@ -308,7 +308,11 @@ export const PATCH = async (req, { params }) => {
     const selectionLocked = isProposalSelectionLocked(current)
     if (changed('packages') && selectionLocked)
       return error('В принятом предложении нельзя менять варианты программ. Остальные поля доступны для редактирования.', 409, 'selection_locked')
-    if (current.status === 'published') {
+    // A list read may have persisted expiry. Extending that same link restores
+    // publication under the same validation and CAS as an ordinary live edit.
+    if (current.status === 'expired' && draft.validUntil > new Date())
+      draft.status = 'published'
+    if (current.status === 'published' || draft.status === 'published') {
       const candidate = { ...current, ...draft }
       if (!candidate.packages?.length) return error('Добавьте хотя бы один вариант', 400, 'packages_required')
       const unknown = getProposalUnknownVariables({

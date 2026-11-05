@@ -21,6 +21,7 @@ export const useEventProposalsQuery = (eventId, { enabled = true } = {}) =>
 
 export const cacheEventProposal = async (queryClient, eventId, proposal) => {
   void queryClient.invalidateQueries({ queryKey: queryKeys.proposalStatuses })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.expiredProposals })
   const queryKey = queryKeys.eventProposals(eventId)
   // Старый GET не должен перезаписать подтверждённый сервером статус.
   await queryClient.cancelQueries({ queryKey })

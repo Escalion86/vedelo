@@ -89,6 +89,7 @@ const mocks = {
     queryKeys: {
       services: () => ['services'],
       proposalStatuses: ['proposalStatuses'],
+      expiredProposals: ['expiredProposals'],
       eventProposals: (id) => ['eventProposals', id],
     },
   },
@@ -229,7 +230,7 @@ test('proposal creation hides the inline selector and opens template choice only
     },
   })
   assert.equal(
-    picker.querySelector('[aria-label="Шаблон предложения"]').value,
+    picker.querySelector('input[type="radio"]:checked').value,
     'template-1'
   )
   await React.act(async () => confirm())
@@ -481,8 +482,9 @@ test('event view shows only published proposals and hides an empty section', asy
   assert.match(element.textContent, /КП принято/)
   assert.doesNotMatch(
     element.textContent,
-    /Скрытый черновик|Отозванное КП|Истёкшее КП/
+    /Скрытый черновик|Отозванное КП/
   )
+  assert.match(element.textContent, /Истёкшее КП/)
   data = []
   const empty = await mount(t, View, { eventId: 'event-empty' })
   assert.equal(empty.textContent, '')

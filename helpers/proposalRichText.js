@@ -1,6 +1,7 @@
 import { proposalPhoneNumber } from './proposalArtistContacts.mjs'
 import DOMPurify from 'isomorphic-dompurify'
 import { sanitizeProposalTextStyle } from './proposalTextStyles.js'
+import { getProposalVariableValue } from './proposalVariableValue.mjs'
 
 export const PROPOSAL_RICH_TEXT_BLOCK_TYPES = Object.freeze([
   'intro',
@@ -18,6 +19,7 @@ export const PROPOSAL_VARIABLE_OPTIONS = Object.freeze([
   { key: 'client.fullName', label: 'Клиент полностью' },
   { key: 'event.type', label: 'Тип мероприятия' },
   { key: 'event.date', label: 'Дата мероприятия' },
+  { key: 'event.dateLong', label: 'Дата мероприятия словами' },
   { key: 'event.services', label: 'Услуги' },
   { key: 'event.sum', label: 'Сумма' },
   { key: 'artist.fullName', label: 'Имя артиста' },
@@ -162,15 +164,12 @@ export const getProposalBlockContentHtml = (block) => {
   return proposalPlainTextToHtml(block.text)
 }
 
-const getByPath = (source, path) =>
-  path.split('.').reduce((value, key) => value?.[key], source)
-
 export const renderProposalRichTextVariables = (contentHtml, variables) => {
   const unknown = new Set()
   const rendered = String(contentHtml ?? '').replace(
     /{{\s*([\w.]+)\s*}}/g,
     (_, key) => {
-      const value = getByPath(variables, key)
+      const value = getProposalVariableValue(variables, key)
       if (value === undefined || value === null || value === '') {
         unknown.add(key)
         return `{{${key}}}`

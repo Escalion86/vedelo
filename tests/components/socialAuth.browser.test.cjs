@@ -76,7 +76,8 @@ test('social auth UI: admin save, login visibility, automatic phone login, mobil
         }
         return route.fulfill({ json: { success: true, data: settings } })
       })
-      await page.route('**/api/global/auth/vk-status', (route) => route.fulfill({ json: { data: { allowVkAuth: false, allowYandexAuth: settings.yandexEnabled } } }))
+      await page.route('**/api/global/auth/vk-status', (route) => route.fulfill({ json: { data: { allowVkAuth: settings.vkEnabled, allowYandexAuth: settings.yandexEnabled, appId: '12345' } } }))
+      await page.route('https://unpkg.com/@vkid/**', (route) => route.fulfill({ contentType: 'application/javascript; charset=utf-8', body: `window.VKIDSDK={Config:{init(){}},ConfigResponseMode:{Callback:'callback'},ConfigSource:{LOWCODE:'lowcode'},WidgetEvents:{ERROR:'error'},OneTapInternalEvents:{LOGIN_SUCCESS:'success'},OneTap:class{render({container}){const button=document.createElement('button');button.type='button';button.textContent='Войти с VK ID';button.style.cssText='width:100%;min-height:44px;border-radius:8px;background:#0077ff;color:white;font-weight:600;cursor:pointer';container.appendChild(button);return this}on(){return this}}};` }))
       await page.route('**/api/yandex-id/complete', (route) => {
         if (route.request().method() === 'POST') {
           action = route.request().postDataJSON().action
@@ -106,7 +107,9 @@ test('social auth UI: admin save, login visibility, automatic phone login, mobil
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       await page.goto(`${origin}/login`)
       await page.getByRole('link', { name: 'Войти с Яндекс ID' }).waitFor()
-      assert.equal(await page.getByText('Войти через VK ID', { exact: true }).count(), 0)
+      assert.equal(await page.getByText('войти через ВКонтакте', { exact: true }).count(), 0)
+      await page.getByText('войти через Яндекс', { exact: true }).waitFor()
+      await page.getByText('войти по номеру телефона и паролю', { exact: true }).waitFor()
       const branded = page.getByRole('link', { name: 'Войти с Яндекс ID' })
       await branded.focus()
       assert.equal(await branded.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(26, 26, 26)')
@@ -115,9 +118,46 @@ test('social auth UI: admin save, login visibility, automatic phone login, mobil
       await page.waitForFunction(() => document.querySelector('.yandex-auth-button-logo')?.naturalWidth === 1280)
       await page.screenshot({ path: path.join(screenshots, `login-${width}-${dark}.png`), fullPage: true })
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+      settings.vkEnabled = true
+      await page.goto(`${origin}/login?providers=both`)
+      await page.getByRole('button', { name: 'Войти с VK ID', exact: true }).waitFor()
+      const captions = [
+        'войти через ВКонтакте',
+        'войти через Яндекс',
+        'войти по номеру телефона и паролю',
+      ]
+      const captionStyles = []
+      for (const caption of captions) {
+        const heading = page.getByText(caption, { exact: true })
+        assert.equal(await heading.count(), 1)
+        captionStyles.push(await heading.evaluate((node) => {
+          const style = getComputedStyle(node)
+          const dividers = [...node.parentElement.children].filter((child) => child !== node)
+          return { font: style.fontSize, color: style.color, dividers: dividers.length, heights: dividers.map((child) => child.getBoundingClientRect().height) }
+        }))
+      }
+      assert.deepEqual(captionStyles[0], captionStyles[1])
+      assert.deepEqual(captionStyles[1], captionStyles[2])
+      assert.equal(captionStyles[0].dividers, 2)
+      assert.deepEqual(captionStyles[0].heights, [1, 1])
+      const phone = page.getByRole('textbox', { name: 'Телефон', exact: true })
+      const password = page.getByPlaceholder('Пароль', { exact: true })
+      const phoneBorder = await phone.locator('..').locator('..').locator('..').boundingBox()
+      const passwordLabel = await page.getByText('Пароль', { exact: true }).boundingBox()
+      assert.ok(passwordLabel.y - phoneBorder.y - phoneBorder.height >= 11)
+      assert.ok(passwordLabel.y - phoneBorder.y - phoneBorder.height <= 13)
+      await phone.fill('79991234567')
+      await password.fill('test-password')
+      assert.equal(await password.inputValue(), 'test-password')
+      assert.equal(await page.getByRole('button', { name: 'Войти', exact: true }).isEnabled(), true)
+      assert.equal(await page.getByRole('button', { name: 'Войти с VK ID', exact: true }).isVisible(), true)
+      await page.screenshot({ path: path.join(screenshots, `login-both-${width}-${dark}.png`), fullPage: true })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       await page.goto(`${origin}/login?mode=register`)
       const registerProvider = page.getByRole('link', { name: 'Войти с Яндекс ID' })
       await registerProvider.waitFor()
+      await page.getByText('зарегистрироваться через ВКонтакте', { exact: true }).waitFor()
+      await page.getByText('зарегистрироваться через Яндекс', { exact: true }).waitFor()
       assert.equal(await registerProvider.getAttribute('href'), '/api/yandex-id/start')
       await page.screenshot({ path: path.join(screenshots, `register-provider-${width}-${dark}.png`), fullPage: true })
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)

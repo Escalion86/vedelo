@@ -3,13 +3,13 @@
 export const getProposalStatus = (proposal, now = Date.now()) => {
   if (!proposal || !['published', 'expired'].includes(proposal.status)) return null
   if (proposal.selectedPackageId) return 'accepted'
-  if (proposal.status !== 'published') return null
-  if (proposal.validUntil && new Date(proposal.validUntil).getTime() < now) return null
+  if (proposal.status === 'expired' ||
+      (proposal.validUntil && new Date(proposal.validUntil).getTime() <= now)) return 'expired'
   return proposal.sentAt ? 'sent' : 'published'
 }
 
 // Stronger states win when an order has several proposal versions.
-const STATUS_PRIORITY = { published: 1, sent: 2, accepted: 3 }
+const STATUS_PRIORITY = { expired: 0, published: 1, sent: 2, accepted: 3 }
 
 export const summarizeProposalStatuses = (proposals, now = Date.now()) => {
   const result = {}

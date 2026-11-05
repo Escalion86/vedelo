@@ -8,6 +8,7 @@ import QuickActionButtons from '@components/QuickActionButtons'
 import StatusChip from '@components/StatusChip'
 import RequestsWithoutNextStep from '@components/RequestsWithoutNextStep'
 import PastRequests from '@components/PastRequests'
+import ExpiredProposals from '@components/ExpiredProposals'
 import { getPastRequests } from '@helpers/pastRequests'
 import formatDateTime from '@helpers/formatDateTime'
 import { PROVIDER_LABELS } from '@helpers/incomingMessageNotification'
@@ -628,6 +629,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
           ))}
         </div>
       ) : null}
+      <ExpiredProposals onOpenEvent={openEvent} />
       <PastRequests
         requests={pastRequests}
         now={now}

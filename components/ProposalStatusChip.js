@@ -4,9 +4,11 @@ import {
   faCircleCheck,
   faExternalLinkAlt,
   faPaperPlane,
+  faClock,
 } from '@fortawesome/free-solid-svg-icons'
 
 const STATUS_CHIP = {
+  expired: { tone: 'overdue', icon: faClock, label: 'Срок КП истёк' },
   accepted: { tone: 'success', icon: faCircleCheck, label: 'КП принято' },
   sent: { tone: 'info', icon: faPaperPlane, label: 'КП отправлено' },
   published: {

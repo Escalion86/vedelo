@@ -13,11 +13,12 @@ test('a published link, confirmed delivery and client selection each create a st
     assert.equal(getProposalStatus({ ...sent, status, selectedPackageId: 'main' }, now), null)
   }
 })
-test('expiry hides published and sent status but preserves a recorded acceptance', () => {
-  assert.equal(getProposalStatus({ ...published, validUntil: '2026-09-01' }, now), null)
-  assert.equal(getProposalStatus({ ...sent, validUntil: '2026-09-01' }, now), null)
-  assert.equal(getProposalStatus({ ...published, status: 'expired' }, now), null)
-  assert.equal(getProposalStatus({ ...sent, status: 'expired' }, now), null)
+test('expiry is visible but preserves a recorded acceptance', () => {
+  assert.equal(getProposalStatus({ ...published, validUntil: '2026-09-01' }, now), 'expired')
+  assert.equal(getProposalStatus({ ...sent, validUntil: '2026-09-01' }, now), 'expired')
+  assert.equal(getProposalStatus({ ...published, status: 'expired' }, now), 'expired')
+  assert.equal(getProposalStatus({ ...sent, status: 'expired' }, now), 'expired')
+  assert.equal(getProposalStatus({ ...published, validUntil: new Date(now).toISOString() }, now), 'expired')
   assert.equal(getProposalStatus({ ...sent, status: 'expired', selectedPackageId: 'main' }, now), 'accepted')
 })
 test('accepted proposal takes priority across versions in either order', () => {
@@ -31,4 +32,8 @@ test('accepted proposal takes priority across versions in either order', () => {
   assert.deepEqual(summarizeProposalStatuses([published], now), { 'event-a': 'published' })
   assert.deepEqual(summarizeProposalStatuses([sent, { ...sent, eventId: 'event-b' }], now), { 'event-a': 'sent', 'event-b': 'sent' })
   assert.deepEqual(summarizeProposalStatuses([], now), {})
+  const expired = { ...published, status: 'expired' }
+  for (const proposals of [[expired, sent], [sent, expired]])
+    assert.deepEqual(summarizeProposalStatuses(proposals, now), { 'event-a': 'sent' })
+  assert.deepEqual(summarizeProposalStatuses([expired], now), { 'event-a': 'expired' })
 })

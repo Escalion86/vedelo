@@ -157,6 +157,14 @@ const RegistrationLegalConsents = ({
   </div>
 )
 
+const AuthMethodHeading = ({ children }) => (
+  <div className="flex items-center gap-3 text-center text-xs text-gray-400">
+    <div className="h-px flex-1 bg-gray-200" aria-hidden="true" />
+    <span className="min-w-0">{children}</span>
+    <div className="h-px flex-1 bg-gray-200" aria-hidden="true" />
+  </div>
+)
+
 function validate_login(
   event,
   phone,
@@ -965,10 +973,10 @@ const LoginInputs = ({
     vkRenderNonce,
   ])
 
-  const VkAuthBlock = ({ label }) =>
+  const renderVkAuthBlock = (label) =>
     vkAuthEnabled ? (
       <div className="flex flex-col gap-2">
-        <div className="text-center text-xs text-gray-500">{label}</div>
+        <AuthMethodHeading>{label}</AuthMethodHeading>
         {canUseVkOneTap ? (
           <div ref={vkOneTapContainerRef} className="w-full" />
         ) : (
@@ -1029,43 +1037,48 @@ const LoginInputs = ({
             }
             className="flex flex-col gap-4"
           >
-            <VkAuthBlock label="Войти через VK ID" />
-            {yandexAuthEnabled && <YandexAuthButton href={yandexStartUrl} />}
-
-            {vkAuthEnabled || yandexAuthEnabled ? (
-              <div className="flex items-center gap-3 text-xs text-gray-400">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span>или по номеру телефона и паролю</span>
-                <div className="h-px flex-1 bg-gray-200" />
-              </div>
-            ) : null}
-
-            <PhoneInput
-              label="Телефон"
-              value={loginPhone}
-              onChange={(nextValue) => {
-                setLoginPhone(nextValue)
-                setLoginPhoneHint(false)
-              }}
-              className="w-full"
-              paddingY
-              noMargin
-            />
-            {loginPhoneHint && loginPhoneDigits !== 11 && (
-              <div className="text-danger text-xs">
-                Введите 11 цифр телефона.
+            {renderVkAuthBlock('войти через ВКонтакте')}
+            {yandexAuthEnabled && (
+              <div className="flex flex-col gap-2">
+                <AuthMethodHeading>войти через Яндекс</AuthMethodHeading>
+                <YandexAuthButton href={yandexStartUrl} />
               </div>
             )}
 
-            <Input
-              label="Пароль"
-              type="password"
-              value={loginPassword}
-              onChange={setLoginPassword}
-              autoComplete="current-password"
-              fullWidth
-              noMargin
-            />
+            {vkAuthEnabled || yandexAuthEnabled ? (
+              <AuthMethodHeading>
+                войти по номеру телефона и паролю
+              </AuthMethodHeading>
+            ) : null}
+
+            <div className="flex flex-col gap-3">
+              <PhoneInput
+                label="Телефон"
+                value={loginPhone}
+                onChange={(nextValue) => {
+                  setLoginPhone(nextValue)
+                  setLoginPhoneHint(false)
+                }}
+                className="w-full"
+                paddingY
+                noMargin
+              />
+              {loginPhoneHint && loginPhoneDigits !== 11 && (
+                <div className="text-danger text-xs">
+                  Введите 11 цифр телефона.
+                </div>
+              )}
+
+              <Input
+                label="Пароль"
+                type="password"
+                value={loginPassword}
+                onChange={setLoginPassword}
+                autoComplete="current-password"
+                fullWidth
+                noMargin
+              />
+            </div>
 
             <button
               className="bg-general mt-2 w-full cursor-pointer rounded-lg border border-[#6f582f] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-[#6f582f] hover:shadow-lg disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:shadow-none"
@@ -1149,15 +1162,18 @@ const LoginInputs = ({
               onPersonalDataAcceptedChange={setRegisterPersonalDataAccepted}
             />
 
-            <VkAuthBlock label="Зарегистрироваться через VK ID" />
-            {yandexAuthEnabled && <YandexAuthButton href={yandexStartUrl} />}
+            {renderVkAuthBlock('зарегистрироваться через ВКонтакте')}
+            {yandexAuthEnabled && (
+              <div className="flex flex-col gap-2">
+                <AuthMethodHeading>
+                  зарегистрироваться через Яндекс
+                </AuthMethodHeading>
+                <YandexAuthButton href={yandexStartUrl} />
+              </div>
+            )}
 
             {vkAuthEnabled || yandexAuthEnabled ? (
-              <div className="flex items-center gap-3 text-xs text-gray-400">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span>или по номеру телефона</span>
-                <div className="h-px flex-1 bg-gray-200" />
-              </div>
+              <AuthMethodHeading>или по номеру телефона</AuthMethodHeading>
             ) : null}
 
             <PhoneInput
