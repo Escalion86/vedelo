@@ -1,0 +1,10 @@
+qa/
+__pycache__/
+*.py[cod]
+assets/
+*.mp4
+*.zip
+*.jpg
+*.png
+*.mp3
+*.wav

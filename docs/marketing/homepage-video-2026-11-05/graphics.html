@@ -1,0 +1,22 @@
+<!doctype html><html lang="ru"><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url('../../../public/fonts/InterTight-Regular.woff2');font-weight:400}
+@font-face{font-family:Inter;src:url('../../../public/fonts/InterTight-SemiBold.woff2');font-weight:600}
+@font-face{font-family:Futura;src:url('../../../public/fonts/FuturaPT-Bold.woff2');font-weight:700}
+*{box-sizing:border-box}body{margin:0;background:transparent;color:#20201f;font-family:Inter,sans-serif}
+.asset{position:relative;margin:0;width:740px;padding:20px;display:none}.asset.active{display:block}
+.card{background:#f3f1eb;border:1px solid #e4ddd0;border-radius:18px;padding:30px 34px;box-shadow:0 7px 18px #22222215}
+.brand{display:flex;align-items:center;gap:13px;color:#80551c;font-family:Futura;font-size:35px}.brand img{width:48px;height:48px}
+.name{font-family:Futura;font-size:48px;line-height:1.05;margin:0 0 8px}.role{font-size:29px;line-height:1.25}.experience{font-size:25px;color:#665f52;margin-top:12px}
+#lower .card{border-left:7px solid #9a6b27;display:flex;align-items:center;gap:28px}#lower img{width:58px;height:58px}#lower .card{padding:27px 32px}
+.title{font-family:Futura;font-size:54px;line-height:1.04;margin:16px 0}.title span{display:block}.accent{color:#80551c}.detail{font-size:29px;line-height:1.35;margin:0}.note{font-size:23px;color:#665f52;margin-top:18px}
+#free .title{font-size:52px;margin:0 0 20px}#cta .title{font-size:54px;margin-top:20px}.domain{font-family:Futura;font-size:48px;color:#80551c;margin:22px 0 8px}
+#poster{width:800px}#poster .card{padding:42px 40px;background:#f3f1eb}#poster .title{font-size:76px;margin:32px 0 26px}#poster .detail{font-size:34px}#poster .note{font-size:25px;margin-top:30px}
+</style>
+<section id="lower" class="asset"><div class="card"><img src="../../../public/brand/vedelo-mark.svg" alt=""><div><div class="name">Алексей</div><div class="role">Основатель Ведело</div><div class="experience">Более 20 лет в сфере услуг</div></div></div></section>
+<section id="free" class="asset"><div class="card"><div class="title"><span>Базовые возможности</span><span class="accent">бесплатно</span></div><p class="detail">Клиенты · Заказы · Оплаты</p><div class="note">Условия и лимиты — на сайте</div></div></section>
+<section id="cta" class="asset"><div class="card"><div class="brand"><img src="../../../public/brand/vedelo-mark.svg" alt="">Ведело</div><div class="title">Начните с первого заказа</div><p class="detail">В браузере телефона или компьютера</p><div class="domain">vedelo.ru</div><div class="note">Регистрация рядом с видео</div></div></section>
+<section id="ai" class="asset"><div class="card"><div class="title"><span>Перенос заказов</span><span class="accent">с помощью ИИ</span></div><p class="detail">Календарь · Текст · Фото</p><div class="note">ИИ-обработка оплачивается отдельно</div></div></section>
+<section id="poster" class="asset"><div class="card"><div class="brand"><img src="../../../public/brand/vedelo-mark.svg" alt="">Ведело</div><div class="title"><span>Знакомство</span><span>с Ведело</span></div><p class="detail">Заказы, клиенты<br>и оплаты — рядом</p><div class="note">Рассказывает создатель проекта</div></div></section>
+<script>const id=new URLSearchParams(location.search).get('asset')||'lower';document.getElementById(id).classList.add('active');</script>
+</html>

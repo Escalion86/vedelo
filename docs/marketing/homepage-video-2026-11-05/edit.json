@@ -1,0 +1,22 @@
+{
+  "source": "C:/Users/Escal/Downloads/flipflop/POCO X8 Pro Max/VID_20261101_151233.mp4",
+  "trimStart": 0.45,
+  "trimEnd": 109.30,
+  "output": { "width": 1920, "height": 1080, "fps": 30, "codec": "h264", "audioLufs": -16, "audioLimiterDbtp": -2.5 },
+  "mirrorCorrection": true,
+  "presenterPan": { "pixels": 640, "inStart": 54.15, "inEnd": 54.75, "outStart": 78.55, "outEnd": 79.15 },
+  "ui": [
+    { "file": "01-order.mp4", "start": 54.15, "duration": 11.05, "holdFrom": 6.60 },
+    { "file": "02-next-contact.mp4", "start": 65.20, "duration": 7.45, "holdFrom": 6.60 },
+    { "file": "03-payments.mp4", "start": 72.65, "duration": 6.50, "holdFrom": 6.50 }
+  ],
+  "graphics": [
+    { "file": "lower.png", "start": 0.90, "end": 9.30, "x": 44, "y": 786 },
+    { "file": "free.png", "start": 79.90, "end": 87.60, "x": 44, "y": 300 },
+    { "file": "ai.png", "start": 88.10, "end": 101.05, "x": 44, "y": 300 },
+    { "file": "cta.png", "start": 101.35, "end": 109.30, "x": 44, "y": 244 }
+  ],
+  "aiBlock": "Preserved at the author's explicit request. Author will enable photo recognition for ordinary users before publication. A separate-pricing caption is shown during this block.",
+  "nameCaption": "Алексей — Основатель Ведело",
+  "captions": "Russian captions edited for readability; name introduction shortened to first name."
+}

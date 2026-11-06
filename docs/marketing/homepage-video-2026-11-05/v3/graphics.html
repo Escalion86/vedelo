@@ -1,0 +1,11 @@
+<!doctype html><html lang="ru"><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url('../../../../public/fonts/InterTight-Regular.woff2');font-weight:400}
+@font-face{font-family:Futura;src:url('../../../../public/fonts/FuturaPT-Bold.woff2');font-weight:700}
+*{box-sizing:border-box}body{margin:0;background:transparent;color:#20201f;font-family:Inter,sans-serif}.asset{display:none;position:relative}.asset.active{display:block}
+#cta{width:740px;padding:20px}.card{padding:30px 34px;background:#f3f1eb;border:1px solid #e4ddd0;border-radius:18px;box-shadow:0 7px 18px #22222215}.brand{display:flex;align-items:center;gap:13px;font-family:Futura;font-size:35px;color:#80551c}.brand img{width:48px;height:48px}.title{font-family:Futura;font-size:54px;line-height:1.04;margin:20px 0 16px}.detail{font-size:29px;line-height:1.35;margin:0}.action{display:flex;align-items:center;justify-content:space-between;gap:28px;margin-top:26px}.domain{font-family:Futura;font-size:48px;color:#80551c;white-space:nowrap}.note{font-size:23px;color:#665f52;line-height:1.35;margin-top:14px;max-width:290px}.qr{display:block;width:264px;height:264px;image-rendering:pixelated;border-radius:8px;flex:0 0 auto}
+#credit{width:max-content;max-width:700px;padding:2px;font-size:18px;line-height:1.4;color:#5d5b56;text-shadow:0 1px 2px #ffffff99;white-space:nowrap}
+</style>
+<section id="cta" class="asset"><div class="card"><div class="brand"><img src="../../../../public/brand/vedelo-mark.svg" alt="">Ведело</div><div class="title">Начните с первого заказа</div><p class="detail">В браузере телефона или компьютера</p><div class="action"><div><div class="domain">vedelo.ru</div><div class="note">Отсканируйте QR-код<br>или откройте сайт</div></div><img class="qr" src="assets/vedelo-qr.png" alt="QR-код на https://vedelo.ru"></div></div></section>
+<section id="credit" class="asset">Life of Riley — Kevin MacLeod · CC BY 4.0</section>
+<script>const id=new URLSearchParams(location.search).get('asset')||'cta';document.getElementById(id).classList.add('active');</script></html>

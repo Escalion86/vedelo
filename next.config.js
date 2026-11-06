@@ -27,6 +27,12 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/marketing/home/v5/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
       { source: '/proposal/:path*', headers: [
         { key: 'Cache-Control', value: 'private, no-store' },
         { key: 'Referrer-Policy', value: 'no-referrer' },
