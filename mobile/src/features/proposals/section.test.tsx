@@ -8,6 +8,7 @@ const mockList = jest.fn(),
   mockAction = jest.fn(),
   mockRemove = jest.fn(),
   mockGet = jest.fn(),
+  mockRenew = jest.fn(),
   mockPush = jest.fn(),
   mockReadEvent = jest.fn()
 jest.mock('expo-router', () => ({
@@ -15,6 +16,7 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (fn: any) => require('react').useEffect(fn, [fn]),
 }))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }))
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 jest.mock(
   './api',
   () => ({
@@ -27,6 +29,7 @@ jest.mock(
       action: (...a: any[]) => mockAction(...a),
       remove: (...a: any[]) => mockRemove(...a),
       get: (...a: any[]) => mockGet(...a),
+      renew: (...a: any[]) => mockRenew(...a),
     },
   })
 )
@@ -75,6 +78,25 @@ it('accepted/applied visible after expiry and selected revoke disabled', async (
   expect(
     screen.getByTestId('proposal-revoke-p').props.accessibilityState.disabled
   ).toBe(true)
+})
+it('opens the renewal calendar before any write, keeps the date on error and retries explicitly', async () => {
+  const screen = draw()
+  fireEvent.press(await screen.findByText('Продлить срок'))
+  expect(screen.getByText('Продлить срок КП')).toBeTruthy()
+  expect(mockRenew).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByText('Отмена'))
+  expect(mockRenew).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByText('Продлить срок'))
+  mockRenew.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({ ...chosen, status: 'published', validUntil: '2099-01-01' })
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Продлить' })))
+  await screen.findByText('Не удалось подтвердить продление. Проверьте сеть и повторите.')
+  const confirm = screen.getByRole('button', { name: 'Продлить' })
+  expect(confirm.props.accessibilityState.disabled).toBe(false)
+  await act(async () => fireEvent.press(confirm))
+  expect(mockRenew).toHaveBeenCalledTimes(2)
+  await waitFor(() => expect(screen.queryByText('Продлить срок КП')).toBeNull())
+  expect(mockRenew.mock.calls[1].slice(0, 3)).toEqual(mockRenew.mock.calls[0].slice(0, 3))
+  expect(screen.getByText('Принято клиентом · применено')).toBeTruthy()
 })
 it('save as template opens an unsaved editor without creating a template or proposal', async () => {
   const screen = draw()

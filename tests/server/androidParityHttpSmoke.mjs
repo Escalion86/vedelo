@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import mongoose from 'mongoose'
+import { loginWebSmokeUser } from '../web/coreSmoke.mjs'
 
 export async function runAndroidParityHttpSmoke({ baseUrl, db, password, passwordHash }) {
   const [a, b, clientA, clientB, event, tariff, chatA, chatB] = Array.from({ length: 8 }, () => new mongoose.Types.ObjectId())
@@ -20,6 +21,63 @@ export async function runAndroidParityHttpSmoke({ baseUrl, db, password, passwor
     assert.equal(result.status, 200, JSON.stringify(result.body)); return result.body.data
   }
   const sessionA = await login(0), sessionB = await login(1), tokenA = sessionA.accessToken, tokenB = sessionB.accessToken
+  const webA = await loginWebSmokeUser({ baseUrl, phone: '79000000990', password })
+  const workspace = '/mobile/v1/settings/workspace'
+  assert.equal((await request(workspace, null)).status, 401)
+  const workspaceBefore = await request(workspace, tokenA)
+  assert.equal(workspaceBefore.status, 200)
+  assert.equal(workspaceBefore.body.data.syncVersion, 1)
+  assert.equal((await request(workspace, tokenB)).body.data, null)
+  assert.equal((await request(workspace, tokenA, { tenantId: String(b), syncVersion: 1, timeZone: 'Europe/Moscow' }, 'PUT')).status, 400)
+  const workspaceSaved = await request(workspace, tokenA, { syncVersion: 1, timeZone: 'Europe/Moscow', defaultEventDurationMinutes: 90, eventFormVariant: 'classic', showColleagueTransferFields: true }, 'PUT')
+  assert.equal(workspaceSaved.status, 200, JSON.stringify(workspaceSaved.body))
+  assert.equal(workspaceSaved.body.data.syncVersion, 2)
+  assert.equal(workspaceSaved.body.data.custom.defaultEventDurationMinutes, 90)
+  assert.equal((await request(workspace, tokenA, { syncVersion: 1, timeZone: 'Europe/Samara' }, 'PUT')).status, 409)
+  const persistedWorkspace = await db.collection('sitesettings').findOne({ tenantId: a })
+  assert.equal(persistedWorkspace.timeZone, 'Europe/Moscow')
+  assert.equal(persistedWorkspace.custom.telegramBusinessBotToken, 'synthetic-token')
+  assert.equal(persistedWorkspace.custom.eventFormVariant, 'classic')
+  assert.equal(persistedWorkspace.custom.showColleagueTransferFields, true)
+  const webWorkspace = await (await webA('/api/site')).json()
+  assert.equal(webWorkspace.data.custom.defaultEventDurationMinutes, 90)
+  const webEdit = await webA('/api/site', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ custom: { defaultEventDurationMinutes: 120 } }),
+  })
+  assert.equal(webEdit.status, 200, await webEdit.text())
+  const reopenedWorkspace = await request(workspace, tokenA)
+  assert.equal(reopenedWorkspace.body.data.custom.defaultEventDurationMinutes, 120)
+  assert.equal(reopenedWorkspace.body.data.custom.showColleagueTransferFields, true)
+  assert.equal(reopenedWorkspace.body.data.timeZone, 'Europe/Moscow')
+  await db.collection('users').updateOne({ _id: a }, { $set: { balance: 420, billingStatus: 'active', nextChargeAt: now } })
+  await db.collection('payments').insertOne({ tenantId: a, userId: a, source: 'tochka', type: 'topup', purpose: 'balance', status: 'succeeded',
+    amount: 420, receiptUrl: 'https://example.test/receipt', paidAt: now, createdAt: now })
+  const history = '/billing/history?category=all&limit=30'
+  const mobileHistory = await request(history, tokenA)
+  assert.deepEqual(mobileHistory.body, await (await webA(`/api${history}`)).json())
+  assert.equal(mobileHistory.body.data.account.balance, 420)
+  assert.equal(mobileHistory.body.data.items[0].receiptUrl, 'https://example.test/receipt')
+  assert.equal((await request(history, tokenB)).body.data.items.length, 0)
+  assert.equal((await request('/address/suggest', null, { query: '' })).status, 401)
+  assert.equal((await request('/address/suggest', tokenA, { query: '' })).status, 200)
+  const checked = '/events/google-sync-checked'
+  assert.equal((await request(checked, null)).status, 401)
+  assert.equal((await request(checked, tokenA, { eventId: String(event) })).status, 403)
+  await db.collection('tariffs').updateOne({ _id: tariff }, { $set: { allowCalendarSync: true } })
+  assert.equal((await request(checked, tokenA)).status, 409)
+  await db.collection('users').updateMany({ _id: { $in: [a, b] } }, { $set: { googleCalendar: { enabled: true, calendarId: 'primary', refreshToken: 'synthetic-google-refresh' } } })
+  await db.collection('events').updateOne({ _id: event }, { $set: { calendarImportChecked: true } })
+  const listed = await request(checked, tokenA)
+  assert.equal(listed.status, 200, JSON.stringify(listed.body))
+  assert.deepEqual(listed.body.data.events.map(item => item._id), [String(event)])
+  assert.deepEqual(listed.body, await (await webA(`/api${checked}`)).json())
+  assert.equal((await request(checked, tokenB)).body.data.total, 0)
+  assert.equal((await request(checked, tokenB, { eventId: String(event), tenantId: String(a) })).status, 404)
+  assert.equal((await request(checked, tokenA, { eventId: String(event), connectionKey: 'changed' })).status, 409)
+  await db.collection('events').updateOne({ _id: event }, { $unset: { calendarImportChecked: '' } })
+  await db.collection('users').updateMany({ _id: { $in: [a, b] } }, { $unset: { googleCalendar: '' } })
+  await db.collection('tariffs').updateOne({ _id: tariff }, { $set: { allowCalendarSync: false } })
   // Reading a prior plan is available after tariff expiry and never runs AI.
   const aiPlanId = new mongoose.Types.ObjectId()
   await db.collection('aieditplans').insertOne({ _id: aiPlanId, tenantId: a, userId: a, eventId: event,
@@ -73,6 +131,10 @@ export async function runAndroidParityHttpSmoke({ baseUrl, db, password, passwor
   await db.collection('proposals').insertOne({ _id: proposalId, tenantId: a, eventId: event, title: 'Template source', status: 'published', version: 1, blocksSnapshot: [{ type: 'intro', contentHtml: '<p>Keep this text</p>', enabled: true }], packages: [{ id: 'main', title: 'Package', lines: [], total: 0 }], mediaSnapshot: [], messageText: 'Message', publicTokenHash: 'must-not-be-copied', selectedPackageId: 'main' })
   const templateCount = await db.collection('proposaltemplates').countDocuments({ tenantId: a })
   const draftPath = `/proposals/${proposalId}?view=template-draft`
+  const legacyProposal = await request(`/proposals/${proposalId}`, tokenA)
+  assert.equal(legacyProposal.status, 200)
+  assert.ok(legacyProposal.body.data.editorBlocks.some(block => block.type === 'header' && block.contentHtml.includes('Keep this text')))
+  assert.equal((await db.collection('proposals').findOne({ _id: proposalId })).blocksSnapshot[0].type, 'intro')
   const templateDraft = await request(draftPath, tokenA)
   assert.equal(templateDraft.status, 200, JSON.stringify(templateDraft.body))
   assert.equal(templateDraft.body.data.name, 'Template source')
@@ -82,6 +144,19 @@ export async function runAndroidParityHttpSmoke({ baseUrl, db, password, passwor
   assert.equal((await request(draftPath, null)).status, 401)
   assert.equal(await db.collection('proposaltemplates').countDocuments({ tenantId: a }), templateCount)
   assert.equal((await db.collection('proposals').findOne({ _id: proposalId })).status, 'published')
+  const legacyTemplateId = new mongoose.Types.ObjectId()
+  const legacyBlocks = [{ type: 'intro', contentHtml: '<p>Legacy</p>', enabled: true }]
+  await db.collection('proposaltemplates').insertOne({ _id: legacyTemplateId, tenantId: a, name: 'Legacy', status: 'active', blocks: legacyBlocks })
+  const legacyTemplatePath = `/proposal-templates/${legacyTemplateId}`
+  const legacyTemplate = await request(legacyTemplatePath, tokenA)
+  assert.equal(legacyTemplate.body.data.contentRevision, 0)
+  assert.ok(legacyTemplate.body.data.editorBlocks.some(block => block.type === 'header' && block.contentHtml.includes('Legacy')))
+  const updatedTemplate = await request(legacyTemplatePath, tokenA, { contentRevision: 0, name: 'Legacy renamed' }, 'PATCH')
+  assert.equal(updatedTemplate.status, 200, JSON.stringify(updatedTemplate.body))
+  assert.equal(updatedTemplate.body.data.contentRevision, 1)
+  assert.equal((await request(legacyTemplatePath, tokenA, { contentRevision: 0, name: 'Stale' }, 'PATCH')).status, 409)
+  assert.equal((await request(legacyTemplatePath, tokenB, { contentRevision: 1, name: 'Foreign' }, 'PATCH')).status, 404)
+  assert.deepEqual((await db.collection('proposaltemplates').findOne({ _id: legacyTemplateId })).blocks, legacyBlocks)
   // Creation retries survive process loss; only synthetic local records are used.
   const createPath = `/mobile/v1/events/${event}/proposals`
   const creationBody = { requestId: randomUUID(), title: 'Durable Android proposal' }

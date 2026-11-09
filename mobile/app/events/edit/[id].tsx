@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, St
 import { router, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router'
 import { usePreventRemove } from '@react-navigation/native'
 import { useQueryClient } from '@tanstack/react-query'
-import { createEventDraft, EVENT_SECTIONS, eventSection, serializeEventChanges, validateEventDraft, type EventDraft } from '../../../src/shared/domain/eventForm'
+import { createEventDraft, EVENT_SECTIONS, eventSection, formatEventDateInput, parseEventDateInput, serializeEventChanges, validateEventDraft, type EventDraft } from '../../../src/shared/domain/eventForm'
 import { consumePendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
 import { consumeSharedDraft, readSharedDraft } from '../../../src/shared/native/shareDraft'
 import { deviceSession } from '../../../src/shared/native/device'
@@ -90,7 +90,10 @@ export default function EventEditScreen() {
     ? clients.map(client => client._id === aiReview.plan.clientPatch?._id ? { ...client, ...aiReview.plan.clientPatch, _id: client._id } as Client : client)
     : clients
   const compact = settings?.custom?.eventFormVariant !== 'classic'
+  const previousValidStart = useRef<string | null>(null)
+  const endEdited = useRef(false)
   const onManualEdit = (keys: string[]) => {
+    if (keys.length === 1 && keys[0] === 'dateEnd') endEdited.current = true
     setAiFields(current => { const next = new Set(current); keys.forEach(key => next.delete(key)); return next })
     setInvalid(undefined)
   }
@@ -101,7 +104,25 @@ export default function EventEditScreen() {
   const savedWorkId = isNew || isClone ? '' : entry.id
   const loadSourceId = entry.cloneId || savedWorkId
   const relatedTransactions = eventTransactionsFor(transactions, savedWorkId)
-  const changeDraft = (next: EventDraft) => { setDirty(true); setDraft(next) }
+  const changeDraft = (next: EventDraft) => {
+    if (next.values.eventDate !== draft.values.eventDate) {
+      const previous = parseEventDateInput(draft.values.eventDate) || previousValidStart.current
+      const start = parseEventDateInput(next.values.eventDate)
+      previousValidStart.current = start === undefined ? previous : start
+      if (start && next.values.dateEnd === draft.values.dateEnd) {
+        const end = parseEventDateInput(next.values.dateEnd)
+        const existingDuration = previous && end ? Date.parse(end) - Date.parse(previous) : 0
+        if ((previous && end) || (!next.values.dateEnd && !endEdited.current)) {
+          const minutes = Number(settings?.custom?.defaultEventDurationMinutes)
+          const duration = existingDuration > 0 ? existingDuration : (minutes > 0 ? minutes : 60) * 60_000
+          const dateEnd = formatEventDateInput(new Date(Date.parse(start) + duration).toISOString())
+          next = { ...next, values: { ...next.values, dateEnd } }
+        }
+      }
+    }
+    setDirty(true)
+    setDraft(next)
+  }
   const loadTransactions = useCallback(async () => {
     try {
       const items = await listCachedEntities<Transaction>('transactions')

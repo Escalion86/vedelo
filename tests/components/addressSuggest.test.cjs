@@ -37,6 +37,8 @@ test.before(async () => {
       }
     if (id === './Notice')
       return ({ children, tone, ...props }) => React.createElement('div', props, children)
+    if (id === './AppButton')
+      return ({ children, variant, size, ...props }) => React.createElement('button', { type: 'button', ...props }, children)
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(

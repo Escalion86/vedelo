@@ -103,6 +103,7 @@ export const emptyEventValues = {
 export type EventFormValues = typeof emptyEventValues
 export type OtherContactDraft = { localKey: string; _id?: string; clientId: string; comment: string }
 export type EventDraft = {
+  addressSuggestion?: { town: string; street: string; house: string; latitude: string; longitude: string }
   values: EventFormValues
   serviceIds: string[]
   tasks: EventTaskDraft[]
@@ -180,6 +181,7 @@ const serializeEventValues = (draft: EventDraft, allowed: EventAllowedValues) =>
   const depositPaid = Boolean(allowed.depositPaid)
   const locationUnchanged = ['town', 'street', 'house'].every((key) =>
     v[key as 'town' | 'street' | 'house'].trim() === (source?.address?.[key as 'town' | 'street' | 'house'] || '').trim())
+  const suggested = draft.addressSuggestion && (['town', 'street', 'house'] as const).every(key => v[key].trim() === draft.addressSuggestion?.[key]) ? draft.addressSuggestion : undefined
   return {
     eventType: v.eventType.trim(),
     description: v.description === eventPlainText(source?.description) ? source?.description || '' : v.description.trim(),
@@ -191,8 +193,8 @@ const serializeEventValues = (draft: EventDraft, allowed: EventAllowedValues) =>
     address: {
       town: v.town.trim(), street: v.street.trim(), house: v.house.trim(), entrance: v.entrance.trim(),
       floor: v.floor.trim(), flat: v.flat.trim(), comment: v.addressComment.trim(),
-      latitude: locationUnchanged ? source?.address?.latitude || '' : '',
-      longitude: locationUnchanged ? source?.address?.longitude || '' : '',
+      latitude: suggested?.latitude ?? (locationUnchanged ? source?.address?.latitude || '' : ''),
+      longitude: suggested?.longitude ?? (locationUnchanged ? source?.address?.longitude || '' : ''),
       link2Gis: locationUnchanged ? source?.address?.link2Gis || '' : '',
       linkYandexNavigator: locationUnchanged ? source?.address?.linkYandexNavigator || '' : '',
     },

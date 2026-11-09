@@ -20,6 +20,7 @@ import {
 import {
   getProposalUnknownVariables,
   toProposalEditorBlocks,
+  proposalEditorProjection,
   normalizeProposalBlocks,
 } from '@helpers/proposalContent'
 import {
@@ -56,7 +57,7 @@ const authorize = async (req, id) => {
 }
 
 const serialize = async (proposal, req) => {
-  const data = { ...(proposal.toJSON?.() ?? proposal), socialContacts: await getProposalSocialContacts(proposal) }
+  const data = { ...(proposal.toJSON?.() ?? proposal), ...proposalEditorProjection(proposal.blocksSnapshot, proposal.artistSnapshot), socialContacts: await getProposalSocialContacts(proposal) }
   if (
     !proposal.publicId ||
     !proposal.publicTokenNonce ||

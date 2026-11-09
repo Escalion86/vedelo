@@ -7,8 +7,10 @@ import { api } from '../../shared/api/client'
 import type { MobileSettings } from '../../shared/domain/types'
 import { listCachedEntities, upsertEntities } from '../../shared/storage/cache'
 import { MOBILE_SETTINGS_QUERY_KEY } from '../../shared/hooks/useWorkItemTerminology'
+import { assertLocalDataEpoch, localDataEpoch, withLocalEntityWrite } from '../../shared/storage/localEntityCoordination'
+import { ApiError } from '../../shared/api/errors'
 
-export type SettingsScope = 'lists' | 'terminology' | 'clientTypes'
+export type SettingsScope = 'lists' | 'terminology' | 'clientTypes' | 'workspace'
 type Response = { success: boolean; data: MobileSettings | null }
 export const mergeSettings = (current: MobileSettings | undefined, patch: MobileSettings) => ({
   ...current, ...patch, custom: { ...current?.custom, ...patch.custom },
@@ -19,32 +21,37 @@ export const scopedSettings = (settings: MobileSettings, scope: SettingsScope): 
   ...(settings.updatedAt !== undefined ? { updatedAt: settings.updatedAt } : {}),
   ...(scope === 'clientTypes' ? { clientTypes: settings.clientTypes, clientTypesVersion: settings.clientTypesVersion } : scope === 'lists' ? {
     towns: settings.towns || [], defaultTown: settings.defaultTown || '', custom: { eventTypes: settings.custom?.eventTypes || [] },
-  } : { custom: { primaryEntityTerminology: settings.custom?.primaryEntityTerminology || 'auto' } }),
+  } : scope === 'workspace' ? { timeZone: settings.timeZone, custom: {
+    eventFormVariant: settings.custom?.eventFormVariant,
+    defaultEventDurationMinutes: settings.custom?.defaultEventDurationMinutes,
+    showColleagueTransferFields: settings.custom?.showColleagueTransferFields,
+  } } : { custom: { primaryEntityTerminology: settings.custom?.primaryEntityTerminology || 'auto' } }),
 })
 
 // Последовательно объединяем UI-записи списков и терминологии: upsert заменяет весь payload.
-let cacheWrites: Promise<unknown> = Promise.resolve()
 export const cacheSettings = (queryClient: QueryClient, settings: MobileSettings, scope: SettingsScope) => {
-  const write = cacheWrites.catch(() => undefined).then(async () => {
+  const epoch = localDataEpoch()
+  return withLocalEntityWrite(async () => {
+    assertLocalDataEpoch(epoch)
     const patch = scopedSettings(settings, scope)
     const cached = (await listCachedEntities<MobileSettings>('siteSettings')).find((item) => item._id === settings._id)
     const query = queryClient.getQueryData<MobileSettings>(MOBILE_SETTINGS_QUERY_KEY)
     const sameQuery = query?._id === settings._id ? query : undefined
     const existing = mergeSettings(cached, { ...sameQuery, _id: settings._id })
     const merged = mergeSettings(mergeSettings(settings, existing), patch)
+    assertLocalDataEpoch(epoch)
     await upsertEntities('siteSettings', [merged])
+    assertLocalDataEpoch(epoch)
     queryClient.setQueryData<MobileSettings>(MOBILE_SETTINGS_QUERY_KEY, (current) => mergeSettings(mergeSettings(merged, current?._id === settings._id ? current : { _id: settings._id }), patch))
-    await queryClient.invalidateQueries({ queryKey: ['cached-entities', 'siteSettings'] })
+    void queryClient.invalidateQueries({ queryKey: ['cached-entities', 'siteSettings'] })
   })
-  cacheWrites = write
-  return write
 }
 export type SettingsConfig<T> = {
   scope: SettingsScope
   endpoint: string
   initial: (settings?: MobileSettings | null) => T
-  payload: (draft: T) => Record<string, unknown>
-  matches: (settings: MobileSettings, draft: T) => boolean
+  payload: (draft: T, original: T, settings: MobileSettings | null | undefined) => Record<string, unknown>
+  matches: (settings: MobileSettings, draft: T, original: T) => boolean
 }
 
 export const useSettingsEditor = <T,>(config: SettingsConfig<T>) => {
@@ -119,21 +126,28 @@ export const useSettingsEditor = <T,>(config: SettingsConfig<T>) => {
     if (busy.current || !ready || reading || !changed.current) return
     let payload: Record<string, unknown>
     const snapshot = draftRef.current
-    try { payload = config.payload(snapshot) } catch (cause) { setError((cause as Error).message); return }
+    const original = initial.current
+    try { payload = config.payload(snapshot, original, settings) } catch (cause) { setError((cause as Error).message); return }
     busy.current = true; setSaving(true); setError(''); setSuccess('')
     // Предыдущее чтение не должно заменять черновик или результат сохранения.
     ++generation.current
     try {
-      const written = await api.put<Response>(config.endpoint, payload)
-      if (written.success !== true || !written.data?._id || (settings?._id && settings._id !== written.data._id) || !config.matches(written.data, snapshot)) throw new Error('Запись не подтверждена')
+      const written = await api.put<Response>(config.endpoint, payload).catch(cause => {
+        if (config.scope === 'workspace' && (cause instanceof TypeError || (cause instanceof ApiError && cause.status === 409))) return null
+        throw cause
+      })
+      if (written && (written.success !== true || !written.data?._id || (settings?._id && settings._id !== written.data._id) || !config.matches(written.data, snapshot, original))) throw new Error('Запись не подтверждена')
       const confirmed = await api.get<Response>(config.endpoint)
-      if (confirmed.success !== true || !confirmed.data?._id || confirmed.data._id !== written.data._id || !config.matches(confirmed.data, snapshot)) throw new Error('Запись не подтверждена')
+      if (confirmed.success !== true || !confirmed.data?._id || confirmed.data._id !== (written?.data?._id ?? settings?._id) ||
+        !config.matches(confirmed.data, snapshot, original)) throw new Error('Запись не подтверждена')
       try { await cacheSettings(queryClient, confirmed.data, config.scope) } catch {
         setError('Запись подтверждена сервером, но офлайн-копия не обновлена. Повторите сохранение при восстановлении хранилища.')
         return
       }
       setSettings(confirmed.data)
-      initial.current = snapshot; changed.current = false; setDirty(false); setOffline(false); setReadError('')
+      const applied = config.scope === 'workspace' ? config.initial(confirmed.data) : snapshot
+      initial.current = applied; draftRef.current = applied; setDraft(applied)
+      changed.current = false; setDirty(false); setOffline(false); setReadError('')
       setSuccess('Изменения подтверждены сервером')
     } catch {
       setError('Не удалось подтвердить сохранение. Ввод сохранён; повторите действие при наличии сети.')

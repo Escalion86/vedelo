@@ -56,6 +56,7 @@ const buildDraft = (template, artist) => {
   const defaults = normalizeProposalTemplateDefaults(template?.defaults)
   return {
     _id: template?._id || null,
+    contentRevision: template?.contentRevision ?? 0,
     name: template?.name || '',
     appearance: normalizeProposalAppearance(template?.appearance),
     status: template?.status === 'archived' ? 'archived' : 'active',
@@ -200,7 +201,6 @@ const ProposalTemplateEditor = ({
 
   const save = useCallback(async () => {
     setError('')
-    setSaving(true)
     const payload = {
       name: draft.name.trim(),
       appearance: draft.appearance,
@@ -224,6 +224,18 @@ const ProposalTemplateEditor = ({
     const url = draft._id
       ? `/api/proposal-templates/${draft._id}`
       : '/api/proposal-templates'
+    if (draft._id) {
+      payload.contentRevision = draft.contentRevision
+      for (const key of ['name', 'status', 'appearance', 'blocks', 'media', 'messageTemplate']) {
+        if (JSON.stringify(draft[key]) === JSON.stringify(initial[key])) delete payload[key]
+      }
+      if (JSON.stringify(draft.packages) === JSON.stringify(initial.packages)) delete payload.defaults
+      if (Object.keys(payload).length === 1) {
+        closeModal()
+        return
+      }
+    }
+    setSaving(true)
     try {
       await apiJson(url, {
         method: draft._id ? 'PATCH' : 'POST',
@@ -236,7 +248,7 @@ const ProposalTemplateEditor = ({
     } finally {
       setSaving(false)
     }
-  }, [closeModal, draft, onSaved])
+  }, [closeModal, draft, initial, onSaved])
 
   useEffect(() => {
     setDisableConfirm(!canSave || saving)

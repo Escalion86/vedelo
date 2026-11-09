@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { ActivityIndicator, Text, View } from 'react-native'
 import { Button, EmptyState, Field, Notice, SectionTitle, Surface } from '../../shared/ui/components'
 import { PeriodPicker, type PeriodRange } from '../../shared/ui/PeriodPicker'
+import { FilterControl } from '../../shared/ui/FilterOverlay'
 import { periodSummary } from '../../shared/ui/periodPickerDates'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { useReviews } from './hooks'
 import { ReviewCard } from './ReviewCard'
-import { searchReviews } from './domain'
+import { searchReviews, reviewLabels } from './domain'
 import { useReviewStyles } from './styles'
 import type { ReviewNavigation } from './types'
 export type ClientReviewsSectionProps = ReviewNavigation & {clientId?:string;unreadOnly?:boolean;title?:string;showFilters?:boolean}
@@ -18,21 +19,24 @@ export function ClientReviewsSection(props:ClientReviewsSectionProps) {
 function ClientReviewsContent({ clientId, unreadOnly=false, title='Отзывы клиентов', showFilters=true, ...navigation }:ClientReviewsSectionProps) {
   const styles = useReviewStyles()
   const [open,setOpen] = useState(false), [rating,setRating] = useState(''), [unread,setUnread] = useState(false)
+  const [status,setStatus] = useState<'' | 'expired'>('')
   const [period,setPeriod] = useState<PeriodRange>({from:'',to:''}), [search,setSearch] = useState(''), [page,setPage] = useState(0)
-  const query = useReviews({clientId,rating,unread:unreadOnly || unread?'true':'',...period,page})
-  const count = [rating,unread && !unreadOnly,period.from,period.to,search.trim()].filter(Boolean).length
-  const summary = [rating && `${rating} из 5`,(unread || unreadOnly) && 'Непрочитанные',(period.from || period.to) && periodSummary(period),search.trim() && `Поиск на странице: ${search.trim()}`].filter(Boolean).join(' · ')
-  const reset = () => {setRating('');setUnread(false);setPeriod({from:'',to:''});setSearch('');setPage(0)}
+  const query = useReviews({clientId,rating,status,unread:unreadOnly || unread?'true':'',...period,page})
+  const count = [status,rating,unread && !unreadOnly,period.from,period.to,search.trim()].filter(Boolean).length
+  const summary = [status && reviewLabels[status],rating && `${rating} из 5`,(unread || unreadOnly) && 'Непрочитанные',(period.from || period.to) && periodSummary(period),search.trim() && `Поиск на странице: ${search.trim()}`].filter(Boolean).join(' · ')
+  const reset = () => {setStatus('');setRating('');setUnread(false);setPeriod({from:'',to:''});setSearch('');setPage(0)}
   const rows = searchReviews(query.data?.items || [],search)
   return <View testID={unreadOnly?'unread-client-reviews':'client-reviews-section'} style={styles.content}>
     <SectionTitle help={getFieldHelp('review.request')}>{title}{query.data?` (${query.data.total})`:''}</SectionTitle>
     {showFilters ? <Surface variant="toolbar">
       <View style={styles.actions}>
-        <Button testID="reviews-filters-toggle" title={`Фильтры${count?` (${count})`:''}`} variant="secondary" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} />
+        <FilterControl testID="reviews-filters-toggle" title={`Фильтры${count?` (${count})`:''}`} selected={count>0} expanded={open} onPress={()=>setOpen(!open)} />
         {count ? <Button testID="reviews-filters-reset" title="Сбросить фильтры" variant="secondary" onPress={reset} />:null}
       </View>
       {summary ? <Text testID="reviews-filter-summary" style={styles.meta}>{summary}</Text>:null}
       {open ? <View style={styles.content}>
+        <Button title="Только истёкшие ссылки" variant={status?'primary':'secondary'} accessibilityState={{selected:Boolean(status)}}
+          onPress={()=>{setStatus(status ? '' : 'expired');setPage(0)}} />
         <SectionTitle>Оценка</SectionTitle>
         <View style={styles.actions}>{['', '5','4','3','2','1'].map((value)=><Button key={value} title={value?`${value} из 5`:'Все оценки и запросы'} variant={rating===value?'primary':'secondary'} accessibilityState={{selected:rating===value}} onPress={()=>{setRating(value);setPage(0)}} />)}</View>
         {!unreadOnly ? <Button title="Только непрочитанные" variant={unread?'primary':'secondary'} accessibilityState={{selected:unread}} onPress={()=>{setUnread(!unread);setPage(0)}} />:null}

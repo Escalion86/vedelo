@@ -1889,11 +1889,10 @@
       "placement": "Классическая / Компактная форма — у подписи поля/раздела или действия, общий экран"
     },
     "android": {
-      "state": "нет: редактор Android единый, переключателя веб-форм нет",
+      "state": "реализовано: общая настройка классической или компактной формы",
       "evidence": {
-        "path": "mobile/src/features/settings/SettingsSection.tsx",
-        "line": 25,
-        "anchor": "<ThemePreferenceSection"
+        "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+        "anchor": "getFieldHelp('settings.eventForm')"
       },
       "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
     },
@@ -1915,11 +1914,10 @@
       "placement": "Часовой пояс — у подписи поля/раздела или действия, общий экран"
     },
     "android": {
-      "state": "частично: отображение timezone есть, редактирования нет",
+      "state": "реализовано: редактирование в настройках организации",
       "evidence": {
-        "path": "mobile/src/features/notifications/NotificationsSection.tsx",
-        "line": 101,
-        "anchor": "Часовой пояс:"
+        "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+        "anchor": "getFieldHelp('settings.timeZone')"
       },
       "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
     },
@@ -1941,11 +1939,10 @@
       "placement": "Стандартная длительность — у подписи поля/раздела или действия, общий экран"
     },
     "android": {
-      "state": "нет: настройки стандартной длительности в Android нет",
+      "state": "реализовано: редактирование в настройках организации",
       "evidence": {
-        "path": "mobile/src/features/settings/SettingsSection.tsx",
-        "line": 25,
-        "anchor": "<ThemePreferenceSection"
+        "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+        "anchor": "getFieldHelp('settings.defaultDuration')"
       },
       "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом"
     },

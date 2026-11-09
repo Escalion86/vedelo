@@ -67,6 +67,24 @@ function api() {
   expect(subject.proposalsApi).toBeDefined()
   return subject.proposalsApi
 }
+it('renews the same proposal with the fresh revision and only its expiry', async () => {
+  const current = { ...proposal, status: 'expired', contentRevision: 12, selectedPackageId: 'option', publicUrl: 'https://vedelo.ru/p/link' }
+  const fresh = { ...current, status: 'published', contentRevision: 13, validUntil: '2099-07-04T00:00:00.000Z' }
+  mockRequest.mockResolvedValueOnce(data(current)).mockResolvedValueOnce(data(fresh)).mockResolvedValueOnce(data(fresh))
+  await expect(api().renew('p', 'e', '2099-07-04')).resolves.toMatchObject(fresh)
+  expect(mockRequest.mock.calls).toEqual([
+    ['/proposals/p', undefined],
+    ['/proposals/p', { method: 'PATCH', skipRefresh: true, body: { validUntil: '2099-07-04', contentRevision: 12 } }],
+    ['/proposals/p', undefined],
+  ])
+})
+it('will not shorten a newer PWA expiry or renew a mismatched work item', async () => {
+  const current = { ...proposal, status: 'published', validUntil: '2099-07-05T00:00:00.000Z' }
+  mockRequest.mockResolvedValueOnce(data(current)).mockResolvedValueOnce(data({ ...current, eventId: 'other' }))
+  await expect(api().renew('p', 'e', '2099-07-04')).resolves.toMatchObject(current)
+  await expect(api().renew('p', 'e', '2099-07-04')).rejects.toThrow('EVENT_MISMATCH')
+  expect(mockRequest.mock.calls).toEqual([['/proposals/p', undefined], ['/proposals/p', undefined]])
+})
 it('process restart after a lost create response restores input and reuses the exact request ID', async () => {
   mockRequest.mockRejectedValueOnce(new Error('lost response'))
   await expect(api().create('e', { sourceProposalId: 'original' })).rejects.toThrow('lost response')

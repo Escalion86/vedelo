@@ -61,6 +61,18 @@ it('свободный текст требует явного применени
   expect(apply).toHaveBeenCalledTimes(1)
   expect(screen.queryByTestId('voice-draft-apply')).toBeNull()
 })
+it('отмена записи останавливает микрофон без загрузки и допускает новую запись', async () => {
+  const screen = render(<VoiceDraftSection initialMode="voice" onApply={jest.fn()} />)
+  fireEvent.press(await screen.findByTestId('voice-draft-start'))
+  fireEvent.press(await screen.findByText('Отменить запись'))
+  await waitFor(() => expect(screen.getByTestId('voice-draft-start').props.accessibilityState.disabled).toBe(false))
+  expect(mockRecorder.stop).toHaveBeenCalledTimes(1)
+  expect(mockUpload).not.toHaveBeenCalled()
+  expect(mockPost).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByTestId('voice-draft-start'))
+  await screen.findByText('Отменить запись')
+  expect(mockRecorder.record).toHaveBeenCalledTimes(2)
+})
 it('the edit assistant routes text to its plan handler without creating a voice draft', async () => {
   const analyze = jest.fn(async () => undefined), apply = jest.fn()
   const screen = render(<VoiceDraftSection initialMode="text" onApply={apply} onAnalyzeText={analyze} />)

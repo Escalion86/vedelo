@@ -9,6 +9,7 @@ import { useTheme, useThemeStyles } from '../../src/shared/ui/ThemeProvider'
 import { type Palette } from '../../src/shared/ui/theme'
 import { EventCalendar } from '../../src/features/events/EventCalendar'
 import { MobileEventCard } from '../../src/features/events/MobileEventCard'
+import { useProposalOverview } from '../../src/features/proposals/statusHooks'
 import { EventFilters } from '../../src/features/events/EventFilters'
 import { applyPastPreset, defaultEventFilters, eventInScope, selectEvents,
   type EventFiltersState, type EventsListScope, type ListEvent } from '../../src/features/events/filters'
@@ -22,6 +23,7 @@ import { useAuth } from '../../src/shared/auth/AuthProvider'
 type ViewMode = 'list' | 'calendar'
 type EventRow = { key: string; event: ListEvent; occurrence?: EventCalendarOccurrence }
 export default function EventsScreen() {
+  const proposalStatuses = useProposalOverview('statuses')
   const { user } = useAuth()
   const terminology = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
@@ -102,6 +104,7 @@ export default function EventsScreen() {
       action={scope === 'past' ? undefined : { title: 'Создать заявку', onPress: () => router.push('/events/edit/new' as never) }} />
   }
   const renderRow = ({ item }: { item: EventRow }) => <MobileEventCard event={item.event} defaultTown={terminology.settings?.defaultTown}
+    proposalStatus={proposalStatuses.data?.[item.event._id]}
     client={item.event.clientId ? clientsById.get(item.event.clientId) : undefined} clientsById={clientsById}
     services={(item.event.servicesIds || []).map((id) => servicesById.get(id)).filter((service): service is Service => Boolean(service))}
     transactions={transactionsByEvent.get(item.event._id) || []} occurrence={item.occurrence}

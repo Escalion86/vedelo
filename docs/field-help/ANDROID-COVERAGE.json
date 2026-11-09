@@ -1110,13 +1110,12 @@
     "nativeDeviceVerified": false
   },
   "settings.eventForm": {
-    "status": "unavailable",
-    "host": null,
-    "reason": "нет: редактор Android единый, переключателя веб-форм нет",
+    "status": "implemented",
+    "host": [{ "path": "mobile/src/features/settings/WorkspaceSettings.tsx", "anchor": "getFieldHelp('settings.eventForm')" }],
+    "reason": "Общая настройка классической или компактной формы",
     "evidence": {
-      "path": "mobile/src/features/settings/SettingsSection.tsx",
-      "line": 25,
-      "anchor": "<ThemePreferenceSection"
+      "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+      "anchor": "getFieldHelp('settings.eventForm')"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
     "adaptation": null,
@@ -1127,28 +1126,29 @@
     "host": [
       {
         "path": "mobile/src/features/notifications/NotificationsSection.tsx",
-        "line": 104,
-        "anchor": "help={`Часовой пояс вашей работы используется сервисом для ежедневных напоминаний. В Android здесь показано текущее значение без возможности изменения; выбор региона доступен в общих настройках веб-версии.\\n\\nСправка для веб-версии: ${getFieldHelp('settings.timeZone')}`} />"
+        "anchor": "Регион можно изменить в настройках организации."
+      },
+      {
+        "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+        "anchor": "getFieldHelp('settings.timeZone')"
       }
     ],
-    "reason": "частично: отображение timezone есть, редактирования нет",
+    "reason": "Часовой пояс редактируется в настройках организации",
     "evidence": {
-      "path": "mobile/src/features/notifications/NotificationsSection.tsx",
-      "line": 101,
-      "anchor": "Часовой пояс:"
+      "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+      "anchor": "getFieldHelp('settings.timeZone')"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
-    "adaptation": "Перед исходным текстом объясняется, что в Android часовой пояс только отображается; изменение доступно в настройках веб-версии.",
+    "adaptation": "В уведомлениях показано текущее значение и указано, где изменить его в Android.",
     "nativeDeviceVerified": false
   },
   "settings.defaultDuration": {
-    "status": "unavailable",
-    "host": null,
-    "reason": "нет: настройки стандартной длительности в Android нет",
+    "status": "implemented",
+    "host": [{ "path": "mobile/src/features/settings/WorkspaceSettings.tsx", "anchor": "getFieldHelp('settings.defaultDuration')" }],
+    "reason": "Длительность редактируется в настройках организации",
     "evidence": {
-      "path": "mobile/src/features/settings/SettingsSection.tsx",
-      "line": 25,
-      "anchor": "<ThemePreferenceSection"
+      "path": "mobile/src/features/settings/WorkspaceSettings.tsx",
+      "anchor": "getFieldHelp('settings.defaultDuration')"
     },
     "webTransition": "Нет существующей кнопки перехода для этого поля; не считать вручную открытый сайт реализованным переходом",
     "adaptation": null,

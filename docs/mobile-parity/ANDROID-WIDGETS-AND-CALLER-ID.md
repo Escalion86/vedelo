@@ -1,5 +1,19 @@
 # Android: виджет и карточка звонящего
 
+Последняя сборка для паритета — `mobile/artifacts/vedelo-parity-closure-20261109-arm64.apk`,
+76 891 201 байт, SHA-256 `6C25347A93359FE399CE4F9E691A86F9EA171A3277E2025E0B8B86E61FE2C14F`.
+Gradle release и 11 Kotlin-тестов прошли. Пакет `ru.escalion.vedelo.dev`,
+версия 1.1.4 (30), arm64-v8a, min 29/target 36, прежний Dev-сертификат.
+ADB не видит Samsung. Установка этой сборки, обновление production,
+биометрия после выключения экрана, звонки с SIM и доставка push открыты.
+
+09.11.2026 собран Dev APK `mobile/artifacts/vedelo-pwa-parity-20261109-arm64.apk`,
+76 864 337 байт, SHA256 `316891C252C1DD2AF06475D4B5F5A839516F56EAD6C94469FACF76FF0193139F`.
+Подтверждены `ru.escalion.vedelo.dev`, 1.1.4 (30), arm64-v8a, min 29/target 36,
+прежний Dev-сертификат и Gradle release. Обновления PWA описаны в
+`docs/MOBILE_PWA_PARITY.md`. Телефон не обнаружен ADB, новая сборка ожидает
+установки. Испытание биометрии кнопкой питания остаётся открытым.
+
 Последний собранный и установленный Dev APK: `mobile/artifacts/vedelo-screen-lock-20261101-arm64.apk`,
 SHA256 `85A800D3E6199F33408DB17ACC3413D59F41130CD10F9A8DA34B839B5600ACFE`,
 76 846 693 байт; arm64, `ru.escalion.vedelo.dev` 1.1.3/29, min 29/target 36.

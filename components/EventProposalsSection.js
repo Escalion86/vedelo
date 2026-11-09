@@ -62,6 +62,22 @@ const dateInput = (value) => {
   return date.toISOString().slice(0, 10)
 }
 
+const proposalEditorDraft = (item) => item ? {
+  ...item,
+  blocksSnapshot: item.editorBlocks ?? toProposalEditorBlocks(item.blocksSnapshot, item.artistSnapshot),
+  validUntil: dateInput(item.validUntil),
+} : null
+
+const proposalEditorFields = (draft) => ({
+  title: draft?.title,
+  validUntil: draft?.validUntil,
+  messageText: draft?.messageText,
+  blocks: draft?.blocksSnapshot,
+  packages: draft?.packages,
+  media: draft?.mediaSnapshot,
+  appearance: normalizeProposalAppearance(draft?.appearance),
+})
+
 const WITHOUT_TEMPLATE = '__without_template__'
 
 const ProposalTemplatePicker = ({
@@ -136,31 +152,9 @@ const EventProposalsSection = ({
   } = useEventProposalsQuery(eventId, {
     enabled: !initialProposal,
   })
-  const [editing, setEditing] = useState(() =>
-    initialProposal
-      ? {
-          ...initialProposal,
-          blocksSnapshot: toProposalEditorBlocks(
-            initialProposal.blocksSnapshot,
-            initialProposal.artistSnapshot
-          ),
-          validUntil: dateInput(initialProposal.validUntil),
-        }
-      : null
-  )
+  const [editing, setEditing] = useState(() => proposalEditorDraft(initialProposal))
   const [savedSnapshot, setSavedSnapshot] = useState(() =>
-    JSON.stringify(
-      initialProposal
-        ? {
-            ...initialProposal,
-            blocksSnapshot: toProposalEditorBlocks(
-              initialProposal.blocksSnapshot,
-              initialProposal.artistSnapshot
-            ),
-            validUntil: dateInput(initialProposal.validUntil),
-          }
-        : null
-    )
+    JSON.stringify(proposalEditorDraft(initialProposal))
   )
   useEffect(() => {
     setOnShowOnCloseConfirmDialog?.(JSON.stringify(editing) !== savedSnapshot)
@@ -285,7 +279,11 @@ const EventProposalsSection = ({
 
   const saveDraft = useCallback(
     async (notify = true) => {
-      if (saveInFlight.current) return null
+      if (!editing || saveInFlight.current) return null
+      const initialFields = proposalEditorFields(JSON.parse(savedSnapshot))
+      const changes = Object.fromEntries(Object.entries(proposalEditorFields(editing))
+        .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(initialFields[key])))
+      if (!Object.keys(changes).length) return editing
       saveInFlight.current = true
       setBusy(true)
       try {
@@ -294,28 +292,15 @@ const EventProposalsSection = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contentRevision: editing.contentRevision || 0,
-            title: editing.title,
-            validUntil: editing.validUntil,
-            messageText: editing.messageText,
-            blocks: editing.blocksSnapshot,
-            packages: editing.packages,
-            media: editing.mediaSnapshot,
-            appearance: normalizeProposalAppearance(editing.appearance),
+            ...changes,
           }),
         })
         const body = await response.json().catch(() => ({}))
         if (!response.ok || body?.success === false)
           throw new Error(body?.error?.message || 'Не удалось сохранить')
-        setEditing({
-          ...body.data,
-          validUntil: dateInput(body.data.validUntil),
-        })
-        setSavedSnapshot(
-          JSON.stringify({
-            ...body.data,
-            validUntil: dateInput(body.data.validUntil),
-          })
-        )
+        const freshDraft = proposalEditorDraft(body.data)
+        setEditing(freshDraft)
+        setSavedSnapshot(JSON.stringify(freshDraft))
         await cacheEventProposal(queryClient, eventId, body.data)
         if (notify)
           reportMessage({ tone: 'success', text: 'Предложение сохранено' })
@@ -329,7 +314,7 @@ const EventProposalsSection = ({
         setBusy(false)
       }
     },
-    [editing, eventId, queryClient, reportMessage, load]
+    [editing, savedSnapshot, eventId, queryClient, reportMessage, load]
   )
 
   const isDirty = Boolean(editing) && JSON.stringify(editing) !== savedSnapshot

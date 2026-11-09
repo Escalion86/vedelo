@@ -60,7 +60,7 @@ it.each(['light','dark'] as const)('Список %s: фильтры закрыт
 it('Заметка: ошибка не стирает текст, повтор перечитывает точный отзыв', async () => {
   const screen = draw(<ClientReviewsSection />)
   await screen.findByText('Комментарий клиента')
-  fireEvent.press(screen.getByText('Внутренняя заметка'))
+  fireEvent.press(screen.getByText('Добавить заметку'))
   fireEvent.changeText(screen.getByLabelText('Заметка для себя'),'Обсудить с клиентом')
   ;(api.patch as jest.Mock).mockRejectedValueOnce(new Error('Сбой сети'))
   fireEvent.press(screen.getByText('Сохранить заметку'))
@@ -70,6 +70,17 @@ it('Заметка: ошибка не стирает текст, повтор п
   fireEvent.press(screen.getByText('Сохранить заметку'))
   await screen.findByText('Изменения сохранены')
   expect(api.get).toHaveBeenCalledWith(expect.stringContaining('eventId=e'),expect.anything())
+})
+it('истёкшие ссылки запрашиваются с серверным статусом и фильтр сбрасывается', async () => {
+  const screen = draw(<ClientReviewsSection />)
+  await screen.findByText('Комментарий клиента')
+  fireEvent.press(screen.getByTestId('reviews-filters-toggle'))
+  fireEvent.press(screen.getByText('Только истёкшие ссылки'))
+  await waitFor(() => expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining('status=expired'), expect.anything()))
+  fireEvent.press(screen.getByTestId('reviews-filters-toggle'))
+  expect(screen.getByTestId('reviews-filter-summary')).toHaveTextContent('Ссылка истекла')
+  fireEvent.press(screen.getByText('Сбросить фильтры'))
+  expect(screen.queryByTestId('reviews-filter-summary')).toBeNull()
 })
 it('Загрузка и ошибка списка: повтор, отсутствие ложного пустого результата', async () => {
   ;(api.get as jest.Mock).mockRejectedValueOnce(new Error('Сбой'))

@@ -85,3 +85,4 @@ it('ошибка чтения отличается от загрузки и да
   expect(loading.getByLabelText('Загрузка работы')).toBeTruthy()
   expect(loading.queryByText('Запись не найдена')).toBeNull()
 })
+jest.mock('../proposals/statusHooks', () => ({ useProposalOverview: () => ({ data: undefined }) }))

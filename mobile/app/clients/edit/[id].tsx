@@ -3,6 +3,8 @@ import { normalizeMaxContactInput } from '../../../src/shared/domain/maxContact'
 import { normalizeAvitoContactUrl } from '../../../src/shared/domain/avitoContact'
 import * as Clipboard from 'expo-clipboard'
 import { normalizeDevicePhone } from '../../../src/shared/native/contactImport'
+import { phoneNumbersFromText, formatClipboardPhone } from '../../../src/shared/format/phoneNumbersFromText.generated'
+import { QuickActionsSheet } from '../../../src/shared/ui/QuickContacts'
 import { setPendingEventClient } from '../../../src/shared/domain/eventClientHandoff'
 import { consumeSharedDraft, readSharedDraft } from '../../../src/shared/native/shareDraft'
 import { deviceSession } from '../../../src/shared/native/device'
@@ -100,6 +102,8 @@ export default function ClientEditScreen() {
   const [requisitesOpen, setRequisitesOpen] = useState(false)
   const [dirty, setDirty] = useState(Boolean(sharedDraft))
   const [savedId, setSavedId] = useState('')
+  const [phoneChoice, setPhoneChoice] = useState<{ field: 'phone' | 'telegramPhone' | 'whatsapp'; numbers: string[]; session: number } | null>(null)
+  const readingClipboard = useRef(false)
   const busy = useRef(false)
   const hydrateAiClient = (review: AiCreateReview) => {
     const source = review.clientAttempt?.form.values || review.clientDraft
@@ -239,13 +243,21 @@ export default function ClientEditScreen() {
     }
   }
 
-  const pastePhone = async (field: 'phone' | 'telegramPhone') => {
+  const pastePhone = async (field: 'phone' | 'telegramPhone' | 'whatsapp') => {
+    if (readingClipboard.current || busy.current) return
+    const session = getAuthSessionEpoch()
+    readingClipboard.current = true
+    const current = () => alive.current && !busy.current && getAuthSessionEpoch() === session
     try {
       const text = await Clipboard.getStringAsync()
-      const number = normalizeDevicePhone(text)
-      if (number.length < 7 || number.length > 15 || /[a-zа-я]/i.test(text.replace(/^tel:/i, ''))) { setError('В буфере нет корректного номера телефона'); return }
-      set(field, number)
-    } catch { setError('Не удалось прочитать буфер обмена') }
+      if (!current()) return
+      const numbers = phoneNumbersFromText(text) as string[]
+      setError('')
+      if (!numbers.length) setError('В буфере нет корректного номера телефона')
+      else if (numbers.length === 1) set(field, numbers[0])
+      else setPhoneChoice({ field, numbers, session })
+    } catch { if (current()) setError('Не удалось прочитать буфер обмена') }
+    finally { readingClipboard.current = false }
   }
 
   const remove = () => Alert.alert(
@@ -281,12 +293,20 @@ export default function ClientEditScreen() {
         <Field testID="client-phone" label="Телефон" value={values.phone} onChangeText={(value) => set('phone', value)} keyboardType="phone-pad" />
         <Button title="Вставить телефон из буфера" variant="secondary" onPress={() => void pastePhone('phone')} disabled={loading} />
         <Field label="WhatsApp" value={values.whatsapp} onChangeText={(value) => set('whatsapp', value)} keyboardType="phone-pad" />
+        <Button title="Вставить телефон WhatsApp" variant="secondary" onPress={() => void pastePhone('whatsapp')} disabled={loading} />
         <Field label="Telegram" value={values.telegram} onChangeText={(value) => {
           if (/^[+\d\s()-]+$/.test(value) && value.replace(/\D/g, '').length >= 10) set('telegramPhone', normalizeDevicePhone(value))
           else set('telegram', value)
         }} autoCapitalize="none" />
         <Field label="Телефон Telegram" value={values.telegramPhone} onChangeText={(value) => set('telegramPhone', value)} keyboardType="phone-pad" />
         <Button title="Вставить телефон Telegram" variant="secondary" onPress={() => void pastePhone('telegramPhone')} disabled={loading} />
+        {phoneChoice ? <QuickActionsSheet title="Выберите номер телефона" visible onClose={() => setPhoneChoice(null)}>
+          {phoneChoice.numbers.map(number => <Button key={number} title={formatClipboardPhone(number)} variant="secondary" onPress={() => {
+            if (alive.current && !busy.current && getAuthSessionEpoch() === phoneChoice.session) set(phoneChoice.field, number)
+            setPhoneChoice(null)
+          }} />)}
+          <Button title="Отмена" variant="secondary" onPress={() => setPhoneChoice(null)} />
+        </QuickActionsSheet> : null}
         <Field label="Профиль Avito" value={values.avitoUrl} onChangeText={(value) => set('avitoUrl', value)} autoCapitalize="none" />
         <Field label="Instagram" value={values.instagram} onChangeText={(value) => set('instagram', value)} autoCapitalize="none" />
         <Field label="VK" value={values.vk} onChangeText={(value) => set('vk', value)} autoCapitalize="none" />

@@ -158,6 +158,11 @@ export const toProposalEditorBlocks = (blocks, artist = {}) => {
   return [...normalized, ...sections]
 }
 
+// A derived editor view. The serialized snapshot stays authoritative until a
+// user actually changes a block and explicitly saves the edit.
+export const proposalEditorProjection = (blocks, artist) =>
+  hasProposalEditorSections(blocks || []) ? {} : { editorBlocks: toProposalEditorBlocks(blocks, artist) }
+
 export const getVisibleProposalBlocks = (blocks = []) => {
   if (!hasProposalEditorSections(blocks))
     return blocks.filter((block) => block.enabled !== false)

@@ -684,6 +684,7 @@ test('modal save appears only for changed drafts, persists after failure, and hi
   const proposal = { _id: 'footer-draft', title: 'Исходное название', status: 'draft', validUntil: '2027-10-10', packages: [], blocksSnapshot: [], mediaSnapshot: [] }
   global.fetch = async (_url, options) => {
     const body = JSON.parse(options.body)
+    assert.deepEqual(body, { contentRevision: 0, title: 'Новое название' })
     return fail ? response(null, 500) : response({ ...proposal, ...body })
   }
   t.after(() => { mocks['@components/Input'] = previousInput; global.fetch = previousFetch })

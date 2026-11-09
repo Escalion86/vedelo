@@ -1,4 +1,5 @@
 import { typography } from '../../shared/ui/theme'
+import { CheckedCalendarSync } from './CheckedCalendarSync'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import * as WebBrowser from 'expo-web-browser'
@@ -120,6 +121,7 @@ export function GoogleCalendarForm({ gate, onStatus, onClose }: { gate: Operatio
         <SectionTitle>Цвета статусов</SectionTitle>
         {([['draft', 'Заявка'], ['active', 'Подтверждено'], ['canceled', 'Отменено'], ['closed', 'Закрыто']] as const).map(([status, label]) => <CalendarChoice key={status} title={`Цвет: ${label}`} value={google.statusColors[status]} options={GOOGLE_COLOR_OPTIONS} disabled={!editable} onSelect={(color) => void patch({ statusColors: { [status]: color } }, 'Цвет статуса сохранён')} />)}
         <Notice tone="info" message="Новые настройки применяются при последующей синхронизации записи." />
+        {google.enabled ? <CheckedCalendarSync disabled={!editable} /> : null}
         <Button title={confirm ? 'Подтвердить отключение Google Calendar' : 'Отключить Google Calendar'} variant="danger" disabled={blocked} onPress={() => void disconnect()} />
         {confirm ? <Button title="Отмена подтверждения" variant="secondary" disabled={session.working} onPress={() => setConfirm(false)} /> : null}
       </>}

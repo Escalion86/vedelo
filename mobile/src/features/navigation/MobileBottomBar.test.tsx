@@ -9,6 +9,7 @@ import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
 import EventsScreen from '../../../app/(tabs)/events'
 import type { Event } from '../../shared/domain/types'
+jest.mock('../proposals/statusHooks', () => ({ useProposalOverview: () => ({ data: undefined }) }))
 
 jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: null }) }))
 const mockNavigate = jest.fn()

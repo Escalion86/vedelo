@@ -17,6 +17,8 @@ import { eventPublicApiSource, isEventImportChecked } from '../../src/features/e
 import { getEventCardClientName, getEventCardStatus, getEventCardStatusKey } from '../../src/features/events/eventCard'
 import { detailDate, eventDuration, getEventDetailFinance } from '../../src/features/events/eventDetail'
 import { EventOnlineSections } from '../../src/features/proposals/EventOnlineSections'
+import { ProposalStatusChip } from '../../src/features/proposals/ProposalStatus'
+import { useProposalOverview } from '../../src/features/proposals/statusHooks'
 import { EventFinanceSummary } from '../../src/features/events/EventFinanceSummary'
 import { editEventSection, EventDetailActions } from '../../src/features/events/EventDetailActions'
 import { isWaitingForDeposit } from '../../src/shared/domain/deposits'
@@ -42,6 +44,7 @@ export default function EventDetailScreen() {
     void Promise.all([refreshEvents(), refreshClients(), refreshServices(), refreshTransactions()])
   }, [refreshEvents, refreshClients, refreshServices, refreshTransactions]))
   const event = events.data?.find((item) => item._id === id)
+  const proposalStatuses = useProposalOverview('statuses', Boolean(online && event && !event._id.startsWith('local-') && (!event.syncStatus || event.syncStatus === 'synced') && !('isDemo' in event && event.isDemo)))
   if (events.isPending) return <Screen><PageHeader title={terms.labelCapitalized} /><ActivityIndicator accessibilityLabel="Загрузка работы" color={palette.primary} /></Screen>
   if (events.isError) return <Screen><PageHeader title={terms.labelCapitalized} /><Notice tone="danger" message="Не удалось прочитать работу" /><Button title="Повторить" onPress={() => void events.refetch()} /></Screen>
   if (!event) return <Screen><PageHeader title={terms.labelCapitalized} /><EmptyState title="Запись не найдена" description="Возможно, она удалена или ещё не загружена на устройство." /><Button title={`К списку ${terms.pluralGenitive}`} onPress={() => router.replace('/(tabs)/events')} /></Screen>
@@ -69,6 +72,7 @@ export default function EventDetailScreen() {
   const images = (event.images || []).filter((url) => typeof url === 'string' && /^https:\/\//i.test(url))
   return <Screen>
     <PageHeader title={event.eventType || terms.labelCapitalized} />
+    <ProposalStatusChip status={proposalStatuses.data?.[event._id]} />
     {!isEventImportChecked(event) ? <Notice tone="warning" message="Проверьте данные импорта в разделе «Общие»." /> : null}
     {images.length ? <ScrollView horizontal contentContainerStyle={styles.gallery}>{images.map((uri, index) =>
       <View key={`${uri}-${index}`}><Image accessible accessibilityLabel={`Изображение ${index + 1}`} source={{ uri }} style={styles.image} resizeMode="contain" />
@@ -110,7 +114,7 @@ export default function EventDetailScreen() {
       {isWaitingForDeposit(event, transactions.data || []) ? <><Text style={styles.text}>Ожидается задаток{event.depositExpectedAmount != null ? `: ${event.depositExpectedAmount} ₽` : ''}{event.depositDueAt ? `, срок: ${detailDate(event.depositDueAt)}` : ''}</Text><Button title="Задаток получен" disabled={!online || transactions.isPending || transactions.isError} onPress={() => router.push(`/events/deposit/${id}` as never)} /></> : null}
       {event.calendarSyncError ? <Notice tone="warning" message="Не удалось синхронизировать календарь. Проверьте подключение в интеграциях." /> : null}
       <Button title="Изменить общие данные" variant="secondary" onPress={() => editEventSection(event._id, 'general')} />
-      {!event._id.startsWith('local-') ? <Button title="Изменить с ИИ" variant="secondary" onPress={() => router.push({ pathname: '/events/assistant', params: { eventId: event._id } } as never)} /> : null}
+      {!event._id.startsWith('local-') ? <Button title="Редактировать голосом" variant="secondary" onPress={() => router.push({ pathname: '/events/assistant', params: { eventId: event._id, mode: 'voice' } } as never)} /> : null}
     </Surface>
     <Surface testID="event-contacts"><SectionTitle>Контакты</SectionTitle>
       {clients.isError ? <><Notice tone="danger" message="Не удалось прочитать контакты" /><Button title="Повторить загрузку контактов" onPress={() => void clients.refetch()} /></>

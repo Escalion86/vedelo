@@ -2,15 +2,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 
 // Используется только с временной БД HTTP integration runner.
-export const runWebCoreSmoke = async ({
-  baseUrl,
-  password,
-  tenantA,
-  tenantB,
-  phoneA,
-  phoneB,
-}) => {
-  const login = async (phone) => {
+export const loginWebSmokeUser = async ({ baseUrl, phone, password }) => {
     const cookies = new Map()
     const request = async (pathname, options = {}) => {
       const response = await fetch(`${baseUrl}${pathname}`, {
@@ -51,10 +43,18 @@ export const runWebCoreSmoke = async ({
       'Credentials login должен создать реальную web-сессию'
     )
     return request
-  }
+}
 
-  const userA = await login(phoneA)
-  const userB = await login(phoneB)
+export const runWebCoreSmoke = async ({
+  baseUrl,
+  password,
+  tenantA,
+  tenantB,
+  phoneA,
+  phoneB,
+}) => {
+  const userA = await loginWebSmokeUser({ baseUrl, phone: phoneA, password })
+  const userB = await loginWebSmokeUser({ baseUrl, phone: phoneB, password })
   const key = randomUUID()
   const createOnce = (request, body, operationKey = key) => request('/api/clients', {
     method: 'POST',

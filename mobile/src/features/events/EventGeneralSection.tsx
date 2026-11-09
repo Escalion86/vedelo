@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { Client, Service } from '../../shared/domain/types'
 import { type EventDraft, type EventFormValues } from '../../shared/domain/eventForm'
@@ -9,6 +9,7 @@ import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { FieldHelp } from '../../shared/ui/FieldHelp'
 import { EventAiHighlight } from './EventAiHighlight'
 import { getEventCardClientName } from './eventCard'
+import { AddressSuggestions } from './AddressSuggestions'
 
 export const EventGeneralSection = ({ draft, onChange, services, clients, eventTypes, towns, showTransfer, genitive, group, aiFields, onManualEdit }: {
   draft: EventDraft; onChange: (draft: EventDraft) => void; services: Service[]; clients: Client[]
@@ -17,8 +18,10 @@ export const EventGeneralSection = ({ draft, onChange, services, clients, eventT
 }) => {
   const styles = useThemeStyles(createStyles)
   const v = draft.values
+  const latest = useRef({ draft, onChange })
+  useLayoutEffect(() => { latest.current = { draft, onChange } }, [draft, onChange])
   const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) => {
-    onManualEdit?.([key]); onChange({ ...draft, values: { ...v, [key]: value } })
+    onManualEdit?.([key]); onChange({ ...draft, ...(['town', 'street', 'house'].includes(key) ? { addressSuggestion: undefined } : {}), values: { ...v, [key]: value } })
   }
   const has = (name: NonNullable<typeof group>) => !group || group === name
   const highlight = (key: string, child: ReactNode) => <EventAiHighlight field={key} active={aiFields?.has(key)}>{child}</EventAiHighlight>
@@ -45,6 +48,16 @@ export const EventGeneralSection = ({ draft, onChange, services, clients, eventT
     </Surface> : null}
     {has('location') ? <Surface>
       {!group ? <SectionTitle>Локация</SectionTitle> : null}
+      <AddressSuggestions town={v.town} onPick={(address) => {
+        onManualEdit?.(['town', 'street', 'house'])
+        onChange({ ...draft, addressSuggestion: address, values: { ...v, town: address.town, street: address.street, house: address.house } })
+      }} onRefine={(selected, address) => {
+        const { draft: current, onChange: apply } = latest.current
+        if (current.addressSuggestion !== selected ||
+          current.values.town !== selected.town || current.values.street !== selected.street || current.values.house !== selected.house ||
+          selected.town !== address.town || selected.street !== address.street || selected.house !== address.house) return
+        apply({ ...current, addressSuggestion: address })
+      }} />
       {field('town', 'Город')}
       <View style={styles.options}>{towns.map((town) => <GeneralChoice key={town} label={town} selected={v.town === town} onPress={() => set('town', town)} />)}</View>
       {field('street', 'Улица')}{field('house', 'Дом')}{field('entrance', 'Подъезд')}

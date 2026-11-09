@@ -15,6 +15,10 @@ jest.mock('../../shared/api/client', () => ({ api: { get: (...args: any[]) => mo
 jest.mock('../../shared/config/env', () => ({ env: { apiBaseUrl: 'https://current.example/api' } }))
 jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ mode: 'orders', label: 'заказ', labelCapitalized: 'Заказ', plural: 'заказы', pluralCapitalized: 'Заказы' }) }))
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}))
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }))
 jest.mock('./exportCsv', () => ({ shareStatisticsCsv: jest.fn() }))
 const draw = (kind: 'statistics' | 'referrals' = 'statistics', mode: 'light' | 'dark' = 'light') => <ThemeProvider forcedMode={mode} storage={null}>{kind === 'statistics' ? <StatisticsSection /> : <ReferralsSection />}</ThemeProvider>
@@ -42,6 +46,13 @@ it.each(['light', 'dark'] as const)('статистика %s: заявки до�
   expect(screen.getByText('2020')).toBeTruthy()
   fireEvent.press(screen.getByText('Учитывать заявки'))
   await screen.findByText('Доходы: 300 ₽')
+  fireEvent.press(screen.getByTestId('statistics-month-2020-06'))
+  fireEvent.press(screen.getByText('Открыть статистику за месяц'))
+  expect(screen.getByText('Выручка: 300 ₽')).toBeTruthy()
+  expect(screen.getByText(/^Доход · 100 ₽/)).toBeTruthy()
+  expect(screen.getByText(/^Доход · 200 ₽/)).toBeTruthy()
+  expect(screen.queryByText(/^Доход · 300 ₽/)).toBeNull()
+  fireEvent.press(screen.getByLabelText('Закрыть'))
   fireEvent.press(screen.getByText('Экспортировать CSV'))
   await waitFor(() => expect(shareStatisticsCsv).toHaveBeenCalledTimes(1))
   const csv = (shareStatisticsCsv as jest.Mock).mock.calls[0][0]

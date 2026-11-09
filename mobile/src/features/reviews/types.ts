@@ -6,7 +6,7 @@ export type ClientReview = {
   clientName?: string; eventTitle?: string; eventDate?: string | null
 }
 export type ReviewList = { items: ClientReview[]; total: number; allowClientReviews: boolean }
-export type ReviewFilters = { eventId?: string; clientId?: string; rating?: string; unread?: string; from?: string; to?: string; page?: number }
+export type ReviewFilters = { eventId?: string; clientId?: string; status?: 'expired' | ''; rating?: string; unread?: string; from?: string; to?: string; page?: number }
 export type ReviewAction = 'link' | 'renew' | 'sent' | 'revoke' | 'read' | 'note'
 export type ReviewResult = ClientReview & { url?: string | null }
 export type ReviewEvent = { _id: string; clientId?: string | null; status?: string; eventDate?: string | null; dateEnd?: string | null; isDemo?: boolean }

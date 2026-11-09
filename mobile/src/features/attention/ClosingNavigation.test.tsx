@@ -60,3 +60,4 @@ test('пустой фильтр предлагает сброс, а ошибка
   fireEvent.press(screen.getByText('Повторить чтение'))
   expect(refetch).toHaveBeenCalledTimes(1)
 })
+jest.mock('../proposals/statusHooks', () => ({ useProposalOverview: () => ({ data: undefined }) }))

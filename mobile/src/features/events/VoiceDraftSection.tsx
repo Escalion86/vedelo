@@ -50,6 +50,7 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
   const recorderState = useAudioRecorderState(recorder, 250)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingRef = useRef(false)
+  const mounted = useRef(true)
   const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
   const [transcript, setTranscript] = useState(initialText || '')
@@ -61,15 +62,42 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
   }
+  const deleteRecording = (uri: string | null) => {
+    if (!uri) return
+    try {
+      const file = new File(uri)
+      if (file.exists) file.delete()
+    } catch {
+      // Recorder cache is also reclaimed by the operating system.
+    }
+  }
+
+  const discardRecording = async () => {
+    if (!recordingRef.current) return
+    recordingRef.current = false
+    clearTimer()
+    try { await recorder.stop(); deleteRecording(recorder.uri) }
+    finally { await setAudioModeAsync({ allowsRecording: false }).catch(() => undefined) }
+  }
+  const cancelRecording = async () => {
+    if (!recordingRef.current) return
+    setBusy(true)
+    setRecording(false)
+    try { await discardRecording() }
+    catch { if (mounted.current) setError('Не удалось завершить запись. Попробуйте снова.') }
+    finally { if (mounted.current) setBusy(false) }
+  }
 
   const requestDraft = async (text: string) => {
     await access.assertAvailable()
+    if (!mounted.current) return
     if (onAnalyzeText) {
       await onAnalyzeText(text)
-      setMessage('Проверьте результат перед сохранением.')
+      if (mounted.current) setMessage('Проверьте результат перед сохранением.')
       return
     }
     const response = await api.post<DraftResponse>('/mobile/v1/events/ai-draft', { text })
+    if (!mounted.current) return
     const fields = response.fields || null
     if (!fields || countApplicableVoiceDraftFields(fields) === 0) {
       throw new Error(response.error || 'Не удалось выделить поля мероприятия')
@@ -94,6 +122,7 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
       if (!uri) throw new Error('Файл записи не создан')
 
       await access.assertAvailable()
+      if (!mounted.current) return
       const form = new FormData()
       form.append('audio', {
         uri,
@@ -101,6 +130,7 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
         type: 'audio/mp4',
       } as unknown as Blob)
       const response = await api.upload<TranscriptResponse>('/mobile/v1/events/voice-transcript', form)
+      if (!mounted.current) return
       const text = response.transcript?.trim() || ''
       if (!text) throw new Error('Не удалось распознать речь')
       setTranscript(text)
@@ -111,14 +141,7 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
       setError(reason instanceof Error ? reason.message : 'Не удалось обработать голосовой черновик')
     } finally {
       await setAudioModeAsync({ allowsRecording: false }).catch(() => undefined)
-      if (uri) {
-        try {
-          const file = new File(uri)
-          if (file.exists) file.delete()
-        } catch {
-          // Recorder cache will also be reclaimed by the operating system.
-        }
-      }
+      deleteRecording(uri)
       setBusy(false)
     }
   }
@@ -131,13 +154,17 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
     setBusy(true)
     try {
       await access.assertAvailable()
+      if (!mounted.current) return
       const permission = await requestRecordingPermissionsAsync()
+      if (!mounted.current) return
       if (!permission.granted) {
         setError('Без доступа к микрофону запись невозможна. Можно ввести текст вручную ниже.')
         return
       }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true })
+      if (!mounted.current) return
       await recorder.prepareToRecordAsync()
+      if (!mounted.current) return
       recorder.record()
       recordingRef.current = true
       setRecording(true)
@@ -173,10 +200,14 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
     }
   }
 
-  useEffect(() => () => {
-    clearTimer()
-    if (recordingRef.current) void recorder.stop()
-    void setAudioModeAsync({ allowsRecording: false })
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      clearTimer()
+      if (recordingRef.current) void discardRecording().catch(() => undefined)
+      else void setAudioModeAsync({ allowsRecording: false }).catch(() => undefined)
+    }
   }, [recorder])
 
   return (
@@ -189,13 +220,14 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
         </View>
       </View>
 
-      {initialMode !== 'text' ? (recording ? (
+      {initialMode !== 'text' ? (recording ? (<>
         <Pressable testID="voice-draft-stop" accessibilityRole="button" style={styles.recording} onPress={() => void finishRecording()}>
           <View style={styles.recordingDot} />
           <Text style={styles.recordingText}>Идёт запись · {durationLabel(recorderState.durationMillis)}</Text>
           <Text style={styles.stopText}>Остановить</Text>
         </Pressable>
-      ) : (
+        <Button title="Отменить запись" variant="secondary" onPress={() => void cancelRecording()} />
+      </>) : (
         <Button testID="voice-draft-start" title="Записать голос" variant="secondary" onPress={() => void startRecording()} disabled={busy || !access.online} />
       )) : null}
       {!access.online ? <ErrorNotice message="Для ИИ нужен интернет. Форму можно заполнить вручную." /> : null}

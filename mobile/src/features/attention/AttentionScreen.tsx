@@ -19,6 +19,8 @@ import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { UnreadClientReviewsSection } from '../reviews/ClientReviewsSection'
 import { LearningTip } from '../learning/LearningTip'
 import { NewsNotice } from '../news/NewsNotice'
+import { ExpiredProposalsSection } from '../proposals/ProposalStatus'
+import { useProposalOverview } from '../proposals/statusHooks'
 import { UnreadConversationsSection } from '../conversations/UnreadConversationsSection'
 import { MobileEventCard } from '../events/MobileEventCard'
 import { useEventsScope } from '../navigation/EventsScope'
@@ -30,6 +32,7 @@ import { AttentionSection, ClientDateRow, CompactAction, RequestCard, SummaryChi
 const emptyText = { overdue: 'Просроченных задач нет', today: 'На сегодня задач нет', tomorrow: 'На завтра задач нет' }
 
 export default function AttentionScreen() {
+  const proposalStatuses = useProposalOverview('statuses')
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
@@ -159,6 +162,7 @@ export default function AttentionScreen() {
         {section('upcoming', `${terms.pluralCapitalized} на 3 дня`, data.upcoming.length,
           <OverviewList id="upcoming" items={data.upcoming} empty={`На ближайшие 3 дня ${terms.pluralGenitive} нет`}
             render={(event) => <MobileEventCard key={event._id} event={event} testID={`attention-event-${event._id}`}
+              proposalStatus={proposalStatuses.data?.[event._id]}
               client={clientsById.get(event.clientId || '')} clientsById={clientsById}
               services={(services.data || []).filter((service) => event.servicesIds?.includes(service._id))}
               transactions={(transactions.data || []).filter((transaction) => transaction.eventId === event._id)}
@@ -169,6 +173,7 @@ export default function AttentionScreen() {
             render={(item) => <ClientDateRow key={item.key} item={item} />} />, { tone: 'upcoming' }) : null}
       </> : null}
       <UnreadClientReviewsSection />
+      <ExpiredProposalsSection />
       <UnreadConversationsSection />
       <LearningTip />
       <NewsNotice />

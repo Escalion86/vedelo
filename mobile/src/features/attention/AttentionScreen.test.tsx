@@ -2,6 +2,7 @@ import React from 'react'
 jest.mock('../learning/LearningTip', () => ({ LearningTip: () => null }))
 jest.mock('../news/NewsNotice', () => ({ NewsNotice: () => null }))
 jest.mock('../conversations/UnreadConversationsSection', () => ({ UnreadConversationsSection: () => null }))
+jest.mock('../proposals/statusHooks', () => ({ useProposalOverview: () => ({ data: undefined, fetchStatus: 'idle', isPending: true }) }))
 import { Alert, Modal, ScrollView, Text, View } from 'react-native'
 import { act, fireEvent, render, within } from '@testing-library/react-native'
 import { router } from 'expo-router'
@@ -128,13 +129,13 @@ test('tasks и index используют одну реализацию', () => 
   expect(require('../../../app/(tabs)/tasks').default).toBe(AttentionScreen)
   expect(require('../../../app/(tabs)/index').default).toBe(AttentionScreen)
 })
-test('редактор валидирует, сегментный перенос, удаление с подтверждением, undo', async () => {
+test('редактор валидирует, перенос на послезавтра, удаление с подтверждением, undo', async () => {
   const item = selectAttention(fixtures.events as Event[], [], [], now).groups.tomorrow[0]
   const onAction = jest.fn().mockResolvedValue(true)
   const screen = render(<TaskCard item={item} segment="tomorrow" busy={false} onAction={onAction} />)
-  expect(screen.queryByText('На завтра')).toBeNull()
-  await act(async () => fireEvent.press(screen.getByText('На +2 дня')))
-  expect(onAction).toHaveBeenCalledWith(item, { type: 'postpone', days: 3 })
+  expect(screen.getByText('На завтра')).toBeTruthy()
+  await act(async () => fireEvent.press(screen.getByText('На послезавтра')))
+  expect(onAction).toHaveBeenCalledWith(item, { type: 'postpone', days: 2 })
   fireEvent.press(screen.getByLabelText('Открыть меню задачи: Уточнить'))
   fireEvent.press(screen.getByText('Редактировать'))
   fireEvent.changeText(screen.getByLabelText('Название задачи'), '')

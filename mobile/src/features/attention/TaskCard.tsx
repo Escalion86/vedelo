@@ -13,6 +13,9 @@ import type { TaskChange } from '../../shared/domain/taskActions'
 import { postponeActions } from './actions'
 import type { AttentionItem, Segment } from './selectors'
 import { CompactAction } from './AttentionPresentation'
+import { SingleDateCalendar } from '../../shared/ui/SingleDateCalendar'
+import { localDay } from '../../shared/ui/periodPickerDates'
+import { TaskDatePresets } from '../events/TaskDatePresets'
 
 export function TaskCard({ item, segment, busy, onAction }: {
   item: AttentionItem; segment: Segment; busy: boolean
@@ -27,6 +30,8 @@ export function TaskCard({ item, segment, busy, onAction }: {
   const [description, setDescription] = useState('')
   const [dateInput, setDateInput] = useState('')
   const [error, setError] = useState('')
+  const [selectingDate, setSelectingDate] = useState(false), [day, setDay] = useState('')
+  const [rescheduleError, setRescheduleError] = useState(false)
   const { task, event } = item
   const edit = () => {
     if (busy) return
@@ -90,6 +95,7 @@ export function TaskCard({ item, segment, busy, onAction }: {
         <Field label="Название задачи" value={title} onChangeText={setTitle} editable={!busy} />
         <Field label="Комментарий" value={description} onChangeText={setDescription} multiline editable={!busy} />
         <Field label="Срок (ГГГГ-ММ-ДД ЧЧ:ММ)" value={dateInput} onChangeText={setDateInput} editable={!busy} />
+        <TaskDatePresets value={dateInput} onChange={setDateInput} disabled={busy} />
         {error ? <Notice tone="danger" message={error} /> : null}
         <View style={styles.actions}>
           <CompactAction title="Сохранить задачу" variant="primary" loading={busy} onPress={() => void save()} />
@@ -98,13 +104,33 @@ export function TaskCard({ item, segment, busy, onAction }: {
       </View> : <>
         {!task.done ? <View style={styles.actions}>{postponeActions(segment).map((action) =>
           <CompactAction key={action.days} title={action.title} disabled={busy}
-            onPress={() => void onAction(item, { type: 'postpone', days: action.days })} />)}</View> : null}
+            onPress={() => void onAction(item, { type: 'postpone', days: action.days })} />)}
+          <CompactAction title="Выбрать дату" disabled={busy} onPress={() => {
+            const current = task.date ? new Date(task.date) : new Date()
+            setDay(localDay(Number.isFinite(current.getTime()) ? current : new Date()))
+            setRescheduleError(false)
+            setSelectingDate(true)
+          }} />
+        </View> : null}
       </>}
       <QuickActionsSheet title={task.title || 'Задача'} visible={menuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.editor}>
           <CompactAction title="Открыть работу" onPress={() => { setMenuOpen(false); openEvent() }} />
           <CompactAction title="Редактировать" variant="warning" disabled={busy} onPress={edit} />
           <CompactAction title="Удалить" variant="danger" disabled={busy} onPress={remove} />
+        </View>
+      </QuickActionsSheet>
+      <QuickActionsSheet title="Перенести задачу" visible={selectingDate} onClose={() => { if (!busy) setSelectingDate(false) }}>
+        <View style={styles.editor}>
+          <SingleDateCalendar value={day} onChange={setDay} disabled={busy} />
+          <Text style={styles.meta}>Время задачи сохраняется.</Text>
+          {rescheduleError ? <Notice tone="danger" message="Не удалось перенести задачу. Попробуйте ещё раз." /> : null}
+          <CompactAction title="Перенести" variant="primary" loading={busy} onPress={async () => {
+            setRescheduleError(false)
+            if (await onAction(item, { type: 'reschedule', day })) setSelectingDate(false)
+            else setRescheduleError(true)
+          }} />
+          <CompactAction title="Отмена" disabled={busy} onPress={() => setSelectingDate(false)} />
         </View>
       </QuickActionsSheet>
     </> : <View style={styles.actions}><CompactAction title="Задаток получен" onPress={() => router.push(`/events/deposit/${event._id}` as never)} /><CompactAction title="Открыть оплату" onPress={openEvent} /></View>}

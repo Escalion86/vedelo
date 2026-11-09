@@ -265,7 +265,6 @@ const SettingsContent = () => {
           onChange={(value) =>
             saveSiteSettingsPatch({
               custom: {
-                ...(siteSettingsState?.custom ?? {}),
                 primaryEntityTerminology: value,
               },
             })
@@ -321,7 +320,6 @@ const SettingsContent = () => {
               onClick={() =>
                 saveSiteSettingsPatch({
                   custom: {
-                    ...(siteSettingsState?.custom ?? {}),
                     [SHOW_COLLEAGUE_TRANSFER_FIELDS_KEY]:
                       customSettings?.[SHOW_COLLEAGUE_TRANSFER_FIELDS_KEY] !==
                       true,

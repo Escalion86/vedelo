@@ -425,6 +425,11 @@ export default function LoginScreen() {
               <Notice tone="info" message="С этим номером ещё нет аккаунта. Задайте пароль, примите соглашения и подтвердите телефон. Затем Яндекс ID подключится автоматически. На завершение есть 15 минут." />
               <Button title="Отменить подключение Яндекс ID" variant="secondary" disabled={loading} onPress={() => setYandexPending(null)} />
             </> : null}
+            {mode !== 'recovery' ? <View style={styles.methodHeading}>
+              <View style={styles.methodLine} />
+              <Text style={styles.methodLabel}>{mode === 'register' ? 'Регистрация по номеру телефона' : 'Вход по номеру телефона и паролю'}</Text>
+              <View style={styles.methodLine} />
+            </View> : null}
             <CompactField editable={!loading}
               testID="auth-phone"
               label="Телефон"
@@ -487,22 +492,32 @@ export default function LoginScreen() {
               onPress={submitCredentials}
               loading={loading}
             />
-            {mode !== 'recovery' && socialAuth.allowVkAuth && (socialAuth.appId || env.vkIdAppId) ? (
+            {mode !== 'recovery' && socialAuth.allowVkAuth && (socialAuth.appId || env.vkIdAppId) ? (<>
+              <View style={styles.methodHeading}>
+                <View style={styles.methodLine} />
+                <Text style={styles.methodLabel}>ВКонтакте</Text>
+                <View style={styles.methodLine} />
+              </View>
               <Button
                 testID="submit-vk-auth"
                 title={
                   mode === 'register'
-                    ? 'Зарегистрироваться через VK ID'
-                    : 'Войти через VK ID'
+                    ? 'Зарегистрироваться через ВКонтакте'
+                    : 'Войти через ВКонтакте'
                 }
                 variant="secondary"
                 onPress={startVk}
                 disabled={!vkRequest || loading}
               />
-            ) : null}
-            {mode !== 'recovery' && socialAuth.allowYandexAuth ? (
-              <Button testID="submit-yandex-auth" title="Войти через Яндекс ID" variant="secondary" onPress={startYandex} disabled={loading} />
-            ) : null}
+            </>) : null}
+            {mode !== 'recovery' && socialAuth.allowYandexAuth ? <>
+              <View style={styles.methodHeading}>
+                <View style={styles.methodLine} />
+                <Text style={styles.methodLabel}>Яндекс</Text>
+                <View style={styles.methodLine} />
+              </View>
+              <Button testID="submit-yandex-auth" title={mode === 'register' ? 'Зарегистрироваться через Яндекс' : 'Войти через Яндекс'} variant="secondary" onPress={startYandex} disabled={loading} />
+            </> : null}
           </>
         ) : (
           <>
@@ -616,6 +631,9 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   segmentActive: { backgroundColor: palette.surface },
   segmentText: { color: palette.cardMuted, fontSize: 12, fontWeight: '700' },
   segmentTextActive: { color: palette.text },
+  methodHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  methodLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: palette.border },
+  methodLabel: { flexShrink: 1, textAlign: 'center', color: palette.cardMuted, fontSize: 13 },
   recoveryTitle: {
     color: palette.text,
     fontSize: 18,

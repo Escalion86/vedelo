@@ -549,9 +549,16 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
         const syncResponse = await fetch('/api/events/google-sync-checked', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ eventId: item?._id }),
+          body: JSON.stringify({
+            eventId: item?._id,
+            connectionKey: listResult.data.connectionKey,
+          }),
         })
         const syncResult = await syncResponse.json()
+        if ([401, 403, 409].includes(syncResponse.status)) {
+          setCalendarError(syncResult?.error || 'Проверьте подключение Google Calendar')
+          break
+        }
         if (syncResult?.success) synced += 1
         else failed += 1
         setSyncProgress({ open: true, total, done: index + 1 })

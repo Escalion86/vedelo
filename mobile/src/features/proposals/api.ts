@@ -9,6 +9,17 @@ import { assertCreationOwner, beginCreationAttempt, finishCreationAttempt, readC
 import { localDataEpoch } from '../../shared/storage/localEntityCoordination'
 import { resolveUploadedFileUrl } from './uploadUrl.generated'
 import { PROPOSAL_LINES_LIMIT, PROPOSAL_PACKAGES_LIMIT } from './limits'
+import { notifyProposalChanges } from './changes'
+import { parsePeriodDay } from '../../shared/ui/periodPickerDates'
+
+const statusSchema = z.enum(['accepted', 'sent', 'published', 'expired'])
+const expiredSchema = z.object({
+  _id: z.string(), eventId: z.string(), title: z.string(),
+  validUntil: z.string().nullable().optional(), eventType: z.string().nullable().optional(),
+  eventDate: z.string().nullable().optional(),
+})
+export type ProposalStatus = z.infer<typeof statusSchema>
+export type ExpiredProposal = z.infer<typeof expiredSchema>
 
 const lineSchema = z.object({
   serviceId: z.string().default(''),
@@ -61,6 +72,7 @@ const proposalSchema = z.object({
   status: z.enum(['draft', 'published', 'expired', 'revoked']),
   packages: z.array(packageSchema).max(PROPOSAL_PACKAGES_LIMIT),
   blocksSnapshot: z.array(blockSchema),
+  editorBlocks: z.array(blockSchema).optional(),
   mediaSnapshot: z.array(mediaSchema),
   messageText: z.string().default(''),
   validUntil: z.string().nullable().optional(),
@@ -88,6 +100,8 @@ const templateSchema = z.object({
   name: z.string(),
   status: z.enum(['active', 'archived']),
   blocks: z.array(blockSchema),
+  editorBlocks: z.array(blockSchema).optional(),
+  contentRevision: z.number().int().nonnegative().optional(),
   media: z.array(mediaSchema),
   messageTemplate: z.string(),
   appearance: appearanceSchema.optional(),
@@ -382,6 +396,26 @@ const createBoundApi = (check: BoundProposalOperation) => {
     template,
     list,
     templates,
+    statuses: async () => data(z.record(z.string(), statusSchema), await request('/proposals/statuses')),
+    expired: async () => data(z.array(expiredSchema), await request('/proposals/expired')),
+    renew: async (id: string, eventId: string, day: string) => {
+      const requested = Date.parse(day)
+      if (!parsePeriodDay(day) || !Number.isFinite(requested) || requested <= Date.now()) throw new Error('FUTURE_DATE_REQUIRED')
+      const current = await get(id)
+      if (current.eventId !== eventId) throw new Error('EVENT_MISMATCH')
+      if (!['published', 'expired'].includes(current.status)) throw new Error('PROPOSAL_NOT_PUBLISHED')
+      // A lost reply or an intervening PWA renewal must not shorten the deadline.
+      if (current.status === 'published' && current.validUntil && Date.parse(current.validUntil) >= requested) return current
+      if (current.validUntil && Date.parse(current.validUntil) > requested) throw new Error('NEWER_EXPIRY')
+      const saved = exact(data(proposalSchema, await request(`/proposals/${pathId(id)}`, {
+        method: 'PATCH', body: { validUntil: day, contentRevision: current.contentRevision ?? 0 },
+      })), id)
+      await check()
+      const fresh = await get(id)
+      await check()
+      if (fresh.eventId !== eventId || fresh.status !== 'published' || !fresh.validUntil || Date.parse(fresh.validUntil) < requested || JSON.stringify(saved) !== JSON.stringify(fresh)) throw new Error('READBACK_MISMATCH')
+      return fresh
+    },
     services: async () =>
       data(
         z.array(
@@ -685,6 +719,9 @@ type WithOperation<F> = F extends (...args: infer A) => infer R
   ? (...args: [...A, operation?: ProposalOperation]) => R
   : never
 const arities: Record<keyof BoundApi, number> = {
+  statuses: 0,
+  expired: 0,
+  renew: 3,
   restoreCreate: 1,
   restoreTemplate: 0,
   recoverCreate: 1,
@@ -732,6 +769,7 @@ export const proposalsApi = Object.fromEntries(
         return result
       } finally {
         check.close()
+        if (['renew', 'save', 'create', 'action', 'remove', 'recoverApply', 'recoverCreate', 'cancelCreate', 'sendTelegram'].includes(name)) notifyProposalChanges()
       }
     },
   ])

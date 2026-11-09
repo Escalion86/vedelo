@@ -101,7 +101,7 @@ function UserNotifications() {
       {settings && serverConfirmed && !loading && !error ? <Text style={styles.meta}>Активных Android-устройств: {settings.activeDeviceCount}. Отключение действует только для текущего устройства.</Text> : null}
     </Surface> : null}
     {settings ? <Surface><SectionTitle>Ежедневная сводка</SectionTitle><Text style={styles.text}>{terms.plural} и контакты · {settings.remindersEnabled ? 'Включена' : 'Отключена'}</Text><HelpLabel label={serverConfirmed && !loading && !error ? `Часовой пояс: ${settings.timeZone}` : 'Часовой пояс: данные не подтверждены'} style={styles.meta}
-        help={`Часовой пояс вашей работы используется сервисом для ежедневных напоминаний. В Android здесь показано текущее значение без возможности изменения; выбор региона доступен в общих настройках веб-версии.\n\nСправка для веб-версии: ${getFieldHelp('settings.timeZone')}`} />
+        help={`${getFieldHelp('settings.timeZone')}\n\nРегион можно изменить в настройках организации.`} />
       <Button title={settings.remindersEnabled ? 'Отключить ежедневную сводку' : 'Включить ежедневную сводку'} variant="secondary" onPress={() => save({ remindersEnabled: !settings.remindersEnabled })} disabled={loading} />
       <CompactField label="Время, шаг 15 минут" help={getFieldHelp('notifications.reminderTime')} value={time} onChangeText={setTime} maxLength={5} editable={!loading} />
       <View style={styles.row}>{['08:00','10:00','12:00','18:00'].map((value) => <Button key={value} title={value} variant={time === value ? 'primary' : 'secondary'} onPress={() => setTime(value)} disabled={loading} />)}</View>

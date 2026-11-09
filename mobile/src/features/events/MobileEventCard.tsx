@@ -1,4 +1,6 @@
 import { EventClientReviewStatus } from '../reviews/EventClientReviewStatus'
+import { ProposalStatusChip } from '../proposals/ProposalStatus'
+import type { ProposalStatus } from '../proposals/api'
 import { EventCardClientLookup, EventCardClientState } from './EventCardClient'
 import { typography } from '../../shared/ui/theme'
 import { useState } from 'react'
@@ -20,9 +22,9 @@ import { formatEventCardMoney, getEventCardAddress, getEventCardAttention,
 type Props = {
   event: ListEvent & { isDemo?: boolean }; defaultTown?: string; client?: Client; clientsById?: ReadonlyMap<string, Client>
   services: Service[]; transactions: Transaction[]; occurrence?: EventCalendarOccurrence
-  testID: string; onPress: () => void; loading?: boolean; error?: string
+  testID: string; onPress: () => void; loading?: boolean; error?: string; proposalStatus?: ProposalStatus
 }
-export const MobileEventCard = ({ event, defaultTown, client, clientsById, services, transactions, occurrence, testID, onPress, loading = false, error }: Props) => {
+export const MobileEventCard = ({ event, defaultTown, client, clientsById, services, transactions, occurrence, testID, onPress, loading = false, error, proposalStatus }: Props) => {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const { width } = useWindowDimensions()
@@ -104,6 +106,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
             onPress={(e) => { e.stopPropagation(); setSheet('contacts') }}><Text style={styles.moreText}>+{otherContacts.length}</Text></Pressable> : null}
         </View>
         {!event._id.startsWith('local-') && !event.isDemo ? <EventClientReviewStatus eventId={event._id} /> : null}
+        {!event.isDemo ? <ProposalStatusChip status={proposalStatus} /> : null}
         {event.syncStatus === 'pending' ? <Text style={styles.pending}>Ожидает отправки</Text> : null}
         {busy ? <View testID={`${testID}-loading`} style={styles.loading} pointerEvents="auto"><ActivityIndicator accessibilityLabel="Загрузка" color={palette.primary} /></View> : null}
         {syncError ? <Pressable testID={`${testID}-error`} accessibilityRole="button" accessibilityLabel={`${syncError}. Открыть синхронизацию`}

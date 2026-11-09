@@ -28,7 +28,7 @@ it.each(['список','работа'] as const)('Фоновый сбой GET �
   const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}})
   const screen=render(<QueryClientProvider client={client}><ThemeProvider storage={null}>{surface==='список'?<ClientReviewsSection/>:<EventClientReviewSection event={{_id:'e',clientId:'c',status:'closed'}}/>}</ThemeProvider></QueryClientProvider>)
   await screen.findByText('Комментарий')
-  fireEvent.press(screen.getByText('Внутренняя заметка'))
+  fireEvent.press(screen.getByText('Добавить заметку'))
   fireEvent.changeText(screen.getByLabelText('Заметка для себя'),'Важная несохранённая заметка')
   ;(api.get as jest.Mock).mockRejectedValueOnce(new Error('Сбой обновления'))
   await act(async()=>{await client.invalidateQueries({queryKey:['nativeReviews']})})

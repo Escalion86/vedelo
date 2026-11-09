@@ -21,6 +21,15 @@ jest.mock('react-native-safe-area-context', () => ({ ...jest.requireActual('reac
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }))
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }))
 jest.mock('../../shared/config/env', () => ({ env: { appScheme: 'vedelo' } }))
+jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => ({ user: { _id: 'fixture-user', tenantId: 'fixture-tenant' } }) }))
+const mockCachedSync = jest.fn()
+const mockSaveSync = jest.fn()
+const mockRemoveSync = jest.fn()
+jest.mock('../../shared/storage/cache', () => ({
+  getCachedEntity: (...args: unknown[]) => mockCachedSync(...args),
+  upsertEntities: (...args: unknown[]) => mockSaveSync(...args),
+  removeCachedEntity: (...args: unknown[]) => mockRemoveSync(...args),
+}))
 jest.mock('../../shared/api/client', () => ({ api: { get: (...args: any[]) => require('../../../__tests__/stageN/readiness.cjs').measureCall(mockGet, args, 'integrations'), post: (...args: any[]) => mockPost(...args), patch: (...args: any[]) => mockPatch(...args), delete: (...args: any[]) => mockDelete(...args) } }))
 const ok = (data: any) => ({ success: true, data })
 const key1 = { id: 'first-key', name: 'Первый сайт', enabled: true, lastFour: '1111' }
@@ -34,6 +43,7 @@ const draw = (mode: 'light' | 'dark' = 'light') => <ThemeProvider forcedMode={mo
 function deferred() { let resolve!: (value: any) => void; let reject!: (reason: any) => void; const promise = new Promise<any>((yes, no) => { resolve = yes; reject = no }); return { resolve, reject, promise } }
 beforeEach(() => {
   jest.resetAllMocks(); mockFocus = true; overviewError = null; dedicatedAiError = null
+  mockCachedSync.mockResolvedValue(null)
   states = {
     'google-calendar': { available: true, connected: true, enabled: true, calendarId: 'primary', calendarName: 'Длинный рабочий календарь '.repeat(30), reminders: { useDefault: true, overrides: [] }, deleteCanceledFromCalendar: false, skipTransferredFromCalendar: false },
     avito: state('avito', { clientId: 'client-original', accountId: '00123' }),
@@ -79,6 +89,41 @@ beforeEach(() => {
   })
   ;(Clipboard.setStringAsync as jest.Mock).mockResolvedValue(true)
   ;(WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({ type: 'success', url: 'vedelo://more/integrations?gc_connected=1' })
+})
+
+it('resumes a checked-calendar batch from the last confirmed item after a lost response', async () => {
+  const baseGet = mockGet.getMockImplementation()!
+  const basePost = mockPost.getMockImplementation()!
+  const first = { _id: 'a'.repeat(24), title: 'Первая работа' }
+  const second = { _id: 'b'.repeat(24), title: 'Вторая работа' }
+  const path = '/events/google-sync-checked'
+  let stored: unknown = null
+  let lost = true
+  mockCachedSync.mockImplementation(async () => stored)
+  mockSaveSync.mockImplementation(async (_collection, items) => { stored = items[0] })
+  mockRemoveSync.mockImplementation(async () => { stored = null })
+  mockGet.mockImplementation((url) => url === path ? Promise.resolve(ok({ connectionKey: 'calendar-key', events: [first, second] })) : baseGet(url))
+  mockPost.mockImplementation(async (url, body) => {
+    if (url !== path) return basePost(url, body)
+    if (lost && body.eventId === second._id) { lost = false; throw new TypeError('Network request failed') }
+    return ok({ eventId: body.eventId })
+  })
+  const screen = render(draw())
+  await open(screen, 'Google Calendar')
+  const prepare = await screen.findByText('Подготовить отмеченные работы')
+  fireEvent.press(prepare)
+  await screen.findByText('Отмеченных работ 2. Подтвердите отправку в Google Calendar.')
+  expect(mockPost).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByText('Синхронизировать'))
+  await screen.findByText('Не удалось завершить синхронизацию. Проверьте подключение Google Calendar и сеть.')
+  expect(stored).toMatchObject({ connectionKey: 'calendar-key', completed: [first._id] })
+  screen.unmount()
+  const reopened = render(draw())
+  await open(reopened, 'Google Calendar')
+  fireEvent.press(await reopened.findByText('Продолжить синхронизацию'))
+  await reopened.findByText('Синхронизировано 2 из 2. Ошибок 0.')
+  expect(mockPost.mock.calls.map(([, body]) => body.eventId)).toEqual([first._id, second._id, second._id])
+  await waitFor(() => expect(stored).toBeNull())
 })
 const open = async (screen: ReturnType<typeof render>, name: string) => { const row = await screen.findByLabelText(`Настроить ${name}`); await act(async () => { fireEvent.press(row) }); await waitFor(() => expect(screen.queryByLabelText('Загрузка состояния интеграции')).toBeNull()) }
 const noPrivileged = () => {

@@ -4,6 +4,7 @@ import Payments from '@models/Payments'
 import Users from '@models/Users'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
+import { getMobileBillingUserFilter } from '@server/mobile/billingStore'
 import {
   buildPaymentHistoryFilter,
   canViewPaymentHistoryForUser,
@@ -52,9 +53,11 @@ export const GET = async (req) => {
   const category = String(searchParams.get('category') || 'all')
   await dbConnect()
   const isSelf = String(context.user._id) === targetUserId
-  const targetUser = isSelf
+  const targetUser = isSelf && context.authType !== 'mobile'
     ? context.user
-    : await Users.findById(targetUserId)
+    : await (isSelf ? Users.findOne(getMobileBillingUserFilter({
+        userId: targetUserId, tenantId: context.tenantId,
+      })) : Users.findById(targetUserId))
         .select(
           '_id tenantId balance billingStatus tariffId tariffActiveUntil nextChargeAt'
         )

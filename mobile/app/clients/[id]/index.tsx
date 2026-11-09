@@ -32,6 +32,7 @@ export default function ClientDetailScreen() {
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [showEvents, setShowEvents] = useState(false)
+  const [showUpcoming, setShowUpcoming] = useState(false)
   const [showFinance, setShowFinance] = useState(false)
   useFocusEffect(useCallback(() => {
     let active = true
@@ -55,6 +56,9 @@ export default function ClientDetailScreen() {
   const name = clientName(client)
   const phone = formatPhoneForDisplay(client.phone)
   const primaryEvents = relatedEvents.filter((event) => event.clientId === id)
+  const now = Date.now()
+  const upcomingEvents = relatedEvents.filter((event) => event.status !== 'canceled' && event.status !== 'closed' && Date.parse(event.eventDate || '') >= now).reverse()
+  const visibleEvents = showEvents ? relatedEvents : showUpcoming ? upcomingEvents : upcomingEvents.slice(0, 1)
   const startToday = new Date(); startToday.setHours(0, 0, 0, 0)
   const canceled = primaryEvents.filter((event) => event.status === 'canceled').length
   const passed = primaryEvents.filter((event) => event.status !== 'canceled' && event.eventDate && Date.parse(event.eventDate) < startToday.getTime()).length
@@ -89,12 +93,14 @@ export default function ClientDetailScreen() {
     </Surface>
     {syncMessage ? <Notice tone={client.syncStatus === 'failed' || client.syncStatus === 'conflict' ? 'danger' : 'info'} message={syncMessage} /> : null}
     <Surface>
-      <View style={styles.sectionHeader}><DetailSectionTitle>{terms.pluralCapitalized}</DetailSectionTitle><SmallAction title={showEvents ? 'Скрыть' : 'Посмотреть'} onPress={() => setShowEvents((value) => !value)} /></View>
+      <View style={styles.sectionHeader}><DetailSectionTitle>{terms.pluralCapitalized}</DetailSectionTitle><SmallAction title={showEvents ? 'Скрыть список' : 'Посмотреть все'} onPress={() => { setShowEvents(!showEvents); setShowUpcoming(false) }} /></View>
       <Kpi label="Прошли" value={String(passed)} /><Kpi label="Будут" value={String(upcoming)} /><Kpi label="Отменены" value={String(canceled)} />
-      {showEvents ? relatedEvents.length ? relatedEvents.map((event) => <Pressable key={event._id} accessibilityRole="button" style={styles.related} onPress={() => router.push(`/events/${event._id}` as never)}>
+      {visibleEvents.map((event) => <Pressable key={event._id} accessibilityRole="button" style={styles.related} onPress={() => router.push(`/events/${event._id}` as never)}>
         <View style={styles.grow}><Text style={styles.text}>{event.eventType || terms.labelCapitalized}</Text><Text style={styles.muted}>{dateText(event.eventDate)}{event.clientId !== id ? ' · Дополнительный контакт' : ''}</Text></View>
         <MaterialCommunityIcons name="chevron-right" size={22} color={palette.cardMuted} />
-      </Pressable>) : <Text style={styles.muted}>Связанных записей пока нет.</Text> : null}
+      </Pressable>)}
+      {showEvents && !visibleEvents.length ? <Text style={styles.muted}>Связанных записей пока нет.</Text> : null}
+      {!showEvents && upcomingEvents.length > 1 ? <SmallAction title={showUpcoming ? 'Свернуть ближайшие' : `+ ещё ${upcomingEvents.length - 1}`} onPress={() => setShowUpcoming(!showUpcoming)} /> : null}
     </Surface>
     <Surface>
       <View style={styles.sectionHeader}><DetailSectionTitle>Финансы по транзакциям</DetailSectionTitle><SmallAction title={showFinance ? 'Скрыть' : 'Показать'} onPress={() => setShowFinance((value) => !value)} /></View>

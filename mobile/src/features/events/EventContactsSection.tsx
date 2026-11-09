@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TaskDatePresets } from './TaskDatePresets'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import type { Client } from '../../shared/domain/types'
@@ -189,6 +190,7 @@ export const EventContactsSection = ({ draft, onChange, clients, onCreateClient,
               label="Когда" onChangeText={(dateInput) => replaceTask(task, { dateInput })}
               placeholder="2026-07-20 10:00" testID={`event-task-${index}-date`} value={task.dateInput}
             />
+            <TaskDatePresets value={task.dateInput} onChange={(dateInput) => replaceTask(task, { dateInput })} />
             <Field
               label="Комментарий" multiline onChangeText={(description) => replaceTask(task, { description })}
               testID={`event-task-${index}-comment`} value={task.description || ''}

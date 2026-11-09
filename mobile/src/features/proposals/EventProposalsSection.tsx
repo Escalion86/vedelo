@@ -13,6 +13,7 @@ import {
 import { useProposalIdentity } from './identity'
 import { proposalOperations } from './operations'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
+import { ProposalRenewButton, proposalIsExpired } from './ProposalRenewButton'
 import {
   proposalsApi,
   type Proposal,
@@ -440,7 +441,7 @@ const IdentitySection = ({
             ? 'Черновик'
             : item.status === 'revoked'
               ? 'Отозвано'
-              : item.status === 'expired'
+              : proposalIsExpired(item)
                 ? 'Срок истёк'
                 : item.sentAt
                   ? 'Отправлено'
@@ -452,6 +453,19 @@ const IdentitySection = ({
             <Notice
               message={`Версия ${item.version}${item.validUntil ? ` · до ${new Date(item.validUntil).toLocaleDateString('ru-RU')}` : ''}`}
             />
+            <ProposalRenewButton proposal={item} disabled={busy} onRenewed={(fresh) => {
+              setItems(current => current.map(row => row._id === fresh._id ? fresh : row))
+              onChanged?.()
+            }} />
+            {item.publicUrl && item.status === 'published' && !proposalIsExpired(item) ? <Button
+              title="Копировать ссылку" variant="secondary" disabled={busy}
+              onPress={() => void run(async () => {
+                const fresh = await proposalsApi.get(item._id, operation())
+                if (fresh.eventId !== eventId || fresh.status !== 'published' || proposalIsExpired(fresh) || !fresh.publicUrl) throw new Error('LINK_UNAVAILABLE')
+                await Clipboard.setStringAsync(fresh.publicUrl)
+                if (alive.current) setMessage('Ссылка скопирована')
+              })}
+            /> : null}
             <Button
               testID={`proposal-edit-${item._id}`}
               title="Редактировать"

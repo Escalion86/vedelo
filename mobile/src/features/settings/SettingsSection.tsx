@@ -11,6 +11,7 @@ import { useSettingsEditor, type SettingsConfig } from './settingsEditor'
 import { ThemePreferenceSection } from './ThemePreferenceSection'
 import { ClientTypesSection } from './ClientTypesSection'
 import { PromoCodeRedeem } from '../billing/PromoCodeRedeem'
+import { WorkspaceSettings } from './WorkspaceSettings'
 
 export const terminologyConfig: SettingsConfig<PrimaryEntityTerminology> = {
   scope: 'terminology', endpoint: '/mobile/v1/settings/terminology',
@@ -23,6 +24,7 @@ const options = [
 ] as const
 export const SettingsSection = () => {
   const [typesOpen, setTypesOpen] = useState(false)
+  const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const editor = useSettingsEditor(terminologyConfig)
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
@@ -30,6 +32,8 @@ export const SettingsSection = () => {
   return <>
     <ThemePreferenceSection />
     <PromoCodeRedeem />
+    <Button title={workspaceOpen ? 'Закрыть настройки организации' : 'Настройки организации'} variant="secondary" onPress={() => setWorkspaceOpen(open => !open)} />
+    {workspaceOpen ? <WorkspaceSettings /> : null}
     <Button title={typesOpen ? 'Закрыть типы клиентов' : 'Типы клиентов'} variant="secondary" onPress={() => setTypesOpen(!typesOpen)} />
     {typesOpen ? <ClientTypesSection /> : null}
     {editor.reading ? <Notice message="Загружаем настройки…" /> : null}

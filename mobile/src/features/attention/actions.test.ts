@@ -40,7 +40,7 @@ test('локальная задача без _id выполняется, ред�
 })
 test.each(['overdue', 'today', 'tomorrow'] as const)('сегментный перенос %s сохраняет время', async (segment) => {
   const options = postponeActions(segment)
-  expect(options.map((option) => option.days)).toEqual(segment === 'tomorrow' ? [2, 3] : [1, 2])
+  expect(options.map((option) => option.days)).toEqual([1, 2])
   for (const option of options) {
     await performAttentionAction(item(), { type: 'postpone', days: option.days }, now)
     expect(event.additionalEvents![0].date).toBe(new Date(2026, 9, 1 + option.days, 9, 45).toISOString())
@@ -52,6 +52,14 @@ test('читает свежий cache, находит _id после сдвиг�
   await performAttentionAction(target, { type: 'complete' }, now)
   expect(event.additionalEvents![1]).toMatchObject({ description: 'Новый комментарий', done: true })
   expect(event.additionalEvents![0].done).toBeUndefined()
+})
+test('перенос на день из календаря сохраняет время свежей задачи и соседние поля', async () => {
+  const target = item()
+  const latest = { ...event.additionalEvents![0], date: new Date(2026, 9, 1, 14, 35, 17).toISOString(), description: 'Уточнено в другой форме' }
+  event = { ...event, additionalEvents: [latest, event.additionalEvents![1]] }
+  await performAttentionAction(target, { type: 'reschedule', day: '2026-11-24' }, now)
+  expect(event.additionalEvents![0]).toMatchObject({ date: new Date(2026, 10, 24, 14, 35, 17).toISOString(), description: latest.description })
+  await expect(performAttentionAction(target, { type: 'reschedule', day: '2026-02-30' }, now)).rejects.toThrow('Выберите существующую дату')
 })
 test('отказывает при исчезнувшей работе и изменённой id-less задаче, без fallback POST', async () => {
   const target = item(1)

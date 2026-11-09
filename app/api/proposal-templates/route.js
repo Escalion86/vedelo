@@ -15,6 +15,7 @@ import {
   normalizeProposalBlocks,
   normalizeProposalMedia,
   normalizeProposalTemplateDefaults,
+  proposalEditorProjection,
 } from '@helpers/proposalContent'
 
 const error = (message, status = 400, code = 'bad_request') =>
@@ -47,7 +48,7 @@ export const POST = withCreationErrors(async (req, { creationIntent } = {}) => {
   await dbConnect()
   const creation = await prepareResourceCreation({ model: ProposalTemplates, kind: 'proposal-template', context: { tenantId, user }, body })
   if (creationIntent === 'cancel') return NextResponse.json({ success: true, data: await creation.cancel() })
-  if (creation.existing) return NextResponse.json({ success: true, data: creation.existing })
+  if (creation.existing) return NextResponse.json({ success: true, data: { ...(creation.existing.toJSON?.() ?? creation.existing), ...proposalEditorProjection(creation.existing.blocks) } })
   const name = String(body?.name || '').trim().slice(0, 160)
   if (!name) return error('Укажите название шаблона', 400, 'name_required')
   const item = await creation.create({
@@ -60,5 +61,5 @@ export const POST = withCreationErrors(async (req, { creationIntent } = {}) => {
     media: normalizeProposalMedia(body?.media),
     defaults: normalizeProposalTemplateDefaults(body?.defaults),
   })
-  return NextResponse.json({ success: true, data: item }, { status: 201 })
+  return NextResponse.json({ success: true, data: { ...(item.toJSON?.() ?? item), ...proposalEditorProjection(item.blocks) } }, { status: 201 })
 })

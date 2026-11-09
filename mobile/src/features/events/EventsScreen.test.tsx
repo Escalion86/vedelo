@@ -116,3 +116,4 @@ it.each(['orders', 'events'])('единая шапка, счётчик в стр
   expect(screen.queryByText('Прошедшие')).toBeNull()
   mockTerms = 'orders'
 })
+jest.mock('../proposals/statusHooks', () => ({ useProposalOverview: () => ({ data: undefined }) }))

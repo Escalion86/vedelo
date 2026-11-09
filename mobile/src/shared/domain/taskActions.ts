@@ -1,4 +1,5 @@
 import type { Event } from './types'
+import { parsePeriodDay } from '../ui/periodPickerDates'
 
 export type TaskAction = 'complete' | 'postpone_1' | 'postpone_3'
 
@@ -56,6 +57,7 @@ export const applyTaskActionToEvent = (
 export type TaskChange =
   | { type: 'complete' | 'undo' | 'delete' }
   | { type: 'postpone'; days: 1 | 2 | 3 }
+  | { type: 'reschedule'; day: string }
   | { type: 'edit'; title: string; description: string; date: string | null }
 
 export const applyTaskChangeToEvent = (event: Event, index: number, change: TaskChange, now: Date): Event | null => {
@@ -68,6 +70,14 @@ export const applyTaskChangeToEvent = (event: Event, index: number, change: Task
     if (change.type === 'complete') return [{ ...item, done: true, doneAt: now.toISOString() }]
     if (change.type === 'undo') return [{ ...item, done: false, doneAt: null }]
     if (change.type === 'postpone') return [{ ...item, date: getPostponedDate(item.date, change.days, now) }]
+    if (change.type === 'reschedule') {
+      const target = parsePeriodDay(change.day)
+      if (!target) throw new Error('Выберите существующую дату')
+      const current = item.date ? new Date(item.date) : now
+      const time = Number.isFinite(current.getTime()) ? current : now
+      target.setHours(time.getHours(), time.getMinutes(), time.getSeconds(), time.getMilliseconds())
+      return [{ ...item, date: target.toISOString() }]
+    }
     if (change.type === 'edit') return [{ ...item, title: change.title.trim(), description: change.description.trim(), date: change.date }]
     return [{ ...item }]
   })

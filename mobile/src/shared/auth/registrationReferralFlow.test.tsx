@@ -85,7 +85,7 @@ describe('Android referral registration', () => {
   }
   it('deep link -> legal acceptance -> VK callback sends the invitation', async () => {
     const screen = render(<LoginScreen />)
-    expect(await screen.findByText('Зарегистрироваться через VK ID')).toBeTruthy()
+    expect(await screen.findByText('Зарегистрироваться через ВКонтакте')).toBeTruthy()
     consent(screen)
     fireEvent.press(await screen.findByTestId('submit-vk-auth'))
     expect(mockPrompt).toHaveBeenCalledTimes(1)

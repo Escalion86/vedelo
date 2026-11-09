@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { Text, View } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { useTheme } from '../../shared/ui/ThemeProvider'
 import { router } from 'expo-router'
 import { Button, Field, Notice, SectionTitle, StatusChip, Surface } from '../../shared/ui/components'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
@@ -11,6 +13,7 @@ import { useReviewStyles } from './styles'
 import type { ClientReview, ReviewNavigation } from './types'
 export function ReviewCard({ review, showLinks = true, onChanged, onOpenEvent, onOpenClient, onPlanContact }: ReviewNavigation & {review:ClientReview;showLinks?:boolean;onChanged?:(review:ClientReview)=>void}) {
   const styles = useReviewStyles(), refresh = useRefreshReviews()
+  const { palette } = useTheme()
   const [note,setNote] = useState(review.note), [saved,setSaved] = useState(review.note), [open,setOpen] = useState(false)
   const [busy,setBusy] = useState(false), [message,setMessage] = useState(''), [error,setError] = useState('')
   const lock = useRef(false),capture=useReviewLifetime(review._id)
@@ -29,7 +32,10 @@ export function ReviewCard({ review, showLinks = true, onChanged, onOpenEvent, o
     finally {lock.current=false;setBusy(false)}
   }
   return <Surface testID={`review-card-${review._id}`}>
-    <StatusChip label={review.rating ? `★ ${review.rating} из 5` : reviewLabels[review.status]} tone={review.rating && review.rating <= 3 ? 'warning':'neutral'} />
+    <StatusChip label={reviewLabels[review.status]} tone={review.status === 'expired' || review.rating && review.rating <= 3 ? 'warning':'neutral'} />
+    {review.rating ? <View accessible accessibilityLabel={`Оценка: ${review.rating} из 5`} style={styles.actions}>
+      {[1,2,3,4,5].map(star => <MaterialCommunityIcons key={star} name={star <= review.rating! ? 'star' : 'star-outline'} size={22} color={palette.primary} />)}
+    </View> : null}
     <Text style={styles.meta}>Запрос: {new Date(review.createdAt).toLocaleDateString('ru-RU')}</Text>
     {review.submittedAt ? <Text style={styles.meta}>Получен: {new Date(review.submittedAt).toLocaleDateString('ru-RU')}</Text>:null}
     {review.clientName ? <SectionTitle>{review.clientName}</SectionTitle> : null}
@@ -42,7 +48,8 @@ export function ReviewCard({ review, showLinks = true, onChanged, onOpenEvent, o
     </View> : null}
     {review.rating && review.rating <= 3 ? <Button title="Запланировать контакт" variant="secondary" onPress={() => onPlanContact ? onPlanContact(review.eventId) : router.push({pathname:'/events/edit/[id]',params:{id:review.eventId,section:'contacts'}} as never)} />:null}
     {review.submittedAt && !review.readAt ? <Button testID={`review-read-${review._id}`} title="Отметить прочитанным" variant="secondary" loading={busy} onPress={() => save('read')} />:null}
-    <Button title="Внутренняя заметка" variant="secondary" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} />
+    {!open && saved ? <Text style={styles.text}>{saved}</Text> : null}
+    <Button title={saved ? 'Внутренняя заметка' : 'Добавить заметку'} variant="secondary" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} />
     {open ? <><Field testID={`review-note-${review._id}`} label="Заметка для себя" help={getFieldHelp('review.privateNote')} value={note} onChangeText={setNote} multiline editable={!busy} maxLength={2000} />
       <Button title="Сохранить заметку" variant="secondary" loading={busy} disabled={note===saved} onPress={()=>save('note')} /></>:null}
     {error ? <Notice tone="danger" message={error} />:null}

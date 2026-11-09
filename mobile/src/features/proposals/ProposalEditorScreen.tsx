@@ -74,7 +74,8 @@ type Draft = {
 const fromTemplate = (item: ProposalTemplate): Draft => ({
   title: item.name,
   status: item.status,
-  blocks: item.blocks,
+  blocks: item.editorBlocks ?? item.blocks,
+  contentRevision: item.contentRevision,
   media: item.media,
   packages: item.defaults.packages,
   servicesIds: item.defaults.servicesIds,
@@ -86,7 +87,7 @@ const fromTemplate = (item: ProposalTemplate): Draft => ({
 const fromProposal = (item: Proposal): Draft => ({
   title: item.title,
   status: item.status,
-  blocks: item.blocksSnapshot,
+  blocks: item.editorBlocks ?? item.blocksSnapshot,
   media: item.mediaSnapshot,
   packages: item.packages,
   servicesIds: [],
@@ -207,11 +208,11 @@ function IdentityEditor({
     const payload = templateBody(value)
     if (full || !targetId.current || !baseline.current) return payload
     const original = templateBody(JSON.parse(baseline.current) as Draft)
-    return Object.fromEntries(
+    return { ...(value.contentRevision !== undefined ? { contentRevision: value.contentRevision } : {}), ...Object.fromEntries(
       Object.entries(payload).filter(
         ([key, item]) => JSON.stringify(item) !== JSON.stringify(original[key])
       )
-    )
+    ) }
   }
   const change = (patch: Partial<Draft>) => {
     if (!draft || !alive.current || lock.current || creation || !editable)

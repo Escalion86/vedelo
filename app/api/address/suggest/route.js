@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import getTenantContext from '@server/getTenantContext'
+import getRequestContext from '@server/getRequestContext'
 import {
   isDadataConfigured,
   selectAddress,
@@ -7,8 +7,8 @@ import {
 } from '@server/dadataSuggest.mjs'
 
 export const POST = async (req) => {
-  const { tenantId } = await getTenantContext()
-  if (!tenantId) {
+  const { tenantId, user } = await getRequestContext(req)
+  if (!tenantId || !user?._id) {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
       { status: 401 }
@@ -37,7 +37,7 @@ export const POST = async (req) => {
     return NextResponse.json({ success: true, data }, { status: 200 })
   } catch (error) {
     // query не логируем (чувствительные данные), только факт ошибки
-    console.error('DaData suggest failed:', error?.status ?? error?.message)
+    console.error('DaData suggest failed:', Number(error?.status) || 'unavailable')
     return NextResponse.json(
       { success: false, error: 'Подсказки временно недоступны' },
       { status: 503 }

@@ -506,12 +506,17 @@ test('ошибка загрузки услуг видна и блокирует 
 })
 
 test('изменение существующего шаблона использует реальный контракт PATCH', async (t) => {
-  const { changes } = await mountEditor(t)
+  const { element, changes } = await mountEditor(t)
+  const name = element.querySelector('input[aria-label="Название шаблона"]')
+  await React.act(async () => {
+    valueSetterFor().call(name, 'Переименованный шаблон')
+    name.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
   await React.act(async () => changes.confirm())
   assert.equal(savedRequests.length, 1)
   assert.equal(savedRequests[0].url, '/api/proposal-templates/t1')
   assert.equal(savedRequests[0].method, 'PATCH')
-  assert.deepEqual(savedRequests[0].payload.blocks.filter(block => ['header', 'packagesIntro', 'closing'].includes(block.type)).map(block => block.type), ['header', 'packagesIntro', 'closing'])
+  assert.deepEqual(savedRequests[0].payload, { name: 'Переименованный шаблон', contentRevision: 0 })
 })
 
 

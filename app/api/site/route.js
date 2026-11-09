@@ -68,8 +68,9 @@ export const POST = async (req) => {
   }
   await dbConnect()
 
+  const versioned = body.custom !== undefined || body.timeZone !== undefined
   const existingSiteSettings =
-    body.custom !== undefined
+    versioned
       ? await SiteSettings.findOne({ tenantId }).lean()
       : null
   if (body.custom !== undefined) {
@@ -230,13 +231,17 @@ export const POST = async (req) => {
   let siteSettings
   try {
     siteSettings = await SiteSettings.findOneAndUpdate(
-      { tenantId, ...(body.custom !== undefined ? { eventTypesEdit: null } : {}) },
-      { $set: { ...update, tenantId } },
+      {
+        tenantId,
+        ...(body.custom !== undefined ? { eventTypesEdit: null } : {}),
+        ...(existingSiteSettings ? { syncVersion: existingSiteSettings.syncVersion ?? null, updatedAt: existingSiteSettings.updatedAt ?? null } : {}),
+      },
+      { $set: { ...update, tenantId, ...(versioned ? { syncVersion: (existingSiteSettings?.syncVersion || 1) + 1 } : {}) } },
       { returnDocument: 'after', upsert: true }
     )
   } catch (error) {
-    if (error.code === 11000 && body.custom !== undefined) {
-      return NextResponse.json({ success: false, error: 'Сначала завершите изменение типов событий в разделе «Списки»' }, { status: 409 })
+    if (error.code === 11000 && versioned) {
+      return NextResponse.json({ success: false, error: 'Настройки изменились. Обновите данные и повторите сохранение.' }, { status: 409 })
     }
     throw error
   }

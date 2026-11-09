@@ -4,10 +4,8 @@ import { getCachedEntity } from '../../shared/storage/cache'
 import { saveLocalEntity } from '../../shared/storage/mutations'
 import type { AttentionItem, Segment } from './selectors'
 
-export const postponeActions = (segment: Segment): Array<{ title: string; days: 1 | 2 | 3 }> =>
-  segment === 'tomorrow'
-    ? [{ title: 'На послезавтра', days: 2 }, { title: 'На +2 дня', days: 3 }]
-    : [{ title: 'На завтра', days: 1 }, { title: 'На послезавтра', days: 2 }]
+export const postponeActions = (_segment: Segment): Array<{ title: string; days: 1 | 2 | 3 }> =>
+  [{ title: 'На завтра', days: 1 }, { title: 'На послезавтра', days: 2 }]
 
 // Сериализация команд одной работы защищает соседние задачи от lost update.
 const writes = new Map<string, Promise<void>>()

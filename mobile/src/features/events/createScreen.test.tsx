@@ -32,8 +32,12 @@ const mockDispatch = jest.fn()
 let mockPhotoFields: any = { eventType: 'Фото-заказ', clientId: 'client' }
 let mockPhotoApply: (fields: any) => Promise<void>
 const mockClientGet = jest.fn()
+const mockAddressPost = jest.fn()
 const mockUpsert = jest.fn(async (..._args: unknown[]) => undefined)
-jest.mock('../../shared/api/client', () => ({ api: { get: (...args: unknown[]) => require('../../../__tests__/stageN/readiness.cjs').measureCall(mockClientGet, args, 'client') } }))
+jest.mock('../../shared/api/client', () => ({ api: {
+  get: (...args: unknown[]) => require('../../../__tests__/stageN/readiness.cjs').measureCall(mockClientGet, args, 'client'),
+  post: (...args: unknown[]) => mockAddressPost(...args),
+} }))
 jest.mock('./PhotoDraftSection', () => {
   const { Text } = require('react-native')
   return { PhotoDraftSection: ({ onApply }: { onApply: (fields: any) => Promise<void> }) => { mockPhotoApply = onApply; return <Text>mode:photo</Text> } }
@@ -322,6 +326,33 @@ it('ALIGN: Дата пока неизвестна очищает обе даты
   expect(screen.getByLabelText('Окончание').props.value).toBe('')
   fireEvent.press(screen.getByText('Подтверждено'))
   expect(screen.queryByText('Дата пока неизвестна')).toBeNull()
+})
+
+it('применяет длительность организации и сохраняет интервал при уточнении времени начала', async () => {
+  mockSettings = [{ custom: { eventFormVariant: 'classic', defaultEventDurationMinutes: 90 } }]
+  const screen = render(<EventEditScreen />)
+  await screen.findByLabelText('Начало')
+  fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15')
+  expect(screen.getByLabelText('Окончание').props.value).toBe('2026-10-15 01:30')
+  fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15 1')
+  fireEvent.changeText(screen.getByLabelText('Начало'), '2026-10-15 12:00')
+  expect(screen.getByLabelText('Окончание').props.value).toBe('2026-10-15 13:30')
+})
+
+it('позднее уточнение адреса не отменяет ручную правку улицы', async () => {
+  mockSettings = [{ custom: { eventFormVariant: 'classic' } }]
+  const address = { town: 'Город', street: 'Ленина', house: '1', latitude: '', longitude: '' }
+  let finishRefinement!: (response: unknown) => void
+  mockAddressPost.mockImplementation((_path, input) => input.mode === 'select'
+    ? new Promise(resolve => { finishRefinement = resolve })
+    : Promise.resolve({ success: true, data: { suggestions: [{ label: 'Город, Ленина, 1', address }] } }))
+  const screen = render(<EventEditScreen />)
+  fireEvent.changeText(await screen.findByLabelText('Поиск адреса'), 'Ленина')
+  fireEvent.press(await screen.findByText('Город, Ленина, 1'))
+  expect(screen.getByLabelText('Улица').props.value).toBe('Ленина')
+  fireEvent.changeText(screen.getByLabelText('Улица'), 'Мира')
+  await act(async () => finishRefinement({ success: true, data: { selected: { address: { ...address, latitude: '55', longitude: '37' } } } }))
+  expect(screen.getByLabelText('Улица').props.value).toBe('Мира')
 })
 
 it('H: ошибка транзакций не блокирует форму и выбор созданного клиента при возврате', async () => {
