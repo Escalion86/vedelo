@@ -4,6 +4,7 @@ const normalized = (text) => text.replace(/\r\n/g, '\n').trimEnd()
 for (const [source, path] of [
   ['helpers/phoneNumbersFromText.mjs', 'shared/format/phoneNumbersFromText.generated.ts'],
   ['helpers/getStatisticsMonthDetails.js', 'features/statistics/monthDetails.generated.ts'],
+  ['helpers/suggestWorkStatus.mjs', 'shared/domain/suggestWorkStatus.generated.ts'],
 ]) {
   const target = resolve(__dirname, '../src', path)
   const output = `// @ts-nocheck\n// Generated from ${source} by generate-pwa-domain.cjs.\n` + normalized(readFileSync(resolve(__dirname, '../..', source), 'utf8')) + '\n'

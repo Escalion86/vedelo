@@ -4899,6 +4899,52 @@ body.theme-dark .mobile-bottomnav-submenu-row:hover {
 }
 
 /* ---------- Страница/модалка «Важное» (attention) ---------- */
+.attention-layer {
+  scroll-margin-top: 10px;
+  background: var(--attention-panel);
+  border-color: var(--attention-panel-border);
+}
+
+.attention-layer--critical {
+  --attention-panel: #fbe8e5;
+  --attention-panel-border: #eabbb5;
+}
+
+.attention-layer--warning {
+  --attention-panel: #faf0d4;
+  --attention-panel-border: #dfc98d;
+}
+
+.attention-layer > .card-muted {
+  color: #4b5563;
+}
+
+body.theme-dark .attention-layer--critical {
+  --attention-panel: #392524;
+  --attention-panel-border: #764741;
+}
+
+body.theme-dark .attention-layer--warning {
+  --attention-panel: #3a3020;
+  --attention-panel-border: #78613c;
+}
+
+body.theme-dark .attention-layer > .card-muted {
+  color: #d1d5db;
+}
+
+.attention-layer-card {
+  background: var(--surface-card-bg);
+  border-color: var(--surface-card-border);
+}
+
+.task-group-title[data-tone='overdue'] { color: #b91c1c; }
+.task-group-title[data-tone='today'] { color: #a34706; }
+.task-group-title[data-tone='tomorrow'] { color: #047857; }
+body.theme-dark .task-group-title[data-tone='overdue'] { color: #fecaca; }
+body.theme-dark .task-group-title[data-tone='today'] { color: #fde68a; }
+body.theme-dark .task-group-title[data-tone='tomorrow'] { color: #a7f3d0; }
+
 .attention-section {
   scroll-margin-top: 10px;
   border-left-width: 3px;
@@ -5016,6 +5062,11 @@ body.theme-dark .attention-summary-chip {
 .card-swipe-action--delete {
   left: 0;
   background: #dc2626;
+}
+
+.card-swipe-action--status {
+  left: 0;
+  background: #166534;
 }
 
 .card-swipe-action--edit {

@@ -27,6 +27,9 @@ const testPairs = (p: Palette) => {
   for (const group of [p.notice, p.status, p.eventViewStatus]) for (const [name, role] of Object.entries(group)) {
     pairs.push([name, role.text, role.background, canvas], [name, role.text, role.background, surface])
   }
+  pairs.push(['срочный блок', p.status.overdue.text, p.attentionSurface.overdue, canvas],
+    ['блок внимания', p.attentionTodayTitle, p.attentionSurface.today, canvas],
+    ['текст карточки во «Важном»', p.cardMuted, p.attentionSurface.card, canvas])
   for (const base of [canvas, surface]) {
     pairs.push(['текст выбора', p.selectionText, p.rowSelected, base], ['метаданные выбора', p.cardMeta, p.rowSelected, base],
       ['календарь: сегодня и счётчик', p.selectionText, p.emptyIconBackground, base])

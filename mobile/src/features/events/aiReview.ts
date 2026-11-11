@@ -14,6 +14,7 @@ import { sameOperationPayload } from '../../shared/storage/operationIdentity'
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i)
 export const aiPlanSchema = z.object({
   planId: objectId, eventId: objectId, eventTitle: z.string(), eventDate: z.string().nullable().optional(),
+  provider: z.string().optional(), model: z.string().optional(),
   clientName: z.string().optional(), expiresAt: z.string(), completed: z.array(z.number().int().nonnegative()),
   eventPatch: z.record(z.string(), z.unknown()), clientPatch: z.record(z.string(), z.unknown()).nullable(),
   steps: z.array(z.object({ entity: z.enum(['event', 'client', 'transaction']), operation: z.enum(['create', 'update']),

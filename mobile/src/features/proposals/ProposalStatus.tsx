@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { router } from 'expo-router'
-import { Button, Notice, SectionTitle, StatusChip, Surface } from '../../shared/ui/components'
+import { Button, Notice, StatusChip } from '../../shared/ui/components'
+import { AttentionCard, AttentionSection } from '../attention/AttentionPresentation'
 import { useProposalOverview } from './statusHooks'
 import type { ProposalStatus } from './api'
 
@@ -16,14 +17,13 @@ export function ExpiredProposalsSection() {
   if (status === 401 || status === 403 || query.fetchStatus === 'idle' && query.isPending) return null
   const rows = Array.isArray(query.data) ? query.data : []
   if (!query.isPending && !query.isError && !rows.length) return null
-  return <Surface testID="expired-proposals">
-    <SectionTitle>КП с истёкшим сроком{rows.length ? ` (${rows.length})` : ''}</SectionTitle>
+  return <AttentionSection id="expired-proposals" title="КП с истёкшим сроком" count={rows.length || undefined} tone="overdue" layered>
     {query.isPending ? <Notice message="Проверяем сроки предложений…" /> : null}
     {query.isError ? <>
       <Notice tone="danger" message="Не удалось проверить сроки КП" />
       <Button title="Повторить проверку сроков КП" variant="secondary" onPress={() => void query.refetch()} />
     </> : null}
-    {rows.slice(0, visible).map(item => <Button key={item._id} title={`${item.title} · ${item.eventType || 'Открыть работу'}`} variant="secondary" onPress={() => router.push(`/events/${encodeURIComponent(item.eventId)}` as never)} />)}
+    {rows.slice(0, visible).map(item => <AttentionCard key={item._id}><Button title={`${item.title} · ${item.eventType || 'Открыть работу'}`} variant="secondary" onPress={() => router.push(`/events/${encodeURIComponent(item.eventId)}` as never)} /></AttentionCard>)}
     {rows.length > visible ? <Button title={`Показать ещё (${rows.length - visible})`} variant="secondary" onPress={() => setVisible(count => count + 5)} /> : null}
-  </Surface>
+  </AttentionSection>
 }

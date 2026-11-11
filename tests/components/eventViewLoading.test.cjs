@@ -13,6 +13,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true
 const { createRoot } = require('react-dom/client')
 
 let queryState = { data: undefined, isPending: true, isError: false }
+let openedTaskEditor
 const emptyList = []
 const atoms = {
   servicesAtom: emptyList,
@@ -37,6 +38,9 @@ const eventTerms = {
 }
 const mocks = {
   jotai: { useAtomValue: (value) => React.useMemo(() => value, [value]) },
+  '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => queryState.data }) },
+  '@components/AppButton': ({ children, onClick }) => React.createElement('button', { onClick }, children),
+  './eventAdditionalEventEditorModal': options => { openedTaskEditor = options },
   '@helpers/useEventsQuery': { useEventQuery: () => queryState },
   '@helpers/useClientsQuery': { useClientsQuery: () => ({ data: emptyList }) },
   '@helpers/useTransactionsQuery': { useTransactionsQuery: () => ({ data: emptyList }) },
@@ -191,6 +195,18 @@ test('event view with an empty detail cache shows loading and no header actions'
     await React.act(async () => root.render(React.createElement(Harness)))
     assert.ok(container.querySelector('header button'))
     assert.doesNotMatch(container.textContent, /Загружаем мероприятие/)
+    assert.match(container.textContent, /Задачи\/События/)
+    assert.match(container.textContent, /Задач пока нет/)
+    const addTask = [...container.querySelectorAll('button')].find(button => button.textContent === 'Добавить задачу')
+    assert.ok(addTask)
+    await React.act(async () => addTask.click())
+    const existing = { title: 'Сохранено в другом редакторе' }
+    queryState.data = { ...queryState.data, additionalEvents: [existing] }
+    const added = { title: 'Новая задача' }
+    let saved
+    atoms.itemsFuncAtom.event = { set: async value => { saved = value } }
+    await openedTaskEditor.onConfirm(added)
+    assert.deepEqual(saved, { _id: 'past-event-not-in-cache', additionalEvents: [existing, added] })
 
     queryState = { data: undefined, isPending: false, isError: true }
     await React.act(async () => root.render(React.createElement(Harness)))
@@ -201,6 +217,7 @@ test('event view with an empty detail cache shows loading and no header actions'
     await React.act(async () => root.render(React.createElement(Harness)))
     assert.match(container.textContent, /Мероприятие не найдено/)
   } finally {
+    delete atoms.itemsFuncAtom.event
     await React.act(async () => root.unmount())
   }
 })

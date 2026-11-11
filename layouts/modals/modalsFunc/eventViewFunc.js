@@ -1,5 +1,6 @@
 import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import CardButtons from '@components/CardButtons'
+import AppButton from '@components/AppButton'
 import Chip from '@components/Chips/Chip'
 import cn from 'classnames'
 import ContactsIconsButtons from '@components/ContactsIconsButtons'
@@ -27,6 +28,8 @@ import sanitizeHtml from '@helpers/sanitizeHtml'
 import { getAdditionalEventsDisplayGroups } from '@helpers/additionalEvents'
 import { useEffect, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@helpers/queryKeys'
 import servicesAtom from '@state/atoms/servicesAtom'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 import { modalsFuncAtom } from '@state/atoms'
@@ -307,11 +310,12 @@ const ClientContactLines = ({ client }) =>
     </div>
   ))
 
-const SectionBlock = ({ title, children }) => (
+const SectionBlock = ({ title, action, children }) => (
   <SurfaceCard>
     {title ? (
-      <div className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-        {title}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="card-muted text-xs font-semibold tracking-wide uppercase">{title}</h3>
+        {action}
       </div>
     ) : null}
     {children}
@@ -342,6 +346,7 @@ const eventViewFunc = (eventId, options = {}) => {
     setTopLeftComponent,
   }) => {
     const { data: event, isPending, isError } = useEventQuery(eventId)
+    const queryClient = useQueryClient()
     const loggedUser = useAtomValue(loggedUserAtom)
     const tariffs = useAtomValue(tariffsAtom)
     const services = useAtomValue(servicesAtom)
@@ -488,6 +493,14 @@ const eventViewFunc = (eventId, options = {}) => {
         },
       })
     }
+
+    const addAdditionalEvent = () => openEventAdditionalEventEditorModal({
+      modalsFunc,
+      onConfirm: async (task) => {
+        const latest = queryClient.getQueryData(queryKeys.event(event._id)) ?? event
+        await updateAdditionalEvents([...(latest.additionalEvents ?? []), task])
+      },
+    })
 
     const toggleAdditionalEventDone = async (index) => {
       const sourceItems = Array.isArray(event?.additionalEvents)
@@ -838,14 +851,16 @@ const eventViewFunc = (eventId, options = {}) => {
 
             <EventClientReview event={event} />
 
-            {additionalEvents.length > 0 && (
-              <SectionBlock title="Задачи/События">
+              <SectionBlock title="Задачи/События" action={
+                <AppButton variant="secondary" size="sm" onClick={addAdditionalEvent}>Добавить задачу</AppButton>
+              }>
+                {!additionalEventGroups.length ? <p className="card-muted text-sm">Задач пока нет.</p> : null}
                 <div className="flex flex-col gap-3">
                   {additionalEventGroups.map((group) => (
                     <section key={group.key} className="flex flex-col gap-2">
-                      <div className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                      <h4 className="card-muted task-group-title text-xs font-semibold tracking-wide uppercase" data-tone={group.key}>
                         {group.label}
-                      </div>
+                      </h4>
                       <div className="tablet:grid-cols-2 laptop:grid-cols-3 grid grid-cols-1 gap-2">
                         {group.items.map((item) => {
                           const originalIndex = item.originalIndex
@@ -874,7 +889,6 @@ const eventViewFunc = (eventId, options = {}) => {
                   ))}
                 </div>
               </SectionBlock>
-            )}
           </div>
         </div>
       </div>

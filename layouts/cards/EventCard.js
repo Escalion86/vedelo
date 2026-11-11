@@ -4,6 +4,7 @@ import cn from 'classnames'
 import { useAtomValue } from 'jotai'
 import { useMemo } from 'react'
 import { isEventImportChecked } from '@helpers/fileImport.mjs'
+import { suggestWorkStatus } from '@helpers/suggestWorkStatus.mjs'
 import Image from 'next/image'
 import { EVENT_STATUSES, EVENT_STATUSES_SIMPLE } from '@helpers/constants'
 import formatDate from '@helpers/formatDate'
@@ -346,7 +347,8 @@ const EventCard = ({
       outerClassName={cn(noHorizontalPadding ? '' : 'px-2', 'py-1')}
       onClick={() => !loading && modalsFunc.event?.view(event._id)}
       onSwipeLeft={() => !loading && modalsFunc.event?.edit(event._id)}
-      onSwipeRight={() => !loading && modalsFunc.event?.delete(event._id)}
+      onSwipeRight={() => !loading && modalsFunc.event?.statusEdit(event._id, { initialStatus: suggestWorkStatus(event, now.getTime()) })}
+      rightAction="status"
       className={cn(
         'event-card-shell card-body-pad laptop:flex-row laptop:items-start laptop:gap-4 flex min-h-[160px] cursor-pointer flex-col gap-x-3 gap-y-1 overflow-hidden rounded-lg py-3 pr-3 pl-4',
         isPastRequest(event, now) && 'event-card-shell--past-request'

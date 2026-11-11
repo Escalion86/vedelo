@@ -38,7 +38,7 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
     const Users = load('models/Users.js', {
       mongoose, '@schemas/usersSchema': {
         phone: String, yandexId: String, vkId: String, tenantId: mongoose.Schema.Types.ObjectId,
-        role: String, archive: Boolean,
+        role: String, archive: Boolean, password: String, yandexUnlinkedAt: Date,
       },
     }).default
     const Flows = load('models/YandexAuthFlows.js', { mongoose }).default
@@ -135,7 +135,7 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       assert.equal(success.headers.get('location'), 'https://vedelo.test/auth/yandex/complete')
       assert.match((await call(state)).headers.get('location'), /error=1/)
       assert.equal((await Users.findById(aId)).yandexId, undefined)
-      assert.deepEqual(await (await complete.GET(request(pending))).json(), { linked: false, accountExists: true, phone: a.phone, referrerId: '' })
+      assert.deepEqual(await (await complete.GET(request(pending))).json(), { linked: false, accountExists: true, profileLink: false, phone: a.phone, referrerId: '' })
       assert.equal(await Users.countDocuments(), 2)
     })
     await t.test('link rejects missing session, forged tenant, cross-origin and impersonation', async () => {
@@ -167,6 +167,42 @@ test('Yandex auth: real Mongo, OAuth, single use, linking and tenant isolation',
       assert.equal((await Users.findById(aId)).yandexId, '123')
       await assert.rejects(Users.updateOne({ _id: bId }, { $set: { yandexId: '123' } }), { code: 11000 })
       assert.equal((await Users.findById(bId)).yandexId, undefined)
+    })
+    await t.test('unlink requires a fallback login and own tenant, then explicit re-link invalidates old tickets', async () => {
+      let auth = { user: { _id: aId }, tenantId: String(aId), authType: 'mobile' }
+      const link = load('app/api/yandex-id/link/route.js', {
+        ...mocks, '@server/dbConnect': async () => {}, '@server/getRequestContext': async () => auth,
+      })
+      const unlink = (origin = 'https://vedelo.test') => link.DELETE(new NextRequest('https://vedelo.test/api/yandex-id/link', {
+        method: 'DELETE', headers: { origin },
+      }))
+      assert.equal((await unlink()).status, 401)
+      auth = { ...auth, mobileSessionId: 'valid', tenantId: String(bId) }
+      assert.equal((await unlink()).status, 404)
+      auth = { ...auth, tenantId: String(aId), authType: 'web' }
+      assert.equal((await unlink('https://wrong.test')).status, 403)
+      assert.equal((await unlink()).status, 409)
+      const proxied = new NextRequest('http://127.0.0.1:3000/api/yandex-id/link', {
+        method: 'DELETE', headers: { host: 'vedelo.test', 'x-forwarded-proto': 'https', origin: 'https://vedelo.test' },
+      })
+      assert.equal((await link.DELETE(proxied)).status, 409)
+      assert.equal((await Users.findById(aId)).yandexId, '123')
+      await Users.updateOne({ _id: aId }, { $set: { password: 'fixture' } })
+      const oldTicket = await service.createFlow('ticket', { userId: aId, tenantId: aId, yandexId: '123', phone: a.phone })
+      auth.authType = 'mobile'
+      assert.equal((await unlink()).status, 200)
+      assert.equal((await unlink()).status, 200)
+      assert.equal((await Users.findById(aId)).yandexId, undefined)
+      const login = await service.createFlow('pending', { yandexId: '123', phone: a.phone })
+      assert.equal((await complete.POST(request(login, { action: 'login' }))).status, 403)
+      const profileLink = await service.createFlow('pending', { yandexId: '123', phone: a.phone, userId: aId, tenantId: aId })
+      assert.equal((await complete.POST(request(profileLink, { action: 'login' }))).status, 403)
+      assert.equal((await complete.POST(request(profileLink, { action: 'link' }))).status, 403)
+      context = { user: { _id: aId }, tenantId: String(aId) }
+      assert.deepEqual(await (await complete.POST(request(profileLink, { action: 'link' }))).json(), { linked: true })
+      assert.equal(await service.consumeYandexTicket(oldTicket), null)
+      const fresh = await complete.POST(request(login, { action: 'login' }))
+      assert.ok(await service.consumeYandexTicket((await fresh.json()).token))
     })
     await t.test('phone required, normalized; changed phone never transfers account', async () => {
       assert.deepEqual(await service.exchangeProfile('code', 'verifier'), { yandexId: '123', phone: a.phone })

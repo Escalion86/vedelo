@@ -15,10 +15,12 @@ const clientDraftSchema = z.object({ firstName: z.string().max(300), phone, what
   email: z.string().optional(), telegram: z.string().optional(), instagram: z.string().optional(), vk: z.string().optional(),
   preferredContactChannel: z.enum(['phone', 'whatsapp', 'telegram', 'max', 'vk', 'avito', 'other']).optional() })
 const responseSchema = z.object({ fields: z.record(z.string(), z.unknown()), aiFilledFields: z.array(z.string()),
+  provider: z.string().optional(), model: z.string().optional(),
   aiWarnings: z.array(z.string()), clientCreated: z.literal(false), clientDraft: clientDraftSchema.nullable() })
 export type AiClientForm = { values: Record<string, unknown>; dates: SignificantDateDraft[] }
 type Attempt<F> = { operationId: string; values: Record<string, unknown>; form: F }
 export type AiCreateReview = { _id: string; fields: PhotoDraftFields; sourceText: string; aiFilledFields: string[]; aiWarnings: string[];
+  provider?: string; model?: string;
   clientDraft: z.infer<typeof clientDraftSchema> | null; clientId?: string;
   clientAttempt?: Attempt<AiClientForm>; eventAttempt?: Attempt<EventDraft> }
 const collection = '__ai_create_review'
@@ -58,7 +60,7 @@ export const openAiCreateReview = async (value: unknown, sourceText: string, cur
   }
   return write(current, async () => {
     const review: AiCreateReview = { _id: Crypto.randomUUID(), fields, sourceText, aiFilledFields: result.aiFilledFields,
-      aiWarnings: result.aiWarnings, clientDraft: result.clientDraft }
+      aiWarnings: result.aiWarnings, clientDraft: result.clientDraft, provider: result.provider, model: result.model }
     await upsertEntities(collection, [review]); return review
   })
 }

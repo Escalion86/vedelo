@@ -70,6 +70,7 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
       '@server/taskPushNotifications': { notifyTaskCreated: async () => {}, notifyTaskUpdated: async () => {}, notifyTaskCompleted: async () => {} },
       '@helpers/aiEditContract.mjs': contract,
       '@helpers/aiEventDraftContacts.mjs': await import('../../helpers/aiEventDraftContacts.mjs'),
+      '@helpers/aiEventRequestKind.mjs': await import('../../helpers/aiEventRequestKind.mjs'),
       '@helpers/clientMessengerAvailability': load('helpers/clientMessengerAvailability.js', {}),
     })
     const tenantId = new mongoose.Types.ObjectId(), other = new mongoose.Types.ObjectId()
@@ -112,6 +113,14 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
     assert.equal(providerCalls, 1, 'recovery read never calls or charges AI')
     assert.equal((await apply(plan.planId)).done, true)
     assert.equal(await Transactions.countDocuments({ tenantId }), 1)
+    const old = new Date(0)
+    await Plans.updateOne({ _id: plan.planId }, { $set: { completed: [], expiresAt: old }, $unset: { executionStartedAt: 1 } })
+    proposal = { actions: [{ entity: 'event', operation: 'update', id: String(event._id), patch: { contractSum: 35000 } }] }
+    const abandoned = await prepare()
+    await Plans.updateOne({ _id: abandoned.planId }, { $set: { expiresAt: old } })
+    assert.equal(await service.pruneAbandonedAiEditPlans(), 1)
+    assert.equal(await Plans.exists({ _id: abandoned.planId }), null)
+    assert.ok((await Plans.findById(plan.planId)).executionStartedAt, 'cleanup preserves a legacy plan with write receipts')
     proposal = { actions: [
       { entity: 'client', operation: 'update', id: String(client._id), patch: { firstName: 'Мария' } },
       { entity: 'event', operation: 'update', id: String(event._id), patch: { contractSum: 50000 } },
@@ -152,6 +161,7 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
       '@server/aiBilling': { isAiBalanceError: () => false },
       '@server/aiEventIntent': {}, '@server/eventAiDraft': {},
       '@helpers/aiAssistantClipboard.mjs': await import('../../helpers/aiAssistantClipboard.mjs'),
+      '@helpers/aiEventRequestKind.mjs': await import('../../helpers/aiEventRequestKind.mjs'),
     })
     assert.equal((await route.POST(new Request('http://test', { method: 'POST', body: '{}' }))).status, 401)
     assert.equal((await route.GET(new Request(`http://test?planId=${plan.planId}`))).status, 401)

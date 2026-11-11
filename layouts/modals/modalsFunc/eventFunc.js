@@ -1723,6 +1723,15 @@ const eventFunc = (
     const fields = {
       hints: (
         <>
+          {!clientId && options.initialClientDraft ? (
+            <Notice tone="info" className="mb-3">
+              <p>ИИ предложил нового клиента. Проверьте данные перед сохранением или выберите существующего клиента.</p>
+              <AppButton variant="secondary" size="sm" onClick={() => modalsFunc.client.add((newClient) => {
+                setClientId(newClient._id)
+                removeError('clientId')
+              }, { initialClientDraft: options.initialClientDraft })}>Проверить нового клиента</AppButton>
+            </Notice>
+          ) : null}
           {hasAiHighlightedFields ? (
             <div className="ai-filled-hint mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800">
               Поля с фиолетовой подсветкой заполнены ИИ. Проверьте их —

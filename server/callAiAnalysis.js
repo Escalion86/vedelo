@@ -257,5 +257,8 @@ export const analyzeCallTranscript = async (
   const json = parseJsonObject(completion.content)
   if (!json) throw new Error('AI вернул некорректный JSON')
 
-  return normalizeAiCallAnalysis(json, normalizationOptions)
+  return {
+    ...normalizeAiCallAnalysis(json, normalizationOptions),
+    ...(completion.provider ? { provider: completion.provider, model: completion.model } : {}),
+  }
 }

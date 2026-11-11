@@ -1,6 +1,6 @@
 'use client'
 
-import { faPencilAlt, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
+import { faArrowsRotate, faPencilAlt, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { motion } from 'framer-motion'
 import PropTypes from 'prop-types'
@@ -10,7 +10,7 @@ const SWIPE_LIMIT = 112
 const SWIPE_TRIGGER_DISTANCE = 64
 const SWIPE_TRIGGER_VELOCITY = 450
 
-const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, className }) => {
+const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, rightAction, className }) => {
   const suppressClick = useRef(false)
   const swipeEnabled = Boolean(onSwipeLeft || onSwipeRight)
 
@@ -57,11 +57,11 @@ const SwipeableCard = ({ children, onSwipeLeft, onSwipeRight, className }) => {
     <div className={`card-swipe-row ${className || ''}`}>
       {onSwipeRight ? (
         <div
-          className="card-swipe-action card-swipe-action--delete"
+          className={`card-swipe-action card-swipe-action--${rightAction === 'status' ? 'status' : 'delete'}`}
           aria-hidden="true"
         >
-          <FontAwesomeIcon icon={faTrashAlt} />
-          <span>Удалить</span>
+          <FontAwesomeIcon icon={rightAction === 'status' ? faArrowsRotate : faTrashAlt} />
+          <span>{rightAction === 'status' ? 'Статус' : 'Удалить'}</span>
         </div>
       ) : null}
       {onSwipeLeft ? (
@@ -101,6 +101,7 @@ SwipeableCard.propTypes = {
   children: PropTypes.node.isRequired,
   onSwipeLeft: PropTypes.func,
   onSwipeRight: PropTypes.func,
+  rightAction: PropTypes.oneOf(['status']),
   className: PropTypes.string,
 }
 

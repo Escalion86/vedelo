@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createHash } from 'node:crypto'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
+import getTenantContext from '@server/getTenantContext'
 import {
   enabled, createFlow, randomToken, callbackUrl, appUrl, YANDEX_COOKIE, cookieOptions, mobileFlowFields,
 } from '@server/yandexAuth'
@@ -21,7 +22,14 @@ export const GET = async (req) => {
   let mobile
   try { mobile = mobileFlowFields(req.nextUrl.searchParams) }
   catch { return NextResponse.json({ error: 'Некорректный возврат в приложение' }, { status: 400 }) }
-  const state = await createFlow('oauth', { verifier, referrerId, ...mobile })
+  let link = {}
+  if (req.nextUrl.searchParams.get('link') === '1' && !mobile.mobileRedirect) {
+    const { tenantId, user } = await getTenantContext()
+    if (!tenantId || !user?._id || user.impersonation?.active)
+      return NextResponse.json({ error: 'Откройте собственный профиль' }, { status: 401 })
+    link = { userId: user._id, tenantId }
+  }
+  const state = await createFlow('oauth', { verifier, referrerId, ...mobile, ...link })
   const url = new URL('https://oauth.yandex.ru/authorize')
   url.search = new URLSearchParams({
     response_type: 'code', client_id: process.env.YANDEX_ID_CLIENT_ID,

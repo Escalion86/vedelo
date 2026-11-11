@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser'
 import { api } from '../../src/shared/api/client'
 import { useAuth } from '../../src/shared/auth/AuthProvider'
 import { beginYandex, inspectYandex, loginYandex, linkYandex, isYandexProofCurrent, type YandexProof } from '../../src/shared/auth/yandex'
+import { YandexButton } from '../../src/shared/auth/YandexButton'
 import {
   captureRegistrationReferrer,
   normalizeRegistrationReferrer,
@@ -516,7 +517,7 @@ export default function LoginScreen() {
                 <Text style={styles.methodLabel}>Яндекс</Text>
                 <View style={styles.methodLine} />
               </View>
-              <Button testID="submit-yandex-auth" title={mode === 'register' ? 'Зарегистрироваться через Яндекс' : 'Войти через Яндекс'} variant="secondary" onPress={startYandex} disabled={loading} />
+              <YandexButton testID="submit-yandex-auth" onPress={startYandex} disabled={loading} />
             </> : null}
           </>
         ) : (

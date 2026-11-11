@@ -3,11 +3,12 @@ import { ProposalStatusChip } from '../proposals/ProposalStatus'
 import type { ProposalStatus } from '../proposals/api'
 import { EventCardClientLookup, EventCardClientState } from './EventCardClient'
 import { typography } from '../../shared/ui/theme'
-import { useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { useMemo, useState } from 'react'
+import { ActivityIndicator, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import type { Client, Service, Transaction } from '../../shared/domain/types'
+import type { Client, Event, Service, Transaction } from '../../shared/domain/types'
+import { suggestWorkStatus } from '../../shared/domain/suggestWorkStatus.generated'
 import { Surface } from '../../shared/ui/components'
 import { QuickActionsSheet, QuickContacts, openContactUrl } from '../../shared/ui/QuickContacts'
 import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
@@ -24,11 +25,13 @@ type Props = {
   services: Service[]; transactions: Transaction[]; occurrence?: EventCalendarOccurrence
   testID: string; onPress: () => void; loading?: boolean; error?: string; proposalStatus?: ProposalStatus
 }
+
+const workStatuses = { draft: 'Заявка', active: 'Подтверждено', closed: 'Закрыто', canceled: 'Отменено' }
 export const MobileEventCard = ({ event, defaultTown, client, clientsById, services, transactions, occurrence, testID, onPress, loading = false, error, proposalStatus }: Props) => {
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
   const { width } = useWindowDimensions()
-  const [sheet, setSheet] = useState<'actions' | 'contacts' | null>(null)
+  const [sheet, setSheet] = useState<'actions' | 'contacts' | 'status' | null>(null)
   const status = getEventCardStatus(event)
   const finance = getEventCardFinance(event, transactions)
   const attention = getEventCardAttention(event, transactions)
@@ -41,6 +44,11 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
   const taskInfo = selectedTask ? getEventCardTaskPresentation(selectedTask) : attention?.dateLabel ? attention : null
   const attentionTone = selectedTask?.done ? palette.status.tomorrow : taskInfo ? palette.status[taskInfo.temporalTone] : palette.status.overdue
   const busy = (loading && !event.clientId) || event.syncStatus === 'syncing'
+  const canChangeStatus = !busy && !event.isDemo
+  const swipe = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_, { dx, dy }) => canChangeStatus && dx > 18 && dx > Math.abs(dy) * 1.5,
+    onPanResponderRelease: (_, { dx, dy }) => { if (dx >= 64 && dx > Math.abs(dy)) setSheet('status') },
+  }), [canChangeStatus])
   const syncError = error || (event.syncStatus === 'failed' ? 'Не удалось синхронизировать' : event.syncStatus === 'conflict' ? 'Конфликт изменений' : '')
   const pastRequest = event.status === 'draft' && Boolean(event.eventDate) && new Date(event.dateEnd || event.eventDate!) < new Date()
   const profitTone = palette.eventCardProfit[finance.net < 0 ? 'negative' : finance.net > 0 ? 'positive' : 'zero']
@@ -48,7 +56,13 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
   const indicator = (name: keyof typeof MaterialCommunityIcons.glyphMap, label: string, color: string) =>
     <MaterialCommunityIcons accessible accessibilityLabel={label} name={name} size={15} color={color} />
   const navigate = (path: string) => { setSheet(null); router.push(path as never) }
-  return <View style={styles.outer}>
+  const suggestedStatus = suggestWorkStatus(event)
+  const chooseStatus = (decision: Event['status']) => {
+    setSheet(null)
+    if (decision === event.status) return
+    router.push({ pathname: '/events/edit/[id]', params: { id: event._id, decision, section: decision === 'closed' ? 'finance' : 'general' } } as never)
+  }
+  return <View style={styles.outer} {...swipe.panHandlers}>
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${getEventCardTitle(event, services)}, ${status.label}`}
       accessibilityState={{ busy, disabled: busy }} disabled={busy} onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
       <Surface style={[styles.shell, width < 420 && styles.compactShell, pastRequest && styles.pastRequestShell]} testID={`${testID}-shell`}>
@@ -113,8 +127,11 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
           style={styles.error} onPress={(e) => { e.stopPropagation(); router.push('/sync' as never) }}><Text style={styles.errorText}>{syncError}</Text></Pressable> : null}
       </Surface>
     </Pressable>
-    <QuickActionsSheet title={sheet === 'contacts' ? 'Дополнительные контакты' : 'Действия с работой'} visible={sheet !== null} onClose={() => setSheet(null)}>
-      {sheet === 'contacts' ? otherContacts.map((contact, index) => {
+    <QuickActionsSheet title={sheet === 'status' ? 'Изменить статус' : sheet === 'contacts' ? 'Дополнительные контакты' : 'Действия с работой'} visible={sheet !== null} onClose={() => setSheet(null)}>
+      {sheet === 'status' ? (Object.keys(workStatuses) as Event['status'][]).map(value =>
+        <ButtonRow key={value} title={workStatuses[value] + (value === event.status ? ' · текущий' : value === suggestedStatus ? ' · следующий' : '')}
+          onPress={() => chooseStatus(value)} />)
+        : sheet === 'contacts' ? otherContacts.map((contact, index) => {
         const other = clientsById?.get(contact.clientId!)
         return <View key={`${contact.clientId}:${index}`} style={styles.contactRow}>
           <Text style={styles.contactName}>{other ? getEventCardClientName(other) : 'Контакт недоступен'}</Text>
@@ -125,6 +142,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
       }) : <>
         <ButtonRow title="Открыть" onPress={() => { setSheet(null); onPress() }} />
         {event.status !== 'closed' ? <ButtonRow title="Редактировать" onPress={() => navigate(`/events/edit/${event._id}`)} /> : null}
+        {canChangeStatus ? <ButtonRow title="Изменить статус" onPress={() => setSheet('status')} /> : null}
         <ButtonRow title="Документы" onPress={() => navigate(`/events/${event._id}/documents`)} />
         {event.status === 'active' ? <ButtonRow title="Добавить оплату или расход" onPress={() => {
           setSheet(null); router.push({ pathname: '/finance/edit/new', params: { eventId: event._id, clientId: event.clientId || '' } } as never)

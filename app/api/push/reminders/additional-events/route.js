@@ -3,11 +3,12 @@ import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
 import { sendAdditionalEventsPushReminders } from '@server/additionalEventsPushReminders'
 import { canRunPushReminderCron } from '../cronAccess'
+import { pruneAbandonedAiEditPlans } from '@server/aiEdit'
 
 const canRun = async (req) => {
   const cronAccess = canRunPushReminderCron(req)
   if (cronAccess.ok) {
-    return { ok: true }
+    return { ok: true, cron: true }
   }
 
   const { user } = await getTenantContext()
@@ -28,13 +29,20 @@ const handleRequest = async (req) => {
   }
 
   await dbConnect()
-  const data = await sendAdditionalEventsPushReminders({ now: new Date() })
+  const now = new Date()
+  const [data, prunedAiPlans] = await Promise.all([
+    sendAdditionalEventsPushReminders({ now }),
+    access.cron ? pruneAbandonedAiEditPlans({ now }).catch(() => {
+      console.warn('[push-reminders-cron] AI cleanup failed')
+      return null
+    }) : null,
+  ])
   console.info('[push-reminders-cron]', data)
 
   return NextResponse.json(
     {
       success: true,
-      data,
+      data: { ...data, prunedAiPlans },
     },
     { status: 200 }
   )

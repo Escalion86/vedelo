@@ -119,6 +119,24 @@ test('edit and clarification never fall back to creating a client', async () => 
   }
 })
 
+test('read-only and mixed requests do not reach planning or client creation', async () => {
+  for (const [text, intent] of [
+    ['Когда мероприятие Анны?', 'question'],
+    ['Создай новую заявку и перенеси заказ Анны', 'clarify'],
+  ]) {
+    const h = await harness({ intent: 'create' })
+    const result = await h.postNative({ text })
+    assert.equal(result.body.intent, intent)
+    assert.equal(h.calls.length, 0)
+    assert.equal(h.created.length, 0)
+  }
+  const h = await harness({ intent: 'create' })
+  const result = await h.postNative({ text: 'Перенеси заказ Анны на завтра' })
+  assert.equal(result.body.intent, 'clarify')
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.created.length, 0)
+})
+
 test('missing clipboard phone is requested before billing or creation; invalid content is rejected', async () => {
   const h = await harness()
   assert.equal((await h.post({ mode: 'auto', text: 'Создай заявку, возьми телефон из буфера обмена' })).body.needsClipboardPhone, true)

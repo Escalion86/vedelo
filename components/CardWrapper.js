@@ -11,6 +11,7 @@ const CardWrapper = ({
   onClick,
   onSwipeLeft,
   onSwipeRight,
+  rightAction,
   noHorizontalPadding = false,
   children,
 }) => (
@@ -18,7 +19,7 @@ const CardWrapper = ({
     style={style}
     className={cn(noHorizontalPadding ? '' : 'px-2', 'py-2', outerClassName)}
   >
-    <SwipeableCard onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight}>
+    <SwipeableCard onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} rightAction={rightAction}>
       <div
         role={role}
         tabIndex={tabIndex}
@@ -43,6 +44,7 @@ CardWrapper.propTypes = {
   onClick: PropTypes.func,
   onSwipeLeft: PropTypes.func,
   onSwipeRight: PropTypes.func,
+  rightAction: PropTypes.oneOf(['status']),
   children: PropTypes.node.isRequired,
 }
 

@@ -23,7 +23,7 @@ export const GET = async (req) => {
       response.headers.set('Referrer-Policy', 'no-referrer')
       return response
     }
-    const pending = await createFlow('pending', { ...profile, referrerId: flow.referrerId })
+    const pending = await createFlow('pending', { ...profile, referrerId: flow.referrerId, userId: flow.userId, tenantId: flow.tenantId })
     const response = NextResponse.redirect(appUrl('/auth/yandex/complete'))
     response.cookies.set(YANDEX_COOKIE, pending, cookieOptions())
     response.headers.set('Cache-Control', 'no-store')

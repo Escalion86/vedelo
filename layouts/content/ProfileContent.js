@@ -1,5 +1,6 @@
 import ErrorsList from '@components/ErrorsList'
 import FormWrapper from '@components/FormWrapper'
+import YandexProfileSection from '@components/YandexProfileSection'
 import Input from '@components/Input'
 import InputImages from '@components/InputImages'
 import PhoneInput from '@components/PhoneInput'
@@ -251,6 +252,7 @@ const ProfileContent = () => {
           </button>
         </div>
       </FormWrapper>
+      {!loggedUser.impersonation?.active ? <YandexProfileSection key={loggedUser._id} userId={loggedUser._id} confirm={modalsFunc.confirm} /> : null}
     </div>
   )
 }

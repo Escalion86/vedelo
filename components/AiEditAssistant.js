@@ -45,6 +45,17 @@ const VoiceEventPicker = ({ candidates, onSelect }) => (
   </div>
 )
 
+function VoiceClarification({ question, requestText, onRetry, canRetry }) {
+  const [text, setText] = useState(requestText)
+  return <div className="flex min-w-0 flex-col gap-3">
+    <Notice tone="info">{question}</Notice>
+    {canRetry ? <>
+      <Textarea label="Уточнённый запрос" value={text} onChange={setText} rows={4} maxLength={12000} fullWidth />
+      <AppButton disabled={!text.trim() || text.trim() === requestText.trim()} onClick={() => onRetry(text)}>Разобрать уточнение</AppButton>
+    </> : null}
+  </div>
+}
+
 export default function AiEditAssistant({
   eventId: initialEventId = null, mode = 'text', unified = false,
   standaloneVoice = false,
@@ -118,7 +129,7 @@ export default function AiEditAssistant({
         ? 'Браузер не разрешил чтение буфера. Вставьте телефон вручную в поле ниже.' : err.message)
     } finally { inFlight.current = false; setBusy(false) }
   }
-  const prepare = async (selectedId = eventId) => {
+  const prepare = async (selectedId = eventId, requestText = text) => {
     if (inFlight.current) return
     if (!standaloneVoice && wantsClipboard && !parseClipboardPhone(clipboardPhone)) {
       if (clipboardPhone) {
@@ -131,6 +142,7 @@ export default function AiEditAssistant({
     inFlight.current = true
     setBusy(true)
     setError('')
+    setText(requestText)
     try {
       const readVoicePhone = async () => {
         const value = parseClipboardPhone(await navigator.clipboard.readText())
@@ -142,8 +154,8 @@ export default function AiEditAssistant({
         phone = await readVoicePhone()
       }
       if (!mounted.current) return
-      const body = { text, eventId: selectedId,
-        ...(unified && !selectedId ? { mode: 'auto' } : {}),
+      const body = { text: requestText, eventId: selectedId,
+        ...(unified && !selectedId ? { mode: 'auto', deferClientCreation: true } : {}),
       }
       let next = await request({ ...body, ...(phone ? { clipboardPhone: phone } : {}) })
       if (!mounted.current) return
@@ -151,12 +163,6 @@ export default function AiEditAssistant({
         phone = await readVoicePhone()
         if (!mounted.current) return
         next = await request({ ...body, clipboardPhone: phone })
-        if (!mounted.current) return
-      }
-      if (standaloneVoice && next.candidates?.length === 1) {
-        selectedId = next.candidates[0].id
-        setEventId(selectedId)
-        next = await request({ text, eventId: selectedId, ...(phone ? { clipboardPhone: phone } : {}) })
         if (!mounted.current) return
       }
       if (unified && next.fields) {
@@ -167,8 +173,8 @@ export default function AiEditAssistant({
         if (!mounted.current) return
         closeModal?.()
         modalsFunc.event?.create?.(next.fields.status || 'draft', {
-          initialEvent: { ...next.fields, status: next.fields.status || 'draft', description: next.fields.description || text },
-          aiFilledFields: next.aiFilledFields || [], aiWarnings: next.aiWarnings || [], initialClient: next.client,
+          initialEvent: { ...next.fields, status: next.fields.status || 'draft', description: next.fields.description || requestText },
+          aiFilledFields: next.aiFilledFields || [], aiWarnings: next.aiWarnings || [], initialClient: next.client, initialClientDraft: next.clientDraft,
         })
         return
       }
@@ -179,16 +185,6 @@ export default function AiEditAssistant({
         queryClient.setQueryData(queryKeys.event(next.eventId), payload.data)
         closeModal?.()
         modalsFunc.event?.edit?.(next.eventId, options)
-        return
-      }
-      if (standaloneVoice && !next.candidates?.length) {
-        if (selectedId) {
-          closeModal?.()
-          modalsFunc.event?.edit?.(selectedId, { aiWarnings: [next.question || 'ИИ не подготовил изменений. Проверьте данные в форме.'] })
-        } else {
-          snackbar.warning(next.question || 'Не удалось определить мероприятие. Укажите клиента, дату или название и повторите запрос.')
-          closeModal?.()
-        }
         return
       }
       setResult(next)
@@ -253,6 +249,12 @@ export default function AiEditAssistant({
       crossActsAsDecline={false}
       closeButtonName="Отмена"
       onClose={closeModal}
+    />
+  ) : result?.question ? (
+    <Modal title={result.intent === 'question' ? 'Вопрос без изменения записей' : 'Уточните запрос'}
+      Children={VoiceClarification}
+      childrenProps={{ question: result.question, requestText: text, canRetry: result.intent !== 'question', onRetry: (value) => prepare(initialEventId, value) }}
+      onlyCloseButtonShow crossActsAsDecline={false} closeButtonName="Закрыть" onClose={closeModal}
     />
   ) : null
 

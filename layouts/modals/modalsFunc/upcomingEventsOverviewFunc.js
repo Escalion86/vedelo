@@ -640,18 +640,18 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
       {pastClosableCount > 0 ? (
         <ModalSection
           id="attention-close-past"
-          className="attention-section attention-section--close-past"
+          className="attention-layer attention-layer--critical"
           title="Закрытие мероприятий"
           titleClassName="card-title"
           titleRight={
             <StatusChip tone="overdue">{pastClosableCount}</StatusChip>
           }
         >
-          <div className="mt-2 rounded border border-gray-200 px-3 py-2">
-            <div className="text-sm font-semibold text-gray-900">
+          <div className="attention-layer-card mt-2 rounded-lg border px-3 py-2">
+            <div className="card-title text-sm font-semibold">
               Необходимо закрыть {getNounEvents(pastClosableCount)}
             </div>
-            <div className="mt-1 text-xs text-gray-600">
+            <div className="card-muted mt-1 text-xs">
               Эти мероприятия уже завершились, но ещё не закрыты: проверьте
               оплаты и завершите их, чтобы статистика была корректной.
             </div>
@@ -674,7 +674,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
             key={key}
             id={`attention-seg-${key}`}
             className={`attention-section attention-section--${key}`}
-            title={meta.title}
+            title={<span className="task-group-title" data-tone={key}>{meta.title}</span>}
             titleClassName="card-title"
             titleRight={
               <StatusChip tone={meta.tone}>

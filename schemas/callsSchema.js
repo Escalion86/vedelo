@@ -60,6 +60,10 @@ const callsSchema = {
     type: String,
     default: '',
   },
+  transcriptionProvider: { type: String, default: '' },
+  transcriptionModel: { type: String, default: '' },
+  analysisProvider: { type: String, default: '' },
+  analysisModel: { type: String, default: '' },
   aiSummary: {
     type: String,
     default: '',

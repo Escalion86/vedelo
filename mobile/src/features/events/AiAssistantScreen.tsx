@@ -47,13 +47,8 @@ export default function AiAssistantScreen() {
     try {
       // Searching never guesses one of several matching records.
       const prepare = (id?: string) => api.post<Record<string, unknown>>('/mobile/v1/events/ai-assistant', { text: request, ...(id ? { eventId: id } : {}), ...(clipboardPhone ? { clipboardPhone } : {}) })
-      let result = await prepare(eventId)
+      const result = await prepare(eventId)
       if (!current()) return
-      const search = !eventId && !result.planId && !result.fields ? resultSchema.parse(result) : null
-      if (search?.candidates?.length === 1 && !search.needsClipboardPhone) {
-        result = await prepare(search.candidates[0].id)
-        if (!current()) return
-      }
       if (result.planId) { const review = await openAiReview(result, current); if (current()) open(review); return }
       if (result.fields) { const review = await openAiCreateReview(result, request, current); if (current()) openCreate(review); return }
       const response = resultSchema.parse(result)

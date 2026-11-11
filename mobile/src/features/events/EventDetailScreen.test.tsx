@@ -55,6 +55,13 @@ it.each([false, true])('просмотр использует палитру dar
   const blocks = ['event-place-status', 'event-dates', 'event-description', 'event-finance-summary', 'event-details', 'event-contacts', 'event-tasks', 'event-navigation']
   blocks.slice(1).forEach((block, index) => expect(tree.indexOf(block)).toBeGreaterThan(tree.indexOf(blocks[index])))
 })
+it.each([false, true])('пустой блок задач открывает редактор текущей работы, dark=%s', (dark) => {
+  mockEvent.additionalEvents = []
+  const screen = setup(dark)
+  expect(screen.getByText('Задач пока нет.')).toBeTruthy()
+  fireEvent.press(screen.getByRole('button', { name: 'Добавить задачу' }))
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/events/edit/[id]', params: { id: mockEvent._id, section: 'contacts', addTask: '1' } })
+})
 it('offline/local ID: документы доступны, задача идёт через штатную mutation с обработкой ошибки', async () => {
   mockSave.mockRejectedValueOnce(new Error('local write failed'))
   const screen = setup()

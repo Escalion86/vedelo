@@ -14,7 +14,7 @@ import { useTheme, useThemeStyles } from '../../src/shared/ui/ThemeProvider'
 import type { Palette } from '../../src/shared/ui/theme'
 import { buildEventNavigationLinks, formatEventAddress } from '../../src/features/events/navigation'
 import { eventPublicApiSource, isEventImportChecked } from '../../src/features/events/filters'
-import { getEventCardClientName, getEventCardStatus, getEventCardStatusKey } from '../../src/features/events/eventCard'
+import { getEventCardClientName, getEventCardStatus, getEventCardStatusKey, getEventCardTaskPresentation } from '../../src/features/events/eventCard'
 import { detailDate, eventDuration, getEventDetailFinance } from '../../src/features/events/eventDetail'
 import { EventOnlineSections } from '../../src/features/proposals/EventOnlineSections'
 import { ProposalStatusChip } from '../../src/features/proposals/ProposalStatus'
@@ -22,6 +22,11 @@ import { useProposalOverview } from '../../src/features/proposals/statusHooks'
 import { EventFinanceSummary } from '../../src/features/events/EventFinanceSummary'
 import { editEventSection, EventDetailActions } from '../../src/features/events/EventDetailActions'
 import { isWaitingForDeposit } from '../../src/shared/domain/deposits'
+
+const taskGroups = [
+  ['overdue', 'Просрочено'], ['today', 'Сегодня'], ['tomorrow', 'Завтра'],
+  ['upcoming', 'Позднее'], ['neutral', 'Без даты'], ['completed', 'Выполненные'],
+] as const
 
 export default function EventDetailScreen() {
   const terms = useWorkItemTerminology()
@@ -129,14 +134,28 @@ export default function EventDetailScreen() {
         })}
       <Button title="Изменить контакты" variant="secondary" onPress={() => editEventSection(event._id, 'contacts')} />
     </Surface>
-    <Surface testID="event-tasks"><SectionTitle>Следующие контакты</SectionTitle>
-      {event.additionalEvents?.length ? event.additionalEvents.map((task, index) => <Pressable key={task._id || index}
+    <Surface testID="event-tasks">
+      <View style={styles.taskHeader}><SectionTitle>Задачи/События</SectionTitle>
+        <Button title="Добавить задачу" variant="secondary" onPress={() => router.push({ pathname: '/events/edit/[id]', params: { id: event._id, section: 'contacts', addTask: '1' } } as never)} />
+      </View>
+      {!event.additionalEvents?.length ? <Text style={styles.muted}>Задач пока нет.</Text> : null}
+      {taskGroups.map(([group, label]) => {
+        const tasks = (event.additionalEvents ?? []).map((task, index) => ({ task, index }))
+          .filter(({ task }) => (task.done ? 'completed' : getEventCardTaskPresentation(task).temporalTone) === group)
+          .sort((a, b) => (Date.parse((a.task.done ? a.task.doneAt : null) || a.task.date || '') || Infinity)
+            - (Date.parse((b.task.done ? b.task.doneAt : null) || b.task.date || '') || Infinity))
+        if (!tasks.length) return null
+        return <View key={group}>
+        <Text accessibilityRole="header" style={[styles.groupTitle, { color: group === 'completed' ? palette.cardMuted : group === 'today' ? palette.attentionTodayTitle : palette.status[group].text }]}>{label}</Text>
+        {tasks.map(({ task, index }) => <Pressable key={task._id || index}
         accessibilityRole="checkbox" accessibilityLabel={task.title || 'Задача'} accessibilityState={{ checked: Boolean(task.done), disabled: taskBusy, busy: taskBusy }}
         disabled={taskBusy} onPress={() => void toggleTask(index)} style={styles.task}>
         <Text style={styles.text}>{task.done ? '☑' : '☐'} {task.title || 'Задача'}</Text>
         <Text style={styles.muted}>{task.date ? detailDate(task.date) : 'Без срока'}</Text>
         {task.description ? <Text style={styles.muted}>{eventPlainText(task.description)}</Text> : null}
-      </Pressable>) : <Text style={styles.muted}>Нет запланированных контактов.</Text>}
+        </Pressable>)}
+        </View>
+      })}
       {taskError ? <Notice tone="danger" message={taskError} /> : null}
       <Button title="Изменить задачи" variant="secondary" onPress={() => editEventSection(event._id, 'contacts')} />
     </Surface>
@@ -153,4 +172,6 @@ const createStyles = (p: Palette) => StyleSheet.create({
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }, gallery: { gap: 12 },
   image: { width: 256, height: 192, backgroundColor: p.kpiBackground, borderRadius: 8 },
   contact: { gap: 8, paddingVertical: 8 }, task: { minHeight: 48, gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderColor: p.border },
+  taskHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  groupTitle: { fontSize: 13, fontWeight: '600', marginTop: 8 },
 })

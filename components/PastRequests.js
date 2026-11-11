@@ -34,6 +34,7 @@ export default function PastRequests({
   return (
     <ModalSection
       id="attention-past-requests"
+      className="attention-layer attention-layer--warning"
       title={<span className="inline-flex items-center gap-1">Заявки с прошедшей датой <FieldHelp text={fieldHelp['attention.pastRequests']} label="Заявки с прошедшей датой" /></span>}
       titleClassName="card-title"
       titleRight={
@@ -59,7 +60,7 @@ export default function PastRequests({
             {requests.slice(0, visibleCount).map((request) => (
               <div
                 key={request._id}
-                className="rounded-lg border border-gray-200 p-3"
+                className="attention-layer-card rounded-lg border p-3"
               >
                 <div className="card-title text-sm break-words">
                   {getPersonFullName(

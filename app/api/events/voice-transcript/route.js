@@ -48,14 +48,14 @@ export async function POST(request) {
     }
 
     const aiSettings = await getTenantAiSettings(tenantId)
-    const transcript = await transcribeAudioBlob(
+    const { transcript, provider, model } = await transcribeAudioBlob(
       audioFile,
       audioFile.name || 'voice-draft.webm',
       aiSettings,
-      { feature: 'voice_transcription' }
+      { feature: 'voice_transcription', includeProvider: true }
     )
 
-    return NextResponse.json({ success: true, transcript })
+    return NextResponse.json({ success: true, transcript, provider, model })
   } catch (error) {
     const message =
       isAiBalanceError(error)
@@ -67,7 +67,7 @@ export async function POST(request) {
           : 'Не удалось обработать голосовой ввод'
 
     console.error('[events/voice-transcript] failed', {
-      message: error?.message,
+      code: isAiBalanceError(error) ? 'AI_BALANCE' : 'TRANSCRIPTION_FAILED',
     })
 
     return NextResponse.json(

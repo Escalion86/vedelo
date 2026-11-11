@@ -290,6 +290,8 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
     )
 
     return NextResponse.json({
+      ...(strict ? { intent: 'create' } : {}),
+      ...(completion?.provider ? { provider: completion.provider, model: completion.model } : {}),
       fields,
       aiFilledFields,
       client: toSafeClient(selectedClient),

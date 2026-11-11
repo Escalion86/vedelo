@@ -66,6 +66,8 @@ export const completeYandexAccount = async ({ flow, action, context, consume }) 
     if (normalizePhone(user.phone) !== flow.phone || String(account?._id) !== String(user._id)) throw authError(phoneError)
   } else if (action !== 'login') throw authError('Некорректное действие', 400)
   if (!user) throw authError('Зарегистрируйтесь с номером из Яндекс ID')
+  if (action === 'login' && !user.yandexId && user.yandexUnlinkedAt)
+    throw authError('Яндекс ID отключён. Войдите другим способом и подключите его в профиле.', 403)
   if (user.yandexId && user.yandexId !== flow.yandexId) throw authError('К аккаунту уже подключён другой Яндекс ID')
   if (!(await consume())) throw authError('Запрос уже использован')
   // Shared by PWA and Android. Ignore client-supplied phone, owner and tenant.
@@ -73,6 +75,7 @@ export const completeYandexAccount = async ({ flow, action, context, consume }) 
     await Users.init()
     user = await Users.findOneAndUpdate({
       _id: user._id, tenantId: user.tenantId || null, archive: { $ne: true }, phone: user.phone,
+      yandexUnlinkedAt: user.yandexUnlinkedAt || null,
       $or: [{ yandexId: { $exists: false } }, { yandexId: flow.yandexId }],
     }, { $set: { yandexId: flow.yandexId, tenantId: user.tenantId || user._id } }, { returnDocument: 'after' })
   } catch { throw authError('Не удалось подключить Яндекс. Начните заново; существующие привязки сохранены.') }
@@ -130,7 +133,7 @@ export const consumeYandexTicket = async (token) => {
   if (!ticket || !validPhone(ticket.phone)) return null
   const user = await Users.findOne({
     _id: ticket.userId, tenantId: ticket.tenantId,
-    yandexId: ticket.yandexId, archive: { $ne: true },
+    yandexId: ticket.yandexId, yandexUnlinkedAt: ticket.yandexUnlinkedAt || null, archive: { $ne: true },
   })
   if (!user || normalizePhone(user.phone) !== ticket.phone) return null
   return {

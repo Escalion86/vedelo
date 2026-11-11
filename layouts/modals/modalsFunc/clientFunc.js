@@ -117,10 +117,11 @@ const clientFunc = (clientId, clone = false, onSuccess, options = {}) => {
       () => clients.find((item) => item._id === clientId) ?? null,
       [clients]
     )
-    const { data: client = initialClient } = useClientQuery(
+    const { data: foundClient = initialClient } = useClientQuery(
       clientId,
       initialClient
     )
+    const client = clientId ? foundClient : options.initialClientDraft
     const setClient = useAtomValue(itemsFuncAtom).client.set
     const modalsFunc = useAtomValue(modalsFuncAtom)
     const loggedUser = useAtomValue(loggedUserAtom)

@@ -7,6 +7,7 @@ import { getAiBalanceErrorMessage, isAiBalanceError } from '@server/aiBilling'
 import { resolveAiEventIntent } from '@server/aiEventIntent'
 import { processEventAiDraft } from '@server/eventAiDraft'
 import { parseClipboardPhone, requestsClipboardPhone } from '@helpers/aiAssistantClipboard.mjs'
+import { aiIntentQuestion, aiReadOnlyQuestion, explicitAiEventRequestKind } from '@helpers/aiEventRequestKind.mjs'
 
 export async function GET(req) {
   try {
@@ -37,6 +38,11 @@ export async function POST(req) {
     if (body?.mode === 'apply') return NextResponse.json(await applyAiEdit({ planId: body.planId, context, req, access }))
     const text = typeof body?.text === 'string' ? body.text.trim() : ''
     if (!text || text.length > 12000) return NextResponse.json({ error: 'Введите запрос до 12000 символов' }, { status: 400 })
+    const explicit = explicitAiEventRequestKind(text)
+    if (!body.eventId && explicit === 'question')
+      return NextResponse.json({ intent: 'question', question: aiReadOnlyQuestion })
+    if (!body.eventId && explicit === 'clarify')
+      return NextResponse.json({ intent: 'clarify', question: aiIntentQuestion })
     const args = { tenantId: context.tenantId, userId: context.user._id, text, eventId: body.eventId }
     const clipboardPhone = body.clipboardPhone ? parseClipboardPhone(body.clipboardPhone) : ''
     if (body.clipboardPhone && !clipboardPhone)
@@ -49,14 +55,16 @@ export async function POST(req) {
     }
     if (body.mode === 'auto' && !body.eventId) {
       const intent = await resolveAiEventIntent(args)
+      if (intent.intent === 'question')
+        return NextResponse.json({ intent: 'question', question: aiReadOnlyQuestion })
+      if (intent.intent === 'clarify')
+        return NextResponse.json({ intent: 'clarify', question: aiIntentQuestion })
       if (intent.needsClipboardPhone && !clipboardPhone)
         return NextResponse.json({ needsClipboardPhone: true, question: 'Вставьте телефон клиента из буфера обмена и повторите запрос.' })
-      if (intent.intent === 'clarify')
-        return NextResponse.json({ question: 'Уточните: создать новую заявку или изменить существующую? Для изменения укажите клиента, дату или название.' })
       if (intent.intent === 'create') return processEventAiDraft({ ...args, clientPhone: clipboardPhone, strict: true, deferClientCreation: body.deferClientCreation === true })
     }
     const result = body.eventId ? await prepareAiEdit(args) : await searchAiEditEvents(args)
-    return NextResponse.json(result)
+    return NextResponse.json({ intent: 'edit', ...result })
   } catch (error) {
     if (isAiBalanceError(error)) return NextResponse.json({ error: getAiBalanceErrorMessage(error) }, { status: 402 })
     return NextResponse.json({ error: error.safe ? error.message : 'Не удалось выполнить запрос. Проверьте результат перед повтором.' }, { status: error.safe ? error.status : 502 })

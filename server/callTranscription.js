@@ -3,6 +3,7 @@ import {
   reservePlatformAiUsage,
   settlePlatformAiUsage,
 } from '@server/aiBilling'
+import { getLocalAiProvider, tryLocalAiProvider } from './localAiProvider.mjs'
 
 const TRANSCRIPTION_PROVIDERS = Object.freeze({
   artistcrm: {
@@ -26,6 +27,8 @@ const TRANSCRIPTION_PROVIDERS = Object.freeze({
 })
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024
+const DOWNLOAD_TIMEOUT_MS = 15000
+const CLOUD_TIMEOUT_MS = 45000
 
 const getTranscriptionProviderConfig = (settings = {}) => {
   const providerName = String(
@@ -58,7 +61,8 @@ const getTranscriptionProviderConfig = (settings = {}) => {
 
 export const isCallTranscriptionConfigured = (settings = {}) => {
   const provider = getTranscriptionProviderConfig(settings)
-  return Boolean(!provider.error && provider.apiKey)
+  return settings.aiIntegrationEnabled !== false &&
+    Boolean(getLocalAiProvider('transcription') || (!provider.error && provider.apiKey))
 }
 
 const getFileNameFromUrl = (url) => {
@@ -72,7 +76,7 @@ const getFileNameFromUrl = (url) => {
 }
 
 const fetchRecordingBlob = async (recordingUrl) => {
-  const response = await fetch(recordingUrl)
+  const response = await fetch(recordingUrl, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
   if (!response.ok) {
     throw new Error(`RECORDING_DOWNLOAD_FAILED:${response.status}`)
   }
@@ -122,9 +126,9 @@ const transcribeBlobWithOpenAiCompatible = async ({
   try {
     response = await fetch(provider.apiUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
-      },
+      headers: provider.apiKey ? { Authorization: `Bearer ${provider.apiKey}` } : {},
+      signal: AbortSignal.timeout(provider.timeoutMs || CLOUD_TIMEOUT_MS),
+      ...(provider.name === 'local' ? { redirect: 'error' } : {}),
       body: formData,
     })
     payload = await response.json().catch(() => null)
@@ -135,35 +139,16 @@ const transcribeBlobWithOpenAiCompatible = async ({
 
   if (!response.ok) {
     await failPlatformAiUsage(reservation, `AI_PROVIDER_HTTP_${response.status}`)
-    const message =
-      payload?.error?.message ||
-      `${provider.name} transcription failed: ${response.status}`
-    throw new Error(message)
+    throw new Error(`TRANSCRIPTION_HTTP_${response.status}`)
   }
 
-  if (reservation) {
-    await settlePlatformAiUsage(reservation, payload?.usage)
+  const transcript = typeof payload?.text === 'string' ? payload.text.trim() : ''
+  if (!transcript) {
+    await failPlatformAiUsage(reservation, 'TRANSCRIPTION_EMPTY')
+    throw new Error('TRANSCRIPTION_EMPTY')
   }
-
-  const text = String(payload?.text || '').trim()
-  if (!text) throw new Error('TRANSCRIPTION_EMPTY')
-  return text
-}
-
-const transcribeWithOpenAiCompatible = async ({
-  provider,
-  recordingUrl,
-  settings,
-  options,
-}) => {
-  const audioBlob = await fetchRecordingBlob(recordingUrl)
-  return transcribeBlobWithOpenAiCompatible({
-    provider,
-    audioBlob,
-    fileName: getFileNameFromUrl(recordingUrl),
-    settings,
-    ...options,
-  })
+  if (reservation) await settlePlatformAiUsage(reservation, payload?.usage)
+  return { transcript, provider: provider.name, model: provider.model }
 }
 
 export const transcribeAudioBlob = async (
@@ -175,25 +160,17 @@ export const transcribeAudioBlob = async (
   if (!audioBlob) throw new Error('AUDIO_FILE_REQUIRED')
   if (audioBlob.size > MAX_AUDIO_BYTES) throw new Error('RECORDING_TOO_LARGE')
 
-  const provider = getTranscriptionProviderConfig(settings)
-  if (provider.error) throw new Error(provider.error)
-  if (!provider.apiKey) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
-
-  if (
-    provider.name === 'openai' ||
-    provider.name === 'aitunnel' ||
-    provider.name === 'artistcrm'
-  ) {
-    return transcribeBlobWithOpenAiCompatible({
-      provider,
-      audioBlob,
-      fileName,
-      settings,
-      ...options,
-    })
+  if (settings.aiIntegrationEnabled === false) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
+  const send = (provider) => transcribeBlobWithOpenAiCompatible({ ...options, provider, audioBlob, fileName, settings })
+  let result = await tryLocalAiProvider(getLocalAiProvider('transcription'), send)
+  if (!result) {
+    const cloud = getTranscriptionProviderConfig(settings)
+    if (cloud.error) throw new Error(cloud.error)
+    if (!cloud.apiKey) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
+    result = await send(cloud)
   }
 
-  throw new Error('TRANSCRIPTION_PROVIDER_UNSUPPORTED')
+  return options.includeProvider ? result : result.transcript
 }
 
 export const transcribeCallRecording = async (
@@ -203,22 +180,6 @@ export const transcribeCallRecording = async (
 ) => {
   if (!recordingUrl) throw new Error('RECORDING_URL_REQUIRED')
 
-  const provider = getTranscriptionProviderConfig(settings)
-  if (provider.error) throw new Error(provider.error)
-  if (!provider.apiKey) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
-
-  if (
-    provider.name === 'openai' ||
-    provider.name === 'aitunnel' ||
-    provider.name === 'artistcrm'
-  ) {
-    return transcribeWithOpenAiCompatible({
-      provider,
-      recordingUrl,
-      settings,
-      options,
-    })
-  }
-
-  throw new Error('TRANSCRIPTION_PROVIDER_UNSUPPORTED')
+  if (!isCallTranscriptionConfigured(settings)) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
+  return transcribeAudioBlob(await fetchRecordingBlob(recordingUrl), getFileNameFromUrl(recordingUrl), settings, options)
 }

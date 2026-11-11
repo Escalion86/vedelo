@@ -135,6 +135,12 @@ test('compiled HTTP: no session -> automatic Yandex phone login -> NextAuth sess
     } finally {
       await browser.close()
     }
+    assert.deepEqual((await (await request('/api/yandex-id/link')).json()).data, { linked: true, enabled: true })
+    assert.equal((await request('/api/yandex-id/link', { method: 'DELETE', headers: { origin: 'https://wrong.test' } })).status, 403)
+    const unlinked = await request('/api/yandex-id/link', { method: 'DELETE', headers: { origin: base } })
+    assert.equal(unlinked.status, 200, await unlinked.clone().text())
+    assert.equal((await unlinked.json()).data.linked, false)
+    assert.equal((await (await request('/api/auth/session')).json()).user._id, String(id))
     const disable = await request('/api/site/phone-auth', {
       method: 'POST', headers: { 'Content-Type': 'application/json', origin: base },
       body: JSON.stringify({ primaryMethod: 'call', vkEnabled: false, yandexEnabled: false }),

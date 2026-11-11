@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
   phone: String,
   userId: mongoose.Schema.Types.ObjectId,
   tenantId: mongoose.Schema.Types.ObjectId,
+  yandexUnlinkedAt: Date,
   expiresAt: { type: Date, required: true },
 })
 schema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })

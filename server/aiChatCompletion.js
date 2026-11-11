@@ -1,3 +1,5 @@
+import { getLocalAiProvider, tryLocalAiProvider } from './localAiProvider.mjs'
+
 const AI_ANALYSIS_PROVIDERS = Object.freeze({
   artistcrm: {
     apiUrl: 'https://api.aitunnel.ru/v1/chat/completions',
@@ -43,7 +45,6 @@ const getDefaultProviderName = (settings = {}) => {
   if (process.env.AITUNNEL_KEY) return 'aitunnel'
   return 'openai'
 }
-
 export const getAiAnalysisProviderConfig = (settings = {}) => {
   const requestedName =
     normalizeProviderName(settings.aiAnalysisProvider) ||
@@ -100,6 +101,26 @@ export const requestAiChatCompletion = async ({
   timeoutMs,
   requireVision = false,
 }) => {
+  const local = !requireVision && !prepaidImport && settings.aiIntegrationEnabled !== false
+    ? getLocalAiProvider('analysis') : null
+  const localResult = await tryLocalAiProvider(local, async ({ apiUrl, apiKey, model, timeoutMs: localTimeout }) => {
+    const response = await fetch(apiUrl, {
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(Math.min(localTimeout, timeoutMs || localTimeout)),
+      headers: { 'Content-Type': 'application/json', ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens,
+        ...(jsonResponse ? { response_format: { type: 'json_object' } } : {}) }),
+    })
+    if (!response.ok) throw new Error('LOCAL_AI_HTTP')
+    const payload = await response.json()
+    const content = typeof payload?.choices?.[0]?.message?.content === 'string' ? payload.choices[0].message.content.trim() : ''
+    if (!content) return null
+    if (jsonResponse) {
+      const value = JSON.parse(content)
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+    }
+    return { content, provider: 'local', model, usage: payload?.usage || null }
+  })
+  if (localResult) return localResult
   const provider = getAiAnalysisProviderConfig(settings)
   if (requireVision && (!isAiVisionProvider(provider) ||
     (settings.aiAnalysisProvider && !AI_ANALYSIS_PROVIDERS[normalizeProviderName(settings.aiAnalysisProvider)]))) {

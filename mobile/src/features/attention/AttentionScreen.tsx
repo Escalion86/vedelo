@@ -27,7 +27,7 @@ import { useEventsScope } from '../navigation/EventsScope'
 import { performAttentionAction } from './actions'
 import { selectAttention, segments, segmentLabels, type AttentionItem } from './selectors'
 import { TaskCard } from './TaskCard'
-import { AttentionSection, ClientDateRow, CompactAction, RequestCard, SummaryChip } from './AttentionPresentation'
+import { AttentionCard, AttentionSection, ClientDateRow, CompactAction, RequestCard, SummaryChip } from './AttentionPresentation'
 
 const emptyText = { overdue: 'Просроченных задач нет', today: 'На сегодня задач нет', tomorrow: 'На завтра задач нет' }
 
@@ -97,7 +97,7 @@ export default function AttentionScreen() {
     finally { setBusy(false); void queue.refetch() }
   }
   const section = (id: string, title: string, count: number | undefined, content: ReactNode,
-    options: { tone?: TemporalStatus; accent?: string; help?: string } = {}) =>
+    options: { tone?: TemporalStatus; accent?: string; help?: string; layered?: boolean } = {}) =>
     <AttentionSection key={id} id={id} title={title} count={count} {...options}
       onLayout={(event) => { positions.current[id] = event.nativeEvent.layout.y }}>{content}</AttentionSection>
   const summary = [
@@ -142,11 +142,11 @@ export default function AttentionScreen() {
             <Text style={styles.muted}>Дата прошла — уточните результат. Проверьте оплаты и закройте заявку, отмените её или перенесите дату.</Text>
             <OverviewList id="past-requests" items={data.pastRequests} empty="" initialCount={5} step={10}
               render={(event) => <RequestCard key={event._id} event={event} client={clientsById.get(event.clientId || '')} past />} />
-          </>, { help: getFieldHelp('attention.pastRequests'), tone: 'today' }) : null}
-          {data.pastUnclosed.length ? section('closing', `Закрытие ${terms.pluralGenitive}`, data.pastUnclosed.length, <>
+          </>, { help: getFieldHelp('attention.pastRequests'), tone: 'today', layered: true }) : null}
+          {data.pastUnclosed.length ? section('closing', `Закрытие ${terms.pluralGenitive}`, data.pastUnclosed.length, <AttentionCard>
             <Text style={styles.muted}>Не закрыто: {data.pastUnclosed.length}. Проверьте итоги прошедших работ.</Text>
             <CompactAction title="Открыть незакрытые" onPress={() => { selectScope('past', true); router.push('/(tabs)/events') }} />
-          </>, { tone: 'overdue' }) : null}
+          </AttentionCard>, { tone: 'overdue', layered: true }) : null}
           {segments.map((segment) => section(segment, segmentLabels[segment], data.pending[segment],
             <OverviewList id={segment} items={data.groups[segment]} empty={emptyText[segment]}
               render={(item) => <TaskCard key={item.key} item={item} segment={segment} busy={busy} onAction={runAction} />} />,

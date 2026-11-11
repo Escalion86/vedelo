@@ -39,7 +39,7 @@ export default function EventEditScreen() {
   const terms = useWorkItemTerminology()
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
-  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[]; decision?: string; shareDraft?: string; aiPlan?: string; aiDraft?: string }>()
+  const params = useLocalSearchParams<{ id: string; clientId?: string; cloneId?: string; initialStatus?: string | string[]; mode?: string | string[]; section?: string | string[]; decision?: string; addTask?: string; shareDraft?: string; aiPlan?: string; aiDraft?: string }>()
   // Freeze the entry context: URL updates and tab switches must not rehydrate a dirty form.
   const [entry] = useState(params)
   const [aiScope] = useState(() => entry.aiPlan || entry.aiDraft ? { epoch: localDataEpoch(), auth: getAuthSessionEpoch() } : null)
@@ -78,7 +78,7 @@ export default function EventEditScreen() {
   const [error, setError] = useState('')
   const [photoMetadata, setPhotoMetadata] = useState<PhotoDraftMetadata | null>(null)
   const [aiFields, setAiFields] = useState<Set<string>>(() => new Set())
-  const [openSections, setOpenSections] = useState<Set<CompactSectionId>>(() => new Set<CompactSectionId>(sharedDraft || entry.section === 'contacts' ? ['client'] : entry.section === 'finance' ? ['finance'] : []))
+  const [openSections, setOpenSections] = useState<Set<CompactSectionId>>(() => new Set<CompactSectionId>(entry.addTask === '1' ? ['tasks'] : sharedDraft || entry.section === 'contacts' ? ['client'] : entry.section === 'finance' ? ['finance'] : []))
   const [invalid, setInvalid] = useState<{ section: CompactSectionId; message: string }>()
   const savedLocalId = useRef('')
   const [dirty, setDirty] = useState(Boolean(sharedDraft))
@@ -178,9 +178,13 @@ export default function EventEditScreen() {
           return applyPhotoDraft(base, { ...creation.fields, ...(creation.clientId ? { clientId: creation.clientId } : {}) }, new Set(clientItems.map(c => c._id)), new Set(serviceItems.map(s => s._id)))
         }
         const next = event ? createEventDraft(event, isClone) : current
-        return { ...next, values: { ...next.values,
+        return { ...next,
+          tasks: event && entry.addTask === '1' && !isClone
+            ? [...next.tasks, { localKey: 'quick-new-task', title: '', description: '', dateInput: '', done: false, doneAt: null }]
+            : next.tasks,
+          values: { ...next.values,
           clientId: entry.clientId || next.values.clientId,
-          ...(event?.status === 'draft' && !isClone && (entry.decision === 'closed' || entry.decision === 'canceled') ? { status: entry.decision } : {}),
+          ...(event && !isClone && (entry.decision === 'draft' || entry.decision === 'active' || entry.decision === 'closed' || entry.decision === 'canceled') ? { status: entry.decision } : {}),
           town: event ? next.values.town : settingsItems[0]?.defaultTown || next.values.town,
         } }
       })

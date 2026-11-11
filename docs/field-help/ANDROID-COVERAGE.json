@@ -987,7 +987,7 @@
       {
         "path": "mobile/src/features/attention/AttentionScreen.tsx",
         "line": 113,
-        "anchor": "</>, { help: getFieldHelp('attention.pastRequests'), tone: 'today' }) : null}"
+        "anchor": "help: getFieldHelp('attention.pastRequests')"
       }
     ],
     "reason": "есть",

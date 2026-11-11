@@ -21,7 +21,7 @@ export default function YandexComplete({ signedIn, initialError = '' }) {
         if (!response.ok) throw new Error(result.error || 'Не удалось проверить подключение')
         if (!active) return
         setData(result)
-        if (!result.accountExists) return
+        if (!result.accountExists || result.profileLink) return
         // Only the live effect starts a mutation (including React Strict Mode).
         // The browser never supplies the phone or target account to the server.
         const completed = await fetch('/api/yandex-id/complete', {
@@ -40,12 +40,29 @@ export default function YandexComplete({ signedIn, initialError = '' }) {
     void finishLogin()
     return () => { active = false }
   }, [initialError])
+  const [linking, setLinking] = useState(false)
+  const linkProfile = async () => {
+    if (linking) return
+    setLinking(true)
+    try {
+      const response = await fetch('/api/yandex-id/complete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'link' }),
+      })
+      const result = await response.json()
+      if (!response.ok || result.linked !== true) throw new Error(result.error || 'Не удалось подключить Яндекс ID')
+      window.location.replace('/cabinet/profile')
+    } catch (cause) { setError(cause.message); setLinking(false) }
+  }
   const registerUrl = `/login?mode=register&callbackUrl=${returnUrl}${data?.referrerId ? `&ref=${encodeURIComponent(data.referrerId)}` : ''}`
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-4 p-6">
       <h1 className="text-2xl font-semibold">Вход через Яндекс ID</h1>
       {error ? <Notice tone="error" role="alert">{error}</Notice> : (
-        !data || data.accountExists ? <p role="status">Входим в кабинет…</p> : (
+        data?.profileLink ? <>
+          <Notice tone="info">Подключите Яндекс ID к текущему профилю. Номер телефона в обоих аккаунтах должен совпадать.</Notice>
+          <AppButton disabled={linking} onClick={linkProfile}>Подключить Яндекс ID</AppButton>
+          <Link className="underline" href="/cabinet/profile">Вернуться в профиль</Link>
+        </> : !data || data.accountExists ? <p role="status">Входим в кабинет…</p> : (
           <>
             <p>Номер из Яндекс ID: +{data.phone}</p>
             <Notice tone="info">С этим номером ещё нет аккаунта. Подтвердите телефон, задайте пароль и примите соглашения. После регистрации вход через Яндекс завершится автоматически.</Notice>

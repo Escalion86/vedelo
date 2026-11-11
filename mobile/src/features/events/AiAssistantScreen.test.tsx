@@ -60,11 +60,15 @@ it('an unfinished creation resumes without repeating paid analysis', async () =>
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/events/edit/[id]', params: { id: 'new', aiDraft: 'creation' } })
   expect(mockPost).not.toHaveBeenCalled()
 })
-it('a unique search match opens its ordinary review directly, without applying anything', async () => {
+it('a unique search match still requires confirming the target before review', async () => {
   mockPost.mockResolvedValueOnce({ candidates: [{ id: second, title: 'Единственная', client: 'Анна' }] }).mockResolvedValueOnce({ planId: 'plan' })
   const screen = render(<AiAssistantScreen />)
   await act(async () => undefined)
   fireEvent.press(screen.getByText('Разобрать тестовый запрос'))
+  const candidate = await screen.findByText('Единственная · Анна')
+  expect(mockPost).toHaveBeenCalledTimes(1)
+  expect(mockPush).not.toHaveBeenCalled()
+  fireEvent.press(candidate)
   await waitFor(() => expect(mockPush).toHaveBeenCalledWith({ pathname: '/events/edit/[id]', params: { id: second, aiPlan: 'plan' } }))
   expect(mockPost.mock.calls).toEqual([
     ['/mobile/v1/events/ai-assistant', { text: 'Перенеси на завтра' }],

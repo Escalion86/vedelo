@@ -45,6 +45,26 @@ type PushResult = {
   error?: { code?: string; message?: string }
 }
 
+// Only previews without a confirmation or progress can be discarded. The
+// outbox and recovery receipts keep their own retention rules.
+const pruneAbandonedAiPreviews = (epoch: number) => withLocalEntityWrite(async () => {
+  assertLocalDataEpoch(epoch)
+  const database = await getDatabase()
+  assertLocalDataEpoch(epoch)
+  await database.runAsync(`DELETE FROM entity_cache
+    WHERE entity_type IN ('__ai_event_review', '__ai_create_review')
+      AND updated_at <= ? AND json_valid(payload)
+      AND CASE entity_type
+        WHEN '__ai_event_review' THEN
+          json_extract(payload, '$.attempt') IS NULL
+          AND json_array_length(payload, '$.plan.completed') = 0
+        WHEN '__ai_create_review' THEN
+          json_extract(payload, '$.clientAttempt') IS NULL
+          AND json_extract(payload, '$.eventAttempt') IS NULL
+          AND json_extract(payload, '$.clientId') IS NULL
+        ELSE 0 END`, new Date(Date.now() - 7 * 86400_000).toISOString())
+})
+
 type PullPayload = {
   cursor: string
   hasMore?: boolean
@@ -242,8 +262,10 @@ export const runSync = (
   }
   activeSyncIsFullPull = fullPull
   activeSync = (async () => {
+    const epoch = localDataEpoch()
     await markSyncStarted()
     try {
+      await pruneAbandonedAiPreviews(epoch).catch(() => undefined)
       const network = await NetInfo.fetch()
       if (!network.isConnected) {
         await markSyncOffline()

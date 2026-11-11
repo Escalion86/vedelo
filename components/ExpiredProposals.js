@@ -28,6 +28,7 @@ export default function ExpiredProposals({ onOpenEvent }) {
   return (
     <ModalSection
       id="attention-expired-proposals"
+      className="attention-layer attention-layer--critical"
       title="КП с истёкшим сроком"
       titleClassName="card-title"
       titleRight={data.length ? <StatusChip tone="overdue">{data.length}</StatusChip> : null}
@@ -47,7 +48,7 @@ export default function ExpiredProposals({ onOpenEvent }) {
           </p>
           <div className="flex flex-col gap-2">
             {data.slice(0, visibleCount).map((proposal) => (
-              <div key={proposal.eventId} className="min-w-0 rounded-lg border border-gray-200 p-3">
+              <div key={proposal.eventId} className="attention-layer-card min-w-0 rounded-lg border p-3">
                 <div className="card-title break-words text-sm font-semibold">{proposal.title}</div>
                 <div className="mt-2"><ProposalStatusChip status="expired" /></div>
                 <div className="card-muted mt-2 break-words text-sm">

@@ -286,6 +286,11 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       assert.equal(await page.getByRole('button', { name: 'Закрыть голосовой ввод' }).locator('..').locator('.ai-badge').count(), 0)
       if (process.env.QA_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-voice-only-${width}-${dark?'dark':'light'}.png`)})
       await page.getByRole('button', { name: 'Завершить запись' }).click()
+      if (width === 390) {
+        await page.getByText('Выберите заказ', { exact: true }).waitFor()
+        assert.equal(await page.getByText('ИИ подготовил изменения.', { exact: false }).count(), 0)
+        await page.getByRole('button', { name: /Анна · Свадьба/ }).click()
+      }
       await page.getByText('ИИ подготовил изменения.',{exact:false}).waitFor()
       assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
       assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
