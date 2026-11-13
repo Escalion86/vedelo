@@ -4899,7 +4899,18 @@ body.theme-dark .mobile-bottomnav-submenu-row:hover {
 }
 
 /* ---------- Страница/модалка «Важное» (attention) ---------- */
-.attention-layer {
+body {
+  --attention-section-bg: #faf8f3;
+  --attention-card-bg: var(--surface-card-bg);
+}
+
+body.theme-dark {
+  --attention-section-bg: #19140f;
+  --attention-card-bg: #211a14;
+}
+
+.attention-layer,
+body.theme-dark .attention-layer {
   scroll-margin-top: 10px;
   background: var(--attention-panel);
   border-color: var(--attention-panel-border);
@@ -4933,9 +4944,11 @@ body.theme-dark .attention-layer > .card-muted {
   color: #d1d5db;
 }
 
-.attention-layer-card {
-  background: var(--surface-card-bg);
-  border-color: var(--surface-card-border);
+@layer components {
+  .attention-layer-card {
+    background: var(--attention-card-bg);
+    border-color: var(--surface-card-border);
+  }
 }
 
 .task-group-title[data-tone='overdue'] { color: #b91c1c; }
@@ -4945,29 +4958,40 @@ body.theme-dark .task-group-title[data-tone='overdue'] { color: #fecaca; }
 body.theme-dark .task-group-title[data-tone='today'] { color: #fde68a; }
 body.theme-dark .task-group-title[data-tone='tomorrow'] { color: #a7f3d0; }
 
-.attention-section {
+.attention-section,
+body.theme-dark .attention-section {
   scroll-margin-top: 10px;
+  background: var(--attention-section-bg);
+  border-color: var(--surface-card-border);
+  border-left-color: var(--attention-section-accent, var(--surface-card-border));
+}
+
+.attention-section--overdue,
+.attention-section--today,
+.attention-section--tomorrow,
+.attention-section--messages,
+.attention-section--events {
   border-left-width: 3px;
 }
 
 .attention-section--overdue {
-  border-left-color: #dc2626;
+  --attention-section-accent: #dc2626;
 }
 
 .attention-section--today {
-  border-left-color: #d97706;
+  --attention-section-accent: #d97706;
 }
 
 .attention-section--tomorrow {
-  border-left-color: #2563eb;
+  --attention-section-accent: #2563eb;
 }
 
 .attention-section--messages {
-  border-left-color: #7c3aed;
+  --attention-section-accent: #7c3aed;
 }
 
 .attention-section--events {
-  border-left-color: var(--ui-primary, #c9a86a);
+  --attention-section-accent: var(--ui-primary);
 }
 
 .attention-summary {

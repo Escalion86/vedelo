@@ -33,6 +33,7 @@ const useCabinetStateHydration = (props) => {
     siteSettings: initialSiteSettings,
     tariffs: initialTariffs,
     transactions: initialTransactions,
+    transactionsComplete,
     users: initialUsers,
   } = props
   const queryClient = useQueryClient()
@@ -97,6 +98,11 @@ const useCabinetStateHydration = (props) => {
       queryClient.setQueryData(queryKeys.clients(), clients)
     }
     queryClient.setQueryData(queryKeys.transactionsAll, transactions)
+    // Карточки заказов используют и выборку по загруженным заказам.
+    // Список финансов принимает только полный результат.
+    if (transactionsComplete && Array.isArray(initialTransactions)) {
+      queryClient.setQueryData(queryKeys.transactionsList, initialTransactions)
+    }
     // Пустой список услуг на страницах, которые их не загружают, не должен
     // попадать в кэш: свежие (staleTime) пустые данные блокируют запрос
     // /api/services и каталог услуг остаётся пустым до перезагрузки.
@@ -140,6 +146,7 @@ const useCabinetStateHydration = (props) => {
     setTariffs,
     setTransactions,
     setUsers,
+    transactionsComplete,
   ])
 }
 

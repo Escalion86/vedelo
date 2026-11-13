@@ -137,7 +137,7 @@ export function TaskCard({ item, segment, busy, onAction }: {
   </View>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
-  card: { borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, gap: 4, backgroundColor: palette.surface },
+  card: { borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, gap: 4, backgroundColor: palette.attentionSurface.card },
   doneCard: { backgroundColor: palette.notice.success.background, borderColor: palette.notice.success.border },
   heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
   details: { flex: 1, minWidth: 0, gap: 4 },

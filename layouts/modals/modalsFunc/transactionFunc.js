@@ -35,7 +35,7 @@ import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 
 const transactionFunc = (
-  { eventId, transactionId, contractSum, initialValues } = {}
+  { eventId, transactionId, contractSum, initialValues, initialTransaction } = {}
 ) => {
   const TransactionModal = ({
     closeModal,
@@ -59,9 +59,9 @@ const transactionFunc = (
     const transaction = useMemo(
       () =>
         transactionId
-          ? transactions.find((item) => item._id === transactionId)
+          ? initialTransaction ?? transactions.find((item) => item._id === transactionId)
           : null,
-      [transactionId, transactions]
+      [initialTransaction, transactionId, transactions]
     )
 
     const initialEventId = useMemo(

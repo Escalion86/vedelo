@@ -28,7 +28,7 @@ import { modalsFuncAtom } from '@state/atoms'
 import itemsFuncAtom from '@state/atoms/itemsFuncAtom'
 import { useAtomValue } from 'jotai'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useEventsQuery } from '@helpers/useEventsQuery'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
 import { useClientsQuery } from '@helpers/useClientsQuery'
@@ -70,6 +70,45 @@ const SEGMENT_META = {
     emptyText: 'На завтра задач нет',
     tone: 'tomorrow',
   },
+}
+
+const OVERVIEW_PREVIEW_COUNT = 12
+
+const OverviewList = ({ title, items, className, renderItem }) => {
+  const [expanded, setExpanded] = useState(false)
+  const moreId = useId()
+  const hiddenCount = items.length - OVERVIEW_PREVIEW_COUNT
+  const actionLabel = expanded ? 'Свернуть' : `Показать ещё (${hiddenCount})`
+
+  return (
+    <>
+      <div className={className}>
+        {items.slice(0, OVERVIEW_PREVIEW_COUNT).map(renderItem)}
+      </div>
+      {hiddenCount > 0 ? (
+        <>
+          <AppButton
+            variant="ghost"
+            size="sm"
+            className="mt-2 min-h-10 cursor-pointer"
+            aria-label={`${actionLabel} · ${title}`}
+            aria-expanded={expanded}
+            aria-controls={moreId}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {actionLabel}
+          </AppButton>
+          <div id={moreId} className={className} hidden={!expanded}>
+            {expanded
+              ? items.slice(OVERVIEW_PREVIEW_COUNT).map((item, index) =>
+                  renderItem(item, index + OVERVIEW_PREVIEW_COUNT)
+                )
+              : null}
+          </div>
+        </>
+      ) : null}
+    </>
+  )
 }
 
 const normalizeText = (value, fallback = '') => {
@@ -596,7 +635,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
   if (isOverviewPending) {
     return (
       <div
-        className="flex min-h-56 items-center justify-center rounded-lg border border-gray-200 p-4"
+        className="attention-section flex min-h-56 items-center justify-center rounded-lg border p-4"
         role="status"
         aria-live="polite"
       >
@@ -683,10 +722,13 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
             }
           >
             {items.length === 0 ? (
-              <div className="mt-2 text-sm text-gray-500">{meta.emptyText}</div>
+              <div className="card-muted mt-2 text-sm">{meta.emptyText}</div>
             ) : (
-              <div className="mt-2 flex flex-col gap-2">
-                {items.slice(0, 12).map((item, idx) => {
+              <OverviewList
+                title={meta.title}
+                items={items}
+                className="mt-2 flex flex-col gap-2"
+                renderItem={(item, idx) => {
                   const eventAddressLine = getEventAddressLine({
                     address: item.eventAddress,
                   })
@@ -727,7 +769,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                           confirmDeleteAdditionalEvent(item.eventId, index)
                         }
                       >
-                        <div className="text-xs text-gray-500">
+                        <div className="card-muted text-xs">
                           {getEventTitle(item)}
                           {item.eventDate
                             ? ` • начало ${formatDateTime(
@@ -740,7 +782,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                             : ''}
                         </div>
                         {eventAddressLine ? (
-                          <div className="text-xs text-gray-500">
+                          <div className="card-muted text-xs">
                             {eventAddressLine}
                           </div>
                         ) : null}
@@ -798,8 +840,8 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                       }}
                     />
                   )
-                })}
-              </div>
+                }}
+              />
             )}
           </ModalSection>
         )
@@ -827,7 +869,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
             Не удалось загрузить непрочитанные сообщения
           </div>
         ) : unreadItems.length === 0 ? (
-          <div className="mt-2 text-sm text-gray-500">
+          <div className="card-muted mt-2 text-sm">
             Неотвеченных сообщений нет
           </div>
         ) : (
@@ -860,7 +902,7 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
               return (
                 <div
                   key={item.key}
-                  className={`rounded border border-gray-200 px-3 py-2 ${
+                  className={`attention-layer-card rounded border px-3 py-2 ${
                     canOpenClientMessenger
                       ? 'hover:border-general cursor-pointer transition-colors'
                       : ''
@@ -959,13 +1001,14 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
 
       {queueSummary.total > 0 ? (
         <ModalSection
+          className="attention-section"
           title="Синхронизация"
           titleClassName="card-title"
           titleRight={
             <StatusChip tone={syncTone}>{queueSummary.total}</StatusChip>
           }
         >
-          <div className="mt-2 rounded border border-gray-200 px-3 py-2">
+          <div className="attention-layer-card mt-2 rounded border px-3 py-2">
             <div className="text-sm font-semibold text-gray-900">
               {isOnline
                 ? queueSummary.syncing > 0
@@ -1011,12 +1054,15 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
         }
       >
         {upcomingEvents.length === 0 ? (
-          <div className="mt-2 text-sm text-gray-500">
+          <div className="card-muted mt-2 text-sm">
             В ближайшие 3 дня мероприятий нет
           </div>
         ) : (
-          <div className="mt-2 grid min-w-0">
-            {upcomingEvents.slice(0, 12).map((event) => (
+          <OverviewList
+            title="Мероприятия на 3 дня"
+            items={upcomingEvents}
+            className="mt-2 grid min-w-0"
+            renderItem={(event) => (
               <EventCard
                 key={event._id}
                 eventId={event._id}
@@ -1024,27 +1070,30 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                 transactions={transactions}
                 noHorizontalPadding
               />
-            ))}
-          </div>
+            )}
+          />
         )}
       </ModalSection>
 
       {clientEvents.length > 0 ? (
         <ModalSection
           id="attention-client-events"
-          className="attention-section attention-section--client-events"
+          className="attention-section"
           title="События клиентов"
           titleClassName="card-title"
           titleRight={
             <StatusChip tone="upcoming">{clientEvents.length}</StatusChip>
           }
         >
-          <div className="mt-2 flex flex-col gap-2">
-            {clientEvents.slice(0, 12).map((item) => (
+          <OverviewList
+            title="События клиентов"
+            items={clientEvents}
+            className="mt-2 flex flex-col gap-2"
+            renderItem={(item) => (
               <button
                 key={`${item.client?._id}-${item.title}-${item.nextDate.toISOString()}`}
                 type="button"
-                className="hover:border-general flex cursor-pointer items-start justify-between gap-3 rounded border border-gray-200 px-3 py-2 text-left transition-colors"
+                className="attention-layer-card hover:border-general flex cursor-pointer items-start justify-between gap-3 rounded border px-3 py-2 text-left transition-colors"
                 onClick={() => openClientCard(item.client?._id)}
               >
                 <div className="min-w-0">
@@ -1069,8 +1118,8 @@ export const UpcomingEventsOverview = ({ closeModal }) => {
                   </div>
                 </div>
               </button>
-            ))}
-          </div>
+            )}
+          />
         </ModalSection>
       ) : null}
     </div>

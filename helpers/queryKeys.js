@@ -12,6 +12,7 @@ export const queryKeys = {
   eventProposals: (eventId) => ['eventProposals', eventId],
   transactions: (params = {}) => ['transactions', params],
   transactionsAll: ['transactions', {}],
+  transactionsList: ['transactions', { scope: 'list' }],
   statistics: (params = {}) => ['statistics', params],
   services: (params = {}) => ['services', params],
   service: (serviceId) => ['service', serviceId],

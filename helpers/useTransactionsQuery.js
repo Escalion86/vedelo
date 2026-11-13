@@ -7,13 +7,16 @@ import { reachGoal } from '@helpers/metrikaGoals'
 import { queryKeys } from '@helpers/queryKeys'
 import transactionsAtom from '@state/atoms/transactionsAtom'
 
-const normalizeTransactionsPayload = (payload) =>
-  Array.isArray(payload?.data) ? payload.data : []
+const fetchTransactions = async () => {
+  const payload = await apiJson('/api/transactions')
+  if (!Array.isArray(payload?.data)) throw new Error('Invalid transactions response')
+  return payload.data
+}
 
 export const useTransactionsQuery = (initialData, options = {}) =>
   useQuery({
     queryKey: queryKeys.transactionsAll,
-    queryFn: async () => normalizeTransactionsPayload(await apiJson('/api/transactions')),
+    queryFn: fetchTransactions,
     initialData,
     ...options,
   })
@@ -24,6 +27,13 @@ const upsertTransaction = (items, transaction) => {
   const exists = items.some((item) => item?._id === transaction._id)
   if (!exists) return [...items, transaction]
   return items.map((item) => (item?._id === transaction._id ? transaction : item))
+}
+
+const updateCachedTransactions = (queryClient, update) => {
+  queryClient.setQueryData(queryKeys.transactionsAll, update)
+  queryClient.setQueryData(queryKeys.transactionsList, (items) =>
+    items === undefined ? undefined : update(items)
+  )
 }
 
 export const useCreateTransactionMutation = () => {
@@ -39,7 +49,7 @@ export const useCreateTransactionMutation = () => {
     onSuccess: (payload) => {
       const transaction = payload?.data
       if (!transaction?._id) return
-      queryClient.setQueryData(queryKeys.transactionsAll, (prev = []) =>
+      updateCachedTransactions(queryClient, (prev = []) =>
         upsertTransaction(prev, transaction)
       )
       setTransactions((prev) => upsertTransaction(prev, transaction))
@@ -68,7 +78,7 @@ export const useUpdateTransactionMutation = () => {
     onSuccess: (payload) => {
       const transaction = payload?.data
       if (!transaction?._id) return
-      queryClient.setQueryData(queryKeys.transactionsAll, (prev = []) =>
+      updateCachedTransactions(queryClient, (prev = []) =>
         upsertTransaction(prev, transaction)
       )
       setTransactions((prev) => upsertTransaction(prev, transaction))
@@ -94,7 +104,7 @@ export const useDeleteTransactionMutation = () => {
         Array.isArray(prev)
           ? prev.filter((item) => item?._id !== transactionId)
           : prev
-      queryClient.setQueryData(queryKeys.transactionsAll, removeTransaction)
+      updateCachedTransactions(queryClient, removeTransaction)
       setTransactions(removeTransaction)
     },
     onSettled: () => {

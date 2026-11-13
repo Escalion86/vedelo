@@ -53,6 +53,7 @@ const buildSafeDefaultPayload = (serverDateTime, user, extra = {}) => ({
   },
   siteSettings: {},
   transactions: [],
+  transactionsComplete: false,
   news: [],
   services: [],
   tariffs: [],
@@ -342,7 +343,10 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
             })
         : Promise.resolve(null),
       shouldFetchTransactions && transactionsQuery
-        ? Transactions.find(transactionsQuery).lean()
+        ? Transactions.find(transactionsQuery).lean().catch(() => {
+            console.warn('[fetchProps] transactions unavailable', { requestId, page })
+            return null
+          })
         : Promise.resolve([]),
       shouldFetchServices
         ? Services.find({ tenantId: tenantObjectId }).lean()
@@ -390,7 +394,9 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
       siteSettings: JSON.parse(
         JSON.stringify(sanitizeTelegramSiteSettings(siteSettings ?? {}))
       ),
-      transactions: JSON.parse(JSON.stringify(transactions)),
+      transactions: JSON.parse(JSON.stringify(transactions ?? [])),
+      transactionsComplete:
+        FULL_TRANSACTIONS_PAGES.has(page) && Array.isArray(transactions),
       news: JSON.parse(JSON.stringify(newsList)),
       services: JSON.parse(JSON.stringify(services)),
       tariffs: JSON.parse(

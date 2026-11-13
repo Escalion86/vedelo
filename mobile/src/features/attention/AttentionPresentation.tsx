@@ -36,7 +36,7 @@ export function AttentionSection({ id, title, count, tone = 'neutral', accent, h
 
 export function AttentionCard({ children }: PropsWithChildren) {
   const styles = useThemeStyles(createStyles)
-  return <View style={[styles.request, styles.cardBackground]}>{children}</View>
+  return <View style={styles.request}>{children}</View>
 }
 
 export function SummaryChip({ id, label, color, onPress }: { id: string; label: string; color: string; onPress: () => void }) {
@@ -71,7 +71,7 @@ const clientName = (client?: Client) => [client?.firstName, client?.secondName, 
 export function RequestCard({ event, client, past }: { event: Event; client?: Client; past: boolean }) {
   const styles = useThemeStyles(createStyles)
   const displayDate = past ? event.dateEnd ?? event.eventDate : event.eventDate
-  return <View testID={`attention-request-${event._id}`} style={[styles.request, past ? styles.cardBackground : null]}>
+  return <View testID={`attention-request-${event._id}`} style={styles.request}>
     <Text style={styles.title}>{clientName(client)}</Text>
     <Text style={styles.requestType}>{event.eventType || 'Заявка'}</Text>
     {displayDate ? <Text style={styles.meta}>{`${past && event.dateEnd ? 'Окончание работы' : 'Дата работы'}: ${new Date(displayDate).toLocaleString('ru-RU')}`}</Text> : null}
@@ -107,7 +107,7 @@ export function ClientDateRow({ item }: { item: ClientDate }) {
 }
 
 const createStyles = (p: Palette) => StyleSheet.create({
-  section: { borderWidth: 1, borderColor: p.border, borderRadius: 8, padding: 12, gap: 8, backgroundColor: p.surface },
+  section: { borderWidth: 1, borderColor: p.border, borderRadius: 8, padding: 12, gap: 8, backgroundColor: p.attentionSurface.section },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headingLabel: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   title: { fontFamily: typography.fontFamily, color: p.cardTitle, fontSize: 14, fontWeight: '600', flexShrink: 1 },
@@ -136,13 +136,12 @@ const createStyles = (p: Palette) => StyleSheet.create({
   warningText: { color: p.notice.warning.text },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.65 },
-  request: { borderWidth: 1, borderColor: p.border, borderRadius: 8, padding: 12, gap: 4 },
-  cardBackground: { backgroundColor: p.attentionSurface.card },
+  request: { borderWidth: 1, borderColor: p.border, borderRadius: 8, padding: 12, gap: 4, backgroundColor: p.attentionSurface.card },
   requestType: { fontFamily: typography.fontFamily, color: p.cardMuted, fontSize: 14 },
   meta: { fontFamily: typography.fontFamily, color: p.cardMuted, fontSize: 12 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   dateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderColor: p.border,
-    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40 },
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minHeight: 40, backgroundColor: p.attentionSurface.card },
   dateDetails: { flex: 1, minWidth: 0, gap: 4 },
   dateDeadline: { flexShrink: 0, alignItems: 'flex-end', gap: 4 },
   dateText: { fontFamily: typography.fontFamily, color: p.cardTitle, fontSize: 14, fontWeight: '600', textAlign: 'right' },

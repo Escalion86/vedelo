@@ -5,7 +5,7 @@ const path = require('node:path')
 const http = require('node:http')
 
 test(
-  'deposit: attention navigation, postponement, form, cache update and badge, 390/1365 light/dark',
+  'attention: deposit, task postponement and expanded lists, 390/1365 light/dark',
   { timeout: 120000 },
   async () => {
     const esbuild = require('../../mobile/node_modules/esbuild')
@@ -21,8 +21,7 @@ test(
       export const useEventQuery=(id,event)=>({data:event});`,
       '@helpers/useTransactionsQuery': `import {useQuery} from '@tanstack/react-query'; export const useTransactionsQuery=()=>useQuery({queryKey:['transactions',{}],queryFn:async()=>window.transactions,initialData:[]});`,
       '@helpers/useClientsQuery':
-        'export const useClientsQuery=()=>({data:[]});',
-      '@components/RequestsWithoutNextStep': 'export default ()=>null;',
+        'export const useClientsQuery=()=>({data:window.clients});',
       '@components/PastRequests': 'export default ()=>null;',
       '@components/EventProposalStatus': 'export default ()=>null;',
       '@components/EventClientReviewStatus': 'export default ()=>null;',
@@ -46,14 +45,14 @@ test(
       const due=new Date();due.setDate(due.getDate()-1);due.setHours(12,0,0,0);
       const date=new Date();date.setMonth(date.getMonth()+2);
       window.event={_id:'event',status:'draft',eventType:'Корпоратив',waitDeposit:true,depositDueAt:due.toISOString(),depositExpectedAmount:15000,eventDate:date.toISOString(),address:{town:'Красноярск'}};
-      window.transactions=[];window.opened=0;window.postponed=0;
+      window.clients=[];window.transactions=[];window.opened=0;window.postponed=0;
       const client=new QueryClient({defaultOptions:{queries:{retry:false,staleTime:Infinity}}});window.client=client;
       const store=createStore();store.set(siteSettingsAtom,{custom:{primaryEntityTerminology:'orders'}});
       store.set(modalsFuncAtom,{event:{view(){window.opened++}},confirm:({onConfirm})=>onConfirm(),add(props){store.set(modalsAtom,[{id:'deposit',props}])}});
       store.set(itemsFuncAtom,{event:{async set(patch){window.postponed++;window.event={...window.event,...patch};client.setQueriesData({queryKey:['events']},()=>({data:[window.event]}))}}});
       function Badge(){const {data}=useQuery({queryKey:['events',{scope:'upcoming'}]});const {data:transactions=[]}=useQuery({queryKey:['transactions',{}]});return <section id="event-card"><EventCard eventId="event" event={data?.data[0]||window.event} transactions={transactions}/></section>}
       createRoot(document.getElementById('root')).render(<Provider store={store}><QueryClientProvider client={client}>
-        <main style={{padding:16,maxWidth:960,margin:'auto'}}><h1>Важное</h1><Badge/><UpcomingEventsOverview/></main><ModalsPortal/>
+        <main className="cabinet-canvas" style={{padding:16,maxWidth:960,margin:'auto'}}><h1>Важное</h1><Badge/><UpcomingEventsOverview/></main><ModalsPortal/>
       </QueryClientProvider></Provider>);
     `,
         loader: 'jsx',
@@ -102,8 +101,10 @@ test(
       )
     })
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
-    const browser = await chromium.launch({ headless: true, channel: 'msedge' })
+    let browser
     try {
+      const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      browser = await chromium.launch(executablePath ? { executablePath } : { channel: 'msedge' })
       for (const width of [390, 1365])
         for (const dark of [false, true]) {
           const page = await browser.newPage({
@@ -151,6 +152,29 @@ test(
             .waitFor()
           assert.equal(await page.title(), 'Важное — проверка задатка')
           assert.match(page.url(), /cabinet\/attention/)
+          const request = page.locator('#attention-no-next-step')
+          await request.getByRole('button', { name: 'Открыть заявку' }).waitFor()
+          const backgrounds = await page.evaluate(() => {
+            const background = (selector) => getComputedStyle(document.querySelector(selector)).backgroundColor
+            return {
+              canvas: background('.cabinet-canvas'),
+              today: background('#attention-seg-today'),
+              tomorrow: background('#attention-seg-tomorrow'),
+              requests: background('#attention-no-next-step'),
+              requestCard: background('#attention-no-next-step .attention-layer-card'),
+            }
+          })
+          assert.equal(backgrounds.today, backgrounds.tomorrow)
+          assert.equal(backgrounds.today, backgrounds.requests)
+          assert.equal(new Set([backgrounds.canvas, backgrounds.requests, backgrounds.requestCard]).size, 3)
+          assert.notEqual(backgrounds.requests, 'rgba(0, 0, 0, 0)')
+          assert.notEqual(backgrounds.requestCard, 'rgba(0, 0, 0, 0)')
+          const accents = await page.evaluate(() =>
+            ['overdue', 'today', 'tomorrow'].map((segment) =>
+              getComputedStyle(document.getElementById(`attention-seg-${segment}`)).borderLeftColor
+            )
+          )
+          assert.deepEqual(accents, ['rgb(220, 38, 38)', 'rgb(217, 119, 6)', 'rgb(37, 99, 235)'])
           assert.equal(
             await page
               .locator('#event-card')
@@ -281,11 +305,101 @@ test(
           }), [...chosenDate.split('-').map(Number), 18, 45])
           assert.equal(await page.evaluate(() => window.event.additionalEvents[0].title), 'Позвонить клиенту')
           assert.deepEqual(await page.evaluate(() => window.event.additionalEvents[1]), await page.evaluate(() => window.otherTask))
+
+          await page.evaluate(() => {
+            const dateAt = (dayOffset, minute) => {
+              const date = new Date()
+              date.setDate(date.getDate() + dayOffset)
+              date.setHours(12, minute, 0, 0)
+              return date.toISOString()
+            }
+            const tasks = (label, dayOffset) =>
+              Array.from({ length: 13 }, (_, index) => ({
+                title: `${label} ${index + 1}`,
+                date: dateAt(dayOffset, index),
+              })).reverse()
+            const doneAt = new Date().toISOString()
+            window.event = {
+              ...window.event,
+              additionalEvents: [
+                ...tasks('Просроченная задача', -1),
+                ...tasks('Завтрашняя задача', 1),
+                { title: 'Выполненная задача', date: dateAt(-1, 0), done: true, doneAt },
+              ],
+            }
+            window.clients = [{
+              _id: 'fixture-client',
+              firstName: 'Клиент',
+              significantDates: Array.from({ length: 13 }, (_, index) => ({
+                title: `Значимая дата ${index + 1}`,
+                date: dateAt(index + 1, 0),
+              })),
+            }]
+            const upcoming = Array.from({ length: 13 }, (_, index) => ({
+              _id: `fixture-event-${index + 1}`,
+              status: 'active',
+              eventDate: dateAt(1, index),
+            }))
+            window.client.setQueriesData(
+              { queryKey: ['events'] },
+              () => ({ data: [window.event, ...upcoming] })
+            )
+          })
+
+          const overdue = page.locator('#attention-seg-overdue')
+          const tomorrow = page.locator('#attention-seg-tomorrow')
+          const today = page.locator('#attention-seg-today')
+          const showOverdue = overdue.getByRole('button', { name: 'Показать ещё (2) · Просрочено' })
+          const showTomorrow = tomorrow.getByRole('button', { name: 'Показать ещё (1) · Завтра' })
+          await showOverdue.waitFor()
+          await showTomorrow.waitFor()
+          assert.equal(await overdue.locator('.status-chip').textContent(), '13')
+          assert.equal(await overdue.locator('.additional-event-list-card').count(), 12)
+          assert.equal(await today.getByText('На сегодня задач нет').count(), 1)
+          assert.equal(await today.getByRole('button', { name: /Показать ещё/ }).count(), 0)
+          assert.equal(await overdue.getByText('Просроченная задача 13', { exact: true }).count(), 0)
+
+          const controlledId = await showOverdue.getAttribute('aria-controls')
+          const extraRows = overdue.locator(`[id="${controlledId}"]`)
+          assert.equal(await showOverdue.getAttribute('aria-expanded'), 'false')
+          assert.equal(await extraRows.isHidden(), true)
+          assert.ok((await showOverdue.boundingBox()).height >= 40)
+          await showOverdue.focus()
+          await page.keyboard.press('Enter')
+          const collapseOverdue = overdue.getByRole('button', { name: 'Свернуть · Просрочено' })
+          assert.equal(await collapseOverdue.getAttribute('aria-expanded'), 'true')
+          assert.equal(await collapseOverdue.evaluate((button) => button === document.activeElement), true)
+          assert.equal(await extraRows.isVisible(), true)
+          assert.equal(await overdue.locator('.status-chip').textContent(), '13')
+          assert.equal(await overdue.locator('.additional-event-list-card').count(), 14)
+          assert.equal(await overdue.getByText('Просроченная задача 13', { exact: true }).count(), 1)
+          assert.equal(await overdue.getByText(/Выполненная задача/).count(), 1)
+          assert.equal(await tomorrow.locator('.additional-event-list-card').count(), 12)
+
+          await page.keyboard.press('Tab')
+          assert.match(await page.evaluate(() => document.activeElement.textContent), /Просроченная задача 13/)
+          await showTomorrow.click()
+          assert.equal(await tomorrow.getByText('Завтрашняя задача 13', { exact: true }).count(), 1)
+          await collapseOverdue.focus()
+          await page.keyboard.press('Space')
+          assert.equal(await overdue.getByText('Просроченная задача 13', { exact: true }).count(), 0)
+          assert.equal(await tomorrow.getByText('Завтрашняя задача 13', { exact: true }).count(), 1)
+
+          for (const [id, selector] of [
+            ['attention-events', '.ui-surface-card'],
+            ['attention-client-events', '.attention-layer-card'],
+          ]) {
+            const section = page.locator(`#${id}`)
+            assert.equal(await section.locator(selector).count(), 12)
+            await section.getByRole('button', { name: /Показать ещё \(1\)/ }).click()
+            assert.equal(await section.locator(selector).count(), 13)
+          }
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width)
           assert.deepEqual(errors, [])
           await page.close()
         }
     } finally {
-      await browser.close()
+      await browser?.close()
       await new Promise((resolve) => server.close(resolve))
     }
   }

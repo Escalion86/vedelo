@@ -110,7 +110,7 @@ export const lightPalette = {
   },
   sectionAccent: { overdue: '#dc2626', today: '#d97706', tomorrow: '#2563eb', messages: '#7c3aed' },
   attentionTodayTitle: '#a34706',
-  attentionSurface: { overdue: '#fbe8e5', today: '#faf0d4', card: '#ffffff' },
+  attentionSurface: { section: '#faf8f3', overdue: '#fbe8e5', today: '#faf0d4', card: '#ffffff' },
 } as const
 
 type Widen<T> = T extends string ? string : T extends number ? number
@@ -125,7 +125,7 @@ export const darkPalette: Palette = {
   ...lightPalette,
   mode: 'dark',
   attentionTodayTitle: '#fde68a',
-  attentionSurface: { overdue: '#392524', today: '#3a3020', card: '#211a14' },
+  attentionSurface: { section: '#19140f', overdue: '#392524', today: '#3a3020', card: '#211a14' },
   canvas: '#100d0a',
   text: '#e2e8f0',
   surface: 'rgba(24,19,13,0.96)',

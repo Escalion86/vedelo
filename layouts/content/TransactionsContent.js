@@ -4,8 +4,11 @@ import { useMemo, useCallback, useState, useEffect } from 'react'
 import { List } from 'react-window'
 import ContentHeader from '@components/ContentHeader'
 import AddIconButton from '@components/AddIconButton'
+import AppButton from '@components/AppButton'
 import EmptyState from '@components/EmptyState'
 import HeaderActions from '@components/HeaderActions'
+import LoadingSpinner from '@components/LoadingSpinner'
+import Notice from '@components/Notice'
 import TransactionDateRangeFilter from '@components/TransactionDateRangeFilter'
 import DropDown from '@components/DropDown'
 import SectionCard from '@components/SectionCard'
@@ -19,6 +22,7 @@ import { setAtomValue } from '@state/storeHelpers'
 import useUiDensity from '@helpers/useUiDensity'
 import { toDateInputValue } from '@helpers/transactionDateRange'
 import { filterTransactions } from '@helpers/transactionFilters'
+import { queryKeys } from '@helpers/queryKeys'
 import {
   useDeleteTransactionMutation,
   useTransactionsQuery,
@@ -42,6 +46,7 @@ const TRANSACTION_TYPE_OPTIONS = [
   { value: 'expense', label: 'Расходы' },
   { value: 'obligation', label: 'Обязательства' },
 ]
+const EMPTY_TRANSACTIONS = []
 
 const TransactionTypeFilter = ({ value, onChange }) => {
   const activeOption =
@@ -142,7 +147,14 @@ const TransactionRelationFilter = ({ value, onChange }) => {
 
 const TransactionsContent = ({ onHeaderCountChange }) => {
   const { isCompact } = useUiDensity()
-  const { data: transactions = [] } = useTransactionsQuery()
+  const transactionsQuery = useTransactionsQuery(undefined, {
+    queryKey: queryKeys.transactionsList,
+  })
+  const transactions = transactionsQuery.data ?? EMPTY_TRANSACTIONS
+  const showTransactions =
+    Array.isArray(transactionsQuery.data) &&
+    (!transactionsQuery.isError || transactions.length > 0)
+  const isOffline = transactionsQuery.fetchStatus === 'paused'
   const deleteTransactionMutation = useDeleteTransactionMutation()
   const { data: clients = [] } = useClientsQuery()
   const { data: eventsPayload } = useEventsQuery({
@@ -271,7 +283,9 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
       const event = eventsMap[transaction.eventId]
       const type = typeMap[transaction.type] ?? typeMap.expense
       const handleEdit = () =>
-        modalsFunc.transaction?.edit(transaction.eventId, transaction._id)
+        modalsFunc.transaction?.edit(transaction.eventId, transaction._id, {
+          initialTransaction: transaction,
+        })
 
       return (
         <TransactionCard
@@ -295,9 +309,10 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
     ]
   )
 
+  const headerCount = showTransactions ? filteredTransactions.length : null
   useEffect(() => {
-    onHeaderCountChange?.(filteredTransactions.length)
-  }, [filteredTransactions.length, onHeaderCountChange])
+    onHeaderCountChange?.(headerCount)
+  }, [headerCount, onHeaderCountChange])
 
   return (
     <div className="flex h-full flex-col">
@@ -329,15 +344,54 @@ const TransactionsContent = ({ onHeaderCountChange }) => {
           }
         />
       </ContentHeader>
-      <SectionCard className="min-h-0 flex-1 overflow-hidden border-0 bg-transparent shadow-none">
-        {filteredTransactions.length > 0 ? (
-          <List
-            rowCount={filteredTransactions.length}
-            rowHeight={itemHeight}
-            rowComponent={RowComponent}
-            rowProps={{}}
-            style={{ height: '100%', width: '100%' }}
-          />
+      <SectionCard className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent shadow-none">
+        {transactionsQuery.isError ? (
+          <Notice
+            tone={showTransactions ? 'warning' : 'error'}
+            role={showTransactions ? 'status' : 'alert'}
+            className="mx-2 mb-2 flex shrink-0 flex-wrap items-center justify-between gap-3"
+          >
+            <span>
+              {showTransactions
+                ? 'Не удалось обновить транзакции. Показаны сохранённые данные.'
+                : 'Не удалось загрузить транзакции'}
+            </span>
+            <AppButton
+              variant="secondary"
+              size="sm"
+              disabled={transactionsQuery.isFetching || isOffline}
+              aria-busy={transactionsQuery.isFetching}
+              onClick={() => void transactionsQuery.refetch()}
+            >
+              Повторить
+            </AppButton>
+          </Notice>
+        ) : null}
+        {!showTransactions ? (
+          !transactionsQuery.isError && (
+            <div role="status" className="flex min-h-40 items-center justify-center">
+              {isOffline ? (
+                <span className="card-muted">Ожидаем подключения к интернету…</span>
+              ) : (
+                <>
+                  <div aria-hidden="true">
+                    <LoadingSpinner size="xs" heightClassName="h-auto" />
+                  </div>
+                  <span>Загружаем транзакции…</span>
+                </>
+              )}
+            </div>
+          )
+        ) : filteredTransactions.length > 0 ? (
+          <div className="min-h-0 flex-1">
+            <List
+              rowCount={filteredTransactions.length}
+              rowHeight={itemHeight}
+              rowComponent={RowComponent}
+              rowProps={{}}
+              style={{ height: '100%', width: '100%' }}
+            />
+          </div>
         ) : transactions.length === 0 ? (
           <EmptyState
             icon={<FontAwesomeIcon icon={faMoneyBill} className="h-5 w-5" />}

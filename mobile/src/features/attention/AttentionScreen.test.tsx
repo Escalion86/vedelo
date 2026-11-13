@@ -204,11 +204,17 @@ test('ALIGN: прошедшая заявка и заявка без шага в�
 })
 
 test.each([lightPalette, darkPalette])('секции и капсулы PWA, отдельные счётчики, тема $mode', (palette) => {
+  fixtures.events.push({ _id: 'no-step', status: 'draft' })
   const screen = render(<ThemeProvider forcedMode={palette.mode} storage={null}><AttentionScreen /></ThemeProvider>)
+  const { section, card } = palette.attentionSurface
+  expect(new Set([palette.canvas, section, card]).size).toBe(3)
+  expect(screen.getByTestId('attention-section-no-next-step')).toHaveStyle({ backgroundColor: section })
+  expect(screen.getByTestId('attention-request-no-step')).toHaveStyle({ backgroundColor: card })
+  expect(screen.getByTestId('attention-item-e:task:t2')).toHaveStyle({ backgroundColor: card })
   expect(screen.queryByText('Задачи, оплаты и ближайшие даты')).toBeNull()
   expect(screen.getByTestId('attention-scroll').props.contentContainerStyle).toEqual(expect.objectContaining({ padding: 12, gap: 12 }))
   for (const segment of ['overdue', 'today', 'tomorrow'] as const) {
-    expect(screen.getByTestId(`attention-section-${segment}`)).toHaveStyle({ borderWidth: 1, borderRadius: 8, padding: 12, borderLeftWidth: 3, borderLeftColor: palette.sectionAccent[segment] })
+    expect(screen.getByTestId(`attention-section-${segment}`)).toHaveStyle({ borderWidth: 1, borderRadius: 8, padding: 12, borderLeftWidth: 3, borderLeftColor: palette.sectionAccent[segment], backgroundColor: section })
     expect(screen.getByTestId(`attention-count-${segment}`)).toHaveTextContent('1')
     expect(screen.getByTestId(`attention-summary-dot-${segment}`)).toHaveStyle({ width: 7, height: 7, backgroundColor: palette.sectionAccent[segment] })
   }

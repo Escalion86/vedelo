@@ -80,6 +80,7 @@ const RequestsWithoutNextStep = ({ onOpenEvent, now }) => {
   return (
     <ModalSection
       id="attention-no-next-step"
+      className="attention-section"
       title={<span className="inline-flex items-center gap-1">Заявки без следующего шага <FieldHelp text={fieldHelp['attention.withoutNextStep']} label="Заявки без следующего шага" /></span>}
       titleClassName="card-title"
       titleRight={
@@ -117,7 +118,7 @@ const RequestsWithoutNextStep = ({ onOpenEvent, now }) => {
             {requests.slice(0, visibleCount).map((request) => (
               <div
                 key={request._id}
-                className="rounded-lg border border-gray-200 p-3"
+                className="attention-layer-card rounded-lg border p-3"
               >
                 <div className="card-title text-sm break-words">
                   {getPersonFullName(
