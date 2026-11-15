@@ -58,7 +58,7 @@ function VoiceClarification({ question, requestText, onRetry, canRetry }) {
 
 export default function AiEditAssistant({
   eventId: initialEventId = null, mode = 'text', unified = false,
-  standaloneVoice = false,
+  standaloneVoice = false, initialClient,
   setOnShowOnCloseConfirmDialog, setDisableConfirm, setDisableDecline,
   setOnCloseButtonFunc, closeModal,
 }) {
@@ -66,6 +66,7 @@ export default function AiEditAssistant({
   const snackbar = useSnackbar()
   const queryClient = useQueryClient()
   const modalsFunc = useAtomValue(modalsFuncAtom)
+  const clientId = initialClient?._id
   const [eventId, setEventId] = useState(initialEventId)
   const [text, setText] = useState('')
   const [voice, setVoice] = useState(mode === 'voice')
@@ -82,7 +83,7 @@ export default function AiEditAssistant({
   }, [])
   const [pendingVoiceRequest, setPendingVoiceRequest] = useState(false)
   const prepareRef = useRef(null)
-  const wantsClipboard = requestsClipboardPhone(text) || result?.needsClipboardPhone || Boolean(clipboardPhone)
+  const wantsClipboard = !clientId && (requestsClipboardPhone(text) || result?.needsClipboardPhone || Boolean(clipboardPhone))
   const closeVoice = useCallback(() => {
     if (standaloneVoice) closeModal?.()
     else setVoice(false)
@@ -156,25 +157,29 @@ export default function AiEditAssistant({
       if (!mounted.current) return
       const body = { text: requestText, eventId: selectedId,
         ...(unified && !selectedId ? { mode: 'auto', deferClientCreation: true } : {}),
+        ...(clientId ? { mode: 'create' } : {}),
       }
       let next = await request({ ...body, ...(phone ? { clipboardPhone: phone } : {}) })
       if (!mounted.current) return
-      if (standaloneVoice && next.needsClipboardPhone && !phone) {
+      if (standaloneVoice && !clientId && next.needsClipboardPhone && !phone) {
         phone = await readVoicePhone()
         if (!mounted.current) return
         next = await request({ ...body, clipboardPhone: phone })
         if (!mounted.current) return
       }
-      if (unified && next.fields) {
-        if (next.client?._id) {
+      if ((unified || clientId) && next.fields) {
+        if (!clientId && next.client?._id) {
           queryClient.setQueryData(queryKeys.client(next.client._id), next.client)
           await queryClient.invalidateQueries({ queryKey: ['clients'] })
         }
         if (!mounted.current) return
         closeModal?.()
         modalsFunc.event?.create?.(next.fields.status || 'draft', {
-          initialEvent: { ...next.fields, status: next.fields.status || 'draft', description: next.fields.description || requestText },
-          aiFilledFields: next.aiFilledFields || [], aiWarnings: next.aiWarnings || [], initialClient: next.client, initialClientDraft: next.clientDraft,
+          initialEvent: { ...next.fields, ...(clientId ? { clientId } : {}), status: next.fields.status || 'draft', description: next.fields.description || requestText },
+          aiFilledFields: (next.aiFilledFields || []).filter((field) => !clientId || field !== 'clientId'),
+          aiWarnings: next.aiWarnings || [],
+          initialClient: clientId ? initialClient : next.client,
+          initialClientDraft: clientId ? undefined : next.clientDraft,
         })
         return
       }
@@ -258,13 +263,18 @@ export default function AiEditAssistant({
     />
   ) : null
 
+  const requestLabel = clientId
+    ? `Что известно о ${terms.prepositional}?`
+    : unified ? 'Что нужно создать или изменить?' : 'Что нужно изменить?'
   const content = (
     <div className="flex min-w-0 flex-col gap-4">
       {!standaloneVoice || !result?.planId ? <>
-      <p>{unified ? `Опишите новую заявку или изменения ${terms.genitive}. ИИ определит действие: откроет заполненную форму или предложит выбрать запись и проверить изменения.` : `Опишите изменения ${terms.genitive}, клиента, оплат или задач. Сначала проверьте предложение, затем примените его.`}</p>
+      <p>{clientId
+        ? `Опишите ${terms.accusative} для этого клиента. ИИ заполнит поля формы для проверки.`
+        : unified ? `Опишите новую заявку или изменения ${terms.genitive}. ИИ определит действие: откроет заполненную форму или предложит выбрать запись и проверить изменения.` : `Опишите изменения ${terms.genitive}, клиента, оплат или задач. Сначала проверьте предложение, затем примените его.`}</p>
       <Textarea
-        label={unified ? 'Что нужно создать или изменить?' : 'Что нужно изменить?'}
-        ariaLabel={unified ? 'Что нужно создать или изменить?' : 'Что нужно изменить?'}
+        label={requestLabel}
+        ariaLabel={requestLabel}
         value={text}
         onChange={(value) => { setText(value); setResult(null); setError(''); if (!initialEventId) setEventId(null) }}
         rows={5}
@@ -282,7 +292,7 @@ export default function AiEditAssistant({
         <div className="flex flex-wrap gap-2">
           <AppButton variant="secondary" disabled={busy} onClick={() => setVoice(true)}>Продиктовать<AiBadge /></AppButton>
           <AppButton disabled={busy || !text.trim()} onClick={() => prepare()}>
-            {busy ? 'Подготавливаем…' : eventId ? 'Подготовить изменения' : unified ? 'Разобрать запрос' : `Найти ${terms.accusative}`}<AiBadge />
+            {busy ? 'Подготавливаем…' : clientId ? 'Заполнить форму' : eventId ? 'Подготовить изменения' : unified ? 'Разобрать запрос' : `Найти ${terms.accusative}`}<AiBadge />
           </AppButton>
         </div>
       ) : null}
@@ -333,7 +343,10 @@ export default function AiEditAssistant({
           )}
         </div>
       ) : null}
-      {!result?.done ? <p className="text-sm opacity-70">Разбор, поиск и подготовка используют ИИ по условиям вашего тарифа. Применение готового плана не вызывает ИИ.{unified ? ' Для телефона из буфера скажите: «Возьми телефон клиента из буфера обмена». При подготовке новой заявки неизвестный номер создаёт карточку клиента.' : ''}</p> : null}
+      {!result?.done ? <p className="text-sm opacity-70">{clientId
+        ? 'Заполнение формы использует ИИ по условиям вашего тарифа.'
+        : <>Разбор, поиск и подготовка используют ИИ по условиям вашего тарифа. Применение готового плана не вызывает ИИ.{unified ? ' Для телефона из буфера скажите: «Возьми телефон клиента из буфера обмена». При подготовке новой заявки неизвестный номер создаёт карточку клиента.' : ''}</>
+      }</p> : null}
     </div>
   )
   return content

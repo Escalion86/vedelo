@@ -9,7 +9,7 @@ import AppButton from '@components/AppButton'
 import Notice from '@components/Notice'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
 
-const PhotoDraftModal = ({ open, onClose, onDraft }) => {
+const PhotoDraftModal = ({ open, onClose, onDraft, useSelectedClient = false }) => {
   const terms = useWorkItemTerminology()
   const picker = useRef(null)
   const camera = useRef(null)
@@ -52,7 +52,7 @@ const PhotoDraftModal = ({ open, onClose, onDraft }) => {
       if (navigator.onLine === false) throw new Error('Для распознавания нужен интернет. Попробуйте после подключения.')
       const response = await fetch('/api/events/ai-photo-draft', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ image }),
+        body: JSON.stringify({ image, ...(useSelectedClient ? { skipClientResolution: true } : {}) }),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || payload?.error || !payload?.fields || !payload?.sourceText) {
@@ -79,7 +79,7 @@ const PhotoDraftModal = ({ open, onClose, onDraft }) => {
     </div>}>
     <div className="photo-draft-content flex flex-col gap-3">
       <Notice tone="info">Выберите фото бумажной заметки или скриншот о {terms.prepositional}. После распознавания проверьте текст и поля. {terms.labelCapitalized} сохранится только после вашего подтверждения в обычной форме.</Notice>
-      <p className="text-sm">Фото отправится настроенному ИИ только после нажатия «Распознать и заполнить». Это две операции: распознавание фото и заполнение полей, с обычной тарификацией ИИ. Контакт из заметки может создать клиента, как при текстовом вводе.</p>
+      <p className="text-sm">Фото отправится настроенному ИИ только после нажатия «Распознать и заполнить». Это две операции: распознавание фото и заполнение полей, с обычной тарификацией ИИ.{useSelectedClient ? ' В форме будет выбран текущий клиент.' : ' Контакт из заметки может создать клиента, как при текстовом вводе.'}</p>
       <input ref={picker} type="file" accept="image/jpeg,image/png,image/webp" onChange={choose} disabled={busy} className="hidden" aria-label="Выбрать изображение заметки" />
       <input ref={camera} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={choose} disabled={busy} className="hidden" aria-label="Снять заметку камерой" />
       <div className="flex flex-wrap gap-2">
@@ -102,5 +102,5 @@ const PhotoDraftModal = ({ open, onClose, onDraft }) => {
     </div>
   </Modal>
 }
-PhotoDraftModal.propTypes = { open: PropTypes.bool.isRequired, onClose: PropTypes.func.isRequired, onDraft: PropTypes.func.isRequired }
+PhotoDraftModal.propTypes = { open: PropTypes.bool.isRequired, onClose: PropTypes.func.isRequired, onDraft: PropTypes.func.isRequired, useSelectedClient: PropTypes.bool }
 export default PhotoDraftModal

@@ -101,6 +101,21 @@ test('new client only from OCR contacts; client tenant ignores payload', async (
   assert.equal(calls.clients[0].phone, 79991234567)
   assert.equal(calls.queries.every(q => q.tenantId === 'tenant-a'), true)
 })
+
+test('photo from an existing client card never reads or creates clients from the image', async () => {
+  const { POST, calls } = await harness({ foreign: true, text: 'Клиент Борис, телефон 89991234567, гонорар 50000 рублей' })
+  const response = await POST(request({ ...await imageBody(), skipClientResolution: true, clientId: 'foreign-b' }))
+  assert.equal(response.status, 200)
+  const value = await response.json()
+  assert.equal(value.fields.clientId, undefined)
+  assert.equal(value.client, null)
+  assert.equal(value.clientCreated, false)
+  assert.equal(value.fields.contractSum, 50000)
+  assert.equal(calls.provider.length, 2)
+  assert.deepEqual(calls.queries, [{ tenantId: 'tenant-a' }])
+  assert.equal(calls.clients.length, 0)
+})
+
 test('text and voice route retains fallback and contract', async () => {
   const { load } = await harness({ failure: 'event_draft' })
   const response = await load('app/api/events/ai-draft/route.js').POST(request({ text: 'Шоу 15 октября, гонорар 50000 рублей' }))

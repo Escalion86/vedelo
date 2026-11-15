@@ -19,15 +19,16 @@ import { queryKeys } from '@helpers/queryKeys'
 /**
  * Общее меню: обычная форма, создание/редактирование голосом и текстом,
  * отдельное создание из фотографии.
- * Используется и в списке мероприятий (FAB), и в нижней мобильной навигации.
+ * Используется в списке мероприятий, нижней навигации и карточке клиента.
  */
-const useEventCreateMenu = () => {
+const useEventCreateMenu = (initialClient = null, onContinue) => {
   const modalsFunc = useAtomValue(modalsFuncAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const tariffs = useAtomValue(tariffsAtom)
   const siteSettings = useAtomValue(siteSettingsAtom)
   const queryClient = useQueryClient()
   const [photoDraftOpen, setPhotoDraftOpen] = useState(false)
+  const clientId = initialClient?._id
 
   const allowVoiceDraft = useMemo(
     () => Boolean(getUserTariffAccess(loggedUser, tariffs)?.allowAi) && !resolveServerSyncDisabled(siteSettings),
@@ -37,16 +38,18 @@ const useEventCreateMenu = () => {
   const createDisabled = !modalsFunc.event?.create
 
   const handleCreateRequest = useCallback(() => {
-    modalsFunc.event?.create?.('draft')
-  }, [modalsFunc])
+    onContinue?.()
+    if (clientId) {
+      modalsFunc.event?.create?.('draft', { initialClient })
+    } else {
+      modalsFunc.event?.create?.('draft')
+    }
+  }, [modalsFunc, clientId, initialClient, onContinue])
 
-  const handleCreateByVoice = useCallback(() => {
-    modalsFunc.event?.aiEdit?.(null, 'voice', { unified: true })
-  }, [modalsFunc])
-
-  const handleCreateByText = useCallback(() => {
-    modalsFunc.event?.aiEdit?.(null, 'text', { unified: true })
-  }, [modalsFunc])
+  const handleCreateWithAi = useCallback((mode) => {
+    onContinue?.()
+    modalsFunc.event?.aiEdit?.(null, mode, clientId ? { initialClient } : { unified: true })
+  }, [modalsFunc, clientId, initialClient, onContinue])
 
   const handleCreateByPhoto = useCallback(() => setPhotoDraftOpen(true), [])
 
@@ -72,19 +75,21 @@ const useEventCreateMenu = () => {
   const handleTextDraft = useCallback(
     (fields, sourceText, aiFilledFields, client, aiWarnings) => {
       setPhotoDraftOpen(false)
-      cacheAiClient(client)
+      onContinue?.()
+      if (!clientId) cacheAiClient(client)
       modalsFunc.event?.create?.(fields?.status || 'draft', {
         initialEvent: {
           ...fields,
+          ...(clientId ? { clientId } : {}),
           status: fields?.status || 'draft',
           description: fields?.description || sourceText,
         },
-        aiFilledFields,
+        aiFilledFields: clientId ? aiFilledFields.filter((field) => field !== 'clientId') : aiFilledFields,
         aiWarnings,
-        initialClient: client,
+        initialClient: clientId ? initialClient : client,
       })
     },
-    [cacheAiClient, modalsFunc]
+    [cacheAiClient, modalsFunc, clientId, initialClient, onContinue]
   )
 
   const items = useMemo(() => {
@@ -100,16 +105,16 @@ const useEventCreateMenu = () => {
     if (allowVoiceDraft) {
       result.push({
         key: 'voice',
-        label: 'Создать/Ред. голосом', usesAi: true,
+        label: clientId ? 'Голосом' : 'Создать/Ред. голосом', usesAi: true,
         icon: <MicIcon fontSize="small" />,
-        onClick: handleCreateByVoice,
+        onClick: () => handleCreateWithAi('voice'),
       })
       result.push({ key: 'photo', label: 'Из фотографии', usesAi: true, icon: <PhotoCameraIcon fontSize="small" />, onClick: handleCreateByPhoto })
       result.push({
         key: 'text',
-        label: 'Создать/Ред. свободным текстом', usesAi: true,
+        label: clientId ? 'Свободным текстом' : 'Создать/Ред. свободным текстом', usesAi: true,
         icon: <TextSnippetIcon fontSize="small" />,
-        onClick: handleCreateByText,
+        onClick: () => handleCreateWithAi('text'),
       })
     }
     return result
@@ -117,13 +122,13 @@ const useEventCreateMenu = () => {
     createDisabled,
     allowVoiceDraft,
     handleCreateRequest,
-    handleCreateByVoice,
-    handleCreateByText,
+    clientId,
+    handleCreateWithAi,
     handleCreateByPhoto,
   ])
 
   const draftModals = photoDraftOpen && allowVoiceDraft
-    ? <PhotoDraftModal open onClose={() => setPhotoDraftOpen(false)} onDraft={handleTextDraft} />
+    ? <PhotoDraftModal open useSelectedClient={Boolean(clientId)} onClose={() => setPhotoDraftOpen(false)} onDraft={handleTextDraft} />
     : null
 
   return { items, draftModals, createDisabled, createRequest: handleCreateRequest }

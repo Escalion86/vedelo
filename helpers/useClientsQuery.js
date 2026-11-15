@@ -83,11 +83,12 @@ export const useClientRelationsQuery = (clientId) => {
 
   return useQuery({
     queryKey: queryKeys.clientRelations(clientId),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [eventsPayload, transactionsPayload] = await Promise.all([
-        apiJson(`/api/events?clientId=${encodeURIComponent(clientId)}`),
-        apiJson(`/api/transactions?clientId=${encodeURIComponent(clientId)}`),
+        apiJson(`/api/events?clientId=${encodeURIComponent(clientId)}`, { signal }),
+        apiJson(`/api/transactions?clientId=${encodeURIComponent(clientId)}`, { signal }),
       ])
+      signal.throwIfAborted()
 
       const relations = {
         events: normalizeListPayload(eventsPayload),

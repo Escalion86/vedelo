@@ -61,6 +61,7 @@ import clientMessengerFunc from './modalsFunc/clientMessengerFunc'
 import clientTransactionsFunc from './modalsFunc/clientTransactionsFunc'
 import clientSelectFunc from './modalsFunc/clientSelectFunc'
 import clientEventsFunc from './modalsFunc/clientEventsFunc'
+import clientCreateEventFunc from './modalsFunc/clientCreateEventFunc'
 import {
   buildServiceDeleteBlockedText,
   buildServiceDeleteConfirmText,
@@ -475,7 +476,8 @@ const modalsFuncGenerator = (router, itemsFunc, loggedUser, options = {}) => {
       messenger: (clientId) => addModal(clientMessengerFunc(clientId)),
       contactMerge: (clientId) => addModal(clientContactMergeFunc(clientId)),
       transactions: (clientId) => addModal(clientTransactionsFunc(clientId)),
-      events: (clientId) => addModal(clientEventsFunc(clientId)),
+      events: (clientId) => addModal(clientEventsFunc(clientId, workItemTerms)),
+      createEvent: (client) => addModal(clientCreateEventFunc(client, workItemTerms)),
       delete: async (clientId) => {
         if (disableServerSync) {
           addModal({

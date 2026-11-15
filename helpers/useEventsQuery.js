@@ -51,6 +51,39 @@ const removeEventById = (items = [], eventId) => {
   return list.filter((item) => String(item?._id) !== String(eventId))
 }
 
+const updateEventInClientRelations = async (queryClient, eventId, event) => {
+  if (!eventId) return
+  const relatedQueries = {
+    queryKey: ['clientRelations'],
+    predicate: ({ queryKey: [, clientId], state }) =>
+      (event && clientId === event.clientId) ||
+      state.fetchStatus === 'fetching' ||
+      state.data?.events?.some((item) => item._id === eventId),
+  }
+  const relations = queryClient.getQueriesData(relatedQueries)
+  if (relations.length === 0) return
+
+  const queryKeysToUpdate = new Set(relations.map(([queryKey]) => queryKey))
+  const affectedQueries = {
+    queryKey: relatedQueries.queryKey,
+    predicate: ({ queryKey }) => queryKeysToUpdate.has(queryKey),
+  }
+  await queryClient.cancelQueries(affectedQueries)
+  for (const [queryKey] of relations) {
+    queryClient.setQueryData(queryKey, (current) => {
+      if (!current) return current
+      const belongsToClient = event && queryKey[1] === event.clientId
+      return {
+        ...current,
+        events: belongsToClient
+          ? replaceEventById(current.events, event)
+          : removeEventById(current.events, eventId),
+      }
+    })
+  }
+  void queryClient.invalidateQueries(affectedQueries)
+}
+
 const setEventInQueries = (queryClient, event) => {
   if (!event?._id) return
   queryClient.setQueryData(queryKeys.event(event._id), event)
@@ -178,9 +211,10 @@ export const useEventActions = () => {
       })
       return payload?.data
     },
-    onSuccess: (event, variables) => {
+    onSuccess: async (event, variables) => {
       setEventInQueries(queryClient, event)
       setEvents((prev) => replaceEventById(prev, event))
+      await updateEventInClientRelations(queryClient, event?._id, event)
       const isCreate = !variables?.item?._id || variables?.clone
       if (!isCreate) return
       reachGoalOnce('first_crm_item_created', {
@@ -205,9 +239,10 @@ export const useEventActions = () => {
       })
       return eventId
     },
-    onSuccess: (eventId) => {
+    onSuccess: async (eventId) => {
       deleteEventFromQueries(queryClient, eventId)
       setEvents((prev) => removeEventById(prev, eventId))
+      await updateEventInClientRelations(queryClient, eventId)
     },
   })
 
@@ -219,9 +254,10 @@ export const useEventActions = () => {
       })
       return payload?.data
     },
-    onSuccess: (event) => {
+    onSuccess: async (event) => {
       setEventInQueries(queryClient, event)
       setEvents((prev) => replaceEventById(prev, event))
+      await updateEventInClientRelations(queryClient, event?._id, event)
     },
   })
 

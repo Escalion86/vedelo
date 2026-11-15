@@ -38,6 +38,12 @@ export async function POST(req) {
     if (body?.mode === 'apply') return NextResponse.json(await applyAiEdit({ planId: body.planId, context, req, access }))
     const text = typeof body?.text === 'string' ? body.text.trim() : ''
     if (!text || text.length > 12000) return NextResponse.json({ error: 'Введите запрос до 12000 символов' }, { status: 400 })
+    if (body.mode === 'create' && !body.eventId) {
+      return processEventAiDraft({
+        text, tenantId: context.tenantId, userId: context.user._id,
+        strict: true, skipClientResolution: true,
+      })
+    }
     const explicit = explicitAiEventRequestKind(text)
     if (!body.eventId && explicit === 'question')
       return NextResponse.json({ intent: 'question', question: aiReadOnlyQuestion })

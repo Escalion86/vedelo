@@ -93,7 +93,10 @@ export async function handleAiPhotoDraft(request) {
     const sourceText = typeof recognized?.text === 'string' ? recognized.text.trim() : ''
     if (!sourceText || !/[\p{L}\p{N}]/u.test(sourceText)) return fail(422, 'На фото нет читаемого текста. Переснимите заметку крупнее или выберите другое фото.')
     if (sourceText.length > 12000) return fail(422, 'Текста на фото слишком много. Снимите отдельный фрагмент заметки.')
-    const response = await processEventAiDraft({ text: sourceText, tenantId, userId: String(user._id), strict: true, aiSettings: settings })
+    const response = await processEventAiDraft({
+      text: sourceText, tenantId, userId: String(user._id), strict: true,
+      skipClientResolution: body?.skipClientResolution === true, aiSettings: settings,
+    })
     const payload = await response.json()
     return NextResponse.json({ ...payload, sourceText }, { status: response.status, headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {

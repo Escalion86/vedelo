@@ -87,6 +87,23 @@ test('auto create uses the clipboard phone, not the model-selected namesake or a
   assert.equal(h.calls.length, 2)
 })
 
+test('creation from an existing client card skips intent routing and client matching or writes', async () => {
+  const h = await harness({
+    completion: JSON.stringify({ contractSum: 50000, clientId: 'foreign', clientName: 'Анна' }),
+  })
+  const r = await h.post({
+    mode: 'create', text: 'Шоу, гонорар 50000 рублей. Анна 79992222222, телефон из буфера',
+    clientId: 'foreign', tenantId: 'tenant-b',
+  })
+  assert.equal(r.status, 200)
+  assert.equal(r.body.intent, 'create')
+  assert.deepEqual(r.body.fields, { contractSum: 50000 })
+  assert.equal(r.body.client, null)
+  assert.equal(h.created.length, 0)
+  assert.equal(h.searches.length, 0)
+  assert.deepEqual(h.calls.map((call) => call.feature), ['event_draft'])
+})
+
 test('unknown clipboard phone creates a client in the current tenant even when a namesake exists', async () => {
   const h = await harness({ clients: [
     { _id: 'wrong', tenantId: 'tenant-a', firstName: 'Анна', phone: 79991111111 },
@@ -162,6 +179,7 @@ test('auto API denies unauthenticated and out-of-tariff requests before using th
   for (const [options, status] of [[{ context: {} }, 401], [{ access: { allowAi: false } }, 403], [{ access: { allowAi: true, hasTariff: false } }, 403]]) {
     const h = await harness(options)
     assert.equal((await h.post({ mode: 'auto', text: 'Создай заявку' })).status, status)
+    assert.equal((await h.post({ mode: 'create', text: 'Создай заявку' })).status, status)
     assert.equal(h.calls.length, 0)
   }
 })

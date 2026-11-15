@@ -3,6 +3,7 @@ import {
   faArrowDown,
   faArrowUp,
   faCalendarAlt,
+  faCalendarPlus,
   faClockRotateLeft,
   faEllipsisV,
   faExternalLinkAlt,
@@ -81,9 +82,11 @@ const MenuItem = ({
   const tone = MENU_ITEM_TONE[color] || MENU_ITEM_TONE.red
 
   return (
-    <div
+    <button
+      type="button"
+      role="menuitem"
       className={cn(
-        'flex h-9 cursor-pointer items-center gap-x-2 px-2 text-base font-normal duration-300',
+        'flex h-9 w-full cursor-pointer items-center gap-x-2 px-2 text-left text-base font-normal duration-300',
         tone.hover,
         active ? tone.active : tone.base
       )}
@@ -93,10 +96,10 @@ const MenuItem = ({
       }}
     >
       <FontAwesomeIcon icon={icon} className="h-7 w-7" />
-      <div className="prevent-select-text whitespace-nowrap">{tooltipText}</div>
+      <span className="prevent-select-text whitespace-nowrap">{tooltipText}</span>
       {usesAi ? <AiBadge /> : null}
       {badges.length > 0 ? (
-        <div className="ml-auto flex items-center gap-1">
+        <span className="ml-auto flex items-center gap-1">
           {badges.map((badge) => (
             <span
               key={badge.key}
@@ -109,9 +112,9 @@ const MenuItem = ({
               {badge.value}
             </span>
           ))}
-        </div>
+        </span>
       ) : null}
-    </div>
+    </button>
   )
 }
 
@@ -236,6 +239,7 @@ const CardButtons = ({
             loggedUser?.impersonation?.active !== true &&
             String(loggedUser?._id) !== String(item?._id),
           userEvents: typeOfItem === 'client',
+          createEvent: typeOfItem === 'client' && Boolean(modalsFunc.client?.createEvent),
           contactMerge: typeOfItem === 'client',
         }
     : {
@@ -261,6 +265,7 @@ const CardButtons = ({
         deleteBtn:
           showDeleteButton && canManageItem && item.status !== 'closed',
         userEvents: typeOfItem === 'client',
+        createEvent: typeOfItem === 'client' && Boolean(modalsFunc.client?.createEvent),
         contactMerge: typeOfItem === 'client',
       }
 
@@ -376,6 +381,14 @@ const CardButtons = ({
           }}
           color="purple"
           tooltipText="Смена пароля"
+        />
+      )}
+      {show.createEvent && (
+        <ItemComponent
+          icon={faCalendarPlus}
+          onClick={() => modalsFunc.client.createEvent(item)}
+          color="green"
+          tooltipText={`Добавить ${terms.accusative}`}
         />
       )}
       {show.userEvents && (

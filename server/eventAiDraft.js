@@ -87,12 +87,12 @@ const getAmbiguousClientWarning = (candidates) => {
   return `Не удалось однозначно определить клиента: подходят ${names.join(', ')}${suffix}. Выберите клиента вручную.`
 }
 
-export async function processEventAiDraft({ text, tenantId, userId, clientPhone = '', strict = false, deferClientCreation = false, aiSettings: providedAiSettings }) {
+export async function processEventAiDraft({ text, tenantId, userId, clientPhone = '', strict = false, deferClientCreation = false, skipClientResolution = false, aiSettings: providedAiSettings }) {
   try {
     // --- получаем данные для матчинга клиентов и услуг ---
     await dbConnect()
     const [clients, services, aiSettings, siteSettings] = await Promise.all([
-      Clients.find({ tenantId })
+      skipClientResolution ? [] : Clients.find({ tenantId })
         .select(
           '_id firstName secondName thirdName phone whatsapp viber email telegram instagram vk preferredContactChannel clientType'
         )
@@ -177,7 +177,8 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
 - Учитывай словоформы и разговорные сокращения. Например, «свадебное» и «свадебный» означают тип события «Свадьба».
 - Если факт уже разложен по структурированным полям, не дублируй его в description. Оставляй там только важный остаток текста.
 - Пример: «Завтра на линейной 38 от Ларковича за свадебное» означает тип «Свадьба», завтра в 12:00, улица «Линейная», дом «38»; суммы в этой фразе нет.
-- Даты в ISO 8601.`
+- Даты в ISO 8601.
+${skipClientResolution ? 'Клиент уже выбран. Не возвращай поля клиента и не добавляй предупреждения о его имени или контактах.' : ''}`
 
     // --- LLM: выбранный пользователем OpenAI-совместимый провайдер ---
     let completion = null
@@ -243,47 +244,53 @@ ${clientNames.map((c) => `- ${c.id}: "${c.name}"`).join('\n')}
       fields.servicesIds = selectedServiceIds
     }
 
-    const contacts = keepAiContactsPresentInText(
-      mergeAiClientContacts(extractAiClientContacts(text), parsed ?? {}),
-      text
-    )
     const aiWarnings = normalizeAiWarnings(parsed?.warnings)
-    // An explicitly supplied clipboard phone takes priority over a model's name/ID.
-    const phoneMatches = clientPhone
-      ? clients.filter((client) => findClientByAiContacts([client], { phone: clientPhone }))
-      : []
-    if (clientPhone) { contacts.phone = clientPhone; delete fields.clientId }
-    let selectedClient = clientPhone
-      ? (phoneMatches.length === 1 ? phoneMatches[0] : null)
-      : findClientByAiContacts(clients, contacts)
-    if (phoneMatches.length > 1)
-      aiWarnings.unshift('Этот телефон указан у нескольких клиентов. Выберите клиента вручную; новая карточка не создана.')
-    const nameResolution = resolveAiClientByName(clients, text)
-    if (!clientPhone && !selectedClient && nameResolution.client) {
-      selectedClient = nameResolution.client
-    } else if (!clientPhone && !selectedClient && nameResolution.ambiguous) {
-      delete fields.clientId
-      aiWarnings.unshift(getAmbiguousClientWarning(nameResolution.candidates))
-    } else if (!clientPhone && !selectedClient && fields.clientId) {
-      selectedClient = clients.find(
-        (client) => String(client._id) === String(fields.clientId)
-      )
-    }
-
+    let selectedClient = null
     let clientCreated = false
     let clientDraft = null
-    if (!selectedClient && phoneMatches.length < 2 && hasAiClientContacts(contacts)) {
-      const proposed = buildAiClientPayload({ clientName: getVerifiedClientName(fields.clientName, text), contacts })
-      if (deferClientCreation) {
-        clientDraft = proposed
+    if (skipClientResolution) {
+      delete fields.clientId
+      delete fields.clientName
+    } else {
+      const contacts = keepAiContactsPresentInText(
+        mergeAiClientContacts(extractAiClientContacts(text), parsed ?? {}),
+        text
+      )
+      // An explicitly supplied clipboard phone takes priority over a model's name/ID.
+      const phoneMatches = clientPhone
+        ? clients.filter((client) => findClientByAiContacts([client], { phone: clientPhone }))
+        : []
+      if (clientPhone) { contacts.phone = clientPhone; delete fields.clientId }
+      selectedClient = clientPhone
+        ? (phoneMatches.length === 1 ? phoneMatches[0] : null)
+        : findClientByAiContacts(clients, contacts)
+      if (phoneMatches.length > 1)
+        aiWarnings.unshift('Этот телефон указан у нескольких клиентов. Выберите клиента вручную; новая карточка не создана.')
+      const nameResolution = resolveAiClientByName(clients, text)
+      if (!clientPhone && !selectedClient && nameResolution.client) {
+        selectedClient = nameResolution.client
+      } else if (!clientPhone && !selectedClient && nameResolution.ambiguous) {
         delete fields.clientId
-      } else {
-        selectedClient = await Clients.create({ ...proposed, tenantId })
-        clientCreated = true
+        aiWarnings.unshift(getAmbiguousClientWarning(nameResolution.candidates))
+      } else if (!clientPhone && !selectedClient && fields.clientId) {
+        selectedClient = clients.find(
+          (client) => String(client._id) === String(fields.clientId)
+        )
       }
-    }
 
-    if (selectedClient?._id) fields.clientId = String(selectedClient._id)
+      if (!selectedClient && phoneMatches.length < 2 && hasAiClientContacts(contacts)) {
+        const proposed = buildAiClientPayload({ clientName: getVerifiedClientName(fields.clientName, text), contacts })
+        if (deferClientCreation) {
+          clientDraft = proposed
+          delete fields.clientId
+        } else {
+          selectedClient = await Clients.create({ ...proposed, tenantId })
+          clientCreated = true
+        }
+      }
+
+      if (selectedClient?._id) fields.clientId = String(selectedClient._id)
+    }
 
     const aiFilledFields = Object.keys(fields).filter((field) =>
       AI_FORM_FIELDS.has(field)

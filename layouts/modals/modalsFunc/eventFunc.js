@@ -310,9 +310,9 @@ const eventFunc = (
     const showColleagueTransferControls =
       shouldShowColleagueTransferControls(siteSettings)
 
-    const [clientId, setClientId] = useState(
-      event?.clientId ?? DEFAULT_EVENT.clientId
-    )
+    const presetClientId = eventId ? null : options.initialClient?._id
+    const initialClientId = event?.clientId ?? presetClientId ?? DEFAULT_EVENT.clientId
+    const [clientId, setClientId] = useState(initialClientId)
     const [eventDate, setEventDate] = useState(
       event?.eventDate ?? DEFAULT_EVENT.eventDate
     )
@@ -427,7 +427,7 @@ const eventFunc = (
 
     const initialEventValues = useMemo(() => {
       return {
-        clientId: event?.clientId ?? DEFAULT_EVENT.clientId,
+        clientId: initialClientId,
         eventDate: event?.eventDate ?? DEFAULT_EVENT.eventDate,
         address: (() => {
           const normalized = normalizeAddressValue(event?.address)
@@ -477,6 +477,7 @@ const eventFunc = (
       }
     }, [
       event,
+      initialClientId,
       initialIsTransferred,
       initialStatusValue,
       requestCreatedAt,
@@ -1316,7 +1317,7 @@ const eventFunc = (
       setOnShowOnCloseConfirmDialog(isFormChanged)
       setDisableConfirm(status === 'canceled' && !normalizedCancelReason)
       setOnConfirmFunc(
-        isFormChanged || useCompactForm
+        isFormChanged || useCompactForm || presetClientId
           ? () => onClickConfirmRef.current()
           : null
       )
@@ -1331,6 +1332,7 @@ const eventFunc = (
     }, [
       isFormChanged,
       useCompactForm,
+      presetClientId,
       setDisableConfirm,
       setOnConfirmFunc,
       setOnCloseButtonFunc,
