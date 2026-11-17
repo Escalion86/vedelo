@@ -1,6 +1,7 @@
 import React from 'react'
 import { Linking } from 'react-native'
 import { fireEvent, render, within } from '@testing-library/react-native'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
@@ -19,11 +20,13 @@ const client: Client = { _id: 'local-client', firstName: 'Анна', phone: '799
 const event: ListEvent = { _id: 'local-event', status: 'active', eventType: 'Очень длинное название '.repeat(10), isByContract: true, calendarImportChecked: true, address: { town: 'Красноярск' } }
 const stopPropagation = jest.fn()
 const press = (node: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(node, { stopPropagation })
+const withQueries = (children: React.ReactElement) =>
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } })}>{children}</QueryClientProvider>
 const setup = (values: Partial<ListEvent> = {}, props = {}, dark = false) => {
   const onPress = jest.fn()
-  const screen = render(<ThemeProvider storage={null} forcedMode={dark ? 'dark' : 'light'}>
+  const screen = render(withQueries(<ThemeProvider storage={null} forcedMode={dark ? 'dark' : 'light'}>
     <MobileEventCard event={{ ...event, ...values }} services={[]} transactions={[]} client={client} testID="card" onPress={onPress} {...props} />
-  </ThemeProvider>)
+  </ThemeProvider>))
   return { ...screen, onPress }
 }
 beforeEach(() => { jest.clearAllMocks(); jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined) })
@@ -115,7 +118,7 @@ it('syncing blocks tap, failed/conflict show explicit overlay and sync route', (
 describe('MobileEventCard', () => {
   it('показывает ключевые данные в иерархии PWA-карточки', () => {
     const onPress = jest.fn()
-    const screen = render(
+    const screen = render(withQueries(
       <MobileEventCard
         event={{
           _id: 'event-1',
@@ -147,7 +150,7 @@ describe('MobileEventCard', () => {
         testID="event-card"
         onPress={onPress}
       />
-    )
+    ))
 
     expect(screen.getByText('Свадьба • Ведение, Аппаратура')).toBeTruthy()
     expect(screen.getByText('Анна Иванова')).toBeTruthy()

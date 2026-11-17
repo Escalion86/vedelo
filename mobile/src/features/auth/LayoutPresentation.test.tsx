@@ -25,6 +25,7 @@ jest.mock('../../shared/providers/AppProviders', () => ({
 jest.mock('../../shared/auth/AuthProvider', () => ({ useAuth: () => mockAuth }))
 jest.mock('../../shared/auth/AppLockProvider', () => ({ useAppLock: () => ({ locked: mockLocked }) }))
 jest.mock('../../shared/native/useDeviceProjection', () => ({ useDeviceProjection: jest.fn() }))
+jest.mock('../events/calendarSync', () => ({ useCalendarSyncPolling: jest.fn() }))
 jest.mock('../../shared/storage/database', () => ({ getDatabase: jest.fn() }))
 jest.mock('../../shared/sync/syncEngine', () => ({ runSync: jest.fn() }))
 jest.mock('../../shared/sync/backgroundSync', () => ({ registerBackgroundSync: jest.fn(), unregisterBackgroundSync: jest.fn() }))

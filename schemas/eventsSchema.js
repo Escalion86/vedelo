@@ -244,6 +244,12 @@ const eventsSchema = {
     type: String,
     default: '',
   },
+  calendarSyncStatus: {
+    type: String,
+    enum: ['', 'pending', 'failed'],
+    default: '',
+  },
+  calendarSyncUpdatedAt: Date,
 }
 
 export default eventsSchema

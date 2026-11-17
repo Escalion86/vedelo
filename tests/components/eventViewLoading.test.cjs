@@ -38,7 +38,10 @@ const eventTerms = {
 }
 const mocks = {
   jotai: { useAtomValue: (value) => React.useMemo(() => value, [value]) },
-  '@tanstack/react-query': { useQueryClient: () => ({ getQueryData: () => queryState.data }) },
+  '@tanstack/react-query': {
+    useQueryClient: () => ({ getQueryData: () => queryState.data }),
+    useQuery: () => ({}),
+  },
   '@components/AppButton': ({ children, onClick }) => React.createElement('button', { onClick }, children),
   './eventAdditionalEventEditorModal': options => { openedTaskEditor = options },
   '@helpers/useEventsQuery': { useEventQuery: () => queryState },

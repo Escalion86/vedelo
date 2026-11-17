@@ -1,54 +1,19 @@
 import { NextResponse } from 'next/server'
 import Events from '@models/Events'
-import dbConnect from '@server/dbConnect'
-import { updateEventInCalendar } from '@server/CRUD'
 import mongoose from 'mongoose'
-import Users from '@models/Users'
-import getRequestContext from '@server/getRequestContext'
-import { googleImportUserFilter } from '@server/googleImportContext'
-import { getUserCalendarId, normalizeCalendarSettings } from '@server/googleUserCalendarClient'
-import { googleCalendarConnectionKey } from '@server/googleCalendarStableInsert.mjs'
-import getUserTariffAccess from '@server/getUserTariffAccess'
+import { runGoogleCalendarSync } from '@server/googleCalendarSyncQueue'
+import {
+  enqueueCalendarSyncRequest,
+  getCalendarSyncRequestAccess,
+} from '@server/googleCalendarSyncRequest'
 
 const checkedWork = {
   calendarImportChecked: true,
   $or: [{ importedFromFile: { $ne: true } }, { fileImportChecked: true }],
 }
 
-class CheckedSyncChanged extends Error {
-  constructor(response) {
-    super('Calendar sync prerequisites changed')
-    this.response = response
-  }
-}
-
-const checkAccess = async (req) => {
-  const { tenantId, user } = await getRequestContext(req)
-  if (!tenantId || !user?._id) {
-    return { errorResponse: NextResponse.json(
-      { success: false, error: 'Не авторизован' },
-      { status: 401 }
-    ) }
-  }
-
-  const access = await getUserTariffAccess(user._id)
-  if (!access?.allowCalendarSync) {
-    return { errorResponse: NextResponse.json(
-      { success: false, error: 'Синхронизация с календарем недоступна' },
-      { status: 403 }
-    ) }
-  }
-  await dbConnect()
-  const owner = await Users.findOne(googleImportUserFilter(user._id, tenantId)).lean()
-  const settings = normalizeCalendarSettings(owner)
-  if (!owner || !settings.enabled || !settings.refreshToken) return { errorResponse: NextResponse.json(
-    { success: false, error: 'Подключите и включите Google Calendar' }, { status: 409 }
-  ) }
-  return { tenantId, user: owner, connectionKey: googleCalendarConnectionKey(owner, settings, getUserCalendarId(owner)) }
-}
-
 export const GET = async (req) => {
-  const { tenantId, connectionKey, errorResponse } = await checkAccess(req)
+  const { tenantId, connectionKey, errorResponse } = await getCalendarSyncRequestAccess(req)
   if (errorResponse) return errorResponse
 
   const events = await Events.find(
@@ -76,12 +41,13 @@ export const GET = async (req) => {
 }
 
 export const POST = async (req) => {
-  const { tenantId, user, connectionKey, errorResponse } = await checkAccess(req)
+  const context = await getCalendarSyncRequestAccess(req)
+  const { tenantId, connectionKey, errorResponse } = context
   if (errorResponse) return errorResponse
 
   const body = await req.json().catch(() => ({}))
   const eventId = String(body?.eventId ?? '').trim()
-  if (!mongoose.Types.ObjectId.isValid(eventId)) {
+  if (!mongoose.isObjectIdOrHexString(eventId)) {
     return NextResponse.json(
       { success: false, error: 'Не указан eventId' },
       { status: 400 }
@@ -91,51 +57,26 @@ export const POST = async (req) => {
     { success: false, error: 'Подключение календаря изменилось' }, { status: 409 }
   )
 
-  const filter = {
+  const queued = await enqueueCalendarSyncRequest({
     _id: eventId,
     tenantId,
     ...checkedWork,
-  }
-  const event = await Events.findOne(filter)
-  if (!event) {
-    return NextResponse.json(
-      { success: false, error: 'Мероприятие не найдено или не проверено' },
-      { status: 404 }
-    )
-  }
+  }, context)
+  if (queued.errorResponse) return queued.errorResponse
 
-  const revisionFilter = { ...filter, syncVersion: event.syncVersion ?? null }
-  const beforeWrite = async () => {
-    const latest = await checkAccess(req)
-    if (latest.errorResponse) throw new CheckedSyncChanged(latest.errorResponse)
-    if (String(latest.tenantId) !== String(tenantId) || latest.connectionKey !== connectionKey) {
-      throw new CheckedSyncChanged(NextResponse.json(
-        { success: false, error: 'Подключение календаря изменилось' }, { status: 409 }
-      ))
-    }
-    if (!await Events.exists(revisionFilter)) throw new CheckedSyncChanged(NextResponse.json(
-      { success: false, error: 'Работа изменилась или снята отметка. Обновите список.' }, { status: 412 }
-    ))
+  const result = queued.event.calendarSyncStatus === 'pending'
+    ? await runGoogleCalendarSync(tenantId, eventId, {
+        connectionKey,
+        generation: queued.event.calendarSyncJob?.generation,
+      })
+    : 'skipped'
+  if (result === 'synced' || result === 'skipped') {
+    return NextResponse.json({ success: true, data: { eventId } })
   }
-  try {
-    const result = await updateEventInCalendar(event, req, user, null, beforeWrite)
-    if (result === undefined) throw Error('Google Calendar unavailable')
-    await Events.updateOne(revisionFilter, {
-      calendarSyncError: '',
-    })
-    return NextResponse.json(
-      { success: true, data: { eventId: event._id } },
-      { status: 200 }
-    )
-  } catch (error) {
-    if (error instanceof CheckedSyncChanged) return error.response
-    await Events.updateOne(revisionFilter, {
-      calendarSyncError: 'calendar_sync_failed',
-    })
-    console.error('Google Calendar checked sync failed', Number(error?.response?.status ?? error?.code) || 'unknown')
-    return NextResponse.json(
-      { success: false, error: 'Ошибка синхронизации мероприятия' },
-      { status: 500 }
-    )
-  }
+  const [error, status] = {
+    retrying: ['Запланирован повтор синхронизации', 503],
+    busy: ['Синхронизация уже выполняется', 412],
+    obsolete: ['Данные или подключение изменились. Обновите список', 412],
+  }[result] ?? ['Ошибка синхронизации мероприятия', 500]
+  return NextResponse.json({ success: false, error }, { status })
 }

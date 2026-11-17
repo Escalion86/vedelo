@@ -2,7 +2,7 @@ import React from 'react'
 jest.mock('../learning/LearningTip', () => ({ LearningTip: () => null }))
 jest.mock('../news/NewsNotice', () => ({ NewsNotice: () => null }))
 jest.mock('../conversations/UnreadConversationsSection', () => ({ UnreadConversationsSection: () => null }))
-import { Alert } from 'react-native'
+import { AccessibilityInfo, Alert, AppState, type AppStateStatus } from 'react-native'
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from 'expo-router'
@@ -11,11 +11,12 @@ import ClientDetailScreen from '../../../app/clients/[id]/index'
 import BillingScreen from '../../../app/billing'
 import AttentionScreen from '../attention/AttentionScreen'
 import { MobileEventCard } from './MobileEventCard'
+import { getCalendarSyncInfo, useCalendarSyncPolling } from './calendarSync'
 import { MenuCatalogue } from '../navigation/MenuSheet'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import type { Event } from '../../shared/domain/types'
 import { expectBoundRead } from '../../../__tests__/stageO/boundRead'
-const mockRequest=jest.fn(),mockGet=jest.fn(),mockUpsert=jest.fn(),mockRefetch=jest.fn(async()=>{}),mockScope=jest.fn()
+const mockRequest=jest.fn(),mockGet=jest.fn(),mockPost=jest.fn(),mockUpsert=jest.fn(),mockRefetch=jest.fn(async()=>{}),mockScope=jest.fn()
 let mockEvent:Event, mockUser={_id:'u',tenantId:'t'},mockOnline=true,mockAllowed=true
 let mockProposal:any,mockReviews:any[]
 jest.mock('expo-router',()=>({router:{push:jest.fn(),replace:jest.fn()},useLocalSearchParams:()=>({id:mockEvent._id}),useFocusEffect:(fn:any)=>require('react').useEffect(fn,[fn])}))
@@ -25,9 +26,12 @@ jest.mock('expo-clipboard',()=>({setStringAsync:jest.fn(async()=>true)}))
 jest.mock('react-native-safe-area-context',()=>({SafeAreaView:require('react-native').View,useSafeAreaInsets:()=>({top:0,bottom:0})}))
 jest.mock('@react-native-community/netinfo',()=>({useNetInfo:()=>({isConnected:mockOnline,isInternetReachable:mockOnline})}))
 // Synthetic auth transport boundary; real proposal identity/API/schema/operations remain loaded.
-jest.mock('../../shared/auth/tokenStore',()=>require('../../../__tests__/stageN/sessionBoundary.cjs').createSessionBoundary(()=>mockUser))
+jest.mock('../../shared/auth/tokenStore',()=>({
+  ...require('../../../__tests__/stageN/sessionBoundary.cjs').createSessionBoundary(()=>mockUser),
+  getAuthSessionEpoch: () => mockUser._id === 'u' ? 1 : 2,
+}))
 jest.mock('../../shared/auth/AuthProvider',()=>({useAuth:()=>{require('react').useEffect(()=>require('../../shared/auth/tokenStore').notify(),[mockUser]);return {user:mockUser,refreshUser:async()=>{}}}}))
-jest.mock('../../shared/api/client',()=>({api:{get:(...a:any[])=>mockGet(...a),request:(...a:any[])=>mockRequest(...a)}}))
+jest.mock('../../shared/api/client',()=>({api:{get:(...a:any[])=>mockGet(...a),post:(...a:any[])=>mockPost(...a),request:(...a:any[])=>mockRequest(...a)}}))
 jest.mock('../../shared/hooks/useCachedEntities',()=>({useCachedEntities:(kind:string)=>jest.requireActual('@tanstack/react-query').useQuery({queryKey:['cached-entities',kind],queryFn:async()=>kind==='events'?[mockEvent]:[]})}))
 // Synthetic storage boundary for component rendering; real SQL readback is tested separately.
 // The real identity guard now also cleans old aliases after reading a durable
@@ -39,7 +43,7 @@ jest.mock('../../shared/storage/database',()=>({getDatabase:async()=>({runAsync:
 jest.mock('../../shared/storage/cache',()=>{
  const read=async(kind:string,id:string)=>kind==='__proposal_creation'?null:kind==='events'?(mockEvent._id===id?mockEvent:null):{_id:id,firstName:'Клиент'}
  const write=(...a:any[])=>mockUpsert(...a)
- return {getCachedEntity:read,listCachedEntities:async()=>[],upsertEntities:write,publishEntityReadback:(kind:string,fresh:any,active:any,publish:any)=>require('../../../../tests/stageN-fixtures/componentStorage.cjs').publishStorageBoundary(kind,fresh,active,publish,read,write)}
+ return {subscribeCacheChanges:()=>()=>{},getCachedEntity:read,listCachedEntities:async()=>[],upsertEntities:write,publishEntityReadback:(kind:string,fresh:any,active:any,publish:any)=>require('../../../../tests/stageN-fixtures/componentStorage.cjs').publishStorageBoundary(kind,fresh,active,publish,read,write)}
 })
 jest.mock('../../shared/storage/mutations',()=>({saveLocalEntity:jest.fn()}))
 jest.mock('../../shared/hooks/useWorkItemTerminology',()=>({useWorkItemTerminology:()=>({labelCapitalized:'Заказ',pluralCapitalized:'Заказы',accusative:'заказ',pluralGenitive:'заказов'})}))
@@ -165,4 +169,46 @@ it('virtualized card mounts reuse the status map after the first response settle
  screen.rerender(<QueryClientProvider client={cache}><ThemeProvider storage={null} forcedMode="light">{card('e')}{card('later')}</ThemeProvider></QueryClientProvider>)
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,100))})
  expect(mockGet.mock.calls.filter(([p])=>p==='/client-reviews/statuses')).toHaveLength(1)
+})
+
+it.each(['light','dark'] as const)('calendar retry changes only the card indicator and is polled to completion (%s)', async theme => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true)
+  let appStateChanged: (state: AppStateStatus) => void = () => {}
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((type, listener) => {
+    if (type === 'change') appStateChanged = listener as typeof appStateChanged
+    return { remove: () => {} }
+  })
+  const failure = { ...mockEvent, syncVersion: 3, calendarSyncError: 'calendar_sync_failed' }
+  const pending = { _id: mockEvent._id, syncVersion: 3, calendarSyncStatus: 'pending', calendarSyncError: '', calendarSyncUpdatedAt: '2026-11-17T03:00:00Z' }
+  mockEvent = failure
+  mockPost.mockResolvedValue({ success: true, data: pending })
+  let finish: (value: unknown) => void = () => {}
+  mockGet.mockImplementation(async (path: string) => path === '/events/calendar-sync?ids=e'
+    ? new Promise(resolve => { finish = resolve })
+    : { success: true, data: {} })
+  const screen = setup(() => {
+    useCalendarSyncPolling()
+    return <MobileEventCard event={failure} services={[]} transactions={[]} testID="order" onPress={() => {}} />
+  }, theme)
+  act(() => appStateChanged('active'))
+  expect(screen.getByLabelText(/Ошибка календаря/)).toBeTruthy()
+  fireEvent.press(screen.getByTestId('order-overflow'), { stopPropagation: () => {} })
+  fireEvent.press(screen.getByText('Повторить синхронизацию'))
+  await screen.findByLabelText(/Синхронизация с Google Календарём/)
+  expect(mockPost).toHaveBeenCalledTimes(1)
+  expect(mockPost).toHaveBeenCalledWith('/events/e/calendar-sync')
+  await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/events/calendar-sync?ids=e', expect.anything()))
+  expect(mockGet.mock.calls.find(([path]) => path === '/events/calendar-sync?ids=e')?.[1].signal.aborted).toBe(false)
+  await act(async () => finish({ success: true, data: [{ ...pending, calendarSyncStatus: '', calendarSyncUpdatedAt: '2026-11-17T03:00:01Z' }] }))
+  await waitFor(() => expect(cache.getQueryData(['event-calendar-sync-status', 1])).toMatchObject({ e: { calendarSyncStatus: '' } }))
+  await waitFor(() => expect(screen.getByTestId('order').props.accessibilityLabel).not.toMatch(/Синхронизация с Google Календарём|Ошибка календаря/), { timeout: 3000 })
+  expect(cache.getQueryData(['cached-entities', 'events'])).toEqual([failure])
+  expect(mockUpsert).not.toHaveBeenCalled()
+})
+
+it('a calendar readback cannot show progress for a local edit or clear a newer pending revision', () => {
+  const pending = { ...mockEvent, syncVersion: 3, calendarSyncStatus: 'pending' as const }
+  const oldCompletion = { _id: pending._id, syncVersion: 2, calendarSyncUpdatedAt: '2026-11-17T03:00:01Z' }
+  expect(getCalendarSyncInfo(pending, oldCompletion).status).toBe('pending')
+  expect(getCalendarSyncInfo({ ...pending, syncStatus: 'pending' }).status).toBe('')
 })

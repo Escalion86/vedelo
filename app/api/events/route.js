@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { validateDocumentPaymentLinks } from '@server/documentPaymentLinks'
 import Events from '@models/Events'
 import dbConnect from '@server/dbConnect'
-import { updateEventInCalendar } from '@server/CRUD'
+import {
+  getGoogleCalendarSyncAccount,
+  getGoogleCalendarSyncCreateFields,
+  scheduleGoogleCalendarSync,
+} from '@server/googleCalendarSyncQueue'
 import { recordActivityHistory } from '@server/activityHistory'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
@@ -426,14 +430,18 @@ export const POST = async (req) => {
   if (!(await validateDocumentPaymentLinks(normalizeEventDocuments(body.documents), tenantId, null))) {
     return NextResponse.json({ success: false, error: 'Сначала сохраните заказ и добавьте оплату' }, { status: 400 })
   }
-  const event = await Events.create({
-    ...body,
+  const calendarAccount = access?.allowCalendarSync
+    ? await getGoogleCalendarSyncAccount(user._id, tenantId, user.impersonation?.active)
+    : null
+  const eventData = {
+    ...Object.fromEntries(Object.entries(body).filter(([field]) => !field.includes('.') && !field.startsWith('$'))),
     tenantId,
+    syncVersion: 1,
     agreedProposal: null,
     requestCreatedAt: body.requestCreatedAt
       ? new Date(body.requestCreatedAt)
       : new Date(),
-    additionalEvents: normalizeAdditionalEvents(body.additionalEvents, { user }),
+    additionalEvents: normalizeAdditionalEvents(body.additionalEvents, { user: calendarAccount ?? user }),
     documentFiles: normalizeEventDocumentFiles(body.documentFiles),
     documents: normalizeEventDocuments(body.documents),
     eventType: eventTypeValue,
@@ -442,10 +450,23 @@ export const POST = async (req) => {
     depositExpectedAmount: normalizeDepositExpectedAmount(
       body.depositExpectedAmount
     ),
-    calendarSyncError: access?.allowCalendarSync
-      ? ''
-      : 'calendar_sync_unavailable',
+    googleCalendarId: null,
+    googleCalendarCalendarId: '',
+    googleCalendarResponse: null,
+    calendarSyncJob: undefined,
+    calendarSyncStatus: '',
+    calendarSyncError: '',
+    calendarSyncUpdatedAt: null,
+  }
+  const event = await Events.create({
+    ...eventData,
+    ...getGoogleCalendarSyncCreateFields({ event: eventData, user: calendarAccount, access }),
   })
+  const responseEvent = event.toJSON()
+  delete responseEvent.calendarSyncJob
+  if (responseEvent.calendarSyncStatus === 'pending') {
+    scheduleGoogleCalendarSync(tenantId, event._id)
+  }
   await recordCrmItemCreated({
     userId: user._id,
     hasNextAction: event.additionalEvents?.some((item) => item && !item.done),
@@ -456,24 +477,8 @@ export const POST = async (req) => {
     entityType: 'event',
     entityId: event._id,
     operation: 'create',
-    after: event.toJSON(),
+    after: responseEvent,
   })
-  let responseEvent = event
-  if (!event?.importedFromCalendar && access?.allowCalendarSync) {
-    try {
-      await updateEventInCalendar(event, req, user)
-      const refreshed = await Events.findById(event._id).lean()
-      if (refreshed) responseEvent = refreshed
-    } catch (error) {
-      console.log('Google Calendar create error', error)
-      await Events.findByIdAndUpdate(event._id, {
-        calendarSyncError: 'calendar_sync_failed',
-      })
-      responseEvent = await Events.findById(event._id).lean()
-    }
-  } else if (!event?.importedFromCalendar && !access?.allowCalendarSync) {
-    responseEvent = await Events.findById(event._id).lean()
-  }
 
   // Send push notifications for new tasks (additionalEvents)
   if (

@@ -100,11 +100,11 @@ const getSiteTimeZone = async (tenantId) => {
   return settings?.timeZone || DEFAULT_TIME_ZONE
 }
 
-const getCalendarContext = async (user) => {
+const getCalendarContext = async (user, requestOptions) => {
   if (!user) return null
   const settings = normalizeCalendarSettings(user)
   if (!settings.refreshToken || !settings.enabled) return null
-  const calendar = getUserCalendarClient(user)
+  const calendar = getUserCalendarClient(user, requestOptions)
   if (!calendar) return null
   return { calendar, calendarId: getUserCalendarId(user) }
 }
@@ -273,20 +273,85 @@ const deleteRelatedEventsFromCalendar = async (eventId, calendarId, user) => {
   return deletedIds.size
 }
 
+const isMissingCalendarResource = (error) =>
+  [404, 410].includes(Number(error?.response?.status ?? error?.code))
+
+const deleteCalendarResource = async (events, calendarId, eventId, beforeWrite, requestOptions, ownedKey) => {
+  try {
+    if (ownedKey) {
+      const { data } = await events.get({ calendarId, eventId }, requestOptions)
+      if (data?.id !== eventId || data.extendedProperties?.private?.vedeloKey !== ownedKey ||
+          data.status === 'cancelled') return
+    }
+    await beforeWrite?.()
+    await events.delete({ calendarId, eventId }, requestOptions)
+  } catch (error) {
+    if (!isMissingCalendarResource(error)) throw error
+  }
+}
+
+export const deleteCalendarResourcesForWork = async (job, user, requestOptions, beforeWrite) => {
+  const context = await getCalendarContext(user, requestOptions)
+  if (!context) throw Error('Calendar disconnected')
+  const { calendar } = context
+  const { tenantId, eventId, calendarId } = job
+  const targets = new Map()
+  const collect = (googleId, taskId) => {
+    const key = googleCalendarResourceKey(tenantId, calendarId, eventId, taskId)
+    if (!targets.has(key)) targets.set(key, key)
+    if (googleId) targets.set(googleId, undefined)
+  }
+  collect(job.googleCalendarId)
+  for (const task of job.tasks) collect(task.googleCalendarEventId, task._id)
+
+  if (job.tasksBeta) {
+    const { errors } = await syncGoogleAdditionalEvents(user, {
+      eventId,
+      previousEvent: { _id: eventId, tenantId, googleCalendarCalendarId: calendarId, additionalEvents: job.tasks },
+      requestOptions,
+      beforeWrite,
+    })
+    if (errors.length) throw Error('Calendar task deletion failed')
+  }
+  for (const [id, ownedKey] of targets) {
+    await deleteCalendarResource(calendar.events, calendarId, id, beforeWrite, requestOptions, ownedKey)
+  }
+
+  // Older versions could leave related entries with legacy IDs and a CRM link.
+  const { data } = await calendar.events.list({
+    calendarId,
+    q: String(eventId),
+    maxResults: 2500,
+    showDeleted: false,
+    singleEvents: true,
+    timeMin: '2000-01-01T00:00:00.000Z',
+    timeMax: '2100-01-01T00:00:00.000Z',
+  }, requestOptions)
+  const link = `/event/${eventId}`
+  for (const item of data?.items ?? []) {
+    if (!item.id || targets.has(item.id) || !item.description?.includes(link)) continue
+    await deleteCalendarResource(calendar.events, calendarId, item.id, beforeWrite, requestOptions)
+  }
+}
+
 const updateEventInCalendar = async (
   event,
   req,
   user,
   previousEvent = null,
-  beforeWrite
+  beforeWrite,
+  { requestOptions, eventGuard } = {}
 ) => {
   if (event?.importedFromFile && event.fileImportChecked !== true) return undefined
   const tasksBeta = isGoogleTasksBeta(user)
   if (tasksBeta && String(event?.tenantId) === String(user.tenantId || user._id)) {
     if (beforeWrite) await beforeWrite()
-    await syncGoogleAdditionalEvents(user, { eventId: event._id, previousEvent })
+    const { errors } = await syncGoogleAdditionalEvents(user, {
+      eventId: event._id, previousEvent, requestOptions, beforeWrite,
+    })
+    if (eventGuard && errors.length) throw Error('Calendar task sync failed')
   }
-  const context = await getCalendarContext(user)
+  const context = await getCalendarContext(user, requestOptions)
   if (!context) return undefined
   const { calendar, calendarId } = context
   const effectiveCalendarId = event?.googleCalendarCalendarId || calendarId
@@ -542,43 +607,44 @@ const updateEventInCalendar = async (
     }
   }
 
-  const eventFilter = { _id: event._id, tenantId: event.tenantId }
+  const eventFilter = { _id: event._id, tenantId: event.tenantId, ...eventGuard }
   const resourceKey = (taskId) => googleCalendarResourceKey(event.tenantId, effectiveCalendarId, event._id, taskId)
   const calendarInsert = (resource, taskId) =>
-    insertOrReadGoogleCalendarResource(calendar.events, effectiveCalendarId, resource, resourceKey(taskId), beforeWrite)
+    insertOrReadGoogleCalendarResource(calendar.events, effectiveCalendarId, resource, resourceKey(taskId), beforeWrite, requestOptions)
 
   const calendarUpdate = async (eventId, resource, taskId) => {
-    if (beforeWrite) await beforeWrite()
-    return new Promise((resolve, reject) => {
-      calendar.events.update(
-        {
-          calendarId: effectiveCalendarId,
-          eventId,
-          resource: markGoogleCalendarResource(resource, resourceKey(taskId)),
-        },
-        (error, result) => {
-          if (error) return reject(error)
-          if (!result) return reject(new Error('Не удалось обновить событие'))
-          return resolve(result)
-        }
-      )
-    })
+    await beforeWrite?.()
+    return calendar.events.update({
+      calendarId: effectiveCalendarId,
+      eventId,
+      resource: markGoogleCalendarResource(resource, resourceKey(taskId)),
+    }, requestOptions)
   }
 
-  const calendarDelete = async (eventId) => {
-    if (beforeWrite) await beforeWrite()
-    return new Promise((resolve, reject) => {
-      calendar.events.delete(
-        {
-          calendarId: effectiveCalendarId,
-          eventId,
-        },
-        (error, result) => {
-          if (error) return reject(error)
-          return resolve(result)
-        }
-      )
-    })
+  const calendarDelete = (eventId, ownedKey) =>
+    deleteCalendarResource(calendar.events, effectiveCalendarId, eventId, beforeWrite, requestOptions, ownedKey)
+
+  const normalizedAdditionalEvents = (
+    Array.isArray(event?.additionalEvents) ? event.additionalEvents : []
+  )
+    .map((item) => toAdditionalEventPayload(item))
+    .filter(Boolean)
+  const removeSupersededTasks = async () => {
+    const currentAdditionalGoogleIds = new Set(normalizedAdditionalEvents
+      .map((item) => item.googleCalendarEventId)
+      .filter(Boolean))
+    const activeTaskIds = new Set(normalizedAdditionalEvents
+      .filter((item) => item.date && !item.done && item.googleSyncMode !== 'task' && item.googleSyncMode !== 'none')
+      .map((item) => String(item._id)))
+    for (const item of previousAdditionalEvents) {
+      const googleId = item?.googleCalendarEventId
+      if (googleId && !currentAdditionalGoogleIds.has(googleId)) {
+        await calendarDelete(googleId)
+      } else if (!googleId && eventGuard && item?._id && !activeTaskIds.has(String(item._id))) {
+        const key = resourceKey(item._id)
+        await calendarDelete(key, key)
+      }
+    }
   }
 
   if (
@@ -588,18 +654,18 @@ const updateEventInCalendar = async (
     })
   ) {
     if (event.googleCalendarId) {
-      try {
-        await calendarDelete(event.googleCalendarId)
-      } catch (error) {
-        if (![404, 410].includes(Number(error?.code))) throw error
-      }
+      await calendarDelete(event.googleCalendarId)
       await Events.updateOne({ ...eventFilter, googleCalendarId: event.googleCalendarId }, {
         googleCalendarId: '',
         googleCalendarCalendarId: '',
       })
       event.googleCalendarId = ''
       event.googleCalendarCalendarId = ''
+    } else if (eventGuard) {
+      const key = resourceKey()
+      await calendarDelete(key, key)
     }
+    if (eventGuard && !tasksBeta) await removeSupersededTasks()
     return null
   }
 
@@ -628,35 +694,7 @@ const updateEventInCalendar = async (
   }
 
   if (tasksBeta) return updatedCalendarEvent
-  const previousAdditionalByGoogleId = new Map(
-    previousAdditionalEvents
-      .map((item) => toAdditionalEventPayload(item))
-      .filter((item) => item?.googleCalendarEventId)
-      .map((item) => [item.googleCalendarEventId, item])
-  )
-
-  const normalizedAdditionalEvents = (
-    Array.isArray(event?.additionalEvents) ? event.additionalEvents : []
-  )
-    .map((item) => toAdditionalEventPayload(item))
-    .filter(Boolean)
-
-  const currentAdditionalGoogleIds = new Set(
-    normalizedAdditionalEvents
-      .map((item) => item.googleCalendarEventId)
-      .filter(Boolean)
-  )
-
-  const removedGoogleIds = Array.from(
-    previousAdditionalByGoogleId.keys()
-  ).filter((googleId) => !currentAdditionalGoogleIds.has(googleId))
-  for (const googleId of removedGoogleIds) {
-    try {
-      await calendarDelete(googleId)
-    } catch (error) {
-      if (![404, 410].includes(Number(error?.code))) throw error
-    }
-  }
+  await removeSupersededTasks()
 
   const setTaskGoogleId = async (item, previousId) => {
     if (!item._id) throw Error('Calendar task ID required')
@@ -675,11 +713,7 @@ const updateEventInCalendar = async (
 
     if (item.done) {
       if (item.googleCalendarEventId) {
-        try {
-          await calendarDelete(item.googleCalendarEventId)
-        } catch (error) {
-          if (![404, 410].includes(Number(error?.code))) throw error
-        }
+        await calendarDelete(item.googleCalendarEventId)
         const previousId = item.googleCalendarEventId
         item.googleCalendarEventId = ''
         await setTaskGoogleId(item, previousId)
@@ -689,11 +723,7 @@ const updateEventInCalendar = async (
 
     if (!item.date) {
       if (item.googleCalendarEventId) {
-        try {
-          await calendarDelete(item.googleCalendarEventId)
-        } catch (error) {
-          if (![404, 410].includes(Number(error?.code))) throw error
-        }
+        await calendarDelete(item.googleCalendarEventId)
         const previousId = item.googleCalendarEventId
         item.googleCalendarEventId = ''
         await setTaskGoogleId(item, previousId)

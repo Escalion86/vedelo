@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
+const { QueryClient, QueryClientProvider } = require('@tanstack/react-query')
 const { loadBindings, transformSync } = require('next/dist/build/swc')
 
 const client = { _id: 'client', firstName: 'Анна', secondName: 'Иванова' }
@@ -160,18 +161,23 @@ exports.buildCardSurfaceHarness = async () => {
       eventDate: '2020-01-01',
     },
   ]
+  const queryClient = new QueryClient()
   const cards = events
     .map((event) =>
       renderToStaticMarkup(
-        React.createElement(EventCard, {
-          eventId: event._id,
-          event,
-          transactions: [],
-          style: {
-            height: event._id === 'past-draft' ? 258 : 194,
-            padding: '6px 8px',
-          },
-        })
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(EventCard, {
+            eventId: event._id,
+            event,
+            transactions: [],
+            style: {
+              height: event._id === 'past-draft' ? 258 : 194,
+              padding: '6px 8px',
+            },
+          })
+        )
       )
     )
     .join('')

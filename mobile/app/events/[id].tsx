@@ -117,7 +117,6 @@ export default function EventDetailScreen() {
           <Text style={styles.text}>{service.title || 'Услуга'}</Text>{service.description ? <Text style={styles.muted}>{eventPlainText(service.description)}</Text> : null}
         </View>) : <Text style={styles.muted}>Услуги не указаны</Text>}
       {isWaitingForDeposit(event, transactions.data || []) ? <><Text style={styles.text}>Ожидается задаток{event.depositExpectedAmount != null ? `: ${event.depositExpectedAmount} ₽` : ''}{event.depositDueAt ? `, срок: ${detailDate(event.depositDueAt)}` : ''}</Text><Button title="Задаток получен" disabled={!online || transactions.isPending || transactions.isError} onPress={() => router.push(`/events/deposit/${id}` as never)} /></> : null}
-      {event.calendarSyncError ? <Notice tone="warning" message="Не удалось синхронизировать календарь. Проверьте подключение в интеграциях." /> : null}
       <Button title="Изменить общие данные" variant="secondary" onPress={() => editEventSection(event._id, 'general')} />
       {!event._id.startsWith('local-') ? <Button title="Редактировать голосом" variant="secondary" onPress={() => router.push({ pathname: '/events/assistant', params: { eventId: event._id, mode: 'voice' } } as never)} /> : null}
     </Surface>

@@ -16,17 +16,17 @@ export const markGoogleCalendarResource = (resource, key) => ({
   },
 })
 
-export async function insertOrReadGoogleCalendarResource(events, calendarId, resource, key, beforeWrite) {
+export async function insertOrReadGoogleCalendarResource(events, calendarId, resource, key, beforeWrite, requestOptions) {
   const marked = markGoogleCalendarResource(resource, key)
   if (beforeWrite) await beforeWrite()
   try {
-    return await events.insert({ calendarId, resource: { ...marked, id: key } })
+    return await events.insert({ calendarId, resource: { ...marked, id: key } }, requestOptions)
   } catch (error) {
     if (Number(error?.response?.status ?? error?.code) !== 409) throw error
-    const existing = await events.get({ calendarId, eventId: key })
+    const existing = await events.get({ calendarId, eventId: key }, requestOptions)
     if (existing?.data?.id !== key || existing.data.extendedProperties?.private?.vedeloKey !== key) throw error
     const restored = existing.data.status === 'cancelled' ? { ...marked, status: 'confirmed' } : marked
     if (beforeWrite) await beforeWrite()
-    return events.update({ calendarId, eventId: key, resource: restored })
+    return events.update({ calendarId, eventId: key, resource: restored }, requestOptions)
   }
 }

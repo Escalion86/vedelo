@@ -20,6 +20,12 @@ import type { Palette } from '../src/shared/ui/theme'
 import { useDeviceProjection } from '../src/shared/native/useDeviceProjection'
 import { useAppLock } from '../src/shared/auth/AppLockProvider'
 import { pendingNativeIntent, subscribeNativeIntents } from '../src/shared/native/intents'
+import { useCalendarSyncPolling } from '../src/features/events/calendarSync'
+
+const CalendarSyncPolling = () => {
+  useCalendarSyncPolling()
+  return null
+}
 
 const RootNavigator = () => {
   const { palette } = useTheme()
@@ -105,6 +111,7 @@ const RootNavigator = () => {
   return (
     <View style={styles.root}>
       <ThemeSystemUI />
+      {authenticated && !onboardingRequired && !locked ? <CalendarSyncPolling /> : null}
       <Stack
         screenOptions={{
           headerShown: false,

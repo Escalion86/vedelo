@@ -1,16 +1,16 @@
 import { after, NextResponse } from 'next/server'
-import { isGoogleTasksBeta } from '@helpers/googleTasksBeta.mjs'
-import { syncGoogleAdditionalEvents } from '@server/googleAdditionalSync'
 import { validateDocumentPaymentLinks } from '@server/documentPaymentLinks'
 import mongoose from 'mongoose'
 import Events from '@models/Events'
 import Transactions from '@models/Transactions'
 import dbConnect from '@server/dbConnect'
 import {
-  deleteEventFromCalendar,
-  deleteRelatedEventsFromCalendar,
-  updateEventInCalendar,
-} from '@server/CRUD'
+  getGoogleCalendarSyncAccount,
+  getGoogleCalendarSyncUpdate,
+  prepareGoogleCalendarDeletion,
+  runGoogleCalendarDeletion,
+  scheduleGoogleCalendarSync,
+} from '@server/googleCalendarSyncQueue'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { recordActivityHistory } from '@server/activityHistory'
@@ -225,6 +225,9 @@ export const PUT = async (req, { params }) => {
     }
   }
 
+  const calendarAccount = access?.allowCalendarSync
+    ? await getGoogleCalendarSyncAccount(user._id, tenantId, user.impersonation?.active)
+    : null
   const update = {}
   update.syncVersion = Number(oldEvent?.syncVersion || 1) + 1
   if (body.eventDate !== undefined)
@@ -232,7 +235,10 @@ export const PUT = async (req, { params }) => {
   if (body.dateEnd !== undefined)
     update.dateEnd = body.dateEnd ? new Date(body.dateEnd) : null
   if (body.additionalEvents !== undefined)
-    update.additionalEvents = normalizeAdditionalEvents(body.additionalEvents, { user, previous: oldEvent.additionalEvents || [] })
+    update.additionalEvents = normalizeAdditionalEvents(body.additionalEvents, {
+      user: calendarAccount ?? user,
+      previous: oldEvent.additionalEvents || [],
+    })
   if (body.clientId !== undefined)
     update.clientId = normalizeObjectId(body.clientId)
   if (body.address !== undefined) {
@@ -315,11 +321,19 @@ export const PUT = async (req, { params }) => {
   if (body.status && EVENT_STATUSES.has(body.status))
     update.status = body.status
 
+  const calendarUpdate = getGoogleCalendarSyncUpdate({
+    event: { ...oldEvent, ...update },
+    previousEvent: oldEvent,
+    user: calendarAccount,
+    access,
+  })
   let event = null
   try {
-    event = await Events.findOneAndUpdate({ _id: id, tenantId }, update, {
-      returnDocument: 'after',
-    })
+    event = await Events.findOneAndUpdate(
+      { _id: id, tenantId, syncVersion: oldEvent.syncVersion ?? null },
+      { ...calendarUpdate, $set: { ...update, ...calendarUpdate.$set } },
+      { returnDocument: 'after' }
+    )
   } catch (error) {
     console.error('Events PUT update error', error)
     if (error?.name === 'CastError') {
@@ -336,11 +350,22 @@ export const PUT = async (req, { params }) => {
       { status: 500 }
     )
   }
-  if (!event)
+  if (!event) {
+    if (await Events.exists({ _id: id, tenantId })) {
+      return NextResponse.json(
+        { success: false, error: 'Данные изменились. Обновите карточку и повторите сохранение' },
+        { status: 409 }
+      )
+    }
     return NextResponse.json(
       { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
+  }
+
+  if (event.calendarSyncStatus === 'pending') {
+    scheduleGoogleCalendarSync(tenantId, event._id)
+  }
 
   const changes = compareObjectsWithDif(oldEvent, event.toJSON?.() ?? event)
   if (Object.keys(changes).length > 0) {
@@ -355,49 +380,20 @@ export const PUT = async (req, { params }) => {
     })
   }
 
-  let responseEvent = event
-  if (!event?.importedFromCalendar && !access?.allowCalendarSync) {
-    responseEvent = await Events.findByIdAndUpdate(
-      event._id,
-      { calendarSyncError: 'calendar_sync_unavailable' },
-      { returnDocument: 'after' }
-    )
-  } else if (
-    event.calendarImportChecked &&
-    access?.allowCalendarSync &&
-    (!event.importedFromFile || event.fileImportChecked)
-  ) {
-    try {
-      await updateEventInCalendar(event, req, user, oldEvent)
-      responseEvent = await Events.findByIdAndUpdate(
-        event._id,
-        { calendarSyncError: '' },
-        { returnDocument: 'after' }
-      )
-    } catch (error) {
-      console.log('Google Calendar update error', error)
-      responseEvent = await Events.findByIdAndUpdate(
-        event._id,
-        { calendarSyncError: 'calendar_sync_failed' },
-        { returnDocument: 'after' }
-      )
-    }
-  }
-
   await recordCrmItemCreated({
     userId: user._id,
-    hasNextAction: responseEvent?.additionalEvents?.some(
+    hasNextAction: event.additionalEvents?.some(
       (item) => item && !item.done
     ),
   })
 
   // Send push notifications for task changes
-  if (responseEvent) {
+  {
     const oldTasks = Array.isArray(oldEvent?.additionalEvents)
       ? oldEvent.additionalEvents
       : []
-    const newTasks = Array.isArray(responseEvent?.additionalEvents)
-      ? responseEvent.additionalEvents
+    const newTasks = Array.isArray(event.additionalEvents)
+      ? event.additionalEvents
       : []
 
     // Check for new tasks
@@ -411,7 +407,7 @@ export const PUT = async (req, { params }) => {
         // New task added
         notifyTaskCreated({
           tenantId,
-          event: responseEvent,
+          event,
           task: newTask,
         }).catch((err) =>
           console.log('Push notification error (task created)', err)
@@ -425,7 +421,7 @@ export const PUT = async (req, { params }) => {
         // Task updated
         notifyTaskUpdated({
           tenantId,
-          event: responseEvent,
+          event,
           task: newTask,
         }).catch((err) =>
           console.log('Push notification error (task updated)', err)
@@ -436,7 +432,7 @@ export const PUT = async (req, { params }) => {
       if (newTask.done && oldTask && !oldTask.done) {
         notifyTaskCompleted({
           tenantId,
-          event: responseEvent,
+          event,
           task: newTask,
         }).catch((err) =>
           console.log('Push notification error (task completed)', err)
@@ -446,7 +442,7 @@ export const PUT = async (req, { params }) => {
   }
 
   return NextResponse.json(
-    { success: true, data: responseEvent ?? event },
+    { success: true, data: event },
     { status: 200 }
   )
 }
@@ -476,12 +472,39 @@ export const DELETE = async (req, { params }) => {
       { status: 409 }
     )
   }
-  const deleted = await Events.findOneAndDelete({ _id: id, tenantId })
-  if (!deleted)
+  const event = await Events.findOne({ _id: id, tenantId }).select('+calendarSyncJob').lean()
+  if (!event)
     return NextResponse.json(
       { success: false, error: `${terms.labelCapitalized} не найден${terms.mode === 'events' ? 'о' : ''}` },
       { status: 404 }
     )
+  const access = await getUserTariffAccess(user._id)
+  const calendarAccount = access?.allowCalendarSync
+    ? await getGoogleCalendarSyncAccount(user._id, tenantId, user.impersonation?.active)
+    : null
+  const cleanupQueued = await prepareGoogleCalendarDeletion(event, calendarAccount)
+  const deleted = await Events.findOneAndDelete({
+    _id: id,
+    tenantId,
+    syncVersion: event.syncVersion ?? null,
+    calendarSyncUpdatedAt: event.calendarSyncUpdatedAt ?? null,
+    'calendarSyncJob.generation': event.calendarSyncJob?.generation ?? null,
+  })
+  if (!deleted) {
+    return NextResponse.json(
+      { success: false, error: 'Данные изменились. Обновите карточку и повторите удаление' },
+      { status: 409 }
+    )
+  }
+  if (cleanupQueued) {
+    after(async () => {
+      try {
+        await runGoogleCalendarDeletion(tenantId, deleted._id)
+      } catch {
+        console.error('Не удалось запустить фоновую очистку Google Calendar')
+      }
+    })
+  }
   await recordActivityHistory({
     req,
     context,
@@ -496,67 +519,5 @@ export const DELETE = async (req, { params }) => {
     entityId: id,
     version: deleted.syncVersion,
   })
-  const additionalCalendarEventIds = Array.isArray(deleted.additionalEvents)
-    ? deleted.additionalEvents
-        .map((item) =>
-          typeof item?.googleCalendarEventId === 'string'
-            ? item.googleCalendarEventId.trim()
-            : ''
-        )
-        .filter(Boolean)
-    : []
-  const calendarEventIds = [
-    deleted.googleCalendarId,
-    ...additionalCalendarEventIds,
-  ].filter(Boolean)
-  if (
-    isGoogleTasksBeta(user) ||
-    calendarEventIds.length > 0 ||
-    deleted.calendarImportChecked ||
-    deleted.importedFromCalendar
-  ) {
-    after(async () => {
-      try {
-        const access = await getUserTariffAccess(user._id)
-        if (access?.allowCalendarSync) {
-          if (isGoogleTasksBeta(user)) await syncGoogleAdditionalEvents(user, { eventId: deleted._id, previousEvent: deleted })
-          const uniqueCalendarEventIds = Array.from(new Set(calendarEventIds))
-          for (const googleCalendarId of uniqueCalendarEventIds) {
-            try {
-              await deleteEventFromCalendar(
-                googleCalendarId,
-                deleted.googleCalendarCalendarId,
-                user
-              )
-            } catch (error) {
-              if (error?.code !== 404 && error?.code !== 410) {
-                console.log('Google Calendar delete event item error', {
-                  eventId: String(deleted?._id ?? ''),
-                  googleCalendarId,
-                  error: {
-                    name: error?.name,
-                    code: error?.code,
-                  },
-                })
-              }
-            }
-          }
-          await deleteRelatedEventsFromCalendar(
-            deleted._id,
-            deleted.googleCalendarCalendarId,
-            user
-          )
-        }
-      } catch (error) {
-        console.log('Google Calendar delete error', {
-          eventId: String(deleted?._id ?? ''),
-          error: {
-            name: error?.name,
-            code: error?.code,
-          },
-        })
-      }
-    })
-  }
   return NextResponse.json({ success: true }, { status: 200 })
 }

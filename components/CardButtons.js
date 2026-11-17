@@ -2,6 +2,7 @@ import { faCopy, faTrashAlt } from '@fortawesome/free-regular-svg-icons'
 import {
   faArrowDown,
   faArrowUp,
+  faArrowsRotate,
   faCalendarAlt,
   faCalendarPlus,
   faClockRotateLeft,
@@ -136,6 +137,7 @@ const CardButtons = ({
   minimalActions = false,
   calendarLink,
   onOpenCalendar,
+  onCalendarSyncRetry,
   onEditClientContacts,
   onEditFinanceDocs,
   editFinanceLabel = 'Финансы и документы',
@@ -271,7 +273,7 @@ const CardButtons = ({
 
   const numberOfButtons = Object.keys(show).reduce(
     (p, c) => p + (show[c] ? 1 : 0),
-    0
+    Number(Boolean(onCalendarSyncRetry))
   )
 
   if (numberOfButtons === 0) return null
@@ -421,6 +423,20 @@ const CardButtons = ({
           onClick={handleOpenCalendar}
           color="blue"
           tooltipText="Открыть в календаре"
+        />
+      )}
+      {onCalendarSyncRetry && (
+        <ItemComponent
+          icon={faArrowsRotate}
+          onClick={async () => {
+            try {
+              await onCalendarSyncRetry()
+            } catch (error) {
+              snackbar.error(error?.message || 'Не удалось повторить синхронизацию')
+            }
+          }}
+          color="blue"
+          tooltipText="Повторить синхронизацию"
         />
       )}
       {show.additionalEvents && (

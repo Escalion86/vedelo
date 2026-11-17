@@ -24,10 +24,10 @@ const clients = [
     telegram: 'qa_extra',
   },
 ]
-const entry = `import React from 'react';import {createRoot} from 'react-dom/client';import EventCard from './layouts/cards/EventCard';import DropDown from './components/DropDown';
+const entry = `import React from 'react';import {createRoot} from 'react-dom/client';import EventCard from './layouts/cards/EventCard';import DropDown from './components/DropDown';import AppQueryProvider from './components/AppQueryProvider';
 window.qaOpens=0;window.qaLinks=[];window.open=url=>{window.qaLinks.push(url);return null};
 const event={_id:'qa-event',status:'active',title:'Проверочный заказ',clientId:'qa-main',eventDate:'2099-10-17T15:00:00+07:00',calendarImportChecked:true,contractSum:35000,otherContacts:[{clientId:'qa-extra',comment:'Ведущий'}]};
-createRoot(document.getElementById('root')).render(<div className="cabinet-canvas" style={{padding:8,maxWidth:700,margin:'auto'}}><EventCard eventId={event._id} event={event} transactions={[]}/><DropDown openOnHover={false} turnOffAutoClose="inside" trigger={<button type="button">Другое меню</button>} renderInPortal placement="right"><span>Обычное меню</span></DropDown><button type="button" style={{position:'fixed',bottom:16,left:16}}>За пределами</button></div>);`
+createRoot(document.getElementById('root')).render(<AppQueryProvider><div className="cabinet-canvas" style={{padding:8,maxWidth:700,margin:'auto'}}><EventCard eventId={event._id} event={event} transactions={[]}/><DropDown openOnHover={false} turnOffAutoClose="inside" trigger={<button type="button">Другое меню</button>} renderInPortal placement="right"><span>Обычное меню</span></DropDown><button type="button" style={{position:'fixed',bottom:16,left:16}}>За пределами</button></div></AppQueryProvider>);`
 const empty = 'export default ()=>null'
 const mocks = {
   jotai: 'export const useAtomValue=value=>value',

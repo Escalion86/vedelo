@@ -125,6 +125,8 @@ export type Event = {
   }>
   calendarImportChecked?: boolean
   calendarSyncError?: string
+  calendarSyncStatus?: 'pending' | 'failed' | ''
+  calendarSyncUpdatedAt?: string | null
   requestCreatedAt?: string
   createdAt?: string
   documents?: Array<{

@@ -21,7 +21,7 @@ async function fixture() {
     }),
     findOneAndUpdate: async (filter, update) => {
       assert.equal(filter.tenantId, state.stored.tenantId)
-      state.stored = { ...state.stored, ...update }
+      state.stored = { ...state.stored, ...update.$set }
       return doc(state.stored)
     },
     findByIdAndUpdate: async (_id, update) => {
@@ -57,6 +57,10 @@ async function fixture() {
     },
     '@server/activityHistory': { recordActivityHistory: async () => {} },
     '@server/acquisitionFunnel': { recordCrmItemCreated: async () => {} },
+    '@server/googleCalendarSyncQueue': {
+      getGoogleCalendarSyncCreateFields: () => ({}),
+      getGoogleCalendarSyncUpdate: () => ({ $set: {} }),
+    },
     '@helpers/compareObjectsWithDif': () => ({}),
   }
   const load = (filename) => {

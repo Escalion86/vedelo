@@ -70,7 +70,7 @@ test('a collision without ownership is rejected and an owned replay rechecks aut
   assert.equal(writes, 0)
 })
 
-test('calendar sync reads Mongoose task IDs and persists only their Google links', async () => {
+test('calendar sync keeps ownership when writing or cleaning Mongoose task links', async () => {
   await loadBindings()
   const Work = mongoose.model('CalendarLinkFixture', new mongoose.Schema({
     tenantId: mongoose.Schema.Types.ObjectId,
@@ -83,7 +83,11 @@ test('calendar sync reads Mongoose task IDs and persists only their Google links
     { title: 'Call back', date: when, googleSyncMode: 'event' },
     { title: 'Do not export', date: when, googleSyncMode: 'none' },
   ] })
-  const inserted = [], writes = []
+  const removedTaskId = new mongoose.Types.ObjectId()
+  const collidingTaskId = new mongoose.Types.ObjectId()
+  const removedKey = googleCalendarResourceKey(tenantId, calendarId, work._id, removedTaskId)
+  const collidingKey = googleCalendarResourceKey(tenantId, calendarId, work._id, collidingTaskId)
+  const inserted = [], inspected = [], deleted = [], writes = []
   const db = async () => {}
   const load = loader({
     '@server/dbConnect': db,
@@ -96,10 +100,20 @@ test('calendar sync reads Mongoose task IDs and persists only their Google links
       isValidDateValue: date => date instanceof Date && Number.isFinite(date.getTime()),
     },
     '@server/googleUserCalendarClient': {
-      getUserCalendarClient: () => ({ events: { insert: async ({ resource }) => {
-        inserted.push(resource)
-        return { data: resource }
-      } } }),
+      getUserCalendarClient: () => ({ events: {
+        insert: async ({ resource }) => {
+          inserted.push(resource)
+          return { data: resource }
+        },
+        get: async ({ eventId }) => {
+          inspected.push(eventId)
+          return { data: {
+            id: eventId,
+            extendedProperties: { private: { vedeloKey: eventId === removedKey ? removedKey : 'unowned' } },
+          } }
+        },
+        delete: async ({ eventId }) => { deleted.push(eventId) },
+      } }),
       getUserCalendarId: () => calendarId,
       normalizeCalendarSettings: () => ({ enabled: true, refreshToken: 'fixture' }),
     },
@@ -110,12 +124,21 @@ test('calendar sync reads Mongoose task IDs and persists only their Google links
     '@models/Clients': {},
     '@models/Transactions': {},
   })
-  await load('server/CRUD.js').updateEventInCalendar(work, null, { _id: tenantId })
+  await load('server/CRUD.js').updateEventInCalendar(
+    work,
+    null,
+    { _id: tenantId },
+    { additionalEvents: [{ _id: removedTaskId }, { _id: collidingTaskId }] },
+    undefined,
+    { eventGuard: {} },
+  )
   const task = work.additionalEvents[0]
   const taskKey = googleCalendarResourceKey(tenantId, calendarId, work._id, task._id)
   assert.deepEqual(inserted.map(item => item.id), [
     googleCalendarResourceKey(tenantId, calendarId, work._id), taskKey,
   ])
+  assert.deepEqual(inspected, [removedKey, collidingKey])
+  assert.deepEqual(deleted, [removedKey])
   const taskWrite = writes.find(({ filter }) => filter.additionalEvents)
   assert.equal(taskWrite.filter.tenantId, tenantId)
   assert.equal(taskWrite.filter.additionalEvents.$elemMatch._id, task._id)

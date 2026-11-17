@@ -3,7 +3,7 @@ import Events from '@models/Events'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
-import { updateEventInCalendar } from '@server/CRUD'
+import { queueSavedEventCalendarSync } from '@server/googleCalendarSyncRequest'
 import { recordActivityHistory } from '@server/activityHistory'
 import compareObjectsWithDif from '@helpers/compareObjectsWithDif'
 import {
@@ -80,16 +80,7 @@ export const POST = async (request) => {
             : 'task_updated',
     })
 
-  if (event.calendarImportChecked && access?.allowCalendarSync) {
-    try {
-      await updateEventInCalendar(event, request, user, oldEvent)
-      event.calendarSyncError = ''
-      await event.save()
-    } catch {
-      event.calendarSyncError = 'calendar_sync_failed'
-      await event.save()
-    }
-  }
+  await queueSavedEventCalendarSync({ tenantId, user, access, event, previousEvent: oldEvent })
 
   const updatedTask = event.additionalEvents?.id(taskId)
   const notify = action === 'complete' ? notifyTaskCompleted : notifyTaskUpdated

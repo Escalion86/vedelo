@@ -66,7 +66,7 @@ test('AI editing: real standalone Mongo, tenant isolation, retries and conflict 
       '@server/aiSettings': { getTenantAiSettings: async () => ({}) },
       '@server/aiChatCompletion': { requestAiChatCompletion: async (args) => { lastProviderRequest = args; providerCalls++; return { content: JSON.stringify(proposal) } } },
       '@server/activityHistory': { recordActivityHistory: async () => {} },
-      '@server/CRUD': { updateEventInCalendar: async () => {} },
+      '@server/googleCalendarSyncRequest': { queueSavedEventCalendarSync: async ({ event }) => event },
       '@server/taskPushNotifications': { notifyTaskCreated: async () => {}, notifyTaskUpdated: async () => {}, notifyTaskCompleted: async () => {} },
       '@helpers/aiEditContract.mjs': contract,
       '@helpers/aiEventDraftContacts.mjs': await import('../../helpers/aiEventDraftContacts.mjs'),

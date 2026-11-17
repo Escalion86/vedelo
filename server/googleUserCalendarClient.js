@@ -34,7 +34,7 @@ const GOOGLE_CALENDAR_TITLE_MODES = new Set([
   'client_eventType',
 ])
 
-const getOAuthClient = (redirectUriOverride = '') => {
+const getOAuthClient = (redirectUriOverride = '', transporterOptions) => {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
   const redirectUri = redirectUriOverride || process.env.GOOGLE_OAUTH_REDIRECT_URI
@@ -50,6 +50,7 @@ const getOAuthClient = (redirectUriOverride = '') => {
     clientId,
     clientSecret,
     redirectUri,
+    ...(transporterOptions ? { transporterOptions } : {}),
     ...(Object.keys(endpoints).length ? { endpoints } : {}),
   })
 }
@@ -176,8 +177,8 @@ const normalizeImportCalendarSettings = (user) => {
   }
 }
 
-const buildCalendarOAuthClient = (settings) => {
-  const oauth = getOAuthClient()
+const buildCalendarOAuthClient = (settings, requestOptions) => {
+  const oauth = getOAuthClient('', requestOptions)
   if (!oauth || !settings?.refreshToken) return null
   oauth.setCredentials({
     refresh_token: settings.refreshToken,
@@ -190,9 +191,9 @@ const buildCalendarOAuthClient = (settings) => {
   return oauth
 }
 
-const getUserOAuthClient = (user) => {
+const getUserOAuthClient = (user, requestOptions) => {
   if (!user) return null
-  return buildCalendarOAuthClient(normalizeCalendarSettings(user))
+  return buildCalendarOAuthClient(normalizeCalendarSettings(user), requestOptions)
 }
 
 const getUserImportOAuthClient = (user) => {
@@ -200,8 +201,8 @@ const getUserImportOAuthClient = (user) => {
   return buildCalendarOAuthClient(normalizeImportCalendarSettings(user))
 }
 
-const getUserCalendarClient = (user) => {
-  const auth = getUserOAuthClient(user)
+const getUserCalendarClient = (user, requestOptions) => {
+  const auth = getUserOAuthClient(user, requestOptions)
   if (!auth) return null
   const rootUrl = process.env.GOOGLE_CALENDAR_API_BASE_URL
   return google.calendar({

@@ -16,6 +16,8 @@ import type { Palette } from '../../shared/ui/theme'
 import type { EventCalendarOccurrence } from './calendar'
 import { buildEventNavigationLinks } from './navigation'
 import { eventPublicApiSource, isEventImportChecked, type ListEvent } from './filters'
+import { CalendarSyncIndicator } from './CalendarSyncIndicator'
+import { calendarSyncLabel, needsCalendarSettings, useCalendarSyncInfo, useRetryCalendarSync } from './calendarSync'
 import { formatEventCardMoney, getEventCardAddress, getEventCardAttention,
   getEventCardClientName, getEventCardFinance, getEventCardMoneyText, getEventCardTaskPresentation, getEventCardStatus,
   getEventCardStatusKey, getEventCardTitle, getEventCardDateParts } from './eventCard'
@@ -32,6 +34,8 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
   const { palette } = useTheme()
   const { width } = useWindowDimensions()
   const [sheet, setSheet] = useState<'actions' | 'contacts' | 'status' | null>(null)
+  const calendar = useCalendarSyncInfo(event)
+  const calendarRetry = useRetryCalendarSync(event._id)
   const status = getEventCardStatus(event)
   const finance = getEventCardFinance(event, transactions)
   const attention = getEventCardAttention(event, transactions)
@@ -63,7 +67,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
     router.push({ pathname: '/events/edit/[id]', params: { id: event._id, decision, section: decision === 'closed' ? 'finance' : 'general' } } as never)
   }
   return <View style={styles.outer} {...swipe.panHandlers}>
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${getEventCardTitle(event, services)}, ${status.label}`}
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={[getEventCardTitle(event, services), status.label, calendarSyncLabel(calendar.status)].filter(Boolean).join(', ')}
       accessibilityState={{ busy, disabled: busy }} disabled={busy} onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
       <Surface style={[styles.shell, width < 420 && styles.compactShell, pastRequest && styles.pastRequestShell]} testID={`${testID}-shell`}>
         <View testID={`${testID}-marker`} style={[styles.marker, { backgroundColor: palette.eventCardMarker[getEventCardStatusKey(event)] }]} />
@@ -71,7 +75,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
           {event.isTransferred ? indicator('share-outline', 'Передано коллеге', palette.notice.warning.text) : null}
           {event.isByContract ? indicator('file-document-check-outline', 'По договору', palette.notice.info.text) : null}
           {!isEventImportChecked(event) ? indicator('alert-outline', 'Импорт не проверен', palette.notice.warning.text) : null}
-          {event.calendarSyncError ? indicator('calendar-alert', 'Ошибка календаря', palette.notice.danger.text) : null}
+          <CalendarSyncIndicator status={calendar.status} decorative />
 
           <Text style={[styles.title, { fontFamily: typography.fontFamily, fontSize: width < 420 ? 15.2 : 16 }]} numberOfLines={1}>{getEventCardTitle(event, services)}</Text>
         </View>
@@ -148,14 +152,19 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
           setSheet(null); router.push({ pathname: '/finance/edit/new', params: { eventId: event._id, clientId: event.clientId || '' } } as never)
         }} /> : null}
         {client ? <ButtonRow title="Открыть клиента" onPress={() => navigate(`/clients/${client._id}`)} /> : null}
+        {calendar.status === 'failed' ? <>
+          {needsCalendarSettings(calendar.error) ? <ButtonRow title="Открыть интеграции" onPress={() => navigate('/more/integrations')} /> : null}
+          <ButtonRow title="Повторить синхронизацию" disabled={calendarRetry.busy} onPress={() => { setSheet(null); void calendarRetry.retry() }} />
+        </> : null}
         {syncError || event.syncStatus === 'pending' ? <ButtonRow title="Синхронизация" onPress={() => navigate('/sync')} /> : null}
       </>}
     </QuickActionsSheet>
   </View>
 }
-function ButtonRow({ title, onPress }: { title: string; onPress: () => void }) {
+function ButtonRow({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
   const styles = useThemeStyles(createStyles)
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><Text style={styles.actionText}>{title}</Text></Pressable>
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled}
+    onPress={onPress} style={({ pressed }) => [styles.action, (pressed || disabled) && styles.pressed]}><Text style={styles.actionText}>{title}</Text></Pressable>
 }
 const createStyles = (palette: Palette) => StyleSheet.create({
   outer: { paddingHorizontal: 8, paddingVertical: 4 }, pressed: { opacity: 0.82 },

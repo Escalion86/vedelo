@@ -98,7 +98,7 @@ test(
         '@server/dbConnect': async () => {},
         '@server/getRequestContext': async () => context,
         '@server/activityHistory': { recordActivityHistory: async () => {} },
-        '@server/CRUD': { updateEventInCalendar: async () => {} },
+        '@server/googleCalendarSyncRequest': { queueSavedEventCalendarSync: async ({ event }) => event },
       })
       const client = await Clients.create({ tenantId })
       const createEvent = (extra = {}) =>

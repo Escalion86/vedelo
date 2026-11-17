@@ -8,6 +8,8 @@ test('event API accepts missing/cleared type and preserves tenant isolation', as
   const normalization = await import('../../server/eventApiNormalization.js')
   let tenantId = 'tenant-a'
   let stored
+  let calendarEnabled = false
+  const scheduled = []
   const doc = (data) => ({ ...data, toJSON: () => data })
   const Events = {
     create: async (data) => { stored = { ...data, _id: 'event-1' }; return doc(stored) },
@@ -15,7 +17,7 @@ test('event API accepts missing/cleared type and preserves tenant isolation', as
     findOne: (filter) => ({ lean: async () => filter.tenantId === stored.tenantId ? stored : null }),
     findOneAndUpdate: async (filter, update) => {
       assert.equal(filter.tenantId, stored.tenantId)
-      stored = { ...stored, ...update }
+      stored = { ...stored, ...update.$set }
       return doc(stored)
     },
     findByIdAndUpdate: async (_id, update) => { stored = { ...stored, ...update }; return doc(stored) },
@@ -23,13 +25,22 @@ test('event API accepts missing/cleared type and preserves tenant isolation', as
   const mocks = {
     'next/server': { NextResponse: { json: (body, options) => ({ body, status: options.status }) } },
     '@models/Events': Events,
+    '@server/documentPaymentLinks': { validateDocumentPaymentLinks: async () => true },
     '@server/dbConnect': async () => {},
     '@server/getRequestContext': async () => ({ tenantId, user: tenantId ? { _id: 'user' } : null }),
-    '@server/getUserTariffAccess': async () => ({ hasTariff: true, eventsPerMonth: Infinity }),
+    '@server/getUserTariffAccess': async () => ({ hasTariff: true, eventsPerMonth: Infinity, allowCalendarSync: calendarEnabled }),
     '@server/eventApiNormalization': normalization,
     '@server/tenantTerminology': { getTenantWorkItemTerminology: async () => ({ labelCapitalized: 'Мероприятие', mode: 'events' }) },
     '@server/activityHistory': { recordActivityHistory: async () => {} },
     '@server/acquisitionFunnel': { recordCrmItemCreated: async () => {} },
+    '@server/googleCalendarSyncQueue': {
+      getGoogleCalendarSyncAccount: async () => ({ _id: 'user' }),
+      getGoogleCalendarSyncCreateFields: () => calendarEnabled
+        ? { calendarSyncStatus: 'pending', calendarSyncJob: { leaseToken: 'private' } }
+        : {},
+      getGoogleCalendarSyncUpdate: () => ({ $set: calendarEnabled ? { calendarSyncStatus: 'pending' } : {} }),
+      scheduleGoogleCalendarSync: (tenant, id) => scheduled.push([tenant, id]),
+    },
     '@helpers/compareObjectsWithDif': () => ({}),
   }
   const load = (filename) => {
@@ -54,6 +65,23 @@ test('event API accepts missing/cleared type and preserves tenant isolation', as
     assert.equal((await PUT(request({ eventType: '' }), params)).status, 200)
     assert.equal(stored.eventType, '')
   }
+  calendarEnabled = true
+  const queued = await POST(request({
+    eventType: 'Свадьба',
+    syncVersion: 10,
+    googleCalendarId: 'forged',
+    'calendarSyncJob.leaseToken': 'forged',
+  }))
+  assert.equal(queued.status, 201)
+  assert.equal(queued.body.data.calendarSyncStatus, 'pending')
+  assert.equal(queued.body.data.calendarSyncJob, undefined)
+  assert.equal(queued.body.data.syncVersion, 1)
+  assert.equal(queued.body.data.googleCalendarId, null)
+  assert.equal(stored['calendarSyncJob.leaseToken'], undefined)
+  const updated = await PUT(request({ eventType: 'Банкет' }), params)
+  assert.equal(updated.body.data.calendarSyncStatus, 'pending')
+  assert.equal(updated.body.data.syncVersion, 2)
+  assert.deepEqual(scheduled, [['tenant-a', 'event-1'], ['tenant-a', 'event-1']])
   tenantId = 'tenant-b'
   assert.equal((await PUT(request({ eventType: '' }), params)).status, 404)
   assert.equal(stored.tenantId, 'tenant-a')

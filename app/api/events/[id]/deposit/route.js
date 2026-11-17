@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { after, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import Events from '@models/Events'
 import Transactions from '@models/Transactions'
@@ -7,7 +7,7 @@ import Clients from '@models/Clients'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import { recordActivityHistory } from '@server/activityHistory'
-import { updateEventInCalendar } from '@server/CRUD'
+import { queueSavedEventCalendarSync } from '@server/googleCalendarSyncRequest'
 
 const fail = (error, status = 400) =>
   NextResponse.json({ success: false, error }, { status })
@@ -147,13 +147,7 @@ export const POST = async (req, { params }) => {
       })
     }
   }
-  after(async () => {
-    try {
-      await updateEventInCalendar(updatedEvent, req, user, event)
-    } catch {
-      /* Payment is already saved. */
-    }
-  })
+  updatedEvent = await queueSavedEventCalendarSync({ tenantId, user, event: updatedEvent })
   return NextResponse.json({
     success: true,
     data: transaction,

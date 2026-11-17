@@ -3,7 +3,11 @@ import Calls from '@models/Calls'
 import Events from '@models/Events'
 import Histories from '@models/Histories'
 import dbConnect from '@server/dbConnect'
-import { updateEventInCalendar } from '@server/CRUD'
+import {
+  getGoogleCalendarSyncAccount,
+  getGoogleCalendarSyncCreateFields,
+  scheduleGoogleCalendarSync,
+} from '@server/googleCalendarSyncQueue'
 import {
   buildEventDraftFromCall,
   ensureClientForCall,
@@ -20,9 +24,12 @@ import {
   parseDateValue,
 } from '@server/eventApiNormalization'
 
-const createEventFromCallDraft = async ({ draft, req, tenantId, user, access }) => {
+const createEventFromCallDraft = async ({ draft, tenantId, user, access }) => {
   const eventTypeValue = normalizeEventType(draft?.eventType)
-  const event = await Events.create({
+  const calendarAccount = access?.allowCalendarSync
+    ? await getGoogleCalendarSyncAccount(user._id, tenantId, user.impersonation?.active)
+    : null
+  const eventData = {
     ...draft,
     tenantId,
     status: draft?.status || 'draft',
@@ -36,8 +43,14 @@ const createEventFromCallDraft = async ({ draft, req, tenantId, user, access }) 
     depositExpectedAmount: normalizeDepositExpectedAmount(
       draft?.depositExpectedAmount
     ),
-    calendarSyncError: access?.allowCalendarSync ? '' : 'calendar_sync_unavailable',
+  }
+  const event = await Events.create({
+    ...eventData,
+    ...getGoogleCalendarSyncCreateFields({ event: eventData, user: calendarAccount, access }),
   })
+  if (event.calendarSyncStatus === 'pending') {
+    scheduleGoogleCalendarSync(tenantId, event._id)
+  }
 
   await Histories.create({
     schema: Events.collection.collectionName,
@@ -45,19 +58,6 @@ const createEventFromCallDraft = async ({ draft, req, tenantId, user, access }) 
     data: [event.toJSON()],
     userId: String(user._id),
   })
-
-  if (!event?.importedFromCalendar && access?.allowCalendarSync) {
-    try {
-      await updateEventInCalendar(event, req, user)
-      const refreshed = await Events.findById(event._id).lean()
-      return refreshed || event.toJSON()
-    } catch (error) {
-      await Events.findByIdAndUpdate(event._id, {
-        calendarSyncError: 'calendar_sync_failed',
-      })
-      return Events.findById(event._id).lean()
-    }
-  }
 
   return event.toJSON()
 }
@@ -174,7 +174,6 @@ export const POST = async (req, { params }) => {
       ...draft,
       clientId: client?._id || draft.clientId || null,
     },
-    req,
     tenantId,
     user,
     access,

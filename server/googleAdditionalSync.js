@@ -13,8 +13,8 @@ import { isGoogleTasksBeta, hasGoogleTasksScope, googleTaskDue,
 
 const requestOptions = { timeout: 10000, retry: false }
 const isMissing = (error) => [404, 410].includes(Number(error?.code || error?.response?.status))
-export const getGoogleTasksClient = (user) => google.tasks({
-  version: 'v1', auth: getUserOAuthClient(user),
+export const getGoogleTasksClient = (user, options) => google.tasks({
+  version: 'v1', auth: getUserOAuthClient(user, options),
 })
 
 export const listGoogleTaskLists = async (user) => {
@@ -32,15 +32,17 @@ export const listGoogleTaskLists = async (user) => {
 // A persisted marker lets a retry find a task after a lost insert response.
 // If the outcome is still unknown we stop, rather than silently insert a duplicate.
 export const reconcileAdditionalLink = async ({ link, item, event, timeZone, calendarId,
-  taskListId, calendar, tasks, save, applyDone, reminders, taskContext, restore = false }) => {
+  taskListId, calendar, tasks, save, applyDone, reminders, taskContext, restore = false,
+  options = requestOptions, beforeWrite }) => {
   const mode = item ? normalizeGoogleTaskMode(item.googleSyncMode) : 'none'
   const wanted = mode === 'task' || (mode === 'event' && item?.date && !item.done)
   const target = link.remoteId && link.kind === mode ? link.containerId : mode === 'task' ? taskListId : calendarId
   const remove = async () => {
     if (!link.remoteId) return
     try {
-      if (link.kind === 'task') await tasks.tasks.delete({ tasklist: link.containerId, task: link.remoteId }, requestOptions)
-      else await calendar.events.delete({ calendarId: link.containerId, eventId: link.remoteId }, requestOptions)
+      await beforeWrite?.()
+      if (link.kind === 'task') await tasks.tasks.delete({ tasklist: link.containerId, task: link.remoteId }, options)
+      else await calendar.events.delete({ calendarId: link.containerId, eventId: link.remoteId }, options)
     } catch (error) { if (!isMissing(error)) throw error }
     link.remoteId = ''
     link.marker = crypto.randomBytes(16).toString('hex')
@@ -51,7 +53,7 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
     if (!link.pendingCreate) return
     if (link.kind === 'event') {
       try {
-        const { data } = await calendar.events.get({ calendarId: link.containerId, eventId: link.marker }, requestOptions)
+        const { data } = await calendar.events.get({ calendarId: link.containerId, eventId: link.marker }, options)
         if (data.status !== 'cancelled') link.remoteId = data.id
         else { link.suppressed = true; link.error = 'deleted_in_google' }
       } catch (error) { if (!isMissing(error)) throw error }
@@ -62,7 +64,7 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
       let pages = 0
       do {
         const { data } = await tasks.tasks.list({ tasklist: link.containerId, maxResults: 100,
-          showCompleted: true, showHidden: true, pageToken }, requestOptions)
+          showCompleted: true, showHidden: true, pageToken }, options)
         const matches = (data.items || []).filter((entry) => entry.notes?.includes(`[vedelo:${link.marker}]`))
         if (matches.length > 1) throw new Error('ambiguous_create')
         if (matches.length === 1) { link.remoteId = matches[0].id; link.pendingCreate = false; break }
@@ -94,8 +96,8 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
   if (link.remoteId) {
     try {
       const response = mode === 'task'
-        ? await tasks.tasks.get({ tasklist: target, task: link.remoteId }, requestOptions)
-        : await calendar.events.get({ calendarId: target, eventId: link.remoteId }, requestOptions)
+        ? await tasks.tasks.get({ tasklist: target, task: link.remoteId }, options)
+        : await calendar.events.get({ calendarId: target, eventId: link.remoteId }, options)
       remote = response.data
       if (remote.deleted || remote.status === 'cancelled') throw Object.assign(new Error('deleted'), { code: 404 })
     } catch (error) {
@@ -111,6 +113,7 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
   if (mode === 'task' && remote && Boolean(item.done) === link.lastDone &&
       (remote.status === 'completed') !== link.lastDone) {
     const done = remote.status === 'completed'
+    await beforeWrite?.()
     if (!await applyDone(done, remote.completed)) throw new Error('local_conflict')
     item = { ...item, done, doneAt: done ? remote.completed || new Date() : null }
   }
@@ -127,12 +130,13 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
   }
   const fingerprint = JSON.stringify(body)
   if (!link.remoteId) {
+    await beforeWrite?.()
     link.pendingCreate = true
     await save()
     let response
     try {
-      if (mode === 'task') response = await tasks.tasks.insert({ tasklist: target, requestBody: body }, requestOptions)
-      else response = await calendar.events.insert({ calendarId: target, requestBody: { ...body, id: link.marker } }, requestOptions)
+      if (mode === 'task') response = await tasks.tasks.insert({ tasklist: target, requestBody: body }, options)
+      else response = await calendar.events.insert({ calendarId: target, requestBody: { ...body, id: link.marker } }, options)
     } catch (error) {
       const code = Number(error.code || error.response?.status)
       if ([400, 401, 403, 404, 429].includes(code)) {
@@ -145,8 +149,9 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
     link.remoteId = response.data.id
     link.pendingCreate = false
   } else if (link.fingerprint !== fingerprint) {
-    if (mode === 'task') await tasks.tasks.patch({ tasklist: target, task: link.remoteId, requestBody: body }, requestOptions)
-    else await calendar.events.patch({ calendarId: target, eventId: link.remoteId, requestBody: body }, requestOptions)
+    await beforeWrite?.()
+    if (mode === 'task') await tasks.tasks.patch({ tasklist: target, task: link.remoteId, requestBody: body }, options)
+    else await calendar.events.patch({ calendarId: target, eventId: link.remoteId, requestBody: body }, options)
   }
   link.fingerprint = fingerprint
   link.lastDone = Boolean(item.done)
@@ -154,7 +159,9 @@ export const reconcileAdditionalLink = async ({ link, item, event, timeZone, cal
   await save()
 }
 
-export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, previousEvent } = {}) => {
+export const syncGoogleAdditionalEvents = async (user, {
+  eventId, restoreId, previousEvent, requestOptions: options, beforeWrite,
+} = {}) => {
   if (!isGoogleTasksBeta(user) || !user.googleCalendar?.enabled || !user.googleCalendar?.refreshToken) return { changed: false, errors: [] }
   if (!(await getUserTariffAccess(user._id))?.allowCalendarSync) return { changed: false, errors: [] }
   const tenantId = String(user.tenantId || user._id)
@@ -164,8 +171,8 @@ export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, pre
   const events = await Events.find(filter).select('additionalEvents googleCalendarCalendarId importedFromFile fileImportChecked importedFromCalendar calendarImportChecked syncVersion').lean()
   const settings = await SiteSettings.findOne({ tenantId }).select('timeZone custom').lean()
   const timeZone = settings?.timeZone || 'Asia/Krasnoyarsk'
-  const calendar = getUserCalendarClient(user)
-  const tasks = hasGoogleTasksScope(user) ? getGoogleTasksClient(user) : null
+  const calendar = getUserCalendarClient(user, options)
+  const tasks = hasGoogleTasksScope(user) ? getGoogleTasksClient(user, options) : null
   const scope = { tenantId, userId, ...(eventId ? { eventId } : {}) }
   const eventMap = new Map(events.map((event) => [String(event._id), event]))
   const seeds = [...events]
@@ -188,11 +195,15 @@ export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, pre
   let changed = false
   const errors = []
   for (const snapshot of links) {
+    options?.signal?.throwIfAborted()
     const token = crypto.randomUUID()
     const link = await Links.findOneAndUpdate({ ...scope, _id: snapshot._id,
       $or: [{ lockUntil: null }, { lockUntil: { $lt: new Date() } }] },
     { $set: { lockToken: token, lockUntil: new Date(Date.now() + 120000) } }, { returnDocument: 'after' }).lean()
-    if (!link) continue
+    if (!link) {
+      if (options) throw Object.assign(new Error('Calendar task sync in progress'), { code: 429 })
+      continue
+    }
     const key = { ...scope, _id: link._id, lockToken: token }
     const save = async () => {
       const { _id, __v, createdAt, updatedAt, ...values } = link
@@ -209,7 +220,7 @@ export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, pre
         timeZone, calendarId: event?.googleCalendarCalendarId || user.googleCalendar.calendarId || 'primary',
         taskContext: item?.googleSyncMode === 'task' ? await buildGoogleTaskContext(event, user, settings) : undefined,
         reminders: normalizeCalendarReminders(user.googleCalendar.reminders),
-        taskListId: user.googleCalendar.tasksBeta.taskListId, calendar, tasks, save,
+        taskListId: user.googleCalendar.tasksBeta.taskListId, calendar, tasks, save, options, beforeWrite,
         restore: String(restoreId || '') === String(link._id),
         applyDone: async (done, completed) => {
           const result = await Events.updateOne({ _id: link.eventId, tenantId,
@@ -226,6 +237,7 @@ export const syncGoogleAdditionalEvents = async (user, { eventId, restoreId, pre
       const known = ['select_task_list', 'unknown_create', 'ambiguous_create', 'local_conflict', 'tasks_permission_required']
       link.error = known.includes(error.message) ? error.message : 'google_sync_failed'
       await save()
+      if (options) throw error
     } finally {
       await Links.updateOne(key, { $set: { lockToken: '', lockUntil: null } })
     }

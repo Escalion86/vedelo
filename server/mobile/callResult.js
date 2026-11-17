@@ -2,7 +2,7 @@ import Calls from '@models/Calls'
 import Events from '@models/Events'
 import Histories from '@models/Histories'
 import dbConnect from '@server/dbConnect'
-import { updateEventInCalendar } from '@server/CRUD'
+import { queueSavedEventCalendarSync } from '@server/googleCalendarSyncRequest'
 import { requireTelephonyTariffAccess } from '@server/telephonyAccess'
 import { mobileError, mobileSuccess } from '@server/mobile/routeHelpers'
 import { normalizeMobileCallResult, serializeMobileCall } from '@server/mobile/calls'
@@ -82,16 +82,7 @@ export const handleMobileCallResult = async (req, { params }) => {
       })
     }
 
-    if (access?.allowCalendarSync) {
-      try {
-        await updateEventInCalendar(event, req, user)
-      } catch (error) {
-        await Events.updateOne(
-          { _id: linkedEventId, tenantId },
-          { $set: { calendarSyncError: 'calendar_sync_failed' } }
-        )
-      }
-    }
+    event = await queueSavedEventCalendarSync({ tenantId, user, access, event })
   }
 
   const call = await Calls.findOneAndUpdate(

@@ -1,5 +1,6 @@
 import { normalizeTransactionCategory } from '@helpers/transactionCategory.mjs'
 import CardButtons from '@components/CardButtons'
+import EventCalendarSyncIndicator from '@components/EventCalendarSyncIndicator'
 import AppButton from '@components/AppButton'
 import Chip from '@components/Chips/Chip'
 import cn from 'classnames'
@@ -40,6 +41,7 @@ import {
 } from '@helpers/constants'
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventQuery } from '@helpers/useEventsQuery'
+import useEventCalendarSync from '@helpers/useEventCalendarSync'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
 import {
   getCloseBlockedByObligationsMessage,
@@ -322,13 +324,14 @@ const SectionBlock = ({ title, action, children }) => (
   </SurfaceCard>
 )
 
-const CardButtonsComponent = ({ event, calendarLink }) => (
+const CardButtonsComponent = ({ event, calendarLink, onCalendarSyncRetry }) => (
   <CardButtons
     item={event}
     typeOfItem="event"
     minimalActions
     alwaysCompact
     calendarLink={calendarLink}
+    onCalendarSyncRetry={onCalendarSyncRetry}
     dropDownPlacement="left"
     showEditButton={event?.status !== 'closed'}
   />
@@ -346,6 +349,8 @@ const eventViewFunc = (eventId, options = {}) => {
     setTopLeftComponent,
   }) => {
     const { data: event, isPending, isError } = useEventQuery(eventId)
+    const calendarSync = useEventCalendarSync(event)
+    const retryCalendarSync = calendarSync.retry
     const queryClient = useQueryClient()
     const loggedUser = useAtomValue(loggedUserAtom)
     const tariffs = useAtomValue(tariffsAtom)
@@ -586,10 +591,14 @@ const eventViewFunc = (eventId, options = {}) => {
           return
         }
         setTopLeftComponent(() => (
-          <CardButtonsComponent event={event} calendarLink={calendarLink} />
+          <CardButtonsComponent
+            event={event}
+            calendarLink={calendarLink}
+            onCalendarSyncRetry={retryCalendarSync}
+          />
         ))
       }
-    }, [event, calendarLink, setTopLeftComponent])
+    }, [event, calendarLink, retryCalendarSync, setTopLeftComponent])
 
     if (!event && eventId && isPending)
       return <Notice tone="neutral">Загружаем {terms.accusative}…</Notice>
@@ -625,6 +634,7 @@ const eventViewFunc = (eventId, options = {}) => {
                   <CardButtonsComponent
                     event={event}
                     calendarLink={calendarLink}
+                    onCalendarSyncRetry={retryCalendarSync}
                   />
                 </div>
               )}
@@ -643,10 +653,13 @@ const eventViewFunc = (eventId, options = {}) => {
                     )}
                   </div>
                 </div>
-                <div
-                  className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusMeta.className}`}
-                >
-                  {statusMeta.label}
+                <div className="flex shrink-0 items-center gap-2">
+                  <EventCalendarSyncIndicator {...calendarSync} />
+                  <div
+                    className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusMeta.className}`}
+                  >
+                    {statusMeta.label}
+                  </div>
                 </div>
               </div>
               <div className="mt-3 text-sm">

@@ -4,7 +4,7 @@ import Clients from '@models/Clients'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
-import { updateEventInCalendar } from '@server/CRUD'
+import { queueSavedEventCalendarSync } from '@server/googleCalendarSyncRequest'
 import { saveAndroidCallResult, serializeAndroidCallResult } from '@server/androidCallResult.mjs'
 import { mobileError, mobileSuccess } from '@server/mobile/routeHelpers'
 
@@ -25,7 +25,7 @@ export const POST = async req => {
     if (event && body.nextContactAt) {
       try {
         const access = await getUserTariffAccess(context.user._id)
-        if (access?.allowCalendarSync) await updateEventInCalendar(event, req, context.user)
+        await queueSavedEventCalendarSync({ tenantId: context.tenantId, user: context.user, access, event })
       } catch {
         await Events.updateOne({ _id: event._id, tenantId: context.tenantId }, { $set: { calendarSyncError: 'calendar_sync_failed' } })
       }

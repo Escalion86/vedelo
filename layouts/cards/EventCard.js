@@ -22,7 +22,6 @@ import {
   // faCircleCheck,
   // faBan,
   faUserSlash,
-  faCalendarXmark,
   // faClock,
 } from '@fortawesome/free-solid-svg-icons'
 import AppButton from '@components/AppButton'
@@ -37,6 +36,7 @@ import StatusChip from '@components/StatusChip'
 import { isPastRequest } from '@helpers/pastRequests'
 import EventProposalStatus from '@components/EventProposalStatus'
 import EventClientReviewStatus from '@components/EventClientReviewStatus'
+import EventCalendarSyncIndicator from '@components/EventCalendarSyncIndicator'
 import { isWaitingForDeposit } from '@helpers/additionalEvents'
 import getGoogleCalendarLinkFromText from '@helpers/getGoogleCalendarLinkFromText'
 import getPersonFullName from '@helpers/getPersonFullName'
@@ -48,6 +48,7 @@ import { getEventExtraContactDisplays } from '@helpers/eventTransferDisplay'
 import styles from './EventCard.module.css'
 import { useClientsQuery } from '@helpers/useClientsQuery'
 import { useEventQuery } from '@helpers/useEventsQuery'
+import useEventCalendarSync from '@helpers/useEventCalendarSync'
 import { useTransactionsQuery } from '@helpers/useTransactionsQuery'
 import { getEventCloseSuggestionState } from '@helpers/eventCloseSuggestion'
 import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
@@ -128,6 +129,7 @@ const EventCard = ({
 }) => {
   const { data: cachedEvent } = useEventQuery(eventId, eventProp)
   const event = eventProp ?? cachedEvent
+  const calendarSync = useEventCalendarSync(event)
   const clientsQuery = useClientsQuery()
   const { data: clients = [] } = clientsQuery
   const client = useMemo(
@@ -223,7 +225,6 @@ const EventCard = ({
   const now = new Date()
   const rawStatus = status?.value ?? event.status
   const needsCheck = !isEventImportChecked(event)
-  const hasCalendarError = Boolean(event?.calendarSyncError)
   const isCanceled = rawStatus === 'canceled'
   const isClosed = rawStatus === 'closed'
   const isDraft = rawStatus === 'draft'
@@ -364,6 +365,7 @@ const EventCard = ({
           alwaysCompact
           compactTriggerClassName="card-menu-trigger h-10 min-h-10 w-10"
           calendarLink={calendarLink}
+          onCalendarSyncRetry={calendarSync.retry}
           onEdit={() => modalsFunc.event?.edit(event._id)}
           onEditClientContacts={
             useClassicForm
@@ -418,13 +420,7 @@ const EventCard = ({
               Из файла{needsCheck ? ' · Не проверено' : ''}
             </span>
           ) : null}
-          {hasCalendarError ? (
-            <FontAwesomeIcon
-              icon={faCalendarXmark}
-              className="h-4 w-4 shrink-0 text-red-500"
-              aria-label="Синхронизация с календарем не выполнена"
-            />
-          ) : null}
+          <EventCalendarSyncIndicator {...calendarSync} />
           {clientUnspecified ? (
             <FontAwesomeIcon
               icon={faUserSlash}

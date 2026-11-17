@@ -9,7 +9,7 @@ import AiEditPlans from '@models/AiEditPlans'
 import { getTenantAiSettings } from '@server/aiSettings'
 import { requestAiChatCompletion } from '@server/aiChatCompletion'
 import { recordActivityHistory } from '@server/activityHistory'
-import { updateEventInCalendar } from '@server/CRUD'
+import { queueSavedEventCalendarSync } from '@server/googleCalendarSyncRequest'
 import { notifyTaskCreated, notifyTaskCompleted, notifyTaskUpdated } from '@server/taskPushNotifications'
 import { buildAiEditSteps, AI_EDIT_FIELDS, editError } from '@helpers/aiEditContract.mjs'
 import { resetClientMessengerAvailability } from '@helpers/clientMessengerAvailability'
@@ -290,15 +290,9 @@ export async function applyAiEdit({ planId, context, req, access }) {
           operation: step.operation, before: step.before, after: saved.toJSON(),
           summary: 'Изменено с ИИ по подтверждению пользователя', batchId: planId,
         })
-        if (step.entity === 'event' && access.allowCalendarSync && saved.calendarImportChecked) {
-          try {
-            await updateEventInCalendar(saved, req, user, step.before)
-            await Events.updateOne({ _id: saved._id, tenantId }, { $set: { calendarSyncError: '' } })
-          }
-          catch {
-            await Events.updateOne({ _id: saved._id, tenantId }, { $set: { calendarSyncError: 'calendar_sync_failed' } })
-          }
-        }
+        if (step.entity === 'event') await queueSavedEventCalendarSync({
+          tenantId, user, access, event: saved, previousEvent: step.before,
+        })
         if (step.entity === 'event' && step.patch.additionalEvents) {
           for (const task of saved.additionalEvents || []) {
             const old = step.before.additionalEvents?.find((item) => String(item._id) === String(task._id))
