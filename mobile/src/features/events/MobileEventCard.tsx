@@ -15,7 +15,7 @@ import { useTheme, useThemeStyles } from '../../shared/ui/ThemeProvider'
 import type { Palette } from '../../shared/ui/theme'
 import type { EventCalendarOccurrence } from './calendar'
 import { buildEventNavigationLinks } from './navigation'
-import { eventPublicApiSource, isEventImportChecked, type ListEvent } from './filters'
+import { eventIncomingSource, isEventImportChecked, type ListEvent } from './filters'
 import { CalendarSyncIndicator } from './CalendarSyncIndicator'
 import { calendarSyncLabel, needsCalendarSettings, useCalendarSyncInfo, useRetryCalendarSync } from './calendarSync'
 import { formatEventCardMoney, getEventCardAddress, getEventCardAttention,
@@ -41,7 +41,7 @@ export const MobileEventCard = ({ event, defaultTown, client, clientsById, servi
   const attention = getEventCardAttention(event, transactions)
   const address = getEventCardAddress(event, defaultTown)
   const date = getEventCardDateParts(event.eventDate)
-  const source = eventPublicApiSource(event)
+  const source = eventIncomingSource(event)
   const otherContacts = (event.otherContacts || []).filter((contact) => contact.clientId)
   const selectedTask = occurrence?.kind === 'contact' ? (event.additionalEvents || []).find((task, index) =>
     occurrence.key === `${event._id}:contact:${task._id || index}`) : null

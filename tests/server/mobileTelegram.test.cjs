@@ -54,8 +54,9 @@ test('mobile Telegram conversations: tenant, revoked session, tariff and strict 
 test('shared Telegram reply checks ownership, window and rights before calling the provider', async () => {
   await loadBindings()
   let window = true, canReply = true, saved = true, sends = 0
+  const pauses = []
   const { sendTelegramConversationReply: run } = load('server/telegramConversationReply.js', {
-    '@models/TelegramConversations': { findOne: async scope => scope.tenantId === a && scope._id === id && (!scope.clientId || scope.clientId === a) ? { lastIncomingAt: new Date(), telegramChatId: 'chat' } : null },
+    '@models/TelegramConversations': { findOne: async scope => scope.tenantId === a && scope._id === id && (!scope.clientId || scope.clientId === a) ? { lastIncomingAt: new Date(), telegramChatId: 'chat', businessConnectionId: 'connection' } : null },
     '@models/SiteSettings': { findOne: scope => { assert.equal(scope.tenantId, a); return query({ custom: {} }) } },
     '@server/telegramBusiness': {
       normalizeTelegramSettings: () => ({ enabled: true, botToken: 'synthetic-secret', businessConnectionId: 'connection', rights: { can_reply: canReply } }),
@@ -63,6 +64,7 @@ test('shared Telegram reply checks ownership, window and rights before calling t
       sendTelegramBusinessMessage: async () => { sends += 1; return {} },
       saveTelegramBusinessMessage: async () => saved ? { message: { _id: id, status: 'sent' } } : null,
     },
+    '@server/telegramQuestionnaire': { pauseTelegramQuestionnaire: async value => pauses.push(value) },
   })
   const payload = { tenantId: a, conversationId: id, clientId: a, text: 'Ответ' }
   await assert.rejects(run({ ...payload, tenantId: b }), { status: 404 })
@@ -70,7 +72,9 @@ test('shared Telegram reply checks ownership, window and rights before calling t
   window = false; await assert.rejects(run(payload), { code: 'reply_window_closed' })
   window = true; canReply = false; await assert.rejects(run(payload), { code: 'reply_not_allowed' })
   assert.equal(sends, 0)
+  assert.equal(pauses.length, 0)
   canReply = true; assert.equal((await run(payload))._id, id)
+  assert.deepEqual(pauses, [{ tenantId: a, businessConnectionId: 'connection', chatId: 'chat' }])
   saved = false; await assert.rejects(run(payload), { status: 502, code: 'save_unconfirmed' })
   assert.equal(sends, 2)
 })

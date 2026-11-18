@@ -2,14 +2,23 @@ import { NextResponse } from 'next/server'
 import SiteSettings from '@models/SiteSettings'
 import TelegramMessages from '@models/TelegramMessages'
 import dbConnect from '@server/dbConnect'
-import { isTenantIntegrationAllowed } from '@server/integrationAccess'
+import getUserTariffAccess from '@server/getUserTariffAccess'
+import { hasIntegrationAccess, hasTelegramQuestionnaireAccess } from '@server/integrationAccess'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
 import {
+  buildTelegramWebhookUrl,
   normalizeTelegramSettings,
   saveTelegramBusinessMessage,
   updateTelegramCustom,
 } from '@server/telegramBusiness'
 import { notifyIncomingClientMessage } from '@server/messengerPush'
+import {
+  TELEGRAM_QUESTIONNAIRE_PREFIX,
+  handleTelegramQuestionnaireCallback,
+  handleTelegramQuestionnaireMessage,
+  pauseTelegramQuestionnaire,
+} from '@server/telegramQuestionnaire'
+import { readTelegramQuestionnaire } from '@server/telegramQuestionnaireSettings'
 
 const jsonError = (message, status = 400, code = 'telegram_error') =>
   NextResponse.json(
@@ -46,16 +55,15 @@ export const POST = async (req, { params }) => {
   }
   if (!settings.enabled) return jsonError('Integration disabled', 403, 'disabled')
 
-  const tariffAllowed = await isTenantIntegrationAllowed(
-    siteSettings.tenantId,
-    'telegram'
-  )
-  if (!tariffAllowed) {
+  const tariffAccess = await getUserTariffAccess(siteSettings.tenantId)
+  if (!hasIntegrationAccess(tariffAccess, 'telegram')) {
     return jsonError('Telegram integration is unavailable', 403, 'tariff_required')
   }
+  const questionnaireAllowed = hasTelegramQuestionnaireAccess(tariffAccess)
 
   const body = await req.json().catch(() => ({}))
   const now = new Date().toISOString()
+  const { tenantId } = siteSettings
   const connection = body?.business_connection
   if (connection) {
     await updateTelegramCustom({
@@ -79,34 +87,68 @@ export const POST = async (req, { params }) => {
     return NextResponse.json({ ok: true })
   }
 
+  if (body?.callback_query) {
+    const data = body.callback_query.data
+    if (questionnaireAllowed && typeof data === 'string' && data.startsWith(TELEGRAM_QUESTIONNAIRE_PREFIX)) {
+      const questionnaire = await readTelegramQuestionnaire(tenantId)
+      await handleTelegramQuestionnaireCallback({
+        tenantId,
+        settings: { ...settings, webhookUrl: settings.webhookUrl || buildTelegramWebhookUrl({ req, token }), questionnaire },
+        callbackQuery: body.callback_query,
+      })
+    }
+    return NextResponse.json({ ok: true })
+  }
+
   const message = body?.business_message || body?.edited_business_message
   if (message) {
+    if (settings.businessConnectionId && settings.businessConnectionId !== message.business_connection_id) {
+      return NextResponse.json({ ok: true })
+    }
     const effectiveSettings = {
       ...settings,
       businessConnectionId:
         settings.businessConnectionId || message.business_connection_id,
     }
     const result = await saveTelegramBusinessMessage({
-      tenantId: siteSettings.tenantId,
+      tenantId,
       settings: effectiveSettings,
       message,
+      canStartQuestionnaire: questionnaireAllowed && Boolean(body.business_message),
     })
-    if (
-      result?.direction === 'incoming' &&
-      result?.isNewMessage
-    ) {
-      await notifyIncomingClientMessage({
-        tenantId: siteSettings.tenantId,
-        provider: 'telegram',
-        messageId: String(message.message_id || ''),
-        messageText: result.message?.text || '',
-        clientId: result.client?._id || result.conversation?.clientId,
-        clientName: result.conversation?.clientName || '',
-        associatedEventId: result.conversation?.eventId,
-        conversationId: result.conversation?._id,
-        unreadCount: result.conversation?.unreadCount || 0,
-      }).catch((error) => {
-        console.error('Не удалось отправить push о сообщении Telegram', error)
+    const notify = () => notifyIncomingClientMessage({
+      tenantId,
+      provider: 'telegram',
+      messageId: String(message.message_id || ''),
+      messageText: result.message?.text || '',
+      clientId: result.client?._id || result.conversation?.clientId,
+      clientName: result.conversation?.clientName || '',
+      associatedEventId: result.conversation?.eventId,
+      conversationId: result.conversation?._id,
+      unreadCount: result.conversation?.unreadCount || 0,
+    }).catch((error) => {
+      console.error('Не удалось отправить push о сообщении Telegram', error)
+    })
+    if (result?.direction === 'incoming') {
+      if (result.isNewMessage && result.isFirstIncomingMessage) await notify()
+
+      let outcome
+      if (questionnaireAllowed && body.business_message && settings.businessConnectionId === message.business_connection_id) {
+        const questionnaire = await readTelegramQuestionnaire(tenantId)
+        if (questionnaire.enabled) {
+          outcome = await handleTelegramQuestionnaireMessage({ tenantId, settings: { ...settings, questionnaire }, message, result })
+        }
+      }
+
+      if (result.isNewMessage && !result.isFirstIncomingMessage && !outcome?.suppressMessagePush) await notify()
+    }
+    if (questionnaireAllowed && body.business_message && result?.direction === 'outgoing' && message.chat?.type === 'private' &&
+      settings.businessConnectionId && settings.businessAccountUserId &&
+      String(message.from?.id) === settings.businessAccountUserId && !message.sender_business_bot &&
+      !message.is_from_offline && Number.isSafeInteger(message.message_id) && message.message_id > 0) {
+      await pauseTelegramQuestionnaire({
+        tenantId, businessConnectionId: settings.businessConnectionId,
+        chatId: message.chat.id, messageId: message.message_id,
       })
     }
     await updateTelegramCustom({
@@ -125,7 +167,8 @@ export const POST = async (req, { params }) => {
   }
 
   const deleted = body?.deleted_business_messages
-  if (deleted?.chat?.id && Array.isArray(deleted?.message_ids)) {
+  if (deleted?.chat?.id && Array.isArray(deleted?.message_ids) &&
+    (!settings.businessConnectionId || settings.businessConnectionId === deleted.business_connection_id)) {
     await TelegramMessages.deleteMany({
       tenantId: siteSettings.tenantId,
       telegramChatId: String(deleted.chat.id),

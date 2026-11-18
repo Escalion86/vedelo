@@ -22,6 +22,7 @@ const SOURCE_LABELS = {
   file_import: 'Импорт из файла',
   avito: 'Avito',
   vk: 'VK',
+  telegram: 'Telegram',
   telephony: 'Телефония',
 }
 const INTEGRATION_SOURCES = new Set([
@@ -31,6 +32,7 @@ const INTEGRATION_SOURCES = new Set([
   'file_import',
   'avito',
   'vk',
+  'telegram',
   'telephony',
 ])
 

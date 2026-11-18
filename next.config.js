@@ -6,6 +6,10 @@ const nextConfig = {
   htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|\\bMAX\\b|MaxBot|OneMe|TelegramBot`, 'i'),
   // Изолированная сборка/HTTP-стенд могут работать рядом с dev и другими сборками.
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  experimental: {
+    // Автоответчик принимает MP4 до 20 МБ вместе с границами multipart.
+    proxyClientMaxBodySize: '21mb',
+  },
   images: {
     unoptimized: false,
     formats: ['image/avif', 'image/webp'],

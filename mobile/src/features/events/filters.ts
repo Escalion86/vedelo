@@ -50,6 +50,13 @@ export const eventPublicApiSource = (event: ListEvent) => {
   const label = data.sourceLabel || data.apiKeyName || lead.sourceLabel || lead.apiKeyName || data.source || lead.source
   return typeof label === 'string' && label.trim() ? label.trim() : 'API'
 }
+export const eventIncomingSource = (event: ListEvent) => {
+  const lead = event.clientData?.lead
+  return lead && typeof lead === 'object' && 'source' in lead && lead.source === 'telegram' &&
+    'conversationId' in lead && lead.conversationId
+    ? 'Telegram'
+    : eventPublicApiSource(event)
+}
 export const eventInScope = (event: Event, scope: EventsListScope, now: Date) => {
   const end = timestamp(event.dateEnd ?? event.eventDate)
   return end === null ? scope === 'upcoming' : scope === 'upcoming' ? end >= now.getTime() : end < now.getTime()
@@ -74,8 +81,8 @@ export const selectEvents = (events: readonly ListEvent[], scope: EventsListScop
   }).sort((a, b) => {
     const left = timestamp(a.eventDate), right = timestamp(b.eventDate)
     if (scope === 'past') return (right ?? 0) - (left ?? 0)
-    const apiLeft = left === null && Boolean(eventPublicApiSource(a))
-    const apiRight = right === null && Boolean(eventPublicApiSource(b))
+    const apiLeft = left === null && Boolean(eventIncomingSource(a))
+    const apiRight = right === null && Boolean(eventIncomingSource(b))
     if (apiLeft !== apiRight) return apiLeft ? -1 : 1
     if ((left === null) !== (right === null)) return left === null ? 1 : -1
     return (left ?? 0) - (right ?? 0) || (timestamp(b.requestCreatedAt) ?? 0) - (timestamp(a.requestCreatedAt) ?? 0)

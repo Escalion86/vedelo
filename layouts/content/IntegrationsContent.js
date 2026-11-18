@@ -2,6 +2,7 @@
 
 import fieldHelp from '@helpers/fieldHelp.json'
 import TelegramPushAudience from '@components/TelegramPushAudience'
+import TelegramQuestionnaireSettings from '@components/TelegramQuestionnaireSettings'
 import { normalizeTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -1910,6 +1911,14 @@ const IntegrationsContent = () => {
                   Как подключить
                 </InstructionButton>
               </div>
+
+              {isDeveloper && loggedUser?.impersonation?.active !== true && telegramEnabled ? (
+                <TelegramQuestionnaireSettings
+                  key={siteSettings?.tenantId ?? loggedUser?._id}
+                  connected={telegramStatus === 'connected'}
+                  disabled={telegramLoading}
+                />
+              ) : null}
             </div>
           </IntegrationAccordion>
         ) : null}

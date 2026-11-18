@@ -1,6 +1,7 @@
 import TelegramConversations from '@models/TelegramConversations'
 import SiteSettings from '@models/SiteSettings'
 import { isTelegramReplyWindowOpen, normalizeTelegramSettings, saveTelegramBusinessMessage, sendTelegramBusinessMessage } from '@server/telegramBusiness'
+import { pauseTelegramQuestionnaire } from '@server/telegramQuestionnaire'
 
 const fail = (status, code, message) => Object.assign(new Error(message), { status, code })
 
@@ -18,6 +19,11 @@ export const sendTelegramConversationReply = async ({ tenantId, conversationId, 
     sent = await sendTelegramBusinessMessage({ botToken: telegram.botToken, businessConnectionId: telegram.businessConnectionId, chatId: conversation.telegramChatId, text })
   } catch {
     throw fail(400, 'send_failed', 'Telegram не принял сообщение. Проверьте подключение и окно ответа.')
+  }
+  if (conversation.businessConnectionId === telegram.businessConnectionId) {
+    await pauseTelegramQuestionnaire({ tenantId, businessConnectionId: telegram.businessConnectionId, chatId: conversation.telegramChatId }).catch(() => {
+      console.error('Не удалось приостановить опрос Telegram после ручного ответа')
+    })
   }
   const saved = await saveTelegramBusinessMessage({ tenantId, settings: telegram, message: sent })
   if (!saved?.message) throw fail(502, 'save_unconfirmed', 'Telegram принял сообщение, но его сохранение не подтверждено. Обновите историю перед повторной отправкой.')

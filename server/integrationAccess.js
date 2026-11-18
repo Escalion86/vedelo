@@ -169,6 +169,19 @@ export const isTenantIntegrationAllowed = async (tenantId, integration) => {
   return hasIntegrationAccess(access, integration)
 }
 
+export const hasTelegramQuestionnaireAccess = (access) =>
+  access?.user?.role === 'dev' && hasIntegrationAccess(access, 'telegram')
+
+export const requireTelegramQuestionnaireAccess = async (req) => {
+  const result = await requireTenantIntegrationAccess('telegram', req)
+  if (!result.ok) return result
+  if (result.user.role !== 'dev' || result.user.impersonation?.active === true ||
+    !hasTelegramQuestionnaireAccess(result.access)) {
+    return { ok: false, status: 403, error: 'Автоответчик Telegram доступен разработчику' }
+  }
+  return result
+}
+
 export const getProtectedCustomAccessFailures = ({
   existingCustom,
   nextCustom,

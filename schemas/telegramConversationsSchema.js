@@ -53,6 +53,7 @@ const telegramConversationsSchema = {
     type: Date,
     default: null,
   },
+  questionnaireFirstMessageId: String,
   unreadCount: {
     type: Number,
     default: 0,

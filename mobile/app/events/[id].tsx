@@ -13,7 +13,7 @@ import { QuickContacts, openContactUrl } from '../../src/shared/ui/QuickContacts
 import { useTheme, useThemeStyles } from '../../src/shared/ui/ThemeProvider'
 import type { Palette } from '../../src/shared/ui/theme'
 import { buildEventNavigationLinks, formatEventAddress } from '../../src/features/events/navigation'
-import { eventPublicApiSource, isEventImportChecked } from '../../src/features/events/filters'
+import { eventIncomingSource, isEventImportChecked } from '../../src/features/events/filters'
 import { getEventCardClientName, getEventCardStatus, getEventCardStatusKey, getEventCardTaskPresentation } from '../../src/features/events/eventCard'
 import { detailDate, eventDuration, getEventDetailFinance } from '../../src/features/events/eventDetail'
 import { EventOnlineSections } from '../../src/features/proposals/EventOnlineSections'
@@ -56,7 +56,7 @@ export default function EventDetailScreen() {
   const status = getEventCardStatus(event)
   const finance = getEventDetailFinance(event, transactions.data || [])
   const relatedServices = services.data?.filter((service) => event.servicesIds?.includes(service._id)) || []
-  const source = eventPublicApiSource(event)
+  const source = eventIncomingSource(event)
   const address = formatEventAddress(event.address)
   const links = buildEventNavigationLinks(event.address)
   const duration = eventDuration(event)

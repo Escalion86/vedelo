@@ -256,6 +256,7 @@ export const setTelegramWebhook = ({ botToken, webhookUrl, webhookSecret }) =>
         'business_message',
         'edited_business_message',
         'deleted_business_messages',
+        'callback_query',
       ],
       drop_pending_updates: false,
     },
@@ -273,6 +274,7 @@ export const sendTelegramBusinessMessage = ({
   businessConnectionId,
   chatId,
   text,
+  replyMarkup,
 }) =>
   telegramRequest({
     botToken,
@@ -281,7 +283,15 @@ export const sendTelegramBusinessMessage = ({
       business_connection_id: businessConnectionId,
       chat_id: chatId,
       text,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
     },
+  })
+
+export const answerTelegramCallbackQuery = ({ botToken, callbackQueryId, text }) =>
+  telegramRequest({
+    botToken,
+    method: 'answerCallbackQuery',
+    body: { callback_query_id: callbackQueryId, ...(text ? { text } : {}) },
   })
 
 export const sendTelegramBusinessMedia = ({
@@ -424,6 +434,7 @@ export const saveTelegramBusinessMessage = async ({
   tenantId,
   settings,
   message,
+  canStartQuestionnaire = false,
 }) => {
   const chatId = String(message?.chat?.id || '')
   const messageId = String(message?.message_id || '')
@@ -434,11 +445,21 @@ export const saveTelegramBusinessMessage = async ({
     message,
     businessAccountUserId: settings?.businessAccountUserId,
   })
-  const { client, created: clientCreated } = await findOrCreateTelegramClient({
-    tenantId,
-    message,
-    autoCreateClients: settings?.autoCreateClients === true,
-  })
+  const conversationScope = { tenantId, telegramChatId: chatId }
+  const [existingConversation, existingMessage] = await Promise.all([
+    TelegramConversations.findOne(conversationScope).select('clientId lastIncomingAt questionnaireFirstMessageId').lean(),
+    TelegramMessages.exists({ ...conversationScope, telegramMessageId: messageId }),
+  ])
+  const linkedClient = existingConversation?.clientId
+    ? await Clients.findOne({ tenantId, _id: existingConversation.clientId })
+    : null
+  const { client, created: clientCreated } = linkedClient
+    ? { client: linkedClient, created: false }
+    : await findOrCreateTelegramClient({
+        tenantId,
+        message,
+        autoCreateClients: settings?.autoCreateClients === true,
+      })
   const sentAt = message?.date
     ? new Date(Number(message.date) * 1000)
     : new Date()
@@ -453,25 +474,32 @@ export const saveTelegramBusinessMessage = async ({
     .filter(Boolean)
     .join(' ')
     .slice(0, 200)
-  const existingMessage = await TelegramMessages.exists({
-    tenantId,
-    telegramChatId: chatId,
-    telegramMessageId: messageId,
-  })
-
+  if (canStartQuestionnaire && direction === 'incoming' && message.chat?.type === 'private' &&
+    !existingConversation?.lastIncomingAt && !existingConversation?.questionnaireFirstMessageId) {
+    if (!existingConversation) {
+      await TelegramConversations.updateOne(conversationScope, {
+        $setOnInsert: { businessConnectionId: connectionId, status: 'open', questionnaireFirstMessageId: messageId },
+      }, { upsert: true }).catch((error) => {
+        if (error?.code !== 11000) throw error
+      })
+    }
+    await TelegramConversations.updateOne({
+      ...conversationScope, businessConnectionId: connectionId, lastIncomingAt: null, questionnaireFirstMessageId: null,
+    }, { $set: { questionnaireFirstMessageId: messageId } })
+  }
   const conversation = await TelegramConversations.findOneAndUpdate(
-    { tenantId, telegramChatId: chatId },
+    conversationScope,
     {
       $set: {
-        clientId: client?._id ?? null,
+        ...(client?._id ? { clientId: client._id } : {}),
         businessConnectionId: connectionId,
         telegramUserId: String(message?.chat?.id || message?.from?.id || ''),
         telegramUsername: username,
         clientName,
         lastMessageText: text,
         lastMessageAt: sentAt,
-        ...(direction === 'incoming' ? { lastIncomingAt: sentAt } : {}),
       },
+      ...(direction === 'incoming' ? { $max: { lastIncomingAt: sentAt } } : {}),
       ...(direction === 'incoming' && !existingMessage
         ? { $inc: { unreadCount: 1 } }
         : {}),
@@ -486,7 +514,7 @@ export const saveTelegramBusinessMessage = async ({
     {
       $set: {
         conversationId: conversation._id,
-        clientId: client?._id ?? null,
+        clientId: conversation.clientId ?? null,
         eventId: conversation.eventId ?? null,
         businessConnectionId: connectionId,
         direction,
@@ -506,6 +534,7 @@ export const saveTelegramBusinessMessage = async ({
     clientCreated,
     direction,
     isNewMessage: !existingMessage,
+    isFirstIncomingMessage: conversation.questionnaireFirstMessageId === messageId,
   }
 }
 

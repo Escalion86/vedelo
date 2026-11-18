@@ -244,6 +244,9 @@ it.each([false, true])('источники нейтральные, как Status
     expect(screen.getByTestId('card-footer')).toHaveStyle({ minHeight: 44, paddingTop: 8 })
     screen.unmount()
   }
+  const telegram = setup({ status: 'draft', clientData: { lead: { source: 'telegram', conversationId: 'chat' } } }, {}, dark)
+  expect(telegram.getByText('Telegram')).toHaveStyle({ color: palette.status.neutral.text, backgroundColor: palette.status.neutral.background })
+  telegram.unmount()
 })
 it.each([320, 390, 414])('длинное имя и шесть каналов при %s; имя доступно полностью', (width) => {
   jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 })

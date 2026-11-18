@@ -40,10 +40,7 @@ import EventCalendarSyncIndicator from '@components/EventCalendarSyncIndicator'
 import { isWaitingForDeposit } from '@helpers/additionalEvents'
 import getGoogleCalendarLinkFromText from '@helpers/getGoogleCalendarLinkFromText'
 import getPersonFullName from '@helpers/getPersonFullName'
-import {
-  getEventPublicApiSourceLabel,
-  isEventCreatedViaPublicApi,
-} from '@helpers/eventSource'
+import { getEventIncomingSourceLabel } from '@helpers/eventSource'
 import { getEventExtraContactDisplays } from '@helpers/eventTransferDisplay'
 import styles from './EventCard.module.css'
 import { useClientsQuery } from '@helpers/useClientsQuery'
@@ -268,8 +265,7 @@ const EventCard = ({
     ? getAdditionalEventTone(new Date(event.depositDueAt), now)
     : 'neutral'
 
-  const isCreatedViaApi = isEventCreatedViaPublicApi(event)
-  const apiSourceLabel = getEventPublicApiSourceLabel(event)
+  const incomingSourceLabel = getEventIncomingSourceLabel(event)
 
   const nearestAdditionalEventInfo = useMemo(() => {
     const additionalEvents = Array.isArray(event?.additionalEvents)
@@ -517,9 +513,9 @@ const EventCard = ({
               Обязательство
             </span>
           ) : null}
-          {isCreatedViaApi ? (
+          {incomingSourceLabel ? (
             <StatusChip tone="neutral" className="max-w-max shrink-0">
-              {apiSourceLabel}
+              {incomingSourceLabel}
             </StatusChip>
           ) : null}
           {isClosed ? (

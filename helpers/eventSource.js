@@ -41,4 +41,11 @@ const getEventPublicApiSourceLabel = (event) => {
   return typeof label === 'string' && label.trim() ? label.trim() : 'API'
 }
 
-export { getEventPublicApiSourceLabel, isEventCreatedViaPublicApi }
+const getEventIncomingSourceLabel = (event) => {
+  const lead = event?.clientData?.lead
+  return lead?.source === 'telegram' && lead.conversationId
+    ? 'Telegram'
+    : getEventPublicApiSourceLabel(event)
+}
+
+export { getEventIncomingSourceLabel, getEventPublicApiSourceLabel, isEventCreatedViaPublicApi }

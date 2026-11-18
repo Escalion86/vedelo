@@ -32,7 +32,7 @@ import {
 import AppButton from '@components/AppButton'
 import useUiDensity from '@helpers/useUiDensity'
 import { getData } from '@helpers/CRUD'
-import { isEventCreatedViaPublicApi } from '@helpers/eventSource'
+import { getEventIncomingSourceLabel } from '@helpers/eventSource'
 import {
   useEventsQuery,
   useLoadMorePastEventsMutation,
@@ -656,8 +656,8 @@ const EventsContent = ({
         const bEventDate = getValidDateTime(b?.eventDate)
         const aNoDate = aEventDate === null
         const bNoDate = bEventDate === null
-        const aApiNoDate = aNoDate && isEventCreatedViaPublicApi(a)
-        const bApiNoDate = bNoDate && isEventCreatedViaPublicApi(b)
+        const aApiNoDate = aNoDate && Boolean(getEventIncomingSourceLabel(a))
+        const bApiNoDate = bNoDate && Boolean(getEventIncomingSourceLabel(b))
 
         if (aApiNoDate !== bApiNoDate) return aApiNoDate ? -1 : 1
         if (aNoDate !== bNoDate) return aNoDate ? 1 : -1
