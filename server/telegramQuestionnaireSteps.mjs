@@ -1,7 +1,7 @@
 export const TELEGRAM_QUESTIONNAIRE_PREFIX = 'vq:'
 
 export const questionnaireActiveSteps = [
-  'offer', 'service', 'serviceText', 'date', 'city', 'cityText', 'details', 'review',
+  'offer', 'service', 'serviceText', 'date', 'city', 'cityText', 'details', 'review', 'block', 'editBlocks',
 ]
 
 const DEFAULT_QUESTIONS = {
@@ -29,16 +29,20 @@ export function snapshotTelegramQuestionnaire(config) {
   }
 }
 
-const formatDay = (value) => value.split('-').reverse().join('.')
+export const formatQuestionnaireDay = (value) => value.split('-').reverse().join('.')
+
+export function formatTelegramQuestionnairePrompt({ callbackToken, revision }, text, rows) {
+  if (!rows?.length) return { text }
+  return { text, replyMarkup: {
+    inline_keyboard: rows.map(([label, action]) => [{
+      text: label, callback_data: `${TELEGRAM_QUESTIONNAIRE_PREFIX}${callbackToken}:${revision}:${action}`,
+    }]),
+  } }
+}
 
 export function buildTelegramQuestionnairePrompt(session) {
-  const { step, callbackToken, revision, questions, answers = {}, welcomeText } = session
-  const keyboard = (rows) => ({
-    inline_keyboard: rows.map(([text, action]) => [{
-      text, callback_data: `${TELEGRAM_QUESTIONNAIRE_PREFIX}${callbackToken}:${revision}:${action}`,
-    }]),
-  })
-  const format = (text, rows) => ({ text, ...(rows?.length ? { replyMarkup: keyboard(rows) } : {}) })
+  const { step, questions, answers = {}, welcomeText } = session
+  const format = (text, rows) => formatTelegramQuestionnairePrompt(session, text, rows)
   const ask = ['Задать вопрос', 'ask']
   switch (step) {
     case 'offer':
@@ -64,7 +68,7 @@ export function buildTelegramQuestionnairePrompt(session) {
       const summary = [
         'Проверьте заявку',
         `Услуга: ${answers.service}`,
-        `Дата: ${answers.date ? formatDay(answers.date) : 'пока неизвестна'}`,
+        `Дата: ${answers.date ? formatQuestionnaireDay(answers.date) : 'пока неизвестна'}`,
         `Город: ${answers.city}`,
         answers.details && `Комментарий: ${answers.details}`,
       ].filter(Boolean)
@@ -75,15 +79,19 @@ export function buildTelegramQuestionnairePrompt(session) {
     case 'cancelled':
       return format('Заявка отменена. Вы можете написать нам в этом чате.')
     case 'completed':
+      if (session.testRunId) return format(session.testResult?.draftId
+        ? 'Тест завершён. Тестовая заявка создана.'
+        : 'Тест завершён. Результат доступен в настройках автоответчика.')
       return format('Спасибо, заявка отправлена! Мы свяжемся с вами в этом чате.')
     case 'limit':
+      if (session.testRunId) return format('Тест завершён. Результат сохранён, тестовую заявку создать не удалось.')
       return format('Сейчас не удалось принять заявку автоматически. Напишите нам в этом чате.')
     default:
       return null
   }
 }
 
-function parseQuestionnaireDay(text) {
+export function parseQuestionnaireDay(text) {
   const match = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(text)
   if (!match) return null
   const [, day, month, year] = match
@@ -93,7 +101,7 @@ function parseQuestionnaireDay(text) {
 }
 
 export function readTelegramQuestionnaireCallback(data) {
-  const match = /^vq:([0-9a-f]{24}):(\d{1,4}):([a-z0-9]{1,12})$/.exec(data)
+  const match = /^vq:([0-9a-f]{24}):(\d{1,9}):([a-z0-9]{1,12})$/.exec(data)
   return match ? { token: match[1], revision: Number(match[2]), action: match[3] } : null
 }
 

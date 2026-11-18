@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import SiteSettings from '@models/SiteSettings'
 import TelegramMessages from '@models/TelegramMessages'
 import dbConnect from '@server/dbConnect'
+import { isTelegramQuestionnaireTestStart } from '@helpers/telegramQuestionnaireBlocks.mjs'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { hasIntegrationAccess, hasTelegramQuestionnaireAccess } from '@server/integrationAccess'
 import { checkRateLimit, rateLimitResponse } from '@server/rateLimit'
@@ -19,6 +20,7 @@ import {
   pauseTelegramQuestionnaire,
 } from '@server/telegramQuestionnaire'
 import { readTelegramQuestionnaire } from '@server/telegramQuestionnaireSettings'
+import { readTelegramQuestionnaireTestRun } from '@server/telegramQuestionnaireTestRuns'
 
 const jsonError = (message, status = 400, code = 'telegram_error') =>
   NextResponse.json(
@@ -91,10 +93,15 @@ export const POST = async (req, { params }) => {
     const data = body.callback_query.data
     if (questionnaireAllowed && typeof data === 'string' && data.startsWith(TELEGRAM_QUESTIONNAIRE_PREFIX)) {
       const questionnaire = await readTelegramQuestionnaire(tenantId)
+      const testRun = await readTelegramQuestionnaireTestRun({
+        tenantId, questionnaire, businessConnectionId: settings.businessConnectionId,
+        telegramChatId: body.callback_query.message?.chat?.id,
+      })
       await handleTelegramQuestionnaireCallback({
         tenantId,
         settings: { ...settings, webhookUrl: settings.webhookUrl || buildTelegramWebhookUrl({ req, token }), questionnaire },
         callbackQuery: body.callback_query,
+        testRun,
       })
     }
     return NextResponse.json({ ok: true })
@@ -130,15 +137,16 @@ export const POST = async (req, { params }) => {
       console.error('Не удалось отправить push о сообщении Telegram', error)
     })
     if (result?.direction === 'incoming') {
-      if (result.isNewMessage && result.isFirstIncomingMessage) await notify()
-
-      let outcome
-      if (questionnaireAllowed && body.business_message && settings.businessConnectionId === message.business_connection_id) {
-        const questionnaire = await readTelegramQuestionnaire(tenantId)
-        if (questionnaire.enabled) {
-          outcome = await handleTelegramQuestionnaireMessage({ tenantId, settings: { ...settings, questionnaire }, message, result })
-        }
-      }
+      const canHandle = questionnaireAllowed && body.business_message && settings.businessConnectionId === message.business_connection_id
+      const questionnaire = canHandle ? await readTelegramQuestionnaire(tenantId) : null
+      const testRun = questionnaire?.enabled ? await readTelegramQuestionnaireTestRun({
+        tenantId, questionnaire, businessConnectionId: settings.businessConnectionId, telegramChatId: message.chat?.id,
+      }) : null
+      const isTestStart = isTelegramQuestionnaireTestStart(testRun, message)
+      if (result.isNewMessage && result.isFirstIncomingMessage && !isTestStart) await notify()
+      const outcome = questionnaire?.enabled ? await handleTelegramQuestionnaireMessage({
+        tenantId, settings: { ...settings, questionnaire }, message, result, testRun,
+      }) : null
 
       if (result.isNewMessage && !result.isFirstIncomingMessage && !outcome?.suppressMessagePush) await notify()
     }

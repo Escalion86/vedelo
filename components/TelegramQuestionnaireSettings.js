@@ -9,19 +9,27 @@ import Notice from '@components/Notice'
 import Select from '@components/Select'
 import Textarea from '@components/Textarea'
 import useSnackbar from '@helpers/useSnackbar'
+import { telegramQuestionnaireMediaKey } from '@helpers/telegramQuestionnaireBlocks.mjs'
+import {
+  TelegramQuestionnairePreview,
+  TelegramQuestionnaireScenario,
+  getScenarioEditorError,
+} from './TelegramQuestionnaireScenario'
+import {
+  TelegramQuestionnaireTestChats,
+  telegramQuestionnaireTestEndpoint,
+  useTelegramQuestionnaireTestData,
+} from './TelegramQuestionnaireTestChats'
 
 const endpoint = '/api/integrations/telegram/questionnaire'
 const maxMedia = 6
 const maxText = 500
-const maxOptions = 8
-const maxOptionText = 80
 const maxUrl = 2048
 
-const questions = [
-  { key: 'service', label: 'Услуга', hasOptions: true },
-  { key: 'date', label: 'Дата' },
-  { key: 'city', label: 'Город', hasOptions: true },
-  { key: 'details', label: 'Детали' },
+const modes = [
+  { value: 'off', label: 'Выключен' },
+  { value: 'test', label: 'Тестовые чаты' },
+  { value: 'live', label: 'В работе' },
 ]
 
 const mediaTypes = [
@@ -42,51 +50,14 @@ const readResponse = async (response, errorMessage) => {
   return result
 }
 
-const createDraft = (questionnaire) => ({
-  ...questionnaire,
-  questions: Object.fromEntries(
-    questions.map(({ key, hasOptions }) => {
-      const question = questionnaire.questions[key]
-      return [key, hasOptions
-        ? { ...question, options: question.options.join('\n') }
-        : question]
-    })
-  ),
-})
-
-const cleanOptions = (value) =>
-  value.split('\n').map((option) => option.trim()).filter(Boolean)
-
-const makePayload = (draft) => ({
-  ...draft,
-  questions: Object.fromEntries(
-    questions.map(({ key, hasOptions }) => {
-      const question = draft.questions[key]
-      return [key, hasOptions
-        ? { ...question, options: cleanOptions(question.options) }
-        : question]
-    })
-  ),
-})
-
-const getQuestionErrors = ({ text, options }) => {
-  const textError = text.trim() ? '' : 'Введите текст вопроса.'
-  if (!options) return { textError }
-  const values = cleanOptions(options)
-  const optionsError = values.length > maxOptions
-    ? `Добавьте до ${maxOptions} вариантов.`
-    : values.some((value) => value.length > maxOptionText)
-      ? `Сократите каждый вариант до ${maxOptionText} символов.`
-      : ''
-  return { textError, optionsError }
-}
-
-const isHttpsUrl = (value) => {
+const parseHttpsUrl = (value) => {
   try {
     const url = new URL(value)
-    return url.protocol === 'https:' && !url.username && !url.password
+    return url.protocol === 'https:' && !url.username && !url.password && url.href.length <= maxUrl
+      ? url.href
+      : ''
   } catch {
-    return false
+    return ''
   }
 }
 
@@ -119,8 +90,8 @@ const MediaPicker = ({ items, onUpload, onAddLink, onRemove, busy, uploading }) 
   }
 
   const addLink = () => {
-    const url = linkUrl.trim()
-    if (!isHttpsUrl(url)) {
+    const url = parseHttpsUrl(linkUrl.trim())
+    if (!url) {
       setLinkError('Укажите прямую HTTPS-ссылку на файл.')
       return
     }
@@ -136,9 +107,9 @@ const MediaPicker = ({ items, onUpload, onAddLink, onRemove, busy, uploading }) 
 
   return (
     <fieldset className="flex min-w-0 flex-col gap-2">
-      <legend className="mb-1 text-sm font-semibold">Фото и видео</legend>
+      <legend className="mb-1 text-sm font-semibold">Файлы сценария</legend>
       <p className="text-xs leading-5 text-gray-600">
-        Бот отправит файлы после нажатия «Оставить заявку», перед первым вопросом.
+        Выберите загруженные файлы в блоке «Сообщение или медиа».
         До {maxMedia} файлов. Фото JPG или PNG до 5 МБ, видео MP4 до 20 МБ.
       </p>
       <p className="text-xs leading-5 text-gray-600">
@@ -151,7 +122,7 @@ const MediaPicker = ({ items, onUpload, onAddLink, onRemove, busy, uploading }) 
             const kind = item.type === 'video' ? 'Видео' : 'Фото'
             return (
               <li
-                key={item.id || item.url}
+                key={telegramQuestionnaireMediaKey(item)}
                 className="flex min-w-0 items-center justify-between gap-2 rounded border border-gray-200 px-2 py-1"
               >
                 <div className="min-w-0 text-xs">
@@ -235,11 +206,19 @@ const MediaPicker = ({ items, onUpload, onAddLink, onRemove, busy, uploading }) 
 const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
   const snackbar = useSnackbar()
   const [draft, setDraft] = useState(null)
+  const [saved, setSaved] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const [validationStarted, setValidationStarted] = useState(false)
+  const [validationError, setValidationError] = useState(null)
+  const [openBlockId, setOpenBlockId] = useState(null)
+  const [preview, setPreview] = useState(false)
+  const [search, setSearch] = useState('')
   const [operation, setOperation] = useState('')
   const operationRef = useRef(false)
+  const needsServices = draft?.blocks.some(({ id, type }) => id === openBlockId && type === 'services') === true
+  const testData = useTelegramQuestionnaireTestData(draft?.mode === 'test' || needsServices, search)
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved)
+  const canStartTest = connected && !dirty && saved?.mode === 'test'
 
   useEffect(() => {
     const controller = new AbortController()
@@ -247,7 +226,9 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
     fetch(endpoint, { cache: 'no-store', signal: controller.signal })
       .then((response) => readResponse(response, failMessage))
       .then(({ questionnaire }) => {
-        if (!controller.signal.aborted) setDraft(createDraft(questionnaire))
+        if (controller.signal.aborted) return
+        setDraft(questionnaire)
+        setSaved(questionnaire)
       })
       .catch((error) => {
         if (!controller.signal.aborted) setLoadError(error.message || failMessage)
@@ -259,15 +240,17 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
 
   const setField = (name, value) => setDraft((current) => ({ ...current, [name]: value }))
 
-  const setQuestion = (key, field, value) => setDraft((current) => ({
-    ...current,
-    questions: {
-      ...current.questions,
-      [key]: { ...current.questions[key], [field]: value },
-    },
-  }))
-
   const addMedia = (item) => setDraft((current) => ({ ...current, media: [...current.media, item] }))
+  const removeMedia = (index) => setDraft((current) => {
+    const key = telegramQuestionnaireMediaKey(current.media[index])
+    return {
+      ...current,
+      media: current.media.filter((_, itemIndex) => itemIndex !== index),
+      blocks: current.blocks.map((block) => block.mediaIds?.includes(key)
+        ? { ...block, mediaIds: block.mediaIds.filter((id) => id !== key) }
+        : block),
+    }
+  })
 
   const runOperation = async (kind, action, failMessage) => {
     if (busy || operationRef.current) return
@@ -298,6 +281,7 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
       const response = await fetch(`${endpoint}/media`, { method: 'POST', body })
       const { attachment, questionnaire } = await readResponse(response, failMessage)
       if (!attachment?.id) throw new Error(failMessage)
+      setSaved(questionnaire)
       setDraft((current) => ({
         ...current,
         revision: questionnaire.revision,
@@ -309,14 +293,19 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
 
   const save = async (event) => {
     event.preventDefault()
-    setValidationStarted(true)
-    const invalidQuestion = questions.find(({ key }) =>
-      Object.values(getQuestionErrors(draft.questions[key])).some(Boolean)
-    )
-    if (invalidQuestion) {
-      const { textError } = getQuestionErrors(draft.questions[invalidQuestion.key])
-      const label = `${invalidQuestion.label} — ${textError ? 'текст вопроса' : 'варианты ответов'}`
-      event.currentTarget.querySelector(`[aria-label="${label}"]`)?.focus()
+    if (draft.mode === 'test' && !draft.testChatIds.length) {
+      setValidationError({ text: 'Выберите хотя бы один тестовый чат.' })
+      return
+    }
+    if (draft.mode !== 'off' && !draft.blocks.some(({ type }) => type !== 'message')) {
+      setValidationError({ text: 'Добавьте хотя бы один вопрос.' })
+      return
+    }
+    const invalid = getScenarioEditorError(draft.blocks)
+    setValidationError(invalid)
+    if (invalid) {
+      setOpenBlockId(invalid.id)
+      requestAnimationFrame(() => document.getElementById(`telegram-block-${invalid.id}`)?.querySelector('textarea, input')?.focus())
       return
     }
     const failMessage = 'Не удалось сохранить настройки автоответчика.'
@@ -324,12 +313,28 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
       const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(makePayload(draft)),
+        body: JSON.stringify(draft),
       })
       const { questionnaire } = await readResponse(response, failMessage)
-      setDraft(createDraft(questionnaire))
-      setValidationStarted(false)
+      setDraft(questionnaire)
+      setSaved(questionnaire)
       snackbar.success('Настройки автоответчика сохранены')
+    }, failMessage)
+  }
+
+  const startTest = async (chatId, createDraft) => {
+    if (!canStartTest || !saved.testChatIds.includes(chatId)) return
+    const failMessage = 'Не удалось запустить тест в этом чате.'
+    await runOperation('test', async () => {
+      const response = await fetch(telegramQuestionnaireTestEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId, createDraft }),
+      })
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !result?.run) throw new Error(result?.error?.message || failMessage)
+      testData.refresh()
+      snackbar.success('Тест готов. Попросите участника написать «Начать тест»')
     }, failMessage)
   }
 
@@ -355,11 +360,18 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
       ) : (
         <form className="flex min-w-0 flex-col gap-4" aria-busy={Boolean(operation)} onSubmit={save} noValidate>
           <div className="flex flex-col gap-2">
-            <SettingCheck checked={draft.enabled} disabled={busy || (!connected && !draft.enabled)} onChange={(value) => setField('enabled', value)}>
-              Включить автоответчик
-            </SettingCheck>
+            <Select
+              label="Режим автоответчика"
+              aria-label="Режим автоответчика"
+              value={draft.mode}
+              options={connected ? modes : modes.filter(({ value }) => value === 'off' || value === saved.mode)}
+              onChange={(mode) => setField('mode', mode)}
+              disabled={busy}
+              noMargin
+              fullWidth
+            />
             <p className="text-xs leading-5 text-gray-600">
-              Бот предложит оставить заявку или задать вопрос в новых личных чатах, к которым вы дали ему доступ в Telegram.
+              В рабочем режиме бот начинает опрос в новых личных чатах, к которым у него есть доступ в Telegram.
             </p>
             {!connected ? <Notice tone="info">Чтобы включить автоответчик, подключите бота в Telegram Business.</Notice> : null}
             <SettingCheck checked={draft.useTelegramGreeting} disabled={busy} onChange={(value) => setField('useTelegramGreeting', value)}>
@@ -383,45 +395,25 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
             )}
           </div>
 
-          <fieldset className="grid min-w-0 grid-cols-1 gap-3 tablet:grid-cols-2">
-            <legend className="mb-1 text-sm font-semibold">Вопросы опроса</legend>
-            {questions.map(({ key, label, hasOptions }) => {
-              const question = draft.questions[key]
-              const { textError, optionsError } = validationStarted ? getQuestionErrors(question) : {}
-              return (
-                <div key={key} className="flex min-w-0 flex-col gap-2 rounded border border-gray-200 p-2">
-                  <Input
-                    label={`${label} — текст вопроса`}
-                    ariaLabel={`${label} — текст вопроса`}
-                    value={question.text}
-                    onChange={(value) => setQuestion(key, 'text', value)}
-                    error={Boolean(textError)}
-                    required
-                    maxLength={maxText}
-                    disabled={busy}
-                    noMargin
-                    fullWidth
-                  />
-                  {textError ? <p role="alert" className="text-xs text-danger">{textError}</p> : null}
-                  {hasOptions ? (
-                    <Textarea
-                      label={`${label} — варианты ответов`}
-                      ariaLabel={`${label} — варианты ответов`}
-                      value={question.options}
-                      onChange={(value) => setQuestion(key, 'options', value)}
-                      help={`До ${maxOptions} вариантов, каждый с новой строки. Пустое поле позволяет ответить текстом.`}
-                      error={Boolean(optionsError)}
-                      rows={3}
-                      disabled={busy}
-                      noMargin
-                      fullWidth
-                    />
-                  ) : null}
-                  {optionsError ? <p role="alert" className="text-xs text-danger">{optionsError}</p> : null}
-                </div>
-              )
-            })}
-          </fieldset>
+          <TelegramQuestionnaireScenario
+            blocks={draft.blocks}
+            services={testData.services}
+            media={draft.media}
+            openId={openBlockId}
+            validationError={validationError}
+            disabled={busy}
+            onOpen={setOpenBlockId}
+            onChange={(blocks) => {
+              setField('blocks', blocks)
+              if (validationError) setValidationError(getScenarioEditorError(blocks))
+            }}
+          />
+          {needsServices && testData.error ? (
+            <Notice tone="error" role="alert">
+              {testData.error}
+              <AppButton className="ml-2" size="sm" variant="secondary" onClick={testData.refresh}>Повторить</AppButton>
+            </Notice>
+          ) : null}
 
           <MediaPicker
             items={draft.media}
@@ -429,12 +421,34 @@ const TelegramQuestionnaireSettings = ({ connected, disabled }) => {
             uploading={operation === 'upload'}
             onUpload={upload}
             onAddLink={addMedia}
-            onRemove={(index) => setDraft((current) => ({ ...current, media: current.media.filter((_, itemIndex) => itemIndex !== index) }))}
+            onRemove={removeMedia}
           />
 
-          <AppButton type="submit" className="self-start" disabled={busy} aria-busy={operation === 'save'}>
-            {operation === 'save' ? 'Сохраняем…' : 'Сохранить автоответчик'}
-          </AppButton>
+          {draft.mode === 'test' ? (
+            <TelegramQuestionnaireTestChats
+              selectedIds={draft.testChatIds}
+              data={testData}
+              search={search}
+              onSearch={setSearch}
+              onSelect={(ids) => {
+                setField('testChatIds', ids)
+                if (validationError && !validationError.id) setValidationError(null)
+              }}
+              onStart={startTest}
+              busy={busy}
+              canStart={canStartTest}
+            />
+          ) : null}
+          {validationError && !validationError.id ? <Notice tone="error" role="alert">{validationError.text}</Notice> : null}
+          <div className="flex flex-wrap gap-2">
+            <AppButton type="submit" disabled={busy} aria-busy={operation === 'save'}>
+              {operation === 'save' ? 'Сохраняем…' : 'Сохранить сценарий'}
+            </AppButton>
+            <AppButton variant="secondary" aria-expanded={preview} onClick={() => setPreview((value) => !value)}>
+              {preview ? 'Закрыть предпросмотр' : 'Предпросмотр'}
+            </AppButton>
+          </div>
+          {preview ? <TelegramQuestionnairePreview questionnaire={draft} /> : null}
         </form>
       )}
     </section>

@@ -1,4 +1,5 @@
 import SiteSettings from '@models/SiteSettings'
+import TelegramQuestionnaires from '@models/TelegramQuestionnaires'
 import dbConnect from '@server/dbConnect'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { hasTelegramQuestionnaireAccess } from '@server/integrationAccess'
@@ -30,7 +31,10 @@ const respond = async (req, { params }, head) => {
   })) return notFound()
   if (!hasTelegramQuestionnaireAccess(await getUserTariffAccess(tenantId))) return notFound()
   const questionnaire = await readTelegramQuestionnaire(tenantId)
-  if (!questionnaire.enabled || !questionnaire.media.some((item) => item.id === id)) return notFound()
+  if (!questionnaire.enabled) return notFound()
+  if (!questionnaire.media.some((item) => item.id === id) && !await TelegramQuestionnaires.exists({
+    tenantId, businessConnectionId: telegram.businessConnectionId, 'scenarioMedia.id': id,
+  })) return notFound()
   return telegramQuestionnaireMediaResponse(file, head)
 }
 

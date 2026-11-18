@@ -14,6 +14,24 @@ const schema = new Schema({
   revision: { type: Number, default: 0 },
   questions: { type: Schema.Types.Mixed, default: () => ({}) },
   welcomeText: { type: String, default: '' },
+  schemaVersion: Number,
+  blocks: { type: [Schema.Types.Mixed], default: undefined },
+  scenarioMedia: { type: [Schema.Types.Mixed], default: undefined },
+  mediaBlockIds: { type: [String], default: undefined },
+  blockId: String,
+  blockInput: String,
+  blockAnswers: { type: [Schema.Types.Mixed], default: undefined },
+  aiQuestion: String,
+  aiOperation: String,
+  aiCalls: Number,
+  aiClarifications: { type: [Schema.Types.Mixed], default: undefined },
+  aiEditQuestions: { type: [String], default: undefined },
+  aiEditing: Boolean,
+  initialMessage: String,
+  processedCallback: Schema.Types.Mixed,
+  testRunId: String,
+  createTestDraft: Boolean,
+  testResult: Schema.Types.Mixed,
   answers: { type: new Schema({
     service: String,
     date: String,
@@ -28,6 +46,9 @@ const schema = new Schema({
   submittedFromMessageId: { type: Number, default: 0 },
   submittedAt: { type: Date, default: null },
 }, { timestamps: true })
+
+schema.index({ tenantId: 1, testRunId: 1 }, { partialFilterExpression: { testRunId: { $type: 'string' } } })
+schema.index({ tenantId: 1, businessConnectionId: 1, telegramChatId: 1 })
 
 export default mongoose.models.TelegramQuestionnaires ||
   mongoose.model('TelegramQuestionnaires', schema)

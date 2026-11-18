@@ -28,9 +28,99 @@ const loadIntegrationAccess = ({ getRequestContext, getUserTariffAccess } = {}) 
   '@server/getUserTariffAccess': getUserTariffAccess,
 })
 
+test('конструктор не принимает условия на удалённые и последующие варианты', async () => {
+  await loadBindings()
+  const blocks = await import('../../helpers/telegramQuestionnaireBlocks.mjs')
+  const lib = load('server/telegramQuestionnaireSettings.js', {
+    '@models/TelegramQuestionnaireSettings': {}, '@helpers/telegramQuestionnaireBlocks.mjs': blocks,
+  })
+  const form = { ...lib.defaultTelegramQuestionnaire(), mode: 'test', testChatIds: [id] }
+  const first = { id: 'event', type: 'eventType', text: 'Какое событие?', options: [{ id: 'wedding', label: 'Свадьба' }, { id: 'other', label: 'Другое' }] }
+  const wedding = { id: 'wedding-block', type: 'question', text: 'Где пройдёт регистрация?', condition: { blockId: first.id, optionId: 'wedding', operator: 'equals' } }
+  const other = { id: 'other-block', type: 'question', text: 'Расскажите подробнее', condition: { ...wedding.condition, operator: 'notEquals' } }
+  const valid = lib.validateTelegramQuestionnaire({ ...form, blocks: [first, wedding, other] })
+  assert.deepEqual(blocks.getVisibleTelegramQuestionnaireBlocks(valid.blocks, {}).map(block => block.id), ['event'])
+  assert.deepEqual(blocks.getVisibleTelegramQuestionnaireBlocks(valid.blocks, { event: { optionId: 'wedding' } }).map(block => block.id), ['event', 'wedding-block'])
+  assert.deepEqual(blocks.getVisibleTelegramQuestionnaireBlocks(valid.blocks, { event: { optionId: 'other' } }).map(block => block.id), ['event', 'other-block'])
+  assert.deepEqual(blocks.getVisibleTelegramQuestionnaireBlocks(valid.blocks, { event: { value: 'Премьера' } }).map(block => block.id), ['event', 'other-block'])
+  assert.throws(() => lib.validateTelegramQuestionnaire({ ...form, blocks: [wedding, first] }), { status: 400 })
+  assert.throws(() => lib.validateTelegramQuestionnaire({ ...form, blocks: [{ ...first, options: [first.options[1]] }, wedding] }), { status: 400 })
+})
+
+test('загрузка в активный старый сценарий сохраняет только прежние вложения в блоке отправки', async () => {
+  await loadBindings()
+  const nextId = '2'.repeat(24)
+  const attachment = { id: nextId, type: 'video', name: 'Тест.mp4' }
+  const question = { text: 'Ваш ответ?' }
+  const legacy = { revision: 5, questionnaire: { enabled: true, useTelegramGreeting: false, welcomeText: '',
+    questions: { service: question, date: question, city: question, details: question }, media: [privateFile] } }
+  const lib = load('server/telegramQuestionnaireSettings.js', {
+    '@helpers/telegramQuestionnaireBlocks.mjs': await import('../../helpers/telegramQuestionnaireBlocks.mjs'),
+    '@models/TelegramQuestionnaireSettings': {
+      findOne: () => ({ lean: async () => legacy }), init: async () => {}, updateOne: async () => {},
+      findOneAndUpdate: (scope, update) => ({ lean: async () => {
+        assert.deepEqual(scope, { tenantId, revision: 5 })
+        return { revision: 6, questionnaire: update.$set.questionnaire }
+      } }),
+    },
+  })
+  const result = await lib.appendTelegramQuestionnaireMedia({ tenantId, revision: 5, attachment })
+  assert.equal(result.mode, 'live')
+  assert.deepEqual(result.media, [privateFile, attachment])
+  assert.deepEqual(result.blocks.find(block => block.id === 'legacy-media').mediaIds, [id])
+})
+
+test('тестовый запуск принадлежит выбранному чату и текущему подключению', async () => {
+  await loadBindings()
+  const error = (message, status) => Object.assign(new Error(message), { status })
+  const writes = []
+  const model = load('server/telegramQuestionnaireTestRuns.js', {
+    'node:crypto': require('node:crypto'), '@models/Clients': {}, '@models/Services': {},
+    '@models/TelegramQuestionnaires': {},
+    '@models/TelegramMessages': { find: scope => {
+      assert.equal(scope.tenantId, tenantId)
+      assert.equal(scope.businessConnectionId, 'current')
+      return { select: () => ({ lean: async () => [{ telegramMessageId: '38' }] }) }
+    } },
+    '@models/TelegramConversations': { findOne: scope => ({ select: () => ({ lean: async () =>
+      scope.tenantId === tenantId && scope.businessConnectionId === 'current' && scope._id === id && scope.status === 'open'
+        ? { _id: id, telegramChatId: '17' } : null }) }) },
+    '@models/TelegramQuestionnaireTestRuns': {
+      init: async () => {},
+      findOneAndUpdate: (scope, update) => ({ lean: async () => {
+        writes.push({ ...scope, ...update.$set })
+        return writes.at(-1)
+      } }),
+      findOne: scope => ({ select: () => ({ lean: async () => writes.find(run =>
+        scope.tenantId === run.tenantId && scope.businessConnectionId === run.businessConnectionId &&
+        scope.telegramChatId === run.telegramChatId && scope.chatId.$in.includes(run.chatId)) }) }),
+    },
+    '@server/telegramQuestionnaireSettings': { questionnaireError: error },
+  })
+  const questionnaire = { mode: 'test', testChatIds: [id] }
+  const scope = { tenantId, businessConnectionId: 'current', questionnaire }
+  await assert.rejects(model.armTelegramQuestionnaireTest({ ...scope, chatId: foreignTenantId }), { status: 409 })
+  await assert.rejects(model.armTelegramQuestionnaireTest({ ...scope, tenantId: foreignTenantId, chatId: id }), { status: 404 })
+  const run = await model.armTelegramQuestionnaireTest({ ...scope, chatId: id, createDraft: false })
+  assert.equal(run.status, 'waiting')
+  const current = await model.readTelegramQuestionnaireTestRun({ ...scope, telegramChatId: 17 })
+  assert.equal(current.id, run.runId)
+  const { isTelegramQuestionnaireTestStart } = await import('../../helpers/telegramQuestionnaireBlocks.mjs')
+  const command = { date: Math.floor(current.armedAt.getTime() / 1000), text: 'Начать тест' }
+  assert.equal(isTelegramQuestionnaireTestStart(current, { ...command, message_id: 38 }), false)
+  assert.equal(isTelegramQuestionnaireTestStart(current, { ...command, message_id: 39 }), true)
+  assert.equal(await model.readTelegramQuestionnaireTestRun({ ...scope, telegramChatId: 18 }), null)
+  assert.equal(await model.readTelegramQuestionnaireTestRun({ ...scope, businessConnectionId: 'old', telegramChatId: 17 }), null)
+  assert.equal(await model.readTelegramQuestionnaireTestRun({ ...scope, questionnaire: { mode: 'test', testChatIds: [] }, telegramChatId: 17 }), null)
+  assert.equal(await model.readTelegramQuestionnaireTestRun({ ...scope, questionnaire: { mode: 'live', testChatIds: [id] }, telegramChatId: 17 }), null)
+})
+
 test('анкета изолирует настройки и вложения арендатора, проверяет ревизию и обновляет webhook при включении', async () => {
   await loadBindings()
-  const lib = load('server/telegramQuestionnaireSettings.js', { '@models/TelegramQuestionnaireSettings': {} })
+  const lib = load('server/telegramQuestionnaireSettings.js', {
+    '@models/TelegramQuestionnaireSettings': {},
+    '@helpers/telegramQuestionnaireBlocks.mjs': await import('../../helpers/telegramQuestionnaireBlocks.mjs'),
+  })
   const defaults = lib.defaultTelegramQuestionnaire()
   const saved = [], webhooks = [], removed = []
   const integrationAccess = loadIntegrationAccess({
@@ -45,6 +135,7 @@ test('анкета изолирует настройки и вложения а�
   })
   const route = load(`${root}/questionnaire/route.js`, {
     'next/server': loggerlessResponse,
+    '@models/TelegramQuestionnaires': { exists: async () => false },
     '@models/SiteSettings': { findOne: scope => {
       assert.deepEqual(scope, { tenantId })
       return { lean: async () => ({ custom: {} }) }
@@ -65,12 +156,13 @@ test('анкета изолирует настройки и вложения а�
       },
     },
     '@server/telegramQuestionnaireMedia': { deleteTelegramQuestionnaireMedia: async options => removed.push(options) },
+    '@server/telegramQuestionnaireTestRuns': { validateTelegramQuestionnaireReferences: async () => {} },
   })
   const request = (tenant, body, headers = {}) => new Request('https://example.test/config', {
     ...(tenant ? { headers: { 'x-test-tenant': tenant, ...headers } } : {}),
     ...(body ? { method: 'PATCH', body: JSON.stringify(body) } : {}),
   })
-  const form = { ...defaults, revision: 1, enabled: true, media: [privateFile] }
+  const form = { ...defaults, revision: 1, mode: 'live', media: [privateFile] }
   assert.equal((await route.GET(request(null))).status, 401)
   assert.equal((await route.GET(request(tenantId, null, { 'x-test-role': 'user' }))).status, 403)
   assert.equal((await route.PATCH(request(tenantId, form, { 'x-test-role': 'admin' }))).status, 403)
@@ -99,6 +191,7 @@ test('файл выдаётся только с действующей подп�
   })
   let tariffAllowed = true, enabled = true, ownerRole = 'dev'
   const route = load(`${root}/questionnaire/media/[id]/route.js`, {
+    '@models/TelegramQuestionnaires': { exists: async () => false },
     '@models/SiteSettings': { findOne: scope => {
       assert.deepEqual(scope, { tenantId })
       return { lean: async () => ({ custom: {} }) }
@@ -224,6 +317,7 @@ test('webhook передаёт в опрос нажатия и новые вхо
     'next/server': loggerlessResponse,
     '@models/SiteSettings': { findOne: async scope => scope['custom.telegramBusinessWebhookToken'] === 'token' ? { tenantId, custom: {} } : null },
     '@models/TelegramMessages': {}, '@server/dbConnect': async () => {},
+    '@helpers/telegramQuestionnaireBlocks.mjs': await import('../../helpers/telegramQuestionnaireBlocks.mjs'),
     '@server/integrationAccess': loadIntegrationAccess(),
     '@server/getUserTariffAccess': async id => ({ allowTelegramIntegration: id === tenantId, user: { role: ownerRole } }),
     '@server/rateLimit': { checkRateLimit: async () => ({ ok: true }) },
@@ -238,6 +332,7 @@ test('webhook передаёт в опрос нажатия и новые вхо
     },
     '@server/messengerPush': { notifyIncomingClientMessage: async ({ messageId }) => pushes.push(messageId) },
     '@server/telegramQuestionnaireSettings': { readTelegramQuestionnaire: async tenant => ({ enabled: tenant === tenantId }) },
+    '@server/telegramQuestionnaireTestRuns': { readTelegramQuestionnaireTestRun: async () => null },
     '@server/telegramQuestionnaire': {
       TELEGRAM_QUESTIONNAIRE_PREFIX: 'vq:',
       handleTelegramQuestionnaireCallback: async ({ callbackQuery }) => handled.push(callbackQuery.data),

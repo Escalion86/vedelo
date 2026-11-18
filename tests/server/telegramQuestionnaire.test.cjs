@@ -73,12 +73,20 @@ function model(rows, defaults = {}) {
       if (row) update(row, changes)
       return { modifiedCount: row ? 1 : 0 }
     },
+    async updateMany(filter, changes) {
+      assert.ok(filter.tenantId, 'tenant scope is required')
+      const matching = rows.filter(item => matches(item, filter))
+      matching.forEach(row => update(row, changes))
+      return { modifiedCount: matching.length }
+    },
   }
 }
 
-async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMonth = 20 } = {}) {
+async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMonth = 20, aiQuestion = null } = {}) {
   await loadBindings()
   const steps = await import('../../server/telegramQuestionnaireSteps.mjs')
+  const blocks = await import('../../server/telegramQuestionnaireBlocks.mjs')
+  const sharedBlocks = await import('../../helpers/telegramQuestionnaireBlocks.mjs')
   const payload = await import('../../server/publicLeadPayload.mjs')
   const conversation = {
     _id: 'c'.repeat(24), tenantId, businessConnectionId: connectionId,
@@ -86,6 +94,8 @@ async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMo
   }
   const prompts = [], saved = [], acknowledgements = [], media = [], push = [], history = [], events = [], sessions = []
   const failures = new Set()
+  const aiCalls = []
+  const serviceFilters = []
   const eventsModel = model(events)
   const conversationsModel = model([conversation])
   const originalCreate = eventsModel.findOneAndUpdate
@@ -103,11 +113,16 @@ async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMo
     mediaAttempted: false, submittedFromMessageId: 0,
   })
   let messageId = 0
-  const makeMessage = (text) => ({ message_id: ++messageId, chat: { id: Number(chatId), type: 'private' }, from: { id: Number(chatId) }, business_connection_id: connectionId, text })
+  const makeMessage = (text) => ({ message_id: ++messageId, date: Math.floor(Date.now() / 1000), chat: { id: Number(chatId), type: 'private' }, from: { id: Number(chatId) }, business_connection_id: connectionId, text })
+  let eventIdSequence = 0
   const handlers = load('server/telegramQuestionnaire.js', {
-    mongoose: { Types: { ObjectId: class { constructor() { return new String('e'.repeat(24)) } } } },
+    mongoose: { Types: { ObjectId: class { constructor() { return new String(`${'e'.repeat(20)}${String(++eventIdSequence).padStart(4, '0')}`) } } } },
     '@models/Clients': model([{ _id: conversation.clientId, tenantId: clientTenant }]),
     '@models/Events': eventsModel,
+    '@models/Services': { find: (filter) => {
+      serviceFilters.push(filter)
+      return lean(filter?.tenantId === tenantId ? filter._id.$in.filter(id => id === '1'.repeat(24)).map(_id => ({ _id })) : [])
+    } },
     '@models/SiteSettings': model([{ tenantId, timeZone: 'Asia/Krasnoyarsk' }]),
     '@models/TelegramConversations': conversationsModel,
     '@models/TelegramQuestionnaires': questionnaires,
@@ -115,6 +130,10 @@ async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMo
     '@server/integrationAccess': { hasTelegramQuestionnaireAccess: access => access?.user?.role === 'dev' && access.allowTelegramIntegration },
     '@server/activityHistory': { recordActivityHistory: async entry => { history.push(entry) } },
     '@server/multiChannelPush': { sendMultiChannelPushToTenant: async entry => { push.push(entry) } },
+    '@server/telegramQuestionnaireAi': { getTelegramQuestionnaireAiQuestion: async input => {
+      aiCalls.push(input)
+      return Array.isArray(aiQuestion) ? aiQuestion[aiCalls.length - 1] ?? null : aiQuestion
+    } },
     '@server/telegramQuestionnaireMedia': { sendTelegramQuestionnaireMedia: async entry => {
       media.push(entry)
       if (failMedia) throw new Error('synthetic media failure')
@@ -137,6 +156,8 @@ async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMo
     },
     './publicLeadPayload.mjs': payload,
     './telegramQuestionnaireSteps.mjs': steps,
+    './telegramQuestionnaireBlocks.mjs': blocks,
+    '../helpers/telegramQuestionnaireBlocks.mjs': sharedBlocks,
   })
   const receive = (options = {}) => handlers.handleTelegramQuestionnaireMessage({
     tenantId, settings, message: makeMessage(options.text ?? 'Здравствуйте'),
@@ -155,7 +176,7 @@ async function fixture({ clientTenant = tenantId, failMedia = false, eventsPerMo
   })
   return {
     ...handlers, receive, makeMessage, makeCallback, callback, conversation, sessions, events,
-    prompts, acknowledgements, saved, media, push, history, failures,
+    prompts, acknowledgements, saved, media, push, history, failures, aiCalls, serviceFilters,
   }
 }
 
@@ -294,4 +315,167 @@ test('редактирование очищает сводку, не повто�
   assert.equal(f.media.length, 1)
   assert.equal(f.push.length, 0)
   assert.match(f.prompts.at(-1).message.text, /не удалось принять заявку/)
+})
+
+const settingsV2 = {
+  ...settings,
+  questionnaire: {
+    enabled: true, schemaVersion: 2, mode: 'live',
+    welcomeText: 'Приветствие конструктора',
+    media: [{ type: 'photo', id: 'sample-photo' }, { type: 'video', id: 'unused-video' }],
+    blocks: [
+      { id: 'event', type: 'eventType', label: 'Тип события', text: 'Какое событие?', required: true,
+        options: [{ id: 'wedding', label: 'Свадьба' }, { id: 'party', label: 'Корпоратив' }] },
+      { id: 'proof', type: 'message', text: 'Пример со свадьбы', mediaIds: ['sample-photo'],
+        condition: { blockId: 'event', optionId: 'wedding', operator: 'equals' } },
+      { id: 'guests', type: 'question', label: 'Гостей', text: 'Сколько гостей?', required: true,
+        condition: { blockId: 'event', optionId: 'wedding', operator: 'equals' } },
+      { id: 'company', type: 'question', label: 'Компания', text: 'Как называется компания?', required: true,
+        condition: { blockId: 'event', optionId: 'wedding', operator: 'notEquals' } },
+      { id: 'date', type: 'dateTime', text: 'Когда мероприятие?', required: false },
+      { id: 'town', type: 'location', text: 'Где мероприятие?', required: true },
+      { id: 'service', type: 'services', text: 'Выберите услугу', required: true, options: [
+        { id: 'photo', label: 'Фотосъёмка', serviceId: '1'.repeat(24) },
+        { id: 'foreign', label: 'Старая услуга', serviceId: '2'.repeat(24) },
+      ] },
+      { id: 'ai', type: 'ai', text: 'Уточнения', topics: 'Площадка' },
+    ],
+  },
+}
+
+test('конструктор заполняет поля, убирает скрытые ответы и сохраняет два ИИ-уточнения', async () => {
+  const f = await fixture({ aiQuestion: ['Как называется площадка?', 'Какой вход использовать?'] })
+  const context = { settings: settingsV2 }
+  const receive = (text, first = false) => f.receive({ text, context, result: { isFirstIncomingMessage: first } })
+  const choose = (title) => f.callback(f.makeCallback(title), context)
+  await receive('Здравствуйте', true)
+  await choose('Оставить заявку')
+  const wedding = f.makeCallback('Свадьба')
+  await Promise.all([f.callback(wedding, context), f.callback(wedding, context)])
+  assert.equal(f.media.length, 1)
+  assert.deepEqual(f.media[0].media.map(item => item.id), ['sample-photo'])
+  assert.match(f.prompts.at(-1).message.text, /Сколько гостей/)
+  await receive('47')
+  await receive('07.12.2030 18:45')
+  await receive('Красноярск, Концертный зал')
+  await choose('Фотосъёмка')
+  assert.equal(f.aiCalls.length, 1)
+  assert.equal(f.aiCalls[0].initialMessage, 'Здравствуйте')
+  await receive('Дворец культуры')
+  assert.deepEqual(f.aiCalls[1].previousClarifications, [{ question: 'Как называется площадка?', answer: 'Дворец культуры' }])
+  await receive('Главный вход')
+  assert.match(f.prompts.at(-1).message.text, /Гостей: 47/)
+  await choose('Изменить ответы')
+  await choose('Уточнения')
+  await receive('Городской дворец культуры')
+  await receive('Вход со двора')
+  await choose('Изменить ответы')
+  await choose('Тип события')
+  await choose('Корпоратив')
+  assert.match(f.prompts.at(-1).message.text, /Как называется компания/)
+  await receive('Ведело')
+  assert.doesNotMatch(f.prompts.at(-1).message.text, /Гостей: 47|Свадьба/)
+  const submit = f.makeCallback('Отправить заявку')
+  await Promise.all([f.callback(submit, context), f.callback(submit, context)])
+  assert.equal(f.events.length, 1)
+  const [event] = f.events
+  assert.equal(event.eventType, 'Корпоратив')
+  assert.equal(event.eventDate.toISOString(), '2030-12-07T11:45:00.000Z')
+  assert.deepEqual(event.servicesIds, ['1'.repeat(24)])
+  assert.deepEqual(f.serviceFilters, [{ tenantId, _id: { $in: ['1'.repeat(24)] } }])
+  assert.equal(event.address.town, 'Красноярск')
+  assert.equal(event.address.comment, 'Концертный зал')
+  assert.match(event.description, /Компания: Ведело/)
+  assert.match(event.description, /Как называется площадка\?: Городской дворец культуры/)
+  assert.match(event.description, /Какой вход использовать\?: Вход со двора/)
+  assert.doesNotMatch(event.description, /Гостей: 47/)
+  assert.equal(f.aiCalls.length, 2)
+})
+
+test('повторные тесты требуют команды и создают заметную карточку только при согласии', async () => {
+  const f = await fixture()
+  const testSettings = { ...settingsV2, questionnaire: {
+    ...settingsV2.questionnaire, mode: 'test', blocks: [{ id: 'city', type: 'location', text: 'Где?', required: true }],
+  } }
+  const dryRun = { id: 'self-test-1', armedAt: new Date(Date.now() - 5000), createDraft: false }
+  const realRun = { ...dryRun, id: 'self-test-2', createDraft: true }
+  const run = async (testRun) => {
+    const context = { settings: testSettings, testRun }
+    const start = await f.receive({ text: 'Начать тест', context })
+    assert.equal(start.suppressMessagePush, true)
+    await f.callback(f.makeCallback('Оставить заявку'), context)
+    await f.receive({ text: 'Красноярск', context })
+    const submit = f.makeCallback('Отправить заявку')
+    await f.callback(submit, context)
+    await f.callback(submit, context)
+  }
+  await f.receive({ text: 'Начать тест', context: { settings: testSettings } })
+  await f.receive({ text: 'Обычное сообщение', context: { settings: testSettings, testRun: dryRun } })
+  assert.equal(f.sessions.length, 0)
+  await run(dryRun)
+  assert.equal(f.sessions[0].step, 'completed')
+  assert.deepEqual(f.sessions[0].testResult, { eventType: '', date: '', time: '', city: 'Красноярск', venue: '', services: [], description: '' })
+  assert.equal(f.events.length, 0)
+  assert.equal(f.push.length, 0)
+  await run(realRun)
+  assert.equal(f.sessions.length, 2)
+  assert.equal(f.sessions[1].testResult.draftId, String(f.events[0]._id))
+  assert.match(f.events[0].description, /^Тестовая заявка из Telegram/)
+  assert.equal(f.events[0].clientId, null)
+  assert.equal(f.conversation.eventId, undefined)
+  assert.equal(f.push.length, 1)
+  assert.match(f.push[0].payload.title, /^Тестовая заявка/)
+})
+
+test('начатая v1 анкета отвечает прежними вопросами после публикации v2', async () => {
+  const f = await fixture()
+  await f.receive({ result: { isFirstIncomingMessage: true } })
+  const migrated = { ...settingsV2, questionnaire: { ...settingsV2.questionnaire, blocks: [
+    ...settingsV2.questionnaire.blocks, { id: 'legacy-media', type: 'message', mediaIds: ['sample-photo'] },
+  ] } }
+  await f.callback(f.makeCallback('Оставить заявку'), { settings: migrated })
+  assert.deepEqual(f.media[0].media.map(item => item.id), ['sample-photo'])
+  assert.equal(f.prompts.at(-1).message.text, 'Выберите услугу')
+  await f.callback(f.makeCallback('Фотосъёмка'), { settings: settingsV2 })
+  assert.equal(f.sessions[0].step, 'date')
+  assert.equal(f.sessions[0].schemaVersion, undefined)
+})
+
+test('дата без времени сохраняется в запросе клиента без условного времени в карточке', async () => {
+  const f = await fixture()
+  const context = { settings: { ...settingsV2, questionnaire: {
+    ...settingsV2.questionnaire,
+    blocks: [{ id: 'date', type: 'dateTime', text: 'Когда мероприятие?', required: true }],
+  } } }
+  await f.receive({ context, result: { isFirstIncomingMessage: true } })
+  await f.callback(f.makeCallback('Оставить заявку'), context)
+  await f.receive({ text: '07.12.2030 25:00', context })
+  assert.match(f.prompts.at(-1).message.text, /Проверьте дату/)
+  await f.receive({ text: '07.12.2030', context })
+  await f.callback(f.makeCallback('Отправить заявку'), context)
+  assert.equal(f.events[0].eventDate, null)
+  assert.match(f.events[0].description, /Дата: 07\.12\.2030\. Время не указано/)
+  assert.equal(f.events[0].clientData.lead.requestedDate, '2030-12-07')
+  assert.equal(f.events[0].clientData.lead.timeNotSpecified, true)
+})
+
+test('структурные поля берут первый видимый заполненный ответ', async () => {
+  const { readQuestionnaireResult } = await import('../../server/telegramQuestionnaireBlocks.mjs')
+  const { result } = readQuestionnaireResult({
+    blocks: [
+      { id: 'event1', type: 'eventType', text: 'Тип' }, { id: 'event2', type: 'eventType', text: 'Тип ещё раз' },
+      { id: 'date1', type: 'dateTime', text: 'Дата' }, { id: 'date2', type: 'dateTime', text: 'Дата ещё раз' },
+      { id: 'town1', type: 'location', text: 'Город' }, { id: 'town2', type: 'location', text: 'Город ещё раз' },
+    ],
+    blockAnswers: [
+      { blockId: 'event1', value: 'Свадьба' }, { blockId: 'event2', value: 'Праздник' },
+      { blockId: 'date1', value: '08.12.2030', date: '2030-12-08' }, { blockId: 'date2', value: '07.12.2030', date: '2030-12-07', time: '19:00' },
+      { blockId: 'town1', value: 'Красноярск, Дворец культуры' }, { blockId: 'town2', value: 'Ачинск' },
+    ],
+  })
+  assert.equal(result.eventType, 'Свадьба')
+  assert.equal(result.date, '2030-12-08')
+  assert.equal(result.time, '')
+  assert.equal(result.city, 'Красноярск')
+  assert.equal(result.venue, 'Дворец культуры')
 })
