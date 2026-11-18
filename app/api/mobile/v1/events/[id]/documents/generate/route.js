@@ -32,6 +32,7 @@ export const POST = async (req, { params }) => {
         requestId: input.requestId === undefined ? crypto.randomUUID() : input.requestId,
         action: input.action,
         source: input.source,
+        templateFields: input.templateFields,
         // Legacy forms had no empty-fields confirmation.
         allowEmpty: input.requestId === undefined || input.allowEmpty === true,
       },

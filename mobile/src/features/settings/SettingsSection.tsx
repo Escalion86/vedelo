@@ -12,6 +12,7 @@ import { ThemePreferenceSection } from './ThemePreferenceSection'
 import { ClientTypesSection } from './ClientTypesSection'
 import { PromoCodeRedeem } from '../billing/PromoCodeRedeem'
 import { WorkspaceSettings } from './WorkspaceSettings'
+import { ActivityProfileSettings } from '../onboarding/ActivityProfileEditor'
 
 export const terminologyConfig: SettingsConfig<PrimaryEntityTerminology> = {
   scope: 'terminology', endpoint: '/mobile/v1/settings/terminology',
@@ -25,6 +26,7 @@ const options = [
 export const SettingsSection = () => {
   const [typesOpen, setTypesOpen] = useState(false)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
   const editor = useSettingsEditor(terminologyConfig)
   const styles = useThemeStyles(createStyles)
   const { palette } = useTheme()
@@ -34,6 +36,8 @@ export const SettingsSection = () => {
     <PromoCodeRedeem />
     <Button title={workspaceOpen ? 'Закрыть настройки организации' : 'Настройки организации'} variant="secondary" onPress={() => setWorkspaceOpen(open => !open)} />
     {workspaceOpen ? <WorkspaceSettings /> : null}
+    <Button title={activityOpen ? 'Закрыть вид деятельности' : 'Вид деятельности'} variant="secondary" onPress={() => setActivityOpen(open => !open)} />
+    {activityOpen ? <ActivityProfileSettings onSaved={editor.retry} /> : null}
     <Button title={typesOpen ? 'Закрыть типы клиентов' : 'Типы клиентов'} variant="secondary" onPress={() => setTypesOpen(!typesOpen)} />
     {typesOpen ? <ClientTypesSection /> : null}
     {editor.reading ? <Notice message="Загружаем настройки…" /> : null}

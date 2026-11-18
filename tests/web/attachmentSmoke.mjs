@@ -2,6 +2,10 @@ import assert from 'node:assert/strict'
 
 // Запускается только из стенда с временной MongoDB и локальным облачным mock.
 export const runAttachmentSmoke = async ({ page, context, viewport }) => {
+  const activity = await context.request.patch('/api/activity-profile', {
+    data: { preset: 'events' },
+  })
+  assert.equal(activity.status(), 200)
   const settings = await context.request.post('/api/site', {
     data: {
       custom: { firstRunWizardCompleted: true, firstRunWizardShowToken: null },

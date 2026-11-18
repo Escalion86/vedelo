@@ -15,7 +15,9 @@ let db,
   Users,
   Payments,
   Tariffs,
+  SiteSettings,
   GET,
+  activityProfile,
   context,
   activity,
   visits
@@ -67,6 +69,15 @@ test.before(async () => {
   )
   Payments = db.model('Payments', new mongoose.Schema({}, { strict: false }))
   Tariffs = db.model('Tariffs', new mongoose.Schema({}, { strict: false }))
+  SiteSettings = db.model(
+    'SiteSettings',
+    new mongoose.Schema({
+      tenantId: { type: mongoose.Schema.Types.ObjectId, unique: true },
+      custom: { type: Map, of: mongoose.Schema.Types.Mixed },
+      syncVersion: { type: Number, default: 1 },
+    }, { timestamps: true })
+  )
+  await SiteSettings.init()
   const activitySchema = new mongoose.Schema({
     tenantId: mongoose.Schema.Types.ObjectId,
     userId: mongoose.Schema.Types.ObjectId,
@@ -77,6 +88,8 @@ test.before(async () => {
   activity = db.model('Activity', activitySchema)
   await activity.init()
   const core = await import('../../server/serviceAnalytics.mjs')
+  const profileCore = await import('../../helpers/activityProfile.mjs')
+  let profileStore
   const resolve = (id) =>
     ({
       '@server/getRequestContext': async () => context,
@@ -84,10 +97,16 @@ test.before(async () => {
       '@models/Users': Users,
       '@models/Payments': Payments,
       '@models/Tariffs': Tariffs,
+      '@models/SiteSettings': SiteSettings,
       '@models/ServiceActivityDays': activity,
       '@server/serviceAnalytics.mjs': core,
+      '@server/activityProfile': profileStore,
+      '@server/tenantTerminology': { clearTenantWorkItemTerminologyCache: () => {} },
+      '@helpers/activityProfile.mjs': profileCore,
     })[id] || require(id)
+  profileStore = compile('server/activityProfile.js', resolve)
   GET = compile('app/api/developer/analytics/route.js', resolve).GET
+  activityProfile = compile('app/api/activity-profile/route.js', resolve)
   visits = compile('server/acquisitionFunnel.js', resolve).recordCabinetVisit
 })
 test.after(async () => {
@@ -225,4 +244,79 @@ test('activity uses stored tenant and deduplicates each UTC day', async () => {
   assert.equal(rows[0].day, '2026-09-23')
   await visits(user._id, new Date('2026-09-24T00:00:00Z'))
   assert.equal(await activity.countDocuments({ userId: user._id }), 2)
+})
+
+test('activity profile requires owner, isolates tenants and preserves unrelated settings on retry', async () => {
+  const owner = new mongoose.Types.ObjectId()
+  const otherTenant = new mongoose.Types.ObjectId()
+  const teammate = new mongoose.Types.ObjectId()
+  await SiteSettings.create([
+    {
+      tenantId: owner,
+      custom: {
+        firstRunWizardCompleted: true,
+        onboardingActivityPreset: 'other',
+        onboardingActivityOtherDescription: '  ',
+        primaryEntityTerminology: 'events',
+        defaultEventDurationMinutes: 17,
+      },
+    },
+    { tenantId: otherTenant, custom: { onboardingActivityPreset: 'consulting' } },
+  ])
+  const request = (body) => new Request('http://localhost/api/activity-profile', body
+    ? { method: 'PATCH', body: JSON.stringify(body) }
+    : undefined)
+  const patch = () => request({ tenantId: String(otherTenant), preset: 'other', otherDescription: '  Груминг \n собак ' })
+  context = { user: { _id: teammate }, tenantId: String(owner) }
+  assert.equal((await activityProfile.PATCH(patch())).status, 403)
+  assert.equal((await (await activityProfile.GET(request())).json()).data.required, false)
+  context = { user: { _id: owner, impersonation: { active: true } }, tenantId: String(owner) }
+  assert.equal((await activityProfile.PATCH(patch())).status, 403)
+  context = { user: null, tenantId: null }
+  assert.equal((await activityProfile.GET(request())).status, 401)
+  context = { user: { _id: owner }, tenantId: String(owner) }
+  const before = await activityProfile.GET(request())
+  assert.equal(before.headers.get('cache-control'), 'private, no-store')
+  assert.equal((await before.json()).data.required, true)
+  assert.equal((await activityProfile.PATCH(request({ preset: 'other', otherDescription: ' \t ' }))).status, 400)
+  assert.equal((await activityProfile.PATCH(request({ preset: 'bad' }))).status, 400)
+  assert.equal((await activityProfile.PATCH(request({ preset: 'beauty', terminology: 'bad' }))).status, 400)
+
+  const responses = await Promise.all([activityProfile.PATCH(patch()), activityProfile.PATCH(patch())])
+  for (const response of responses) {
+    assert.equal(response.status, 200)
+    assert.deepEqual((await response.json()).data, {
+      required: false, canEdit: true, preset: 'other', otherDescription: 'Груминг собак',
+      terminology: 'events', completed: true,
+    })
+  }
+  const settings = await SiteSettings.findOne({ tenantId: owner }).lean()
+  assert.equal(settings.syncVersion, 2)
+  assert.equal(settings.custom.defaultEventDurationMinutes, 17)
+  assert.equal((await SiteSettings.findOne({ tenantId: otherTenant }).lean()).custom.onboardingActivityPreset, 'consulting')
+})
+
+test('analytical distribution groups activities once per workspace and keeps blank and other separate', async () => {
+  const [owner, secondOwner, legacyOwner, unspecified, archived, dev] = await Users.create([
+    { role: 'user' }, { role: 'user' }, { role: 'user' }, { role: 'user' },
+    { role: 'user', archive: true }, { role: 'dev' },
+  ])
+  await Users.create({ tenantId: owner._id, role: 'user' })
+  await SiteSettings.create([
+    { tenantId: owner._id, custom: { onboardingActivityPreset: 'other', onboardingActivityOtherDescription: 'Груминг  собак' } },
+    { tenantId: secondOwner._id, custom: { onboardingActivityPreset: 'other', onboardingActivityOtherDescription: 'груминг собак' } },
+    { tenantId: legacyOwner._id, custom: { onboardingActivityPreset: 'other' } },
+    { tenantId: unspecified._id, custom: { onboardingActivityPreset: 'unrecognized' } },
+    { tenantId: archived._id, custom: { onboardingActivityPreset: 'beauty' } },
+    { tenantId: dev._id, custom: { onboardingActivityPreset: 'beauty' } },
+  ])
+  context = { user: { _id: dev._id, role: 'dev' }, tenantId: String(dev._id) }
+  const response = await GET(new Request('http://localhost/api/developer/analytics'))
+  assert.equal(response.status, 200)
+  const { data: { activities } } = await response.json()
+  assert.equal(activities.rows.find(({ key }) => key === 'other').count, 3)
+  assert.ok(activities.rows.find(({ key }) => key === '').count > 0)
+  assert.equal(activities.rows.find(({ key }) => key === 'beauty').count, 0)
+  assert.equal(activities.withoutDescription, 1)
+  assert.deepEqual(activities.other, [{ key: 'груминг собак', label: 'Груминг собак', count: 2 }])
 })

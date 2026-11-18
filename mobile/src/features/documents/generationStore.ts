@@ -10,6 +10,7 @@ export type DocumentGeneration = {
   documentDate: string
   source: 'event' | 'proposal'
   allowEmpty: boolean
+  templateFields?: Record<string, string>
 }
 // Internal SQLCipher cache only; never included in sync collections.
 const collection = '__document_generation'

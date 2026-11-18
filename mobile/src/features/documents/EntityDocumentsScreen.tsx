@@ -21,6 +21,17 @@ import { shareEncryptedFile } from './nativeFiles'
 import { useDocumentTask } from './useDocumentTask'
 import { documentDateForLocalDay } from './localDate'
 import { beginGeneration, finishGeneration, readGeneration, type DocumentGeneration } from './generationStore'
+import { readBuiltInContracts, recommendedBuiltInContracts, type BuiltInContractTemplate } from './builtInTemplates'
+
+type GenerationPreview = {
+  source: string
+  fields: { name: string; value: string }[]
+  unknown: string[]
+  missing: string[]
+}
+
+const templateRequestFields = (template: BuiltInContractTemplate | undefined, values: Record<string, string>) =>
+  template ? { templateFields: Object.fromEntries(template.fields.map(({ key }) => [key, values[key]?.trim() || ''])) } : {}
 
 export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -32,9 +43,14 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
   const [readState, setReadState] = useState('loading')
   const [filesState, setFilesState] = useState('loading')
   const [templates, setTemplates] = useState<DocumentTemplate[]>([])
+  const [builtInTemplates, setBuiltInTemplates] = useState<BuiltInContractTemplate[]>([])
+  const [showAllBuiltIn, setShowAllBuiltIn] = useState(false)
   const [templateState, setTemplateState] = useState('loading')
   const [templateError, setTemplateError] = useState('')
   const [templateId, setTemplateId] = useState('')
+  const [templateFields, setTemplateFields] = useState<Record<string, string>>({})
+  const [fieldErrors, setFieldErrors] = useState(false)
+  const [preview, setPreview] = useState<GenerationPreview | null>(null)
   const [documentDate, setDocumentDate] = useState(documentDateForLocalDay)
   const [message, setMessage] = useState('')
   const [generation, setGeneration] = useState<DocumentGeneration | null>(null)
@@ -47,7 +63,11 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
   const confirming = useRef(false)
   const task = useDocumentTask(`${kind}:${id}`)
   const endpoint = `/mobile/v1/${kind}/${encodeURIComponent(id)}`
+  const selectedCustom = templates.find(({ id }) => id === templateId)
+  const selectedBuiltIn = builtInTemplates.find(({ id }) => id === (selectedCustom?.baseTemplateId || templateId))
+  const hasSelectedTemplate = Boolean(selectedBuiltIn || (selectedCustom && !selectedCustom.baseTemplateId))
   useEffect(() => { if (task.phase) setMessage('') }, [task.phase])
+  useEffect(() => { setPreview(null) }, [templateId, templateFields, documentDate, source])
   const loadLocal = useCallback(async () => {
     const token = ++readToken.current
     setReadState('loading'); setFilesState('loading')
@@ -65,12 +85,28 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
   const loadTemplates = useCallback(async () => {
     const token = ++templateToken.current
     setTemplateState('loading'); setTemplateError('')
-    try {
-      const result = readTemplatesResponse(await api.get('/mobile/v1/document-templates'))
-      if (alive.current && token === templateToken.current) { setTemplates(result); setTemplateId((previous) => result.some((item) => item.id === previous) ? previous : result[0]?.id || ''); setTemplateState('ready') }
-    } catch (cause) { if (alive.current && token === templateToken.current) { setTemplateState('error'); setTemplateError(safeDocumentError(cause, 'Не удалось загрузить шаблоны. Локальные вложения доступны отдельно.')) } }
+    const [custom, catalog] = await Promise.allSettled([
+      api.get<{ success?: boolean; data?: DocumentTemplate[] }>('/mobile/v1/document-templates').then(readTemplatesResponse),
+      readBuiltInContracts(),
+    ])
+    if (!alive.current || token !== templateToken.current) return
+    const own = custom.status === 'fulfilled' ? custom.value : []
+    const builtIn = catalog.status === 'fulfilled' ? catalog.value : []
+    setTemplates(own)
+    setBuiltInTemplates(builtIn)
+    setTemplateId((previous) => previous || own[0]?.id || '')
+    if (custom.status === 'rejected' && catalog.status === 'rejected') {
+      setTemplateState('error')
+      setTemplateError(safeDocumentError(custom.reason, 'Не удалось загрузить шаблоны. Локальные вложения доступны отдельно.'))
+      return
+    }
+    setTemplateState('ready')
+    if (custom.status === 'rejected') setTemplateError(safeDocumentError(custom.reason, 'Не удалось загрузить ваши шаблоны.'))
+    if (catalog.status === 'rejected' && (catalog.reason as { status?: number })?.status !== 404) {
+      setTemplateError('Не удалось загрузить стандартные шаблоны.')
+    }
   }, [])
-  useEffect(() => { setMessage(''); setGeneration(null); setTemplateId(''); setEntity(null); setFiles([]) }, [id, kind])
+  useEffect(() => { setMessage(''); setGeneration(null); setTemplateId(''); setTemplateFields({}); setFieldErrors(false); setShowAllBuiltIn(false); setEntity(null); setFiles([]) }, [id, kind])
   useFocusEffect(useCallback(() => {
     alive.current = true; void loadLocal(); if (kind === 'events') void loadTemplates()
     return () => { alive.current = false; readToken.current++; templateToken.current++ }
@@ -81,7 +117,7 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     readGeneration(id).then((pending) => {
       if (active) {
         setGeneration(pending)
-        if (pending) { setTemplateId(pending.templateId); setDocumentDate(pending.documentDate); setSource(pending.source); setAllowEmpty(pending.allowEmpty) }
+        if (pending) { setTemplateId(pending.templateId); setDocumentDate(pending.documentDate); setSource(pending.source); setAllowEmpty(pending.allowEmpty); setTemplateFields(pending.templateFields || {}) }
         setGenerationReady(true)
       }
     }).catch(() => { if (active) task.setError('Не удалось прочитать предыдущую попытку создания. Откройте документы повторно.') })
@@ -201,21 +237,37 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
     else task.setError('Документ пока не найден. Повторите ту же попытку: новый документ-дубликат не создаётся.')
   }
   const generate = () => {
-    if (task.busy.current || !generationReady || (!generation && templateState !== 'ready') || readState !== 'ready') return
+    if (task.busy.current || !generationReady || (!generation && (templateState !== 'ready' || !hasSelectedTemplate)) || readState !== 'ready') return
     if (!validDocumentDate(generation?.documentDate || documentDate)) { task.setError('Введите корректную дату в формате ГГГГ-ММ-ДД'); return }
+    if (!generation && selectedBuiltIn?.fields.some(({ key, required }) => required && !templateFields[key]?.trim())) {
+      setFieldErrors(true)
+      return
+    }
     void task.run('Формируем и проверяем документ…', 'Результат создания не подтверждён. Проверьте или повторите ту же попытку.', async (current) => {
       const owner = await currentEntity()
       if (kind !== 'events' || !isServerEntityId(id) || (owner.syncStatus && owner.syncStatus !== 'synced')) throw new Error('GENERATION_UNAVAILABLE')
       if (!generation) {
-        const available = readTemplatesResponse(await api.get('/mobile/v1/document-templates'))
-        if (!available.some((item) => item.id === templateId)) throw new Error('TEMPLATE_MISMATCH')
+        if (selectedCustom) {
+          const available = readTemplatesResponse(await api.get('/mobile/v1/document-templates'))
+          if (!available.some((item) => item.id === templateId && item.baseTemplateId === selectedCustom.baseTemplateId)) throw new Error('TEMPLATE_MISMATCH')
+        } else {
+          const available = await readBuiltInContracts()
+          if (!available.some((item) => item.id === templateId && item.version === selectedBuiltIn?.version)) throw new Error('TEMPLATE_MISMATCH')
+        }
       }
       if (!current() || !alive.current) return
-      const pending = generation || await beginGeneration({ _id: id, templateId, documentDate, source, allowEmpty })
+      const pending = generation || await beginGeneration({ _id: id, templateId, documentDate, source, allowEmpty, ...templateRequestFields(selectedBuiltIn, templateFields) })
       if (!current() || !alive.current) return
       setGeneration(pending); setMessage('')
       let response: { success?: boolean; data?: { document?: DocumentRow; event?: DocumentEntity } }
-      try { response = await api.post(`${endpoint}/documents/generate`, { templateId: pending.templateId, documentDate: pending.documentDate, requestId: pending.requestId, source: pending.source, allowEmpty: pending.allowEmpty }) }
+      try { response = await api.post(`${endpoint}/documents/generate`, {
+        templateId: pending.templateId,
+        documentDate: pending.documentDate,
+        requestId: pending.requestId,
+        source: pending.source,
+        allowEmpty: pending.allowEmpty,
+        ...(pending.templateFields ? { templateFields: pending.templateFields } : {}),
+      }) }
       catch (cause) {
         const status = (cause as { status?: number })?.status
         if ((status === 400 || status === 422) && current() && alive.current) { await finishGeneration(pending); setGeneration(null) }
@@ -228,12 +280,46 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
       await verifyGeneration(pending, current)
     })
   }
+  const checkDocument = () => {
+    if (task.busy.current || generation || templateState !== 'ready' || !hasSelectedTemplate || readState !== 'ready') return
+    if (!validDocumentDate(documentDate)) { task.setError('Введите корректную дату в формате ГГГГ-ММ-ДД'); return }
+    setPreview(null)
+    void task.run('Проверяем данные документа…', 'Не удалось проверить данные документа.', async (current) => {
+      const owner = await currentEntity()
+      if (kind !== 'events' || !isServerEntityId(id) || (owner.syncStatus && owner.syncStatus !== 'synced')) throw new Error('GENERATION_UNAVAILABLE')
+      if (!current() || !alive.current) return
+      const response = await api.post<{ success?: boolean; data?: { source?: string; preview?: Omit<GenerationPreview, 'source'> } }>(`${endpoint}/documents/generate`, {
+        action: 'preview', templateId, documentDate, source, ...templateRequestFields(selectedBuiltIn, templateFields),
+      })
+      const result = response?.data?.preview
+      if (response?.success !== true || !result || !Array.isArray(result.fields) || !Array.isArray(result.missing) || !Array.isArray(result.unknown)) throw new Error('INVALID_RESPONSE')
+      if (current() && alive.current) setPreview({ ...result, source: response.data?.source || '' })
+    })
+  }
   const blocked = Boolean(task.phase)
   if (readState === 'loading') return <Screen><PageHeader title="Файлы и документы" /><Notice message="Загрузка документов…" /></Screen>
   if (readState === 'error') return <Screen><PageHeader title="Файлы и документы" /><Notice tone="danger" message="Не удалось прочитать документы. Повторите чтение." /><Button title="Повторить чтение" onPress={() => void loadLocal()} /></Screen>
   if (!entity || entity._id !== id) return <Screen><PageHeader title="Файлы и документы" /><EmptyState title={kind === 'clients' ? 'Клиент не найден' : `Запись не найдена`} /><Button title="Повторить чтение" variant="secondary" onPress={() => void loadLocal()} /></Screen>
   const rows = documentRows(entity)
   const localClient = kind === 'clients' && !isServerEntityId(id)
+  const canGenerate = !blocked && generationReady && templateState === 'ready' && hasSelectedTemplate && isServerEntityId(id) && (!entity.syncStatus || entity.syncStatus === 'synced')
+  const recommendedTemplates = recommendedBuiltInContracts(builtInTemplates, terms.settings?.custom?.onboardingActivityPreset || '')
+  const catalog = showAllBuiltIn || !recommendedTemplates.length ? builtInTemplates : recommendedTemplates
+  const visibleBuiltIns = selectedBuiltIn && !selectedCustom && !catalog.some((item) => item.id === selectedBuiltIn.id) ? [...catalog, selectedBuiltIn] : catalog
+  const renderTemplateOption = (optionId: string, name: string, description: string) => <Pressable
+    key={optionId}
+    accessibilityRole="radio"
+    accessibilityLabel={name}
+    accessibilityState={{ checked: templateId === optionId, disabled: blocked || Boolean(generation) }}
+    disabled={blocked || Boolean(generation)}
+    onPress={() => {
+      if (optionId === templateId) return
+      setTemplateId(optionId)
+      setTemplateFields({})
+      setFieldErrors(false)
+    }}
+    style={[styles.option, templateId === optionId && styles.selected]}
+  ><Text style={styles.text}>{name}</Text><Text style={styles.muted}>{description}</Text></Pressable>
   return <Screen keyboardShouldPersistTaps="handled">
     <PageHeader title="Файлы и документы" subtitle={kind === 'clients' ? clientName(entity) : (entity as Event).eventType || terms.labelCapitalized} />
     {task.error ? <Notice tone="danger" message={task.error} /> : null}
@@ -257,10 +343,39 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
       {files.some((file) => ['pending', 'failed'].includes(file.status)) ? <Button testID={`retry-${kind === 'clients' ? 'client' : 'event'}-attachments`} title="Повторить отправку" variant="secondary" onPress={() => void retry()} disabled={blocked || filesState !== 'ready'} /> : null}
     </Surface>
     {kind === 'events' ? <Surface><SectionTitle>Сформировать по шаблону</SectionTitle>
-      {templateState === 'loading' ? <Notice message="Загружаем шаблоны…" /> : templateState === 'error' ? <><Notice tone="danger" message={templateError} /><Button title="Повторить чтение шаблонов" variant="secondary" onPress={() => void loadTemplates()} disabled={blocked} /></> : templates.length ? <View style={styles.options}>{templates.map((template) => <Pressable key={template.id} accessibilityRole="radio" accessibilityLabel={template.name} accessibilityState={{ selected: templateId === template.id, disabled: blocked || Boolean(generation) }} disabled={blocked || Boolean(generation)} onPress={() => setTemplateId(template.id)} style={[styles.option, templateId === template.id && styles.selected]}><Text style={styles.text}>{template.name}</Text><Text style={styles.muted}>{typeLabel(template.type, template.customTypeName)}</Text></Pressable>)}</View> : <Notice message="Сначала добавьте шаблон в разделе «Меню → Документы»." />}
+      {templateState === 'loading' ? <Notice message="Загружаем шаблоны…" /> : null}
+      {templateError ? <><Notice tone={templateState === 'error' ? 'danger' : 'warning'} message={templateError} /><Button title="Повторить чтение шаблонов" variant="secondary" onPress={() => void loadTemplates()} disabled={blocked} /></> : null}
+      {templateState === 'ready' ? <>
+        {visibleBuiltIns.length ? <>
+          <SectionTitle>{!showAllBuiltIn && recommendedTemplates.length ? 'Рекомендуемые договоры' : 'Стандартные договоры'}</SectionTitle>
+          <View style={styles.options}>{visibleBuiltIns.map(({ id, name, description }) => renderTemplateOption(id, name, description))}</View>
+          {recommendedTemplates.length > 0 && recommendedTemplates.length < builtInTemplates.length ? <Button title={showAllBuiltIn ? 'Показать рекомендуемые договоры' : 'Показать все стандартные договоры'} variant="secondary" onPress={() => setShowAllBuiltIn(!showAllBuiltIn)} disabled={blocked || Boolean(generation)} /> : null}
+        </> : null}
+        {templates.length ? <><SectionTitle>Мои шаблоны</SectionTitle><View style={styles.options}>{templates.map(({ id, name, type, customTypeName }) => renderTemplateOption(id, name, typeLabel(type, customTypeName)))}</View></> : null}
+        {!templates.length && !builtInTemplates.length && !templateError ? <Notice message="Добавьте свой шаблон в разделе «Меню → Документы»." /> : null}
+        {selectedCustom?.baseTemplateId && !selectedBuiltIn ? <Notice tone="warning" message="Для этого шаблона нужны поля из каталога. Повторите чтение или выберите другой договор." /> : null}
+      </> : null}
+      {selectedBuiltIn?.fields.map(({ key, label, required, multiline, placeholder }) => <CompactField
+        key={key}
+        testID={`template-field-${key}`}
+        label={required ? `${label} *` : label}
+        value={templateFields[key] || ''}
+        onChangeText={(value) => setTemplateFields((current) => ({ ...current, [key]: value }))}
+        maxLength={2000}
+        multiline={multiline}
+        placeholder={placeholder}
+        editable={!blocked && !generation}
+        error={fieldErrors && required && !templateFields[key]?.trim() ? 'Заполните это поле.' : undefined}
+      />)}
       <CompactField testID="document-date" help={getFieldHelp('documents.date')} label="Дата документа" value={documentDate} onChangeText={setDocumentDate} placeholder="ГГГГ-ММ-ДД" editable={!blocked && !generation} />
       {(entity as Event).agreedProposal ? <Button title={source === 'proposal' ? 'Источник: согласованное КП' : 'Источник: данные заказа'} variant="secondary" onPress={() => setSource(source === 'event' ? 'proposal' : 'event')} disabled={blocked || Boolean(generation)} /> : null}
       <Button title={allowEmpty ? 'Пустые поля разрешены' : 'Требовать заполнения всех переменных'} variant="secondary" onPress={() => setAllowEmpty(!allowEmpty)} disabled={blocked || Boolean(generation)} />
+      {preview ? <View style={styles.options}>
+        {preview.source ? <Text style={styles.muted}>{preview.source}</Text> : null}
+        {preview.unknown.length ? <Notice tone="danger" message={`Неизвестные переменные: ${preview.unknown.join(', ')}`} /> : null}
+        {preview.missing.length ? <Notice tone="warning" message={`Не заполнены: ${preview.missing.map((name) => selectedBuiltIn?.fields.find((field) => field.key === name)?.label || name).join(', ')}`} /> : null}
+        {preview.fields.map(({ name, value }) => value ? <Text key={name} style={styles.muted}>{selectedBuiltIn?.fields.find((field) => field.key === name)?.label || name}: {value}</Text> : null)}
+      </View> : null}
       {!isServerEntityId(id) || (entity.syncStatus && entity.syncStatus !== 'synced') ? <Notice tone="warning" message="Сначала синхронизируйте заявку или заказ. Подтверждение заявки для формирования документа не требуется." /> : null}
       {generation ? <><Notice tone="warning" message="Проверяем результат предыдущего создания. Повторная генерация автоматически не выполняется." /><Button title="Проверить результат создания" variant="secondary" onPress={() => void task.run('Читаем результат создания…', 'Не удалось проверить результат. Повторите чтение позднее.', (current) => verifyGeneration(generation, current))} disabled={blocked} />
         <Button title="Повторить ту же попытку" variant="secondary" disabled={blocked} onPress={generate} />
@@ -272,7 +387,7 @@ export const EntityDocumentsScreen = ({ kind }: { kind: EntityKind }) => {
             { text: 'Разрешить новое создание', onPress: () => { confirming.current = false; if (task.isActive() && !task.busy.current && alive.current) void task.run('Завершаем проверку…', 'Не удалось завершить проверку', async (current) => { await finishGeneration(generation); if (current() && alive.current) { setGeneration(null); setMessage(''); task.setError('') } }) } },
           ], { cancelable: true, onDismiss: () => { confirming.current = false } })
         }} />
-      </> : <Button testID="generate-document" title="Сформировать и прикрепить DOCX" onPress={generate} disabled={blocked || !generationReady || templateState !== 'ready' || !templateId || !isServerEntityId(id) || Boolean(entity.syncStatus && entity.syncStatus !== 'synced')} />}
+      </> : <><Button title="Проверить данные" variant="secondary" onPress={checkDocument} disabled={!canGenerate} /><Button testID="generate-document" title="Сформировать и прикрепить DOCX" onPress={generate} disabled={!canGenerate} /></>}
     </Surface> : null}
     <Button title="Повторить чтение" variant="secondary" onPress={() => { setMessage(''); void loadLocal() }} disabled={blocked} />
   </Screen>

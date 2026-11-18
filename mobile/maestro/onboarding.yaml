@@ -47,6 +47,12 @@ env:
 - assertVisible: "Специализация"
 - scrollUntilVisible:
     element:
+      id: "activity-preset-events"
+    direction: DOWN
+- tapOn:
+    id: "activity-preset-events"
+- scrollUntilVisible:
+    element:
       id: "onboarding-next"
     direction: DOWN
 - tapOn:

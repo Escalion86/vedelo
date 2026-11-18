@@ -8,6 +8,8 @@ import {
   type PropsWithChildren,
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import NetInfo from '@react-native-community/netinfo'
+import { AppState } from 'react-native'
 import { api } from '../api/client'
 import {
   clearAuthSession,
@@ -29,17 +31,20 @@ import {
 } from '../notifications/preferences'
 import { clearPendingPushUnsubscribe } from '../notifications/pendingUnsubscribe'
 import { clearRegistrationReferrer } from './registrationReferral'
+import { readActivityOnboarding, type ActivityOnboarding, type ActivityProfile } from '../../features/onboarding/activityProfile'
 
 type AuthContextValue = {
   loading: boolean
   onboardingLoading: boolean
   onboardingRequired: boolean
+  activityOnboarding: ActivityOnboarding | null
   user: MobileUser | null
   authenticated: boolean
   completeSignIn: (session: AuthSession) => Promise<void>
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
   completeOnboarding: () => void
+  completeActivityProfile: (profile: ActivityProfile) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -50,6 +55,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [user, setUser] = useState<MobileUser | null>(null)
   const [onboardingLoading, setOnboardingLoading] = useState(false)
   const [onboardingRequired, setOnboardingRequired] = useState(false)
+  const [activityCheck, setActivityCheck] = useState<{ key: string; onboarding: ActivityOnboarding } | null>(null)
+  const activityKey = user ? `${user._id}:${user.tenantId || ''}` : ''
 
   useEffect(() => {
     let active = true
@@ -105,26 +112,50 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     if (!user) {
       setOnboardingRequired(false)
       setOnboardingLoading(false)
+      setActivityCheck(null)
       return
     }
     let active = true
-    setOnboardingLoading(true)
-    api.get<{ success: true; data: { completed: boolean } }>(
-      '/mobile/v1/onboarding'
-    ).then((response) => {
-      if (active) setOnboardingRequired(!response.data.completed)
-    }).catch(() => {
-      // A new account must still finish setup; an existing configured user can work offline.
-      if (active) setOnboardingRequired(!user.firstName?.trim())
-    }).finally(() => {
-      if (active) setOnboardingLoading(false)
+    let checked = false
+    let checking = false
+    let requiredActivity = false
+    const check = async () => {
+      if (!active || (checked && !requiredActivity) || checking) return
+      checking = true
+      setOnboardingLoading(true)
+      try {
+        const onboarding = await readActivityOnboarding()
+        if (active) {
+          checked = true
+          requiredActivity = onboarding.activityProfile?.required === true
+          setOnboardingRequired(!onboarding.completed)
+          setActivityCheck({ key: activityKey, onboarding })
+        }
+      } catch {
+        // Existing users can keep working offline until the server confirms the new question is required.
+        if (active && !checked) setOnboardingRequired(!user.firstName?.trim())
+      } finally {
+        checking = false
+        if (active) setOnboardingLoading(false)
+      }
+    }
+    void check()
+    const unsubscribe = NetInfo.addEventListener(({ isConnected }) => {
+      if (isConnected) void check()
     })
-    return () => { active = false }
-  }, [user?._id])
+    const appState = AppState.addEventListener('change', (state) => { if (state === 'active') void check() })
+    return () => { active = false; unsubscribe(); appState.remove() }
+  }, [activityKey])
 
   const completeOnboarding = useCallback(() => {
     setOnboardingRequired(false)
   }, [])
+
+  const completeActivityProfile = useCallback((profile: ActivityProfile) => {
+    setActivityCheck((current) => current?.key === activityKey
+      ? { key: activityKey, onboarding: { ...current.onboarding, activityProfile: profile } }
+      : current)
+  }, [activityKey])
 
   const completeSignIn = useCallback(async (session: AuthSession) => {
     await flushPendingLogout()
@@ -170,16 +201,21 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       loading,
       onboardingLoading,
       onboardingRequired,
+      activityOnboarding: activityCheck?.key === activityKey ? activityCheck.onboarding : null,
       user,
       authenticated: Boolean(user),
       completeSignIn,
       signOut,
       refreshUser,
       completeOnboarding,
+      completeActivityProfile,
     }),
     [
       completeOnboarding,
+      completeActivityProfile,
       completeSignIn,
+      activityCheck,
+      activityKey,
       loading,
       onboardingLoading,
       onboardingRequired,

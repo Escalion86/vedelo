@@ -1,8 +1,10 @@
 import { resolveClientTypes } from '../../helpers/clientTypes.mjs'
+import { getActivityProfile } from '../../helpers/activityProfile.mjs'
 
 const sanitizeMobileSettings = (settings) => {
   if (!settings) return null
   const custom = settings.custom || {}
+  const activity = getActivityProfile(settings)
   return {
     _id: String(settings._id),
     syncVersion: settings.syncVersion || 1,
@@ -16,12 +18,9 @@ const sanitizeMobileSettings = (settings) => {
     custom: {
       firstRunWizardCompleted: custom.firstRunWizardCompleted === true,
       firstRunWizardCompletedAt: custom.firstRunWizardCompletedAt || null,
-      onboardingActivityPreset: custom.onboardingActivityPreset || '',
-      primaryEntityTerminology:
-        custom.primaryEntityTerminology === 'events' ||
-        custom.primaryEntityTerminology === 'orders'
-          ? custom.primaryEntityTerminology
-          : 'auto',
+      onboardingActivityPreset: activity.preset,
+      onboardingActivityOtherDescription: activity.otherDescription,
+      primaryEntityTerminology: activity.terminology,
       onboardingStarterServicesCreated:
         custom.onboardingStarterServicesCreated === true,
       showColleagueTransferFields: custom.showColleagueTransferFields === true,

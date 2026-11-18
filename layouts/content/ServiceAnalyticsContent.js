@@ -136,6 +136,64 @@ function Trend({ title, rows, field, monetary = false }) {
   )
 }
 
+function WorkspaceActivity({ report }) {
+  return (
+    <SectionCard className="p-4">
+      <h2 className="font-semibold">Сферы деятельности</h2>
+      <p className="my-2 text-sm">
+        {number(report.total)} рабочих пространств на сегодня, за все время
+      </p>
+      <div className={styles.scroll}>
+        <table aria-label="Распределение по сферам">
+          <thead>
+            <tr>
+              <th scope="col">Сфера</th>
+              <th scope="col">Пространства</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.rows.map(({ key, label, count }) => (
+              <tr key={key}>
+                <td>{label}</td>
+                <td>{number(count)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {report.other.length > 0 || report.withoutDescription > 0 ? (
+        <details>
+          <summary className="cursor-pointer py-2 text-sm">Что указали в «Другое»</summary>
+          <div className={styles.scroll}>
+            <table aria-label="Ответы в категории «Другое»">
+              <thead>
+                <tr>
+                  <th scope="col">Ответ</th>
+                  <th scope="col">Пространства</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.other.map(({ key, label, count }) => (
+                  <tr key={key}>
+                    <td className="break-words">{label}</td>
+                    <td>{number(count)}</td>
+                  </tr>
+                ))}
+                {report.withoutDescription > 0 ? (
+                  <tr>
+                    <td>Без уточнения</td>
+                    <td>{number(report.withoutDescription)}</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
+    </SectionCard>
+  )
+}
+
 export default function ServiceAnalyticsContent({ loggedUser }) {
   const router = useRouter(),
     pathname = usePathname(),
@@ -468,6 +526,7 @@ export default function ServiceAnalyticsContent({ loggedUser }) {
           ) : null}
           {tab === 'growth' ? (
             <>
+              {data.activities ? <WorkspaceActivity report={data.activities} /> : null}
               <SectionCard className="p-4">
                 <h2 className="font-semibold">Этапы освоения сервиса</h2>
                 <p className="my-2 text-sm">

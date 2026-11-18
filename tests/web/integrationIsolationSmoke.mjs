@@ -142,7 +142,7 @@ export const runIntegrationIsolationSmoke = async ({ t, baseUrl, db, password, p
       if (process.env.PLAYWRIGHT_MODULE) {
         await db.collection('sitesettings').updateOne(
           { tenantId: tenantA },
-          { $set: { 'custom.firstRunWizardCompleted': true } },
+          { $set: { 'custom.firstRunWizardCompleted': true, 'custom.onboardingActivityPreset': 'events' } },
           { upsert: true }
         )
         const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href)

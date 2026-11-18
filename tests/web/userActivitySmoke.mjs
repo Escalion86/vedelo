@@ -88,7 +88,7 @@ export const runUserActivitySmoke = async ({
         if (playwrightModule) {
           await db.collection('sitesettings').updateOne(
             { tenantId: tenantA },
-            { $set: { 'custom.firstRunWizardCompleted': true } },
+            { $set: { 'custom.firstRunWizardCompleted': true, 'custom.onboardingActivityPreset': 'events' } },
             { upsert: true }
           )
           const { chromium } = await import(

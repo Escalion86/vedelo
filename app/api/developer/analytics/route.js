@@ -5,12 +5,15 @@ import dbConnect from '@server/dbConnect'
 import Users from '@models/Users'
 import Payments from '@models/Payments'
 import Tariffs from '@models/Tariffs'
+import SiteSettings from '@models/SiteSettings'
 import {
+  activityWorkspaceIds,
   analyticsAccessStatus,
   analyticsRange,
   paymentCategoryExpression,
   receiptFilter,
   summarizeAnalytics,
+  summarizeActivityWorkspaces,
 } from '@server/serviceAnalytics.mjs'
 
 export const dynamic = 'force-dynamic'
@@ -51,7 +54,7 @@ export async function GET(req) {
     const [users, tariffs, firstPayments, groups] = await Promise.all([
       Users.find({})
         .select(
-          'firstName secondName role createdAt registrationSource acquisition.source acquisition.campaign acquisitionFunnel tariffId tariffActiveUntil trialEndsAt'
+          'firstName secondName role tenantId archive createdAt registrationSource acquisition.source acquisition.campaign acquisitionFunnel tariffId tariffActiveUntil trialEndsAt'
         )
         .lean(),
       Tariffs.find({}).select('title').lean(),
@@ -102,16 +105,18 @@ export async function GET(req) {
         },
       ]).option({ maxTimeMS: 15000 }),
     ])
+    const workspaceIds = activityWorkspaceIds(users, range.excluded)
+    const workspaceSettings = workspaceIds.length
+      ? await SiteSettings.find({ tenantId: { $in: workspaceIds } })
+          .select('tenantId custom.onboardingActivityPreset custom.onboardingActivityOtherDescription')
+          .lean()
+      : []
     return respond({
       success: true,
-      data: summarizeAnalytics({
-        users,
-        tariffs,
-        firstPayments,
-        groups,
-        range,
-        now,
-      }),
+      data: {
+        ...summarizeAnalytics({ users, tariffs, firstPayments, groups, range, now }),
+        activities: summarizeActivityWorkspaces(workspaceIds, workspaceSettings),
+      },
       meta: {
         generatedAt: now,
         from: range.from,

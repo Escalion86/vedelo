@@ -10,12 +10,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { modalsFuncAtom } from '@state/atoms'
 import AppButton from '@components/AppButton'
+import ActivityProfileDialog from '@components/ActivityProfileDialog'
 import InputDuration from '@components/InputDuration'
 import IconCheckBox from '@components/IconCheckBox'
 import ComboBox from '@components/ComboBox'
 import MutedText from '@components/MutedText'
 import LabeledContainer from '@components/LabeledContainer'
 import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
+import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import loggedUserActiveRoleSelector from '@state/selectors/loggedUserActiveRoleSelector'
 import { postData } from '@helpers/CRUD'
 import {
@@ -31,6 +33,8 @@ import {
 import { useSiteSettingsQuery } from '@helpers/useEntityQueries'
 import { SHOW_COLLEAGUE_TRANSFER_FIELDS_KEY } from '@helpers/firstRunWizard.mjs'
 import { resolveWorkItemTerminology } from '@helpers/workItemTerminology.mjs'
+import { canEditActivityProfile, getActivityProfile } from '@helpers/activityProfile.mjs'
+import { getOnboardingPreset } from '@helpers/onboardingPresets.mjs'
 
 const TIME_ZONE_OPTIONS = [
   { value: 'UTC', name: 'UTC' },
@@ -62,6 +66,8 @@ const SettingsContent = () => {
   const modals = useAtomValue(modalsFuncAtom)
   const { data: siteSettings = {} } = useSiteSettingsQuery()
   const [siteSettingsState, setSiteSettings] = useAtom(siteSettingsAtom)
+  const user = useAtomValue(loggedUserAtom)
+  const [showActivityEditor, setShowActivityEditor] = useState(false)
   const [darkTheme, setDarkTheme] = useState(false)
   const [defaultEventDuration, setDefaultEventDuration] = useState(60)
   const [queuedChangesCount, setQueuedChangesCount] = useState(0)
@@ -85,6 +91,8 @@ const SettingsContent = () => {
   }, [])
 
   const customSettings = siteSettingsState?.custom ?? {}
+  const canEditActivity = canEditActivityProfile({ user, tenantId: user?.tenantId || user?._id })
+  const activityProfile = getActivityProfile(siteSettingsState, canEditActivity)
   const workItemTerms = resolveWorkItemTerminology(siteSettingsState)
   const serverSyncDisabled = resolveServerSyncDisabled(siteSettingsState)
   const checkBoxColors = darkTheme
@@ -256,6 +264,21 @@ const SettingsContent = () => {
               )}
             </div>
           </LabeledContainer>
+        )}
+        {canEditActivity && (
+          <LabeledContainer label="Сфера деятельности" noMargin>
+            <div className="flex w-full flex-wrap items-center justify-between gap-2">
+              <span className="min-w-0 break-words text-sm">
+                {activityProfile.otherDescription || (activityProfile.preset ? getOnboardingPreset(activityProfile.preset).title : 'Не указана')}
+              </span>
+              <AppButton variant="secondary" onClick={() => setShowActivityEditor(true)}>
+                {activityProfile.preset ? 'Изменить сферу' : 'Указать сферу'}
+              </AppButton>
+            </div>
+          </LabeledContainer>
+        )}
+        {showActivityEditor && canEditActivity && (
+          <ActivityProfileDialog profile={activityProfile} onDismiss={() => setShowActivityEditor(false)} />
         )}
         <ComboBox
           label="Как называть основную работу"

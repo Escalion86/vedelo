@@ -25,7 +25,11 @@ export const scopedSettings = (settings: MobileSettings, scope: SettingsScope): 
     eventFormVariant: settings.custom?.eventFormVariant,
     defaultEventDurationMinutes: settings.custom?.defaultEventDurationMinutes,
     showColleagueTransferFields: settings.custom?.showColleagueTransferFields,
-  } } : { custom: { primaryEntityTerminology: settings.custom?.primaryEntityTerminology || 'auto' } }),
+  } } : { custom: {
+    primaryEntityTerminology: settings.custom?.primaryEntityTerminology || 'auto',
+    ...(settings.custom?.onboardingActivityPreset !== undefined ? { onboardingActivityPreset: settings.custom.onboardingActivityPreset } : {}),
+    ...(typeof settings.custom?.onboardingActivityOtherDescription === 'string' ? { onboardingActivityOtherDescription: settings.custom.onboardingActivityOtherDescription } : {}),
+  } }),
 })
 
 // Последовательно объединяем UI-записи списков и терминологии: upsert заменяет весь payload.

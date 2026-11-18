@@ -29,6 +29,8 @@ import {
 import { isPushSupported, syncPushSubscription } from '@helpers/pushClient'
 import useCabinetPerformanceMetrics from '@helpers/useCabinetPerformanceMetrics'
 import { shouldOpenFirstRunWizard } from '@helpers/firstRunWizard.mjs'
+import { canEditActivityProfile, getActivityProfile } from '@helpers/activityProfile.mjs'
+import ActivityProfileDialog from '@components/ActivityProfileDialog'
 import useCabinetStateHydration from '@helpers/useCabinetStateHydration'
 import useServerSync from '@helpers/useServerSync'
 import { reachGoalOnce } from '@helpers/metrikaGoals'
@@ -53,6 +55,9 @@ const StateLoader = (props) => {
 
   const loggedUser = useAtomValue(loggedUserAtom)
   const siteSettingsState = useAtomValue(siteSettingsAtom)
+  const tenantId = loggedUser?.tenantId || loggedUser?._id
+  const canEditActivity = canEditActivityProfile({ user: loggedUser, tenantId })
+  const activityProfile = getActivityProfile(siteSettingsState, canEditActivity)
 
   const setItemsFunc = useSetAtom(itemsFuncAtom)
   const serverSyncDisabled = resolveServerSyncDisabled(siteSettingsState)
@@ -223,11 +228,13 @@ const StateLoader = (props) => {
       alreadyShown: onboardingShownRef.current,
     })
 
-    if (shouldOpen && modalFunc?.user?.firstRunWizard) {
+    if (canEditActivity && !activityProfile.required && shouldOpen && modalFunc?.user?.firstRunWizard) {
       onboardingShownRef.current = true
       modalFunc.user.firstRunWizard()
     }
   }, [
+    activityProfile.required,
+    canEditActivity,
     loggedUser,
     siteSettingsState,
     siteSettingsState?.custom?.firstRunWizardCompleted,
@@ -278,6 +285,9 @@ const StateLoader = (props) => {
         </div>
       )}
       <ModalsPortal />
+      {!isSiteLoading && !props.error && activityProfile.required && (
+        <ActivityProfileDialog key={tenantId} profile={activityProfile} required />
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ const toMetadata = (template) => ({
   type: template.type,
   customTypeName: template.customTypeName,
   fileName: template.fileName,
+  ...(template.baseTemplateId ? { baseTemplateId: template.baseTemplateId } : {}),
   size: Math.floor((template.templateBase64.length * 3) / 4),
   createdAt: template.createdAt,
   updatedAt: template.updatedAt,
@@ -103,6 +104,9 @@ export const POST = async (req) => {
     templateBase64: file
       ? Buffer.from(await file.arrayBuffer()).toString('base64')
       : previous.templateBase64,
+    ...(type === 'contract' && previous?.baseTemplateId
+      ? { baseTemplateId: previous.baseTemplateId }
+      : {}),
     createdAt: previous?.createdAt || now,
     updatedAt: now,
   }

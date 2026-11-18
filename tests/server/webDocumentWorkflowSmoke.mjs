@@ -151,6 +151,7 @@ export const runWebDocumentWorkflowSmoke = async ({
       $set: {
         'custom.firstRunWizardCompleted': true,
         'custom.firstRunWizardShowToken': null,
+        'custom.onboardingActivityPreset': 'events',
       },
     }
   )
@@ -252,6 +253,44 @@ export const runWebDocumentWorkflowSmoke = async ({
       .toString(),
     'PK'
   )
+
+  const builtInPath = '/api/document-templates/built-in'
+  assert.equal((await fetch(`${baseUrl}${builtInPath}`)).status, 401)
+  const builtIns = await (await request(builtInPath)).json()
+  assert.equal(builtIns.success, true)
+  const standard = builtIns.data.find(({ id }) => id === 'builtin-contract-general-services-v1')
+  assert.ok(standard)
+  assert.equal(standard.contentBase64, undefined)
+  const standardFile = await request(`${builtInPath}/${standard.id}`)
+  assert.equal(standardFile.status, 200)
+  assert.equal(Buffer.from(await standardFile.arrayBuffer()).subarray(0, 2).toString(), 'PK')
+  const standardInput = { ...payload, templateId: standard.id, requestId: randomUUID(), allowEmpty: true }
+  const invalidStandard = await post(endpoint, standardInput)
+  assert.equal(invalidStandard.status, 422)
+  assert.equal(invalidStandard.body.code, 'MISSING_TEMPLATE_FIELDS')
+  const templateFields = Object.fromEntries(standard.fields.map(({ key }) => [key, `QA ${key}`]))
+  const standardPreview = await post(endpoint, { ...standardInput, templateFields, action: 'preview' })
+  assert.equal(standardPreview.status, 200, JSON.stringify(standardPreview.body))
+  assert.deepEqual(standardPreview.body.data.preview.unknown, [])
+  assert.ok(standardPreview.body.data.preview.fields.some(({ value }) => value === 'QA ПОРЯДОК_ОПЛАТЫ'))
+  assert.equal((await post(`/api/events/${otherEventId}/documents/generate`, { ...standardInput, templateFields })).status, 404)
+  const standardCreated = await post(endpoint, { ...standardInput, templateFields })
+  assert.equal(standardCreated.status, 200, JSON.stringify(standardCreated.body))
+  assert.equal((await post(endpoint, { ...standardInput, templateFields })).body.data.document.id, standardCreated.body.data.document.id)
+  assert.equal((await post(endpoint, { ...standardInput, templateFields: { ...templateFields, ПОРЯДОК_ОПЛАТЫ: 'Другой порядок' } })).status, 409)
+  const copyUrl = `${builtInPath}/${standard.id}`
+  const copyRequest = { name: 'Мой шаблон договора QA', requestId: randomUUID() }
+  const copied = await post(copyUrl, copyRequest)
+  assert.equal(copied.status, 201, JSON.stringify(copied.body))
+  assert.equal(copied.body.data.baseTemplateId, standard.id)
+  assert.equal((await post(copyUrl, copyRequest)).status, 200)
+  assert.equal((await post(copyUrl, { ...copyRequest, name: 'Другая копия' })).status, 409)
+  const copies = await db.collection('sitesettings').find({ 'custom.documentTemplates.id': copyRequest.requestId }).toArray()
+  assert.equal(copies.length, 1)
+  assert.equal(String(copies[0].tenantId), String(tenantId))
+  const copyPreview = await post(endpoint, { ...standardInput, templateId: copyRequest.requestId, templateFields, action: 'preview' })
+  assert.equal(copyPreview.status, 200, JSON.stringify(copyPreview.body))
+  assert.deepEqual(copyPreview.body.data.preview.unknown, [])
 
   const paymentId = new mongoose.Types.ObjectId()
   const foreignPaymentId = new mongoose.Types.ObjectId()
@@ -724,17 +763,65 @@ export const runWebDocumentWorkflowSmoke = async ({
           if (message.type() === 'error') consoleErrors.push(message.text())
         })
         for (const theme of ['light', 'dark']) {
+          if (width === 1365 && theme === 'light') {
+            await db.collection('sitesettings').updateOne({ tenantId }, {
+              $set: {
+                'custom.firstRunWizardCompleted': false,
+                'custom.firstRunWizardStep': 'specialization',
+                'custom.primaryEntityTerminology': 'auto',
+              },
+              $unset: { 'custom.onboardingActivityPreset': '' },
+            })
+            await page.goto('/cabinet/eventsUpcoming')
+            const specialization = page.getByRole('combobox', { name: 'Сфера деятельности' })
+            await specialization.waitFor()
+            assert.equal(await specialization.inputValue(), '')
+            await specialization.selectOption('photo_video')
+            await page.getByText('Частная фотосъёмка', { exact: true }).waitFor()
+            const terminology = page.getByRole('combobox', { name: 'Как называть основную работу' })
+            assert.match(await terminology.locator('option:checked').innerText(), /Заказы/)
+            await terminology.selectOption('events')
+            await page.getByRole('button', { name: 'Далее', exact: true }).click()
+            await page.getByText('Что у вас заказывают?', { exact: true }).waitFor()
+          }
+          await db.collection('sitesettings').updateOne({ tenantId }, {
+            $set: {
+              'custom.firstRunWizardCompleted': true,
+              'custom.firstRunWizardStep': null,
+              'custom.onboardingActivityPreset': 'other',
+              'custom.onboardingActivityOtherDescription': '',
+              'custom.primaryEntityTerminology': 'events',
+            },
+          })
           await page.goto('/cabinet/eventsUpcoming')
           await page.evaluate(
             (value) => localStorage.setItem('theme', value),
             theme
           )
           await page.reload()
+          const activityDialog = page.getByRole('dialog', { name: 'Чем вы занимаетесь?' })
+          await activityDialog.waitFor()
+          const dialogBox = await activityDialog.boundingBox()
+          assert.ok(dialogBox.x >= 0 && dialogBox.x + dialogBox.width <= width)
+          const dialogBackground = await activityDialog.evaluate((element) => getComputedStyle(element).backgroundColor)
+          assert.equal(dialogBackground, theme === 'dark' ? 'rgb(20, 17, 13)' : 'rgb(255, 255, 255)')
+          await page.keyboard.press('Escape')
+          assert.equal(await activityDialog.isVisible(), true)
+          assert.equal(await activityDialog.getByRole('combobox', { name: 'Как называть основную работу' }).inputValue(), 'events')
+          const saveActivity = activityDialog.getByRole('button', { name: 'Сохранить и продолжить' })
+          await saveActivity.click()
+          await activityDialog.getByText('Укажите, чем вы занимаетесь', { exact: true }).waitFor()
+          await activityDialog.getByRole('textbox', { name: 'Чем именно вы занимаетесь?' }).fill('Иллюзионные программы')
+          await page.screenshot({ path: path.join(os.tmpdir(), `vedelo-activity-profile-${width}-${theme}.png`) })
+          await saveActivity.click()
+          await activityDialog.waitFor({ state: 'hidden' })
+          await page.reload()
           const eventMenu = page
             .locator('.event-card-shell')
             .filter({ hasText: 'Независимые документы QA' })
             .getByRole('button', { name: 'Открыть меню действий' })
           await eventMenu.waitFor()
+          assert.equal(await activityDialog.count(), 0)
           await eventMenu.click()
           const editEvent = page.getByText('Редактирование', { exact: true })
           await editEvent.waitFor({ timeout: 3000 }).catch(async () => {
@@ -792,6 +879,10 @@ export const runWebDocumentWorkflowSmoke = async ({
           await dialog
             .getByRole('combobox', { name: 'Тип документа', exact: true })
             .selectOption('contract')
+          await dialog.getByRole('button', { name: 'Сформировать', exact: true }).click()
+          await dialog.getByRole('combobox', { name: 'Шаблон', exact: true }).selectOption(standard.id)
+          await dialog.getByRole('textbox', { name: 'Состав, место и сроки оказания услуг', exact: true }).waitFor()
+          await dialog.getByRole('button', { name: 'Загрузить файл', exact: true }).click()
           assert.equal(await titleInput.inputValue(), 'Договор')
           await titleInput.fill('Свой документ')
           await dialog

@@ -13,10 +13,17 @@ import {
 import { mobileError, mobileSuccess } from '@server/mobile/routeHelpers'
 import { sanitizeMobileUser } from '@server/mobile/sessions'
 import { sanitizeMobileSettings } from '@server/mobile/settings'
-
-const allowedPresets = new Set(
-  ONBOARDING_ACTIVITY_PRESETS.map((preset) => preset.key)
-)
+import {
+  ACTIVITY_PROFILE_VERSION,
+  allowLegacyActivitySelection,
+  canEditActivityProfile,
+  getActivityProfile,
+  getActivityProfileFields,
+  hasConfirmedActivityProfile,
+  normalizeActivityPreset,
+  validateActivityProfile,
+} from '@helpers/activityProfile.mjs'
+import { clearTenantWorkItemTerminologyCache } from '@server/tenantTerminology'
 
 const publicPresets = ONBOARDING_ACTIVITY_PRESETS.map((preset) => ({
   key: preset.key,
@@ -36,8 +43,11 @@ export const GET = async (req) => {
     SiteSettings.findOne({ tenantId: context.tenantId }).lean(),
     Services.countDocuments({ tenantId: context.tenantId }),
   ])
+  const canEdit = canEditActivityProfile(context)
+  const activityProfile = getActivityProfile(settings, canEdit)
   return mobileSuccess({
-    completed: settings?.custom?.firstRunWizardCompleted === true,
+    completed: !canEdit || activityProfile.completed,
+    activityProfile,
     settings: sanitizeMobileSettings(settings),
     servicesCount,
     presets: publicPresets,
@@ -60,9 +70,24 @@ export const POST = async (req) => {
       !firstName ? 'firstName' : 'secondName'
     )
   }
-  const presetKey = allowedPresets.has(body?.presetKey)
-    ? body.presetKey
-    : 'other'
+  const profileVersion = body?.activityProfileVersion
+  const canEdit = canEditActivityProfile(context)
+  const presetKey = normalizeActivityPreset(body?.presetKey) || 'other'
+  let activityFields = {}
+  if (profileVersion !== undefined && profileVersion !== ACTIVITY_PROFILE_VERSION)
+    return mobileError('ACTIVITY_VERSION_INVALID', 'Обновите приложение и повторите настройку', 400)
+  if (profileVersion === ACTIVITY_PROFILE_VERSION && canEdit) {
+    const validation = validateActivityProfile({
+      preset: body.presetKey,
+      otherDescription: body.otherDescription,
+      terminology: body.terminology,
+    })
+    if (!validation.value) {
+      const { code, message, field } = validation
+      return mobileError(code, message, 400, field === 'preset' ? 'presetKey' : field)
+    }
+    activityFields = getActivityProfileFields(validation.value)
+  }
   const town = String(body?.town || '').trim()
   const timeZone = String(body?.timeZone || 'Asia/Krasnoyarsk').trim()
   const now = new Date()
@@ -85,39 +110,49 @@ export const POST = async (req) => {
   )
   if (!user) return mobileError('USER_NOT_FOUND', 'Пользователь не найден', 404)
 
-  const existingSettings = await SiteSettings.findOne({
-    tenantId: context.tenantId,
-  }).lean()
-  const custom = {
-    ...(existingSettings?.custom || {}),
-    firstRunWizardCompleted: true,
-    firstRunWizardCompletedAt: now.toISOString(),
-    onboardingActivityPreset: presetKey,
-    onboardingStarterServicesCreated: Boolean(body?.createStarterServices),
-    onboardingStarterServicesManual: !body?.createStarterServices,
-    showColleagueTransferFields: Boolean(body?.showColleagueTransferFields),
-    timeZoneConfirmed: true,
-    mobileTheme: body?.theme === 'dark' ? 'dark' : 'light',
+  let settings
+  if (canEdit) {
+    for (let attempt = 0; attempt < 3 && !settings; attempt++) {
+      const existing = await SiteSettings.findOne({ tenantId: context.tenantId }).lean()
+      const activity = profileVersion === undefined
+        ? allowLegacyActivitySelection(existing, context) ? { onboardingActivityPreset: presetKey } : {}
+        : !hasConfirmedActivityProfile(existing) && existing?.custom?.firstRunWizardCompleted !== true ? activityFields : {}
+      const custom = {
+        firstRunWizardCompleted: true,
+        firstRunWizardCompletedAt: existing?.custom?.firstRunWizardCompletedAt || now.toISOString(),
+        onboardingStarterServicesCreated: Boolean(body?.createStarterServices),
+        onboardingStarterServicesManual: !body?.createStarterServices,
+        showColleagueTransferFields: Boolean(body?.showColleagueTransferFields),
+        timeZoneConfirmed: true,
+        mobileTheme: body?.theme === 'dark' ? 'dark' : 'light',
+        ...activity,
+      }
+      const fields = { defaultTown: town, timeZone, towns: town
+        ? Array.from(new Set([...(existing?.towns || []), town]))
+        : existing?.towns || [] }
+      try {
+        if (!existing) {
+          settings = (await SiteSettings.create({ tenantId: context.tenantId, ...fields, custom })).toObject({ flattenMaps: true })
+        } else {
+          const customPatch = Object.fromEntries(Object.entries(custom).map(([key, value]) => [`custom.${key}`, value]))
+          settings = await SiteSettings.findOneAndUpdate(
+            { tenantId: context.tenantId, syncVersion: existing.syncVersion ?? null, updatedAt: existing.updatedAt ?? null },
+            { $set: { ...fields, ...customPatch }, $inc: { syncVersion: 1 } },
+            { returnDocument: 'after', runValidators: true }
+          ).lean()
+        }
+      } catch (error) {
+        if (error?.code !== 11000) throw error
+      }
+    }
+    if (!settings) return mobileError('ACTIVITY_CONFLICT', 'Настройки изменились. Повторите сохранение', 409)
+    clearTenantWorkItemTerminologyCache(context.tenantId)
+  } else {
+    settings = await SiteSettings.findOne({ tenantId: context.tenantId }).lean()
   }
-  const settings = await SiteSettings.findOneAndUpdate(
-    { tenantId: context.tenantId },
-    {
-      $set: {
-        tenantId: context.tenantId,
-        defaultTown: town,
-        towns: town
-          ? Array.from(new Set([...(existingSettings?.towns || []), town]))
-          : existingSettings?.towns || [],
-        timeZone,
-        custom,
-      },
-      $inc: { syncVersion: 1 },
-    },
-    { upsert: true, returnDocument: 'after', runValidators: true }
-  )
 
   let createdServices = []
-  if (body?.createStarterServices) {
+  if (canEdit && body?.createStarterServices) {
     const servicesCount = await Services.countDocuments({
       tenantId: context.tenantId,
     })
@@ -132,7 +167,7 @@ export const POST = async (req) => {
   }
 
   let demoEvent = null
-  if (body?.createDemoEvent) {
+  if (canEdit && body?.createDemoEvent) {
     const existingDemo = await Events.findOne({
       tenantId: context.tenantId,
       isDemo: true,
@@ -153,6 +188,7 @@ export const POST = async (req) => {
   return mobileSuccess({
     user: sanitizeMobileUser(user),
     settings: sanitizeMobileSettings(settings),
+    activityProfile: getActivityProfile(settings, canEdit),
     services: createdServices,
     event: demoEvent,
   })

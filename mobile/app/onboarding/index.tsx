@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DetectTownButton } from '../../src/shared/native/DetectTownButton'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { api } from '../../src/shared/api/client'
 import { useAuth } from '../../src/shared/auth/AuthProvider'
 import { upsertEntities } from '../../src/shared/storage/cache'
+import { useQueryClient } from '@tanstack/react-query'
+import { MOBILE_SETTINGS_QUERY_KEY } from '../../src/shared/hooks/useWorkItemTerminology'
+import { ActivityFields } from '../../src/features/onboarding/ActivityFields'
+import { activityPayload, activityTerminology, readActivityOnboarding, validateActivityDraft, type ActivityDraft, type ActivityPreset } from '../../src/features/onboarding/activityProfile'
+import { readBuiltInContracts, type BuiltInContractTemplate } from '../../src/features/documents/builtInTemplates'
 import {
   Button,
   PageHeader,
@@ -16,13 +21,6 @@ import { CompactField } from '../../src/shared/ui/CompactField'
 import { Notice } from '../../src/shared/ui/Notice'
 import { useThemeStyles } from '../../src/shared/ui/ThemeProvider'
 import { radius, spacing, type Palette } from '../../src/shared/ui/theme'
-
-type Preset = {
-  key: string
-  title: string
-  description: string
-  starterServices: Array<{ title: string; description?: string }>
-}
 
 const timeZones = [
   ['Europe/Moscow', 'Москва'],
@@ -37,8 +35,10 @@ const timeZones = [
 export default function OnboardingScreen() {
   const styles = useThemeStyles(createStyles)
   const { user, refreshUser, completeOnboarding } = useAuth()
+  const queryClient = useQueryClient()
   const [step, setStep] = useState(0)
-  const [presets, setPresets] = useState<Preset[]>([])
+  const [presets, setPresets] = useState<ActivityPreset[]>([])
+  const [templates, setTemplates] = useState<BuiltInContractTemplate[]>([])
   const [servicesCount, setServicesCount] = useState(0)
   const [profile, setProfile] = useState({
     firstName: user?.firstName || '', secondName: user?.secondName || '',
@@ -47,24 +47,38 @@ export default function OnboardingScreen() {
   const [town, setTown] = useState('')
   const [timeZone, setTimeZone] = useState('Asia/Krasnoyarsk')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [presetKey, setPresetKey] = useState('events')
+  const [activity, setActivity] = useState<ActivityDraft>({ preset: '', otherDescription: '' })
+  const [activityError, setActivityError] = useState('')
+  const [presetLoading, setPresetLoading] = useState(true)
+  const [presetError, setPresetError] = useState('')
   const [createStarterServices, setCreateStarterServices] = useState(true)
   const [showColleagueTransferFields, setShowColleagueTransferFields] = useState(false)
   const [createDemoEvent, setCreateDemoEvent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const finishing = useRef(false)
 
+  const loadPresets = useCallback(async () => {
+    setPresetLoading(true)
+    setPresetError('')
+    try {
+      const data = await readActivityOnboarding()
+      setPresets(data.presets)
+      setServicesCount(data.servicesCount)
+      if (data.servicesCount > 0) setCreateStarterServices(false)
+      const defaultTown = data.settings?.defaultTown
+      if (defaultTown) setTown((current) => current || defaultTown)
+      if (data.settings?.timeZone) setTimeZone(data.settings.timeZone)
+    } catch (reason) {
+      setPresetError(reason instanceof Error ? reason.message : 'Не удалось загрузить мастер')
+    } finally { setPresetLoading(false) }
+  }, [])
+
+  useEffect(() => { void loadPresets() }, [loadPresets])
   useEffect(() => {
-    api.get<{
-      success: true
-      data: { presets: Preset[]; servicesCount: number; settings?: { defaultTown?: string; timeZone?: string } }
-    }>('/mobile/v1/onboarding').then((response) => {
-      setPresets(response.data.presets)
-      setServicesCount(response.data.servicesCount)
-      if (response.data.servicesCount > 0) setCreateStarterServices(false)
-      if (response.data.settings?.defaultTown) setTown(response.data.settings.defaultTown)
-      if (response.data.settings?.timeZone) setTimeZone(response.data.settings.timeZone)
-    }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Не удалось загрузить мастер'))
+    let active = true
+    void readBuiltInContracts().then((items) => { if (active) setTemplates(items) }).catch(() => undefined)
+    return () => { active = false }
   }, [])
 
   const next = () => {
@@ -73,10 +87,17 @@ export default function OnboardingScreen() {
       setError('Укажите имя и фамилию')
       return
     }
+    if (step === 2) {
+      const issue = validateActivityDraft(activity)
+      setActivityError(issue)
+      if (issue) return
+    }
     setStep((current) => Math.min(4, current + 1))
   }
 
   const finish = async () => {
+    if (finishing.current) return
+    finishing.current = true
     setLoading(true); setError('')
     try {
       const response = await api.post<{
@@ -87,7 +108,11 @@ export default function OnboardingScreen() {
           event?: Record<string, unknown> & { _id: string }
         }
       }>('/mobile/v1/onboarding', {
-        profile, town, timeZone, theme, presetKey,
+        profile, town, timeZone, theme,
+        presetKey: activity.preset,
+        otherDescription: activityPayload(activity).otherDescription,
+        terminology: activityTerminology(activity),
+        activityProfileVersion: 1,
         createStarterServices: servicesCount === 0 && createStarterServices,
         showColleagueTransferFields, createDemoEvent,
       })
@@ -101,14 +126,15 @@ export default function OnboardingScreen() {
         await upsertEntities('events', [response.data.event])
       }
       await refreshUser()
+      void queryClient.invalidateQueries({ queryKey: MOBILE_SETTINGS_QUERY_KEY })
       completeOnboarding()
       router.replace('/(tabs)')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось завершить настройку')
-    } finally { setLoading(false) }
+    } finally { finishing.current = false; setLoading(false) }
   }
 
-  const preset = presets.find((item) => item.key === presetKey)
+  const preset = presets.find((item) => item.key === activity.preset)
   return (
     <Screen keyboardShouldPersistTaps="handled" contentStyle={styles.screen}>
       <View accessible accessibilityRole="progressbar" accessibilityLabel="Настройка Ведело" accessibilityValue={{ min: 1, max: 5, now: step + 1, text: `Шаг ${step + 1} из 5` }} style={styles.progress}><View style={[styles.progressFill, { width: `${((step + 1) / 5) * 100}%` }]} /></View>
@@ -137,9 +163,12 @@ export default function OnboardingScreen() {
       </Surface> : null}
 
       {step === 2 ? <Surface>
-        <Text style={styles.explanation}>Выберите ближайший вид деятельности. Он влияет только на стартовые примеры и услуги.</Text>
-        {presets.map((item) => <Pressable key={item.key} accessibilityRole="radio" accessibilityLabel={item.title} accessibilityState={{ checked: presetKey === item.key, disabled: loading }} disabled={loading} onPress={() => setPresetKey(item.key)} style={({ pressed }) => [styles.preset, presetKey === item.key && styles.presetActive, pressed && styles.pressed, loading && styles.disabled]}><Text style={styles.presetTitle}>{item.title}</Text><Text style={[styles.presetDescription, presetKey === item.key && styles.presetDescriptionSelected]}>{item.description}</Text></Pressable>)}
-        {!presets.length ? <Notice tone="info" message="Специализации пока недоступны. Список и стартовые услуги ещё не подтверждены." /> : servicesCount > 0 ? <Notice tone="info" message="У вас уже есть услуги, поэтому новые услуги из пресета не будут созданы." /> : <Pressable accessibilityRole="checkbox" accessibilityLabel="Создать стартовые услуги" accessibilityState={{ checked: createStarterServices, disabled: loading }} disabled={loading} style={({ pressed }) => [styles.checkRow, pressed && styles.pressed, loading && styles.disabled]} onPress={() => setCreateStarterServices((value) => !value)}><Check checked={createStarterServices} /><View style={styles.flex}><Text style={styles.checkTitle}>Создать стартовые услуги</Text><Text style={styles.presetDescription}>{preset?.starterServices.map((item) => item.title).join(', ')}</Text></View></Pressable>}
+        {!presets.length ? <>
+          <Notice tone={presetLoading ? 'info' : 'warning'} message={presetLoading ? 'Загружаем виды деятельности…' : 'Не удалось загрузить виды деятельности.'} />
+          {!presetLoading ? <Button title="Повторить загрузку" variant="secondary" onPress={() => void loadPresets()} /> : null}
+        </> : <ActivityFields draft={activity} presets={presets} terminology templates={templates} error={activityError} disabled={loading}
+          change={(draft) => { setActivity(draft); setActivityError('') }} />}
+        {servicesCount > 0 ? <Notice tone="info" message="У вас уже есть услуги. Стартовый набор добавлять не будем." /> : preset ? <Pressable accessibilityRole="checkbox" accessibilityLabel="Создать стартовые услуги" accessibilityState={{ checked: createStarterServices, disabled: loading }} disabled={loading} style={({ pressed }) => [styles.checkRow, pressed && styles.pressed, loading && styles.disabled]} onPress={() => setCreateStarterServices((value) => !value)}><Check checked={createStarterServices} /><View style={styles.flex}><Text style={styles.checkTitle}>Создать стартовые услуги</Text><Text style={styles.presetDescription}>{preset.starterServices.map((item) => item.title).join(', ')}</Text></View></Pressable> : null}
       </Surface> : null}
 
       {step === 3 ? <Surface>
@@ -153,8 +182,8 @@ export default function OnboardingScreen() {
         <Surface><Pressable accessibilityRole="checkbox" accessibilityLabel="Создать учебную заявку" accessibilityState={{ checked: createDemoEvent, disabled: loading }} disabled={loading} style={({ pressed }) => [styles.checkRow, pressed && styles.pressed, loading && styles.disabled]} onPress={() => setCreateDemoEvent((value) => !value)}><Check checked={createDemoEvent} /><View style={styles.flex}><Text style={styles.checkTitle}>Создать учебную заявку</Text><Text style={styles.presetDescription}>В ней уже будет следующий контакт на завтра. Её можно удалить как обычную карточку.</Text></View></Pressable></Surface>
       </> : null}
 
-      {error ? <Notice tone="danger" message={error} /> : null}
-      <View style={styles.actions}>{step > 0 ? <View style={styles.action}><Button title="Назад" variant="secondary" onPress={() => setStep((value) => value - 1)} disabled={loading} /></View> : null}<View style={styles.action}><Button testID="onboarding-next" title={step === 4 ? 'Завершить настройку' : 'Продолжить'} onPress={step === 4 ? finish : next} loading={loading} /></View></View>
+      {error || presetError ? <Notice tone="danger" message={error || presetError} /> : null}
+      <View style={styles.actions}>{step > 0 ? <View style={styles.action}><Button title="Назад" variant="secondary" onPress={() => setStep((value) => value - 1)} disabled={loading} /></View> : null}<View style={styles.action}><Button testID="onboarding-next" title={step === 4 ? 'Завершить настройку' : 'Продолжить'} onPress={step === 4 ? finish : next} loading={loading} disabled={step === 2 && !presets.length} /></View></View>
     </Screen>
   )
 }
@@ -179,11 +208,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   choiceActivePressed: { backgroundColor: palette.primaryPressed },
   choiceText: { color: palette.cardMuted, fontSize: 13, fontWeight: '600' },
   choiceTextActive: { color: palette.onPrimary },
-  preset: { minHeight: 40, padding: spacing.md, borderRadius: radius.sm, backgroundColor: palette.notice.neutral.background, borderWidth: 1, borderColor: palette.border },
-  presetActive: { borderColor: palette.primary, backgroundColor: palette.rowSelected },
-  presetTitle: { color: palette.text, fontSize: 14, fontWeight: '600' },
   presetDescription: { color: palette.cardMuted, fontSize: 13, lineHeight: 19, marginTop: 3 },
-  presetDescriptionSelected: { color: palette.cardMeta },
   checkRow: { minHeight: 40, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm },
   checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 1, borderColor: palette.border, alignItems: 'center', justifyContent: 'center' },
   checkboxActive: { backgroundColor: palette.primary, borderColor: palette.primary },

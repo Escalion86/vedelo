@@ -6,10 +6,12 @@ import Services from '@models/Services'
 import SiteSettings from '@models/SiteSettings'
 import DocumentGenerations from '@models/DocumentGenerations'
 import { normalizeDocumentTemplatesFromSettings } from '@helpers/documentTemplates'
+import { getBuiltInContractTemplateMetadata } from '@helpers/builtInContractTemplates.mjs'
 import { getDocumentLastNumberKey } from '@helpers/documentTypes'
 import { getContractTemplateVariablesMap } from '@helpers/generateContractTemplate'
 import { getActTemplateVariablesMap } from '@helpers/generateActTemplate'
 import getPersonFullName from '@helpers/getPersonFullName'
+import { getBuiltInContractTemplate } from '@server/builtInContractTemplates'
 import {
   DOCX_MIME,
   formatDocumentDate,
@@ -24,6 +26,16 @@ import {
 
 const fail = (code, message, status = 400) => {
   throw new EntityDocumentError(code, message, status)
+}
+
+const normalizeTemplateFields = (fields, input) => {
+  if (!fields?.length) return undefined
+  return Object.fromEntries(fields.map(({ key, label }) => {
+    const value = Object.hasOwn(input ?? {}, key) ? input[key] : ''
+    if (typeof value !== 'string' || value.length > 2000)
+      fail('BAD_TEMPLATE_FIELD', `Поле «${label}» должно содержать до 2000 знаков.`)
+    return [key, value.replace(/\r\n?/g, '\n').trim()]
+  }))
 }
 
 const inspect = (template, variables) => {
@@ -72,6 +84,22 @@ export const generateWebDocument = async ({
   const requestId = preview ? '' : normalizeEntityUploadId(body.requestId)
   if (!preview) await DocumentGenerations.init()
   const filter = { tenantId, eventId, requestId }
+  let operation = preview
+    ? null
+    : await DocumentGenerations.findOne(filter).lean()
+  const existing =
+    requestId && event.documents?.find((item) => item.id === requestId)
+  if (!operation && existing)
+    fail('REQUEST_CONFLICT', 'Этот идентификатор уже занят другим документом', 409)
+
+  const settings = operation ? null : await SiteSettings.findOne({ tenantId }).lean()
+  const metadata = getBuiltInContractTemplateMetadata(body.templateId)
+  const userTemplate = operation?.template || (metadata ? null :
+    normalizeDocumentTemplatesFromSettings(settings?.custom)
+      .find((item) => item.id === body.templateId))
+  const fieldDefinitions = metadata?.fields ||
+    getBuiltInContractTemplateMetadata(userTemplate?.baseTemplateId)?.fields
+  const templateFields = normalizeTemplateFields(fieldDefinitions, body.templateFields)
   const fingerprint = crypto
     .createHash('sha256')
     .update(
@@ -79,32 +107,25 @@ export const generateWebDocument = async ({
         templateId: String(body.templateId || ''),
         date: date.iso,
         source: body.source === 'proposal' ? 'proposal' : 'event',
+        templateFields,
       })
     )
     .digest('hex')
-  let operation = preview
-    ? null
-    : await DocumentGenerations.findOne(filter).lean()
   if (operation && operation.fingerprint !== fingerprint)
     fail(
       'REQUEST_CONFLICT',
       'Параметры повторного запроса изменились. Создайте новый документ.',
       409
     )
-  const existing =
-    requestId && event.documents?.find((item) => item.id === requestId)
   if (operation && existing) return { document: existing, entity: event }
-  if (existing)
-    fail(
-      'REQUEST_CONFLICT',
-      'Этот идентификатор уже занят другим документом',
-      409
-    )
   if (!operation) {
-    const settings = await SiteSettings.findOne({ tenantId }).lean()
-    const template = normalizeDocumentTemplatesFromSettings(
-      settings?.custom
-    ).find((item) => item.id === body.templateId)
+    const builtIn = metadata ? await getBuiltInContractTemplate(metadata.id) : null
+    const template = builtIn ? {
+      id: builtIn.id,
+      name: builtIn.name,
+      type: builtIn.documentType,
+      templateBase64: builtIn.contentBase64,
+    } : userTemplate
     if (!template) fail('TEMPLATE_NOT_FOUND', 'Выберите доступный шаблон', 404)
     if (template.type === 'receipt')
       fail(
@@ -169,6 +190,7 @@ export const generateWebDocument = async ({
     if (template.type !== 'contract') variables['ДАТА ДОГОВОРА'] = ''
     variables['ДАТА ДОКУМЕНТА'] = date.label
     variables['СУММА ДОКУМЕНТА'] = String(sourceEvent.contractSum || 0)
+    Object.assign(variables, templateFields)
     const validation = inspect(template, variables)
     if (preview)
       return {
@@ -181,6 +203,10 @@ export const generateWebDocument = async ({
         `Неизвестные переменные: ${validation.unknown.join(', ')}`,
         422
       )
+    const requiredFields = fieldDefinitions?.filter(({ key, required }) =>
+      required && validation.missing.includes(key)) || []
+    if (requiredFields.length)
+      fail('MISSING_TEMPLATE_FIELDS', `Заполните поля: ${requiredFields.map(({ label }) => label).join(', ')}.`, 422)
     if (validation.missing.length && body.allowEmpty !== true)
       fail(
         'MISSING_VALUES',

@@ -141,6 +141,7 @@ test('settings API: save/read for own tenant, reject invalid enum, unauthorized 
       mergeSiteSettingsCustom: (a, b) => ({ ...a, ...b }),
     },
     '@helpers/telegramPushAudience.mjs': policy,
+    '@helpers/activityProfile.mjs': await import('../../helpers/activityProfile.mjs'),
     '@server/tenantTerminology': {
       clearTenantWorkItemTerminologyCache: () => {},
     },

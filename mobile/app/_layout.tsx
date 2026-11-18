@@ -21,6 +21,7 @@ import { useDeviceProjection } from '../src/shared/native/useDeviceProjection'
 import { useAppLock } from '../src/shared/auth/AppLockProvider'
 import { pendingNativeIntent, subscribeNativeIntents } from '../src/shared/native/intents'
 import { useCalendarSyncPolling } from '../src/features/events/calendarSync'
+import { RequiredActivityProfile } from '../src/features/onboarding/ActivityProfileEditor'
 
 const CalendarSyncPolling = () => {
   useCalendarSyncPolling()
@@ -30,13 +31,15 @@ const CalendarSyncPolling = () => {
 const RootNavigator = () => {
   const { palette } = useTheme()
   const styles = useThemeStyles(createStyles)
-  const { authenticated, loading, onboardingRequired } = useAuth()
+  const { authenticated, loading, onboardingRequired, activityOnboarding, completeActivityProfile, user } = useAuth()
   const router = useRouter()
   const segments = useSegments()
   const params = useGlobalSearchParams<{ ref?: string }>()
   const referralId = normalizeRegistrationReferrer(params.ref)
   const { locked } = useAppLock()
   const pendingIntent = useSyncExternalStore(subscribeNativeIntents, pendingNativeIntent, pendingNativeIntent)
+  const activity = activityOnboarding?.activityProfile
+  const showActivityQuestion = authenticated && !onboardingRequired && !locked && activity?.required && activity.canEdit
   useExpoPushNotifications(authenticated && !locked)
   useDeviceProjection()
 
@@ -120,6 +123,7 @@ const RootNavigator = () => {
       >
         <Stack.Screen name="history" options={{ presentation: 'modal' }} />
       </Stack>
+      {showActivityQuestion && activityOnboarding ? <RequiredActivityProfile key={`${user?._id}:${user?.tenantId || ''}`} profile={activity} presets={activityOnboarding.presets} onSaved={completeActivityProfile} /> : null}
     </View>
   )
 }

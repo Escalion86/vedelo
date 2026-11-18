@@ -8,6 +8,7 @@ import { useAtom, useAtomValue } from 'jotai'
 import LabeledContainer from '@components/LabeledContainer'
 import ComboBox from '@components/ComboBox'
 import Notice from '@components/Notice'
+import AppButton from '@components/AppButton'
 import IconActionButton from '@components/IconActionButton'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons'
@@ -17,7 +18,12 @@ import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 import tariffsAtom from '@state/atoms/tariffsAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { modalsFuncAtom } from '@state/atoms'
-import { postData } from '@helpers/CRUD'
+import { apiJson } from '@helpers/apiClient'
+import { getActivityProfile } from '@helpers/activityProfile.mjs'
+import {
+  BUILT_IN_CONTRACT_TEMPLATES,
+  getRecommendedBuiltInContractTemplates,
+} from '@helpers/builtInContractTemplates.mjs'
 import { getUserTariffAccess } from '@helpers/tariffAccess'
 import {
   DOCUMENT_TYPE_OPTIONS,
@@ -32,6 +38,7 @@ import {
 const DEFAULT_CONTRACT_TEMPLATE_DOWNLOAD_URL =
   '/templates/default-contract-template.docx'
 const DEFAULT_ACT_TEMPLATE_DOWNLOAD_URL = '/api/document-templates/examples/act'
+const builtInDownloadUrl = (id) => `/api/document-templates/built-in/${id}`
 
 const DocxDocumentsGuide = () => {
   const [content, setContent] = useState('')
@@ -124,6 +131,7 @@ const DocxDocumentsGuide = () => {
 
 const DocumentsContent = () => {
   const [siteSettings, setSiteSettings] = useAtom(siteSettingsAtom)
+  const [error, setError] = useState('')
   const tariffs = useAtomValue(tariffsAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const modalsFunc = useAtomValue(modalsFuncAtom)
@@ -137,6 +145,12 @@ const DocumentsContent = () => {
     [loggedUser, tariffs]
   )
   const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
+  const recommended = getRecommendedBuiltInContractTemplates(getActivityProfile(siteSettings).preset)
+  const recommendedIds = new Set(recommended.map(({ id }) => id))
+  const builtInTemplates = [
+    ...recommended,
+    ...BUILT_IN_CONTRACT_TEMPLATES.filter(({ id }) => !recommendedIds.has(id)),
+  ]
   const documentTemplates = useMemo(
     () => normalizeDocumentTemplatesFromSettings(customSettings),
     [customSettings]
@@ -159,26 +173,18 @@ const DocumentsContent = () => {
       documentTemplates: templates,
     })
 
-    await postData(
-      '/api/site',
-      {
-        custom: {
-          ...(siteSettings?.custom ?? {}),
-          documentTemplates: normalizedTemplates,
-        },
-      },
-      (data) => setSiteSettings(data),
-      null,
-      false,
-      null
-    )
+    const response = await apiJson('/api/site', {
+      method: 'POST',
+      body: JSON.stringify({ custom: { documentTemplates: normalizedTemplates } }),
+    })
+    setSiteSettings(response.data)
   }
 
-  const openTemplateEditor = (template = null) => {
+  const openTemplateEditor = (template = null, builtIn = null) => {
     const isEdit = Boolean(template?.id)
 
     const TemplateEditor = ({ closeModal, setOnConfirmFunc }) => {
-      const [name, setName] = useState(template?.name ?? '')
+      const [name, setName] = useState(template?.name ?? builtIn?.name ?? '')
       const [type, setType] = useState(
         template?.type ?? DOCUMENT_TYPES.CONTRACT
       )
@@ -188,6 +194,7 @@ const DocumentsContent = () => {
       const [file, setFile] = useState(null)
       const [error, setError] = useState('')
       const confirmRef = useRef(null)
+      const requestId = useRef(null)
 
       const handleSave = useCallback(async () => {
         const normalizedName = String(name ?? '').trim()
@@ -195,7 +202,7 @@ const DocumentsContent = () => {
           setError('Введите название шаблона')
           return
         }
-        if (!isEdit && !file) {
+        if (!isEdit && !file && !builtIn) {
           setError('Загрузите DOCX-файл')
           return
         }
@@ -207,32 +214,57 @@ const DocumentsContent = () => {
           }
         }
 
-        const now = new Date().toISOString()
-        const base64 = file ? await readFileAsBase64(file) : ''
-        const nextTemplate = {
-          id:
-            template?.id ||
-            (typeof crypto !== 'undefined' && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : `template-${Date.now()}`),
-          name: normalizedName,
-          type,
-          customTypeName:
-            type === DOCUMENT_TYPES.OTHER
-              ? String(customTypeName ?? '').trim()
-              : '',
-          fileName: file?.name || template?.fileName || 'template.docx',
-          templateBase64: base64 || template?.templateBase64 || '',
-          createdAt: template?.createdAt || now,
-          updatedAt: now,
+        setError('')
+        try {
+          if (builtIn) {
+            requestId.current ||= crypto.randomUUID()
+            const { data } = await apiJson(builtInDownloadUrl(builtIn.id), {
+              method: 'POST',
+              body: JSON.stringify({ name: normalizedName, requestId: requestId.current }),
+            })
+            setSiteSettings((current) => ({
+              ...current,
+              custom: {
+                ...current.custom,
+                documentTemplates: [
+                  ...normalizeDocumentTemplatesFromSettings(current.custom).filter(({ id }) => id !== data.id),
+                  data,
+                ],
+              },
+            }))
+            closeModal()
+            return
+          }
+          const now = new Date().toISOString()
+          const base64 = file ? await readFileAsBase64(file) : ''
+          const nextTemplate = {
+            id:
+              template?.id ||
+              (typeof crypto !== 'undefined' && crypto?.randomUUID
+                ? crypto.randomUUID()
+                : `template-${Date.now()}`),
+            name: normalizedName,
+            type,
+            customTypeName:
+              type === DOCUMENT_TYPES.OTHER
+                ? String(customTypeName ?? '').trim()
+                : '',
+            fileName: file?.name || template?.fileName || 'template.docx',
+            templateBase64: base64 || template?.templateBase64 || '',
+            baseTemplateId: template?.baseTemplateId,
+            createdAt: template?.createdAt || now,
+            updatedAt: now,
+          }
+          const nextTemplates = isEdit
+            ? documentTemplates.map((item) =>
+                item.id === template.id ? nextTemplate : item
+              )
+            : [...documentTemplates, nextTemplate]
+          await saveDocumentTemplates(nextTemplates)
+          closeModal()
+        } catch (reason) {
+          setError(reason.message || 'Не удалось сохранить шаблон. Попробуйте ещё раз.')
         }
-        const nextTemplates = isEdit
-          ? documentTemplates.map((item) =>
-              item.id === template.id ? nextTemplate : item
-            )
-          : [...documentTemplates, nextTemplate]
-        await saveDocumentTemplates(nextTemplates)
-        closeModal()
       }, [closeModal, customTypeName, file, name, type])
 
       useEffect(() => {
@@ -252,12 +284,13 @@ const DocumentsContent = () => {
           ) : null}
           <Input
             label="Название шаблона"
+            maxLength={160}
             value={name}
             onChange={setName}
             noMargin
             fullWidth
           />
-          <ComboBox
+          {!builtIn && <ComboBox
             label="Тип документа"
             help={fieldHelp['documents.templateType']}
             items={DOCUMENT_TYPE_OPTIONS}
@@ -265,7 +298,7 @@ const DocumentsContent = () => {
             onChange={(value) => setType(value || DOCUMENT_TYPES.OTHER)}
             noMargin
             fullWidth
-          />
+          />}
           {type === DOCUMENT_TYPES.OTHER ? (
             <Input
               label="Название типа"
@@ -275,7 +308,7 @@ const DocumentsContent = () => {
               fullWidth
             />
           ) : null}
-          <div className="flex flex-col gap-2 rounded border border-gray-200 p-3">
+          {!builtIn && <div className="flex flex-col gap-2 rounded border border-gray-200 p-3">
             <div className="text-sm font-semibold text-gray-800">
               {file?.name ||
                 template?.fileName ||
@@ -293,13 +326,13 @@ const DocumentsContent = () => {
               DOCX-шаблон до 5 МБ. Для редактирования можно оставить текущий
               файл.
             </div>
-          </div>
+          </div>}
         </div>
       )
     }
 
     modalsFunc.add({
-      title: isEdit ? 'Редактирование шаблона' : 'Новый шаблон',
+      title: builtIn ? 'Сохранить как свой шаблон' : isEdit ? 'Редактирование шаблона' : 'Новый шаблон',
       confirmButtonName: 'Сохранить',
       declineButtonName: 'Закрыть',
       showDecline: true,
@@ -343,9 +376,32 @@ const DocumentsContent = () => {
                 </button>
               </div>
               <div className="flex flex-col gap-3">
+                <h2 className="text-sm font-semibold">Стандартные договоры</h2>
+                <div className="tablet:grid-cols-2 grid grid-cols-1 gap-3">
+                  {builtInTemplates.map((template) => (
+                    <div key={template.id} className="flex min-w-0 flex-col gap-2 rounded border border-gray-200 p-3">
+                      <div>
+                        <h3 className="text-sm font-semibold">{template.name}</h3>
+                        {recommendedIds.has(template.id) && <p className="text-xs text-gray-500">Рекомендуем по вашей сфере</p>}
+                      </div>
+                      <p className="text-sm text-gray-600">{template.description}</p>
+                      <div className="mt-auto flex flex-wrap items-center gap-2">
+                        <a href={builtInDownloadUrl(template.id)} download aria-label={`Скачать Word: ${template.name}`} className="ui-btn ui-btn-secondary px-3 py-2 text-xs">
+                          Скачать Word
+                        </a>
+                        <AppButton size="sm" variant="secondary" aria-label={`Сохранить как свой: ${template.name}`} onClick={() => openTemplateEditor(null, template)}>
+                          Сохранить как свой
+                        </AppButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                {error && <Notice tone="error" role="alert">{error}</Notice>}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm font-semibold text-gray-800">
-                    Шаблоны документов
+                    Мои шаблоны документов
                     <FieldHelp text={fieldHelp['documents.templates']} label="Шаблоны документов" />
                   </div>
                   <button
@@ -395,11 +451,16 @@ const DocumentsContent = () => {
                             onClick={async () => {
                               if (!window.confirm('Удалить шаблон документа?'))
                                 return
-                              await saveDocumentTemplates(
-                                documentTemplates.filter(
-                                  (item) => item.id !== template.id
+                              setError('')
+                              try {
+                                await saveDocumentTemplates(
+                                  documentTemplates.filter(
+                                    (item) => item.id !== template.id
+                                  )
                                 )
-                              )
+                              } catch (reason) {
+                                setError(reason.message || 'Не удалось удалить шаблон. Попробуйте ещё раз.')
+                              }
                             }}
                           />
                         </div>
@@ -413,7 +474,7 @@ const DocumentsContent = () => {
                     download
                     className="action-icon-button action-icon-button--warning tablet:w-auto tablet:min-w-[168px] inline-flex h-9 w-full cursor-pointer items-center justify-center rounded px-3 text-xs font-semibold"
                   >
-                    Скачать пример договора
+                    Скачать прежний пример договора
                   </a>
                   <a
                     href={DEFAULT_ACT_TEMPLATE_DOWNLOAD_URL}

@@ -257,6 +257,7 @@ export type DocumentTemplate = {
   type: 'contract' | 'invoice' | 'receipt' | 'act' | 'other'
   customTypeName?: string
   fileName: string
+  baseTemplateId?: string
   size?: number
   createdAt?: string
   updatedAt?: string

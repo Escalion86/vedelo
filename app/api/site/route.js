@@ -8,6 +8,7 @@ import { sanitizeTelegramSiteSettings } from '@server/telegramBusiness'
 import { mergeSiteSettingsCustom } from '@helpers/siteSettingsCustom.mjs'
 import { isTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
 import { clearTenantWorkItemTerminologyCache } from '@server/tenantTerminology'
+import { allowLegacyActivitySelection, normalizeActivityPreset } from '@helpers/activityProfile.mjs'
 
 const normalizeTowns = (towns = []) =>
   Array.from(
@@ -75,7 +76,17 @@ export const POST = async (req) => {
       : null
   if (body.custom !== undefined) {
     body.custom =
-      body.custom && typeof body.custom === 'object' ? body.custom : {}
+      body.custom && typeof body.custom === 'object' && !Array.isArray(body.custom)
+        ? body.custom
+        : {}
+    const keys = Object.keys(body.custom)
+    const legacyPreset = normalizeActivityPreset(body.custom.onboardingActivityPreset)
+    delete body.custom.onboardingActivityPreset
+    delete body.custom.onboardingActivityOtherDescription
+    delete body.custom.onboardingActivityProfileVersion
+    if (keys.length > 1) delete body.custom.primaryEntityTerminology
+    if (legacyPreset && allowLegacyActivitySelection(existingSiteSettings, { user, tenantId }))
+      body.custom.onboardingActivityPreset = legacyPreset
     if (
       Object.hasOwn(body.custom, 'telegramBusinessPushAudience') &&
       !isTelegramPushAudience(body.custom.telegramBusinessPushAudience)

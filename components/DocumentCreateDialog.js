@@ -3,7 +3,9 @@
 import fieldHelp from '@helpers/fieldHelp.json'
 
 import { useEffect, useRef, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import Input from '@components/Input'
+import Textarea from '@components/Textarea'
 import ComboBox from '@components/ComboBox'
 import Notice from '@components/Notice'
 import {
@@ -13,6 +15,13 @@ import {
 } from '@helpers/documentTypes'
 import { isReceiptPayment } from '@helpers/documentWorkflow'
 import { apiJson } from '@helpers/apiClient'
+import { getActivityProfile } from '@helpers/activityProfile.mjs'
+import {
+  BUILT_IN_CONTRACT_TEMPLATES,
+  getBuiltInContractTemplateMetadata,
+  getRecommendedBuiltInContractTemplates,
+} from '@helpers/builtInContractTemplates.mjs'
+import siteSettingsAtom from '@state/atoms/siteSettingsAtom'
 
 const today = () => {
   const date = new Date()
@@ -42,6 +51,7 @@ export default function DocumentCreateDialog({
   const [url, setUrl] = useState('')
   const [file, setFile] = useState(null)
   const [templateId, setTemplateId] = useState('')
+  const [templateFields, setTemplateFields] = useState({})
   const [date, setDate] = useState(today)
   const [source, setSource] = useState('event')
   const [transactionId, setTransactionId] = useState(initialTransactionId)
@@ -52,9 +62,17 @@ export default function DocumentCreateDialog({
   const confirmRef = useRef(null)
   const request = useRef({ key: '', id: '' })
   const inFlight = useRef(false)
+  const { preset } = getActivityProfile(useAtomValue(siteSettingsAtom))
+  const recommended = getRecommendedBuiltInContractTemplates(preset)
+  const recommendedIds = new Set(recommended.map(({ id }) => id))
   const matchingTemplates = templates.filter((item) => item.type === type)
+  const builtInTemplates = type === 'contract'
+    ? [...recommended, ...BUILT_IN_CONTRACT_TEMPLATES.filter(({ id }) => !recommendedIds.has(id))]
+    : []
+  const selectedTemplate = matchingTemplates.find(({ id }) => id === templateId)
+  const templateMetadata = getBuiltInContractTemplateMetadata(selectedTemplate?.baseTemplateId || templateId)
   const canGenerate = entityType === 'events' && type !== 'receipt'
-  const key = JSON.stringify({ type, templateId, date, source })
+  const key = JSON.stringify({ type, templateId, date, source, templateFields })
   const currentPreview = preview?.key === key ? preview.data : null
   const paymentOptions = payments.filter(isReceiptPayment).map((item) => ({
     value: String(item._id),
@@ -69,6 +87,11 @@ export default function DocumentCreateDialog({
       if (mode === 'template') {
         if (!entityId) throw new Error(`Сначала сохраните ${entityLabel}`)
         if (!templateId) throw new Error('Выберите шаблон')
+        const missing = templateMetadata?.fields.filter(({ key, required }) =>
+          required && !templateFields[key]?.trim()
+        )
+        if (missing?.length)
+          throw new Error(`Заполните поля: ${missing.map(({ label }) => label).join(', ')}.`)
         if (!currentPreview) {
           const result = await apiJson(
             `/api/events/${entityId}/documents/generate`,
@@ -79,6 +102,7 @@ export default function DocumentCreateDialog({
                 templateId,
                 documentDate: date,
                 source,
+                templateFields,
               }),
             }
           )
@@ -96,6 +120,7 @@ export default function DocumentCreateDialog({
               templateId,
               documentDate: date,
               source,
+              templateFields,
               allowEmpty,
               requestId: request.current.id,
             }),
@@ -238,6 +263,7 @@ export default function DocumentCreateDialog({
           )
           setType(nextType)
           setTemplateId('')
+          setTemplateFields({})
           setPreview(null)
           setError('')
           if (value === 'receipt') setMode('file')
@@ -337,21 +363,50 @@ export default function DocumentCreateDialog({
             label="Шаблон"
             help="Используются сохранённые данные. После правок заказа сначала сохраните его и откройте документы снова. Номер документа назначается автоматически при создании."
             placeholder="Выберите шаблон"
-            items={matchingTemplates.map((item) => ({
-              value: item.id,
-              name: item.name,
-            }))}
+            items={[
+              ...builtInTemplates.map(({ id, name }) => ({
+                value: id,
+                name: `${recommendedIds.has(id) ? 'Рекомендуем' : 'Стандартный'} · ${name}`,
+              })),
+              ...matchingTemplates.map(({ id, name }) => ({ value: id, name })),
+            ]}
             value={templateId}
-            onChange={(value) => setTemplateId(value || '')}
+            onChange={(value) => {
+              setTemplateId(value || '')
+              setTemplateFields({})
+              setError('')
+            }}
             noMargin
             fullWidth
           />
-          {!matchingTemplates.length ? (
+          {!matchingTemplates.length && !builtInTemplates.length ? (
             <Notice tone="warning">
               Нет шаблона этого типа. Добавьте его в разделе «Документы» или
               загрузите готовый файл.
             </Notice>
           ) : null}
+          {templateMetadata && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-gray-600">{templateMetadata.description}</p>
+              {templateMetadata.fields.map(({ key, label, multiline, placeholder, required }) => {
+                const Field = multiline ? Textarea : Input
+                return (
+                  <Field
+                    key={key}
+                    label={label}
+                    ariaLabel={label}
+                    help={placeholder}
+                    value={templateFields[key] || ''}
+                    onChange={(value) => setTemplateFields((current) => ({ ...current, [key]: value }))}
+                    maxLength={2000}
+                    required={required}
+                    noMargin
+                    fullWidth
+                  />
+                )
+              })}
+            </div>
+          )}
           <Input
             label="Дата документа"
             help={fieldHelp['documents.date']}

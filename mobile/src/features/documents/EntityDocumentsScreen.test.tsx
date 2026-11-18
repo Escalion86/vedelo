@@ -10,6 +10,9 @@ let mockEntity: any
 let mockLocalFiles: any[]
 let mockRemote: any
 let mockGeneration: any
+let mockSpecialization = ''
+let mockBuiltIns: object[]
+let mockTemplates: object[]
 const requestId = '16be4a0d-ef5c-4858-a7ce-c883adcedfbb'
 jest.mock('./generationStore', () => ({
   readGeneration: async () => mockGeneration,
@@ -37,7 +40,7 @@ jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('reac
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: mockId }), useFocusEffect: (fn: any) => require('react').useEffect(fn, [fn]) }))
 jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => mockQuery }))
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...args: any[]) => mockPick(...args) }))
-jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ labelCapitalized: 'Заказ' }) }))
+jest.mock('../../shared/hooks/useWorkItemTerminology', () => ({ useWorkItemTerminology: () => ({ labelCapitalized: 'Заказ', settings: { custom: { onboardingActivityPreset: mockSpecialization } } }) }))
 jest.mock('../../shared/api/client', () => ({ api: { get: (...args: any[]) => mockGet(...args), post: (...args: any[]) => mockPost(...args), delete: (...args: any[]) => mockDelete(...args) } }))
 jest.mock('../../shared/storage/cache', () => ({ getCachedEntity: (...args: any[]) => mockGetEntity(...args), publishEntityReadback: async (kind: string, fresh: any, active: () => boolean, publish: (entity: any) => void) => {
   const cached = await mockGetEntity(kind, fresh._id)
@@ -53,11 +56,14 @@ const localFile = (status = 'pending') => ({ id: 'f', localUri: 'encrypted://a',
 beforeEach(() => {
   jest.clearAllMocks(); mockId = 'a'.repeat(24)
   mockGeneration = null
+  mockSpecialization = ''
+  mockBuiltIns = []
+  mockTemplates = [template]
   mockEntity = { _id: mockId, status: 'active', eventType: 'Съёмка', documents: [document], legacy: 'keep' }
   mockRemote = { ...mockEntity }; mockLocalFiles = []
   mockGetEntity.mockImplementation(async () => mockEntity)
   mockList.mockImplementation(async () => mockLocalFiles)
-  mockGet.mockImplementation(async (path: string) => path === '/mobile/v1/document-templates' ? { success: true, data: [template] } : { success: true, data: mockRemote })
+  mockGet.mockImplementation(async (path: string) => ({ success: true, data: path === '/mobile/v1/document-templates' ? mockTemplates : path === '/document-templates/built-in' ? mockBuiltIns : mockRemote }))
   mockUpsert.mockImplementation(async (_kind: string, items: any[]) => { mockEntity = items[0] })
   mockSave.mockImplementation(async ({ values }: any) => { mockEntity = { ...mockEntity, ...values, syncStatus: 'pending' }; return mockEntity })
   mockPick.mockResolvedValue({ canceled: true }); mockSync.mockResolvedValue(undefined); mockShare.mockResolvedValue(undefined)
@@ -260,6 +266,52 @@ it('X: потеря ответа и перезапуск сохраняют ид
   fireEvent.press(reopened.getByText('Повторить ту же попытку'))
   await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2))
   expect(mockPost.mock.calls[1][1]).toEqual(firstPayload)
+})
+it('рекомендует договор по деятельности и сохраняет его поля для просмотра, создания и повторной попытки', async () => {
+  const builtIn = { id: 'builtin-repair-v1', name: 'Договор на ремонт', description: 'Смета и приёмка', specialization: 'repair_home', documentType: 'contract', version: 1, fields: [{ key: 'СМЕТА', label: 'Смета', required: true, multiline: true }] }
+  mockBuiltIns = [builtIn, { ...builtIn, id: 'builtin-events-v1', name: 'Договор с ведущим', specialization: 'events' }]
+  mockSpecialization = 'repair_home'
+  const screen = draw('events', 'dark')
+  await screen.findByText('Рекомендуемые договоры')
+  expect(screen.queryByText('Договор с ведущим')).toBeNull()
+  fireEvent.press(screen.getByText('Показать все стандартные договоры'))
+  expect(screen.getByText('Договор с ведущим')).toBeTruthy()
+  fireEvent.press(screen.getByRole('radio', { name: 'Договор на ремонт' }))
+  fireEvent.press(screen.getByTestId('generate-document'))
+  expect(screen.getByText('Заполните это поле.')).toBeTruthy()
+  expect(mockPost).not.toHaveBeenCalled()
+  fireEvent.changeText(screen.getByTestId('template-field-СМЕТА'), '  Монтаж и материалы  ')
+  fireEvent.changeText(screen.getByTestId('document-date'), '2026-11-18')
+  mockPost.mockResolvedValueOnce({ success: true, data: { source: 'Сохранённые данные заказа', preview: { fields: [{ name: 'СМЕТА', value: 'Монтаж и материалы' }], missing: [], unknown: [] } } })
+  fireEvent.press(screen.getByText('Проверить данные'))
+  await screen.findByText('Смета: Монтаж и материалы')
+  expect(mockPost).toHaveBeenCalledWith(`/mobile/v1/events/${mockId}/documents/generate`, {
+    action: 'preview', templateId: builtIn.id, documentDate: '2026-11-18', source: 'event', templateFields: { СМЕТА: 'Монтаж и материалы' },
+  })
+  mockPost.mockRejectedValueOnce(new Error('network'))
+  fireEvent.press(screen.getByTestId('generate-document'))
+  await screen.findByText('Повторить ту же попытку')
+  const first = mockPost.mock.calls[1][1]
+  expect(first).toMatchObject({ requestId, templateFields: { СМЕТА: 'Монтаж и материалы' } })
+  screen.unmount()
+  const reopened = draw()
+  await reopened.findByTestId('template-field-СМЕТА')
+  expect(reopened.getByTestId('template-field-СМЕТА').props.value).toBe('Монтаж и материалы')
+  mockPost.mockRejectedValueOnce(new Error('network'))
+  fireEvent.press(reopened.getByText('Повторить ту же попытку'))
+  await waitFor(() => expect(mockPost.mock.calls[2][1]).toEqual(first))
+})
+it('подставляет поля исходного договора для своей копии стандартного шаблона', async () => {
+  const id = 'builtin-photo-v1'
+  mockBuiltIns = [{ id, name: 'Стандартный фотодоговор', description: 'Сроки и права', specialization: 'photo_video', documentType: 'contract', version: 1, fields: [{ key: 'ПРАВА', label: 'Права на материалы', required: true }] }]
+  mockTemplates = [{ ...template, baseTemplateId: id }]
+  const screen = draw()
+  const field = await screen.findByTestId('template-field-ПРАВА')
+  expect(field.props.editable).toBe(true)
+  fireEvent.changeText(field, 'Личное использование')
+  mockPost.mockRejectedValueOnce(new Error('network'))
+  fireEvent.press(screen.getByTestId('generate-document'))
+  await waitFor(() => expect(mockPost).toHaveBeenCalledWith(`/mobile/v1/events/${mockId}/documents/generate`, expect.objectContaining({ templateId: template.id, templateFields: { ПРАВА: 'Личное использование' } })))
 })
 it('X: generation неверный eventId/templateId или success не подтверждается', async () => {
   const screen = draw(); await screen.findByRole('radio', { name: 'Шаблон' })

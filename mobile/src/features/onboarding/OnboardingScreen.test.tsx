@@ -1,6 +1,7 @@
 import React from 'react'
 import { StyleSheet } from 'react-native'
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import OnboardingScreen from '../../../app/onboarding'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { darkPalette, lightPalette } from '../../shared/ui/theme'
@@ -14,14 +15,18 @@ jest.mock('../../shared/storage/cache', () => ({ upsertEntities: jest.fn() }))
 jest.mock('expo-router', () => ({ router: { replace: (path: string) => mockReplace(path) } }))
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }))
 const presets = [
-  { key: 'events', title: 'Мероприятия', description: 'Выступления и праздники', starterServices: [{ title: 'Выступление' }] },
-  { key: 'repairs', title: 'Ремонт и очень длинное название серверной специализации', description: 'Серверные примеры', starterServices: [{ title: 'Диагностика' }, { title: 'Ремонт' }] },
+  { key: 'events', title: 'Мероприятия и сцена', description: 'Выступления и праздники', starterServices: [{ title: 'Выступление' }] },
+  { key: 'repair_home', title: 'Ремонт и очень длинное название серверной специализации', description: 'Серверные примеры', starterServices: [{ title: 'Диагностика' }, { title: 'Ремонт' }] },
+  { key: 'other', title: 'Другое', description: 'Своя специализация', starterServices: [] },
 ]
-const setup = (theme: 'light' | 'dark') => render(<ThemeProvider forcedMode={theme} storage={null}><OnboardingScreen /></ThemeProvider>)
+const setup = (theme: 'light' | 'dark') => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } })}><ThemeProvider forcedMode={theme} storage={null}><OnboardingScreen /></ThemeProvider></QueryClientProvider>)
 const next = (screen: ReturnType<typeof render>) => fireEvent.press(screen.getByTestId('onboarding-next'))
+const pickEvents = (screen: ReturnType<typeof render>) => fireEvent.press(screen.getByTestId('activity-preset-events'))
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(api.get as jest.Mock).mockResolvedValue({ success: true, data: { presets, servicesCount: 0, settings: { defaultTown: 'Москва', timeZone: 'Europe/Moscow' } } })
+  ;(api.get as jest.Mock).mockImplementation(async (path) => path === '/document-templates/built-in' ? {
+    success: true, data: [{ id: 'repair', name: 'Договор на ремонт', description: 'Смета и приёмка', specialization: 'repair_home', documentType: 'contract', version: 1, fields: [] }],
+  } : { success: true, data: { presets, servicesCount: 0, settings: { defaultTown: 'Москва', timeZone: 'Europe/Moscow' } } })
   ;(api.post as jest.Mock).mockResolvedValue({ success: true, data: { settings: { _id: 'settings' }, services: [{ _id: 'service' }], event: { _id: 'event' } } })
   ;(upsertEntities as jest.Mock).mockResolvedValue(undefined)
 })
@@ -38,7 +43,14 @@ describe.each(['light', 'dark'] as const)('%s: мастер первого за�
     fireEvent.changeText(screen.getByLabelText('Основной город'), 'Омск'); fireEvent.press(screen.getByRole('radio', { name: 'Омск' })); fireEvent.press(screen.getByRole('radio', { name: 'Тёмная' }))
     expect(screen.getByRole('radio', { name: 'Тёмная' }).props.accessibilityState.checked).toBe(true)
     fireEvent.press(screen.getByText('Назад')); expect(screen.getByTestId('onboarding-first-name').props.value).toBe('Пётр'); next(screen); next(screen)
-    expect(screen.getByText('Специализация')).toBeTruthy(); fireEvent.press(screen.getByRole('radio', { name: presets[1].title })); expect(screen.getByText('Диагностика, Ремонт')).toBeTruthy()
+    expect(screen.getByText('Специализация')).toBeTruthy()
+    expect(screen.getByTestId('activity-preset-events').props.accessibilityState.checked).toBe(false)
+    next(screen); expect(screen.getByText('Выберите вид деятельности.')).toBeTruthy()
+    fireEvent.press(screen.getByRole('radio', { name: presets[1].title }))
+    expect(screen.getByText('Диагностика, Ремонт')).toBeTruthy()
+    expect(screen.getByText('Договор на ремонт')).toBeTruthy()
+    expect(screen.getByTestId('activity-terminology-orders').props.accessibilityState.checked).toBe(true)
+    fireEvent.press(screen.getByTestId('activity-terminology-events'))
     fireEvent.press(screen.getByRole('checkbox', { name: 'Создать стартовые услуги' })); expect(screen.getByRole('checkbox', { name: 'Создать стартовые услуги' }).props.accessibilityState.checked).toBe(false)
     fireEvent.press(screen.getByRole('checkbox', { name: 'Создать стартовые услуги' })); next(screen)
     expect(screen.getByText('Работа с коллегами')).toBeTruthy(); fireEvent.press(screen.getByRole('radio', { name: 'Да, бывает' })); next(screen)
@@ -47,7 +59,8 @@ describe.each(['light', 'dark'] as const)('%s: мастер первого за�
     fireEvent.press(screen.getByRole('checkbox', { name: 'Создать учебную заявку' })); next(screen)
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'))
     expect(api.post).toHaveBeenCalledWith('/mobile/v1/onboarding', {
-      profile: { ...profile, firstName: 'Пётр', whatsapp: '79990000000', telegram: 'mockname' }, town: 'Омск', timeZone: 'Asia/Omsk', theme: 'dark', presetKey: 'repairs', createStarterServices: true, showColleagueTransferFields: true, createDemoEvent: true,
+      profile: { ...profile, firstName: 'Пётр', whatsapp: '79990000000', telegram: 'mockname' }, town: 'Омск', timeZone: 'Asia/Omsk', theme: 'dark',
+      presetKey: 'repair_home', otherDescription: '', terminology: 'events', activityProfileVersion: 1, createStarterServices: true, showColleagueTransferFields: true, createDemoEvent: true,
     })
     expect((upsertEntities as jest.Mock).mock.calls).toEqual([['siteSettings', [{ _id: 'settings' }]], ['services', [{ _id: 'service' }]], ['events', [{ _id: 'event' }]]])
     expect(mockRefresh.mock.invocationCallOrder[0]).toBeGreaterThan((upsertEntities as jest.Mock).mock.invocationCallOrder[2]); expect(mockComplete.mock.invocationCallOrder[0]).toBeGreaterThan(mockRefresh.mock.invocationCallOrder[0])
@@ -58,15 +71,15 @@ describe.each(['light', 'dark'] as const)('%s: мастер первого за�
     const screen = setup(theme); await act(async () => {})
     next(screen); expect(screen.getByRole('radio', { name: 'Красноярск' }).props.accessibilityState.checked).toBe(true)
     next(screen); expect(screen.getByText(/У вас уже есть услуги/)).toBeTruthy(); expect(screen.queryByRole('checkbox', { name: 'Создать стартовые услуги' })).toBeNull()
-    next(screen); next(screen); next(screen)
+    pickEvents(screen); next(screen); next(screen); next(screen)
     await waitFor(() => expect(mockComplete).toHaveBeenCalledTimes(1))
-    expect(api.post).toHaveBeenCalledWith('/mobile/v1/onboarding', { profile, town: '', timeZone: 'Asia/Krasnoyarsk', theme: 'light', presetKey: 'events', createStarterServices: false, showColleagueTransferFields: false, createDemoEvent: false })
+    expect(api.post).toHaveBeenCalledWith('/mobile/v1/onboarding', { profile, town: '', timeZone: 'Asia/Krasnoyarsk', theme: 'light', presetKey: 'events', otherDescription: '', terminology: 'events', activityProfileVersion: 1, createStarterServices: false, showColleagueTransferFields: false, createDemoEvent: false })
     expect(upsertEntities).not.toHaveBeenCalled()
   })
   it('ошибка завершения сохраняет выбор, loading блокирует возврат/checkbox/повтор', async () => {
     let reject!: (reason: Error) => void
     ;(api.post as jest.Mock).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
-    const screen = setup(theme); await act(async () => {}); next(screen); next(screen); next(screen); next(screen)
+    const screen = setup(theme); await act(async () => {}); next(screen); next(screen); pickEvents(screen); next(screen); next(screen)
     fireEvent.press(screen.getByRole('checkbox', { name: 'Создать учебную заявку' })); next(screen)
     expect(screen.getByRole('checkbox', { name: 'Создать учебную заявку' }).props.accessibilityState.disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'Назад' }).props.accessibilityState.disabled).toBe(true)
@@ -78,7 +91,7 @@ describe.each(['light', 'dark'] as const)('%s: мастер первого за�
   it('ошибка/отсутствие специализаций не выглядят как подтверждённые стартовые услуги', async () => {
     ;(api.get as jest.Mock).mockRejectedValueOnce(new Error('Не удалось загрузить мастер'))
     const screen = setup(theme); await screen.findByText('Не удалось загрузить мастер'); next(screen); next(screen)
-    expect(screen.getByText(/Список и стартовые услуги ещё не подтверждены/)).toBeTruthy()
+    expect(screen.getByText('Не удалось загрузить виды деятельности.')).toBeTruthy()
     expect(screen.queryByRole('checkbox', { name: 'Создать стартовые услуги' })).toBeNull()
     expect(api.post).not.toHaveBeenCalled()
   })
@@ -86,10 +99,21 @@ describe.each(['light', 'dark'] as const)('%s: мастер первого за�
     let resolve!: (value: unknown) => void
     ;(api.get as jest.Mock).mockImplementationOnce(() => new Promise(done => { resolve = done }))
     const screen = setup(theme); next(screen); next(screen)
-    expect(screen.getByText(/Список и стартовые услуги ещё не подтверждены/)).toBeTruthy()
+    expect(screen.getByText('Загружаем виды деятельности…')).toBeTruthy()
     expect(screen.queryByRole('checkbox', { name: 'Создать стартовые услуги' })).toBeNull()
     await act(async () => resolve({ success: true, data: { presets: [], servicesCount: 0 } }))
-    expect(screen.getByText(/Список и стартовые услуги ещё не подтверждены/)).toBeTruthy()
+    expect(screen.getByText('Не удалось загрузить виды деятельности.')).toBeTruthy()
+  })
+  it('требует указать сферу при выборе «Другое» и сохраняет её с предложенным названием', async () => {
+    const screen = setup(theme); await act(async () => {}); next(screen); next(screen)
+    fireEvent.press(screen.getByTestId('activity-preset-other'))
+    next(screen)
+    expect(screen.getByText('Коротко опишите, чем вы занимаетесь.')).toBeTruthy()
+    fireEvent.changeText(screen.getByTestId('activity-other-description'), '  Уход  за собаками ')
+    next(screen); next(screen); next(screen)
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/mobile/v1/onboarding', expect.objectContaining({
+      presetKey: 'other', otherDescription: 'Уход за собаками', terminology: 'orders',
+    })))
   })
   it('обязательные имя/фамилия: валидация не продвигает шаг', async () => {
     const screen = setup(theme); await act(async () => {})

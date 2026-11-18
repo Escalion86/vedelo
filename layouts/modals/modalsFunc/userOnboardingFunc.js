@@ -11,13 +11,15 @@ import InputImages from '@components/InputImages'
 import PhoneInput from '@components/PhoneInput'
 import Textarea from '@components/Textarea'
 import Notice from '@components/Notice'
+import ActivityProfileFields from '@components/ActivityProfileFields'
 import { FirstRunTourModal } from './firstRunTourFunc'
 import { postData } from '@helpers/CRUD'
 import { useServicesQuery } from '@helpers/useEntityQueries'
 import getPersonFullName from '@helpers/getPersonFullName'
 import { buildSingleNamePatch } from '@helpers/personName.mjs'
+import { getActivityProfile, validateActivityProfile } from '@helpers/activityProfile.mjs'
+import useSaveActivityProfile, { withActivityProfile } from '@helpers/useSaveActivityProfile'
 import {
-  ONBOARDING_ACTIVITY_PRESETS,
   areOnboardingServicesValid,
   getStarterServicesForPreset,
 } from '@helpers/onboardingPresets.mjs'
@@ -60,7 +62,7 @@ const titles = [
 const descriptions = [
   'Укажите фамилию и имя, отчество.',
   'Проверьте город и время, чтобы напоминания приходили вовремя.',
-  'Предложим подходящую услугу для начала работы.',
+  'По сфере деятельности предложим название для вашей работы, шаблоны договоров и стартовую услугу. Ответ также используется в статистике по видам деятельности.',
   'Достаточно одной услуги. Стоимость и подробности можно уточнить позже.',
 ]
 
@@ -96,9 +98,14 @@ export const FirstRunWizardModal = ({
   } = useServicesQuery()
   const items = useAtomValue(itemsFuncAtom)
   const router = useRouter()
-  const [stepIndex, setStepIndex] = useState(() =>
-    getFirstRunStepIndex(settings?.custom)
-  )
+  const saveActivityProfile = useSaveActivityProfile()
+  const [activity, setActivity] = useState(() => getActivityProfile(settings))
+  const { preset } = activity
+  const activityValidation = validateActivityProfile(activity)
+  const [stepIndex, setStepIndex] = useState(() => {
+    const index = getFirstRunStepIndex(settings?.custom)
+    return activityValidation.value ? index : Math.min(index, FIRST_RUN_STEPS.indexOf('specialization'))
+  })
   const [phase, setPhase] = useState('setup')
   const [fullName, setFullName] = useState(() => getPersonFullName(user))
   const [phone, setPhone] = useState(user?.phone ?? '')
@@ -134,9 +141,6 @@ export const FirstRunWizardModal = ({
   )
     ? TIME_ZONE_OPTIONS
     : [...TIME_ZONE_OPTIONS, { value: timeZone, name: timeZone }]
-  const [preset, setPreset] = useState(
-    settings?.custom?.onboardingActivityPreset || 'events'
-  )
   const [drafts, setDrafts] = useState(null)
   const [busy, setBusy] = useState(false)
   const [attempted, setAttempted] = useState(false)
@@ -190,8 +194,7 @@ export const FirstRunWizardModal = ({
     setSettings(next)
     return next
   }
-  const saveCustom = (patch) =>
-    saveSettings({ custom: { ...settingsRef.current?.custom, ...patch } })
+  const saveCustom = (patch) => saveSettings({ custom: patch })
   const leave = async () => {
     if (lock.current) return
     lock.current = true
@@ -214,7 +217,7 @@ export const FirstRunWizardModal = ({
       : step === 'environment'
         ? Boolean(town.trim() && timeZone)
         : step === 'specialization'
-          ? ONBOARDING_ACTIVITY_PRESETS.some((item) => item.key === preset)
+          ? Boolean(activityValidation.value)
           : hasExistingServices || areOnboardingServicesValid(drafts)
 
   const saveStep = async () => {
@@ -244,11 +247,13 @@ export const FirstRunWizardModal = ({
           defaultTown: city,
           timeZone,
           towns: [...new Set([...(settingsRef.current?.towns ?? []), city])],
-          custom: { ...settingsRef.current?.custom, timeZoneConfirmed: true },
+          custom: { timeZoneConfirmed: true },
         })
       }
-      if (step === 'specialization')
-        await saveCustom({ onboardingActivityPreset: preset })
+      if (step === 'specialization') {
+        const saved = await saveActivityProfile(activityValidation.value)
+        settingsRef.current = withActivityProfile(settingsRef.current, saved)
+      }
       if (step === 'services') {
         for (const draft of drafts ?? []) {
           const saved = await items?.service?.set(
@@ -277,9 +282,7 @@ export const FirstRunWizardModal = ({
         }
         await saveSettings({
           custom: {
-            ...buildFirstRunCompletionCustomPatch({
-              existing: settingsRef.current?.custom,
-            }),
+            ...buildFirstRunCompletionCustomPatch(),
             [FIRST_RUN_STEP_KEY]: null,
             onboardingStarterServicesCreated:
               settingsRef.current?.custom?.onboardingStarterServicesCreated ===
@@ -526,26 +529,15 @@ export const FirstRunWizardModal = ({
           </>
         )}
         {step === 'specialization' && (
-          <div className="tablet:grid-cols-2 grid grid-cols-1 gap-2">
-            {ONBOARDING_ACTIVITY_PRESETS.map((item) => (
-              <button
-                type="button"
-                key={item.key}
-                aria-pressed={preset === item.key}
-                className="first-run-option"
-                onClick={() => {
-                  if (
-                    preset !== item.key &&
-                    !drafts?.some((draft) => draft._id)
-                  )
-                    setDrafts(null)
-                  setPreset(item.key)
-                }}
-              >
-                {item.title}
-              </button>
-            ))}
-          </div>
+          <ActivityProfileFields
+            value={activity}
+            attempted={attempted}
+            onChange={(next) => {
+              if (next.preset !== preset && !drafts?.some((draft) => draft._id))
+                setDrafts(null)
+              setActivity(next)
+            }}
+          />
         )}
         {step === 'services' && (
           <>

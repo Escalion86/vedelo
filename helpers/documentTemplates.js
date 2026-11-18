@@ -1,4 +1,5 @@
 import { DOCUMENT_TYPES, normalizeDocumentType } from './documentTypes.js'
+import { getBuiltInContractTemplateMetadata } from './builtInContractTemplates.mjs'
 
 const DOCX_TEMPLATE_MAX_BYTES = 5 * 1024 * 1024
 const DOCX_MIME =
@@ -37,6 +38,9 @@ const normalizeDocumentTemplate = (
   if (!templateBase64) return null
 
   const type = normalizeDocumentType(template.type)
+  const baseTemplate =
+    type === DOCUMENT_TYPES.CONTRACT &&
+    getBuiltInContractTemplateMetadata(template.baseTemplateId)
   const customTypeName =
     type === DOCUMENT_TYPES.OTHER ? cleanString(template.customTypeName) : ''
 
@@ -47,6 +51,7 @@ const normalizeDocumentTemplate = (
     customTypeName,
     fileName: cleanString(template.fileName) || 'template.docx',
     templateBase64,
+    ...(baseTemplate ? { baseTemplateId: baseTemplate.id } : {}),
     createdAt: normalizeIsoDate(template.createdAt, now),
     updatedAt: normalizeIsoDate(template.updatedAt, now),
   }

@@ -1,3 +1,6 @@
+import { getActivityProfile } from '../helpers/activityProfile.mjs'
+import { ONBOARDING_ACTIVITY_PRESETS } from '../helpers/onboardingPresets.mjs'
+
 export const DAY = 86400000
 export const analyticsAccessStatus = (context) =>
   !context?.user?._id || !context?.tenantId
@@ -105,6 +108,53 @@ const blank = () => ({
 })
 const within = (value, from, to) =>
   value && +new Date(value) >= +from && +new Date(value) < +to
+
+export const activityWorkspaceIds = (users, excluded) => {
+  const excludedIds = new Set(excluded)
+  return users
+    .filter((user) => {
+      const id = String(user._id)
+      return (
+        !user.archive &&
+        !['dev', 'admin'].includes(user.role) &&
+        !excludedIds.has(id) &&
+        (!user.tenantId || String(user.tenantId) === id)
+      )
+    })
+    .map((user) => String(user._id))
+}
+
+export const summarizeActivityWorkspaces = (workspaceIds, settings) => {
+  const byTenant = new Map(settings.map((row) => [String(row.tenantId), row]))
+  const totals = new Map(
+    ONBOARDING_ACTIVITY_PRESETS.map(({ key, shortTitle }) => [
+      key,
+      { key, label: shortTitle, count: 0 },
+    ])
+  )
+  totals.set('', { key: '', label: 'Не указана', count: 0 })
+  const other = new Map()
+  let withoutDescription = 0
+  for (const id of workspaceIds) {
+    const { preset, otherDescription } = getActivityProfile(byTenant.get(id))
+    totals.get(preset).count++
+    if (preset !== 'other') continue
+    if (!otherDescription) {
+      withoutDescription++
+      continue
+    }
+    const key = otherDescription.normalize('NFKC').toLocaleLowerCase('ru-RU')
+    const row = other.get(key) ?? { key, label: otherDescription, count: 0 }
+    row.count++
+    other.set(key, row)
+  }
+  return {
+    total: workspaceIds.length,
+    rows: [...totals.values()],
+    other: [...other.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ru')),
+    withoutDescription,
+  }
+}
 
 export function summarizeAnalytics({
   users,

@@ -36,13 +36,15 @@ async function fixture() {
 }
 test('mobile wrapper delegates draft/retry/source to the common workflow and retains legacy event DTO', async () => {
   const f = await fixture(), requestId = crypto.randomUUID()
-  const payload = { templateId: 'template', documentDate: '2026-10-31', requestId, source: 'proposal', allowEmpty: false }
+  const templateFields = { ПОРЯДОК_ОПЛАТЫ: 'Оплата по завершении' }
+  const payload = { templateId: 'template', documentDate: '2026-10-31', requestId, source: 'proposal', allowEmpty: false, templateFields }
   const first = await f.post(payload), retry = await f.post(payload)
   assert.equal(first.status, 200); assert.deepEqual(first, retry)
   assert.equal(f.state.created.size, 1)
   assert.equal(first.body.data.event.status, 'draft')
   assert.equal(f.state.calls[0].body.requestId, requestId)
   assert.equal(f.state.calls[0].body.allowEmpty, false)
+  assert.deepEqual(f.state.calls[0].body.templateFields, templateFields)
 })
 test('mobile wrapper ignores client tenant/access and propagates tariff/foreign ownership rejection', async () => {
   const f = await fixture()
