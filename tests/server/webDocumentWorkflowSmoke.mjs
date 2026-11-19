@@ -729,6 +729,7 @@ export const runWebDocumentWorkflowSmoke = async ({
   await db.collection('clients').updateOne({ _id: new mongoose.Types.ObjectId(shareEvent.clientId), tenantId }, { $set: { email: 'proposal-qa@example.test', max: 'https://max.ru/qa-contact' } })
   console.log(`Web document QA environment: ${baseUrl}`)
   if (process.env.PLAYWRIGHT_MODULE) {
+    const catalogOnly = process.env.WEB_DOCUMENT_CATALOG_ONLY === '1'
     const { chromium } = await import(
       pathToFileURL(process.env.PLAYWRIGHT_MODULE).href
     )
@@ -815,7 +816,73 @@ export const runWebDocumentWorkflowSmoke = async ({
           await page.screenshot({ path: path.join(os.tmpdir(), `vedelo-activity-profile-${width}-${theme}.png`) })
           await saveActivity.click()
           await activityDialog.waitFor({ state: 'hidden' })
-          await page.reload()
+
+          await page.goto('/cabinet/documents')
+          const openCatalog = page.getByRole('button', { name: 'Стандартные договоры', exact: true })
+          await openCatalog.waitFor()
+          assert.equal(await openCatalog.getAttribute('aria-haspopup'), 'dialog')
+          const catalog = page.locator('.built-in-contract-catalog')
+          assert.equal(await catalog.count(), 0)
+          for (const { name } of builtIns.data)
+            assert.equal(await page.getByRole('heading', { name, exact: true }).count(), 0)
+
+          if (width === 1365 && theme === 'light') await openCatalog.press('Enter')
+          else await openCatalog.click()
+          await catalog.waitFor()
+          const modalTitle = (title) => page
+            .getByText(title, { exact: true })
+            .and(page.locator('div.font-bold'))
+          const catalogTitle = modalTitle('Стандартные договоры')
+          await catalogTitle.waitFor()
+          for (const { name } of builtIns.data)
+            await catalog.getByRole('heading', { name, exact: true }).waitFor()
+          const catalogBox = await catalog.boundingBox()
+          assert.ok(catalogBox && catalogBox.x >= 0 && catalogBox.x + catalogBox.width <= width)
+          const recommendedContract = catalog.getByRole('heading', { name: standard.name, exact: true })
+          await recommendedContract.locator('..').getByText('Рекомендуем по вашей сфере', { exact: true }).waitFor()
+          await page.waitForFunction(() => {
+            const dialog = document.querySelector('.built-in-contract-catalog')?.parentElement?.parentElement
+            return dialog && getComputedStyle(dialog).opacity === '1' &&
+              getComputedStyle(dialog.parentElement).opacity === '1'
+          })
+          await page.screenshot({
+            path: path.join(os.tmpdir(), `vedelo-contract-catalog-${width}-${theme}.png`),
+          })
+          const selectContract = catalog.getByRole('button', { name: `Сделать шаблоном: ${standard.name}`, exact: true })
+          const editorTitle = modalTitle('Сделать шаблоном')
+          const templateEditor = editorTitle.locator('..')
+          const nameInput = templateEditor
+            .getByText('Название шаблона', { exact: true })
+            .locator('..')
+            .getByRole('textbox')
+
+          await selectContract.click()
+          await editorTitle.waitFor()
+          assert.equal(await nameInput.inputValue(), standard.name)
+          const canceledName = `Отменённый договор QA ${randomUUID()}`
+          await nameInput.fill(canceledName)
+          await templateEditor.getByRole('button', { name: 'Закрыть', exact: true }).click()
+          await editorTitle.waitFor({ state: 'hidden' })
+          await catalog.waitFor()
+          await selectContract.click()
+          await editorTitle.waitFor()
+          assert.equal(await nameInput.inputValue(), standard.name)
+
+          const savedName = `Мой договор QA ${width} ${theme} ${randomUUID()}`
+          await nameInput.fill(savedName)
+          await templateEditor.getByRole('button', { name: 'Сохранить', exact: true }).click()
+          await editorTitle.waitFor({ state: 'hidden' })
+          await catalog.waitFor()
+          await catalogTitle.locator('..').getByRole('button', { name: 'Закрыть', exact: true }).click()
+          await catalog.waitFor({ state: 'hidden' })
+          await page.getByText('Мои шаблоны документов', { exact: true }).waitFor()
+          const userTemplates = page.locator('.document-template-card')
+          await userTemplates.getByText(savedName, { exact: true }).waitFor()
+          assert.equal(await userTemplates.getByText(canceledName, { exact: true }).count(), 0)
+          console.log(`Built-in contract catalog: ${width}px, ${theme} passed`)
+          if (catalogOnly) continue
+
+          await page.goto('/cabinet/eventsUpcoming')
           const eventMenu = page
             .locator('.event-card-shell')
             .filter({ hasText: 'Независимые документы QA' })

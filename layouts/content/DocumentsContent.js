@@ -19,6 +19,7 @@ import tariffsAtom from '@state/atoms/tariffsAtom'
 import loggedUserAtom from '@state/atoms/loggedUserAtom'
 import { modalsFuncAtom } from '@state/atoms'
 import { apiJson } from '@helpers/apiClient'
+import useSnackbar from '@helpers/useSnackbar'
 import { getActivityProfile } from '@helpers/activityProfile.mjs'
 import {
   BUILT_IN_CONTRACT_TEMPLATES,
@@ -135,6 +136,7 @@ const DocumentsContent = () => {
   const tariffs = useAtomValue(tariffsAtom)
   const loggedUser = useAtomValue(loggedUserAtom)
   const modalsFunc = useAtomValue(modalsFuncAtom)
+  const snackbar = useSnackbar()
 
   const customSettings = useMemo(
     () => siteSettings?.custom ?? {},
@@ -145,12 +147,6 @@ const DocumentsContent = () => {
     [loggedUser, tariffs]
   )
   const canUseDocuments = Boolean(tariffAccess?.allowDocuments)
-  const recommended = getRecommendedBuiltInContractTemplates(getActivityProfile(siteSettings).preset)
-  const recommendedIds = new Set(recommended.map(({ id }) => id))
-  const builtInTemplates = [
-    ...recommended,
-    ...BUILT_IN_CONTRACT_TEMPLATES.filter(({ id }) => !recommendedIds.has(id)),
-  ]
   const documentTemplates = useMemo(
     () => normalizeDocumentTemplatesFromSettings(customSettings),
     [customSettings]
@@ -232,6 +228,7 @@ const DocumentsContent = () => {
                 ],
               },
             }))
+            snackbar.success('Шаблон добавлен')
             closeModal()
             return
           }
@@ -332,11 +329,63 @@ const DocumentsContent = () => {
     }
 
     modalsFunc.add({
-      title: builtIn ? 'Сохранить как свой шаблон' : isEdit ? 'Редактирование шаблона' : 'Новый шаблон',
+      title: builtIn ? 'Сделать шаблоном' : isEdit ? 'Редактирование шаблона' : 'Новый шаблон',
       confirmButtonName: 'Сохранить',
       declineButtonName: 'Закрыть',
       showDecline: true,
       Children: TemplateEditor,
+    })
+  }
+
+  const openBuiltInCatalog = () => {
+    const recommended = getRecommendedBuiltInContractTemplates(getActivityProfile(siteSettings).preset)
+    const recommendedIds = new Set(recommended.map(({ id }) => id))
+    const catalog = [
+      ...recommended,
+      ...BUILT_IN_CONTRACT_TEMPLATES.filter(({ id }) => !recommendedIds.has(id)),
+    ]
+
+    modalsFunc.add({
+      uid: 'built-in-contract-catalog',
+      title: 'Стандартные договоры',
+      onlyCloseButtonShow: true,
+      Children: () => (
+        <ul className="built-in-contract-catalog tablet:grid-cols-2 grid grid-cols-1 gap-3 pb-2">
+          {catalog.map((template) => (
+            <li
+              key={template.id}
+              className="flex min-w-0 flex-col gap-2 rounded border border-gray-200 p-3"
+            >
+              <div>
+                <h3 className="text-sm font-semibold">{template.name}</h3>
+                {recommendedIds.has(template.id) && (
+                  <p className="text-xs text-gray-600">Рекомендуем по вашей сфере</p>
+                )}
+              </div>
+              <p className="text-sm text-gray-600">{template.description}</p>
+              <div className="mt-auto flex flex-wrap items-center gap-2">
+                <a
+                  href={builtInDownloadUrl(template.id)}
+                  download
+                  aria-label={`Скачать Word: ${template.name}`}
+                  className="ui-btn ui-btn-secondary min-h-10 px-3 py-2 text-xs"
+                >
+                  Скачать Word
+                </a>
+                <AppButton
+                  size="sm"
+                  variant="secondary"
+                  className="min-h-10"
+                  aria-label={`Сделать шаблоном: ${template.name}`}
+                  onClick={() => openTemplateEditor(null, template)}
+                >
+                  Сделать шаблоном
+                </AppButton>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ),
     })
   }
 
@@ -374,28 +423,14 @@ const DocumentsContent = () => {
                 >
                   Открыть инструкцию DOCX
                 </button>
-              </div>
-              <div className="flex flex-col gap-3">
-                <h2 className="text-sm font-semibold">Стандартные договоры</h2>
-                <div className="tablet:grid-cols-2 grid grid-cols-1 gap-3">
-                  {builtInTemplates.map((template) => (
-                    <div key={template.id} className="flex min-w-0 flex-col gap-2 rounded border border-gray-200 p-3">
-                      <div>
-                        <h3 className="text-sm font-semibold">{template.name}</h3>
-                        {recommendedIds.has(template.id) && <p className="text-xs text-gray-500">Рекомендуем по вашей сфере</p>}
-                      </div>
-                      <p className="text-sm text-gray-600">{template.description}</p>
-                      <div className="mt-auto flex flex-wrap items-center gap-2">
-                        <a href={builtInDownloadUrl(template.id)} download aria-label={`Скачать Word: ${template.name}`} className="ui-btn ui-btn-secondary px-3 py-2 text-xs">
-                          Скачать Word
-                        </a>
-                        <AppButton size="sm" variant="secondary" aria-label={`Сохранить как свой: ${template.name}`} onClick={() => openTemplateEditor(null, template)}>
-                          Сохранить как свой
-                        </AppButton>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <AppButton
+                  variant="secondary"
+                  className="tablet:w-auto tablet:min-w-[168px] min-h-10 w-full"
+                  aria-haspopup="dialog"
+                  onClick={openBuiltInCatalog}
+                >
+                  Стандартные договоры
+                </AppButton>
               </div>
               <div className="flex flex-col gap-3">
                 {error && <Notice tone="error" role="alert">{error}</Notice>}
