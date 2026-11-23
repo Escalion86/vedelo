@@ -141,6 +141,7 @@ const SERVICES_PAYLOAD_PAGES = new Set([
   'eventsPast',
   'events',
   'clients',
+  'documents',
   'services',
   'transactions',
   'statistics',
