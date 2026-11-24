@@ -8,8 +8,8 @@ import { useEffect, useState } from 'react'
 import IconCheckBox from '@components/IconCheckBox'
 import AddIconButton from '@components/AddIconButton'
 import IconActionButton from '@components/IconActionButton'
+import Input from '@components/Input'
 import NativeSelect from '@components/NativeSelect'
-import { toNormalizedNumber } from '@helpers/numberInput'
 import { shouldSaveGoogleCalendarSettingsBeforeSync } from '@helpers/googleCalendarSettingsState'
 import { faSpinner, faTrashAlt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -803,15 +803,18 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
                     <option value="popup">Уведомление</option>
                     <option value="email">Email</option>
                   </NativeSelect>
-                  <input
+                  <Input
+                    ariaLabel="За сколько минут напомнить"
                     type="number"
                     min={1}
-                    className="px-2 text-sm border border-gray-300 rounded hide-number-spin h-9 w-14"
+                    step={5}
+                    stepOnArrowKeys
+                    inputClassName="min-w-0 w-14"
+                    postfix="минут до"
+                    noMargin
+                    paddingY={false}
                     value={item.minutes}
-                    onChange={(event) => {
-                      const minutes = toNormalizedNumber(event.target.value, {
-                        fallback: 0,
-                      })
+                    onChange={(minutes) => {
                       setCalendarReminders((prev) => ({
                         ...prev,
                         overrides: prev.overrides.map((row, idx) =>
@@ -826,9 +829,6 @@ const GoogleCalendarSettings = ({ redirectPath = '/cabinet/integrations' }) => {
                     }}
                     disabled={!calendarStatus.connected}
                   />
-                  <span className="text-xs leading-3 text-center text-gray-500">
-                    минут до
-                  </span>
                   <IconActionButton
                     icon={faTrashAlt}
                     onClick={() =>

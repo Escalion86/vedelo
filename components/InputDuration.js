@@ -5,25 +5,29 @@ import cn from 'classnames'
 import InputAffixDivider from './InputAffixDivider'
 import InputWrapper from './InputWrapper'
 
+const MINUTE_STEP = 5
+
 const parseNonNegativeInt = (raw) => {
-  const digits = String(raw ?? '').replace(/[^\d]/g, '')
-  if (!digits) return 0
-  return Number(digits)
+  const value = Number(String(raw ?? '').replace(/[^\d]/g, ''))
+  return Number.isFinite(value) ? value : 0
 }
 
-const ArrowButton = ({ icon, onClick, disabled }) => {
+const ArrowButton = ({ icon, label, onClick, disabled }) => {
   return (
-    <div
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
       className={cn(
         'flex items-center px-1 duration-300',
         disabled
           ? 'text-disabled cursor-not-allowed'
           : 'text-general hover:text-success cursor-pointer'
       )}
-      onClick={disabled ? undefined : onClick}
+      onClick={onClick}
     >
       <FontAwesomeIcon icon={icon} className="h-4 min-h-4 w-4" />
-    </div>
+    </button>
   )
 }
 
@@ -46,15 +50,9 @@ const InputDuration = ({
   const hours = Math.floor(total / 60)
   const minutes = total % 60
 
-  const emit = (nextHours, nextMinutes) => {
+  const emit = (nextTotal) => {
     if (typeof onChange !== 'function') return
-    const safeHours = Number.isFinite(nextHours)
-      ? Math.max(0, Math.round(nextHours))
-      : 0
-    const safeMinutes = Number.isFinite(nextMinutes)
-      ? Math.max(0, Math.round(nextMinutes))
-      : 0
-    let nextTotal = safeHours * 60 + safeMinutes
+    nextTotal = Number.isFinite(nextTotal) ? Math.max(0, nextTotal) : 0
     if (typeof min === 'number') nextTotal = Math.max(min, nextTotal)
     if (typeof max === 'number') nextTotal = Math.min(max, nextTotal)
     onChange(nextTotal)
@@ -68,22 +66,22 @@ const InputDuration = ({
 
   const suffixClass = 'text-disabled flex select-none items-center px-1 text-sm'
 
-  const arrowsDisabled = disabled
   const effectiveMin = typeof min === 'number' ? min : 0
 
-  // Часы: шаг 60 минут, не трогаем минутную часть
   const canIncreaseHours =
-    !arrowsDisabled && (typeof max !== 'number' || total + 60 <= max)
+    !disabled && (typeof max !== 'number' || total + 60 <= max)
   const canDecreaseHours =
-    !arrowsDisabled && hours > 0 && total - 60 >= effectiveMin
+    !disabled && hours > 0 && total - 60 >= effectiveMin
 
-  // Минуты: шаг 1 минута в пределах 0-59, без переноса в часы
   const canIncreaseMinutes =
-    !arrowsDisabled &&
-    minutes < 59 &&
-    (typeof max !== 'number' || total + 1 <= max)
-  const canDecreaseMinutes =
-    !arrowsDisabled && minutes > 0 && total - 1 >= effectiveMin
+    !disabled && (typeof max !== 'number' || total < max)
+  const canDecreaseMinutes = !disabled && total > effectiveMin
+
+  const changeMinutesByStep = (direction) => {
+    if (direction > 0 ? canIncreaseMinutes : canDecreaseMinutes) {
+      emit(total + direction * MINUTE_STEP)
+    }
+  }
 
   return (
     <InputWrapper
@@ -101,10 +99,12 @@ const InputDuration = ({
       <div className="flex items-stretch self-stretch">
         <ArrowButton
           icon={faArrowDown}
+          label="Уменьшить часы"
           disabled={!canDecreaseHours}
-          onClick={() => emit(hours - 1, minutes)}
+          onClick={() => emit(total - 60)}
         />
         <input
+          aria-label="Часы"
           type="number"
           inputMode="numeric"
           min={0}
@@ -113,22 +113,25 @@ const InputDuration = ({
           disabled={disabled}
           placeholder=" "
           onWheel={(e) => e.target.blur()}
-          onChange={(e) => emit(parseNonNegativeInt(e.target.value), minutes)}
+          onChange={(e) => emit(parseNonNegativeInt(e.target.value) * 60 + minutes)}
         />
         <ArrowButton
           icon={faArrowUp}
+          label="Увеличить часы"
           disabled={!canIncreaseHours}
-          onClick={() => emit(hours + 1, minutes)}
+          onClick={() => emit(total + 60)}
         />
         <InputAffixDivider />
         <span className={suffixClass}>ч</span>
         <InputAffixDivider thick />
         <ArrowButton
           icon={faArrowDown}
+          label="Уменьшить минуты"
           disabled={!canDecreaseMinutes}
-          onClick={() => emit(hours, minutes - 1)}
+          onClick={() => changeMinutesByStep(-1)}
         />
         <input
+          aria-label="Минуты"
           type="number"
           inputMode="numeric"
           min={0}
@@ -137,19 +140,19 @@ const InputDuration = ({
           value={minutes}
           disabled={disabled}
           onWheel={(e) => e.target.blur()}
-          onChange={(e) => {
-            const parsedMinutes = parseNonNegativeInt(e.target.value)
-            if (parsedMinutes >= 60) {
-              emit(hours + Math.floor(parsedMinutes / 60), parsedMinutes % 60)
-            } else {
-              emit(hours, parsedMinutes)
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+              event.preventDefault()
+              changeMinutesByStep(event.key === 'ArrowUp' ? 1 : -1)
             }
           }}
+          onChange={(e) => emit(hours * 60 + parseNonNegativeInt(e.target.value))}
         />
         <ArrowButton
           icon={faArrowUp}
+          label="Увеличить минуты"
           disabled={!canIncreaseMinutes}
-          onClick={() => emit(hours, minutes + 1)}
+          onClick={() => changeMinutesByStep(1)}
         />
         <InputAffixDivider />
         <span className={suffixClass}>мин</span>

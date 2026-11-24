@@ -7,6 +7,7 @@ import { useAtomValue } from 'jotai'
 import Input from '@components/Input'
 import Textarea from '@components/Textarea'
 import ComboBox from '@components/ComboBox'
+import DocumentLinkInput from '@components/DocumentLinkInput'
 import Notice from '@components/Notice'
 import {
   DOCUMENT_TYPE_OPTIONS,
@@ -325,13 +326,7 @@ export default function DocumentCreateDialog({
             />
           ) : null}
           {mode === 'link' ? (
-            <Input
-              label="Ссылка"
-              value={url}
-              onChange={setUrl}
-              noMargin
-              fullWidth
-            />
+            <DocumentLinkInput value={url} onChange={setUrl} />
           ) : (
             <label className="flex flex-col gap-2 text-sm">
               Файл до 5 МБ

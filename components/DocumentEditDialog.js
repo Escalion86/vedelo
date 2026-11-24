@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import ComboBox from '@components/ComboBox'
+import DocumentLinkInput from '@components/DocumentLinkInput'
 import Input from '@components/Input'
 import Notice from '@components/Notice'
 import {
@@ -145,15 +146,7 @@ export default function DocumentEditDialog({
           fullWidth
         />
       ) : null}
-      {document.url ? (
-        <Input
-          label="Ссылка"
-          value={url}
-          onChange={setUrl}
-          noMargin
-          fullWidth
-        />
-      ) : null}
+      {document.url ? <DocumentLinkInput value={url} onChange={setUrl} /> : null}
       {type === 'receipt' && paymentOptions.length ? (
         <ComboBox
           label="К какой оплате относится чек"

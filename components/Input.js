@@ -54,6 +54,7 @@ const Input = forwardRef(
       max,
       required,
       step,
+      stepOnArrowKeys = false,
       defaultValue,
       placeholder,
       showErrorText = false,
@@ -217,7 +218,7 @@ const Input = forwardRef(
             aria-label={ariaLabel}
             type={isDecimalNumber ? 'text' : type}
             inputMode={isDecimalNumber ? 'decimal' : undefined}
-            step={resolvedStep}
+            step={stepOnArrowKeys ? undefined : resolvedStep}
             className={cn(
               'h-7 flex-1 bg-transparent px-1 text-black focus:outline-none',
               type === 'number'
@@ -242,6 +243,16 @@ const Input = forwardRef(
                     : value
             }
             defaultValue={defaultValue}
+            onKeyDown={
+              type === 'number' && stepOnArrowKeys
+                ? (event) => {
+                    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                      event.preventDefault()
+                      changeNumberByStep(event.key === 'ArrowUp' ? 1 : -1)
+                    }
+                  }
+                : undefined
+            }
             onChange={(e) => {
               const { value } = e.target
               if (type === 'number') {

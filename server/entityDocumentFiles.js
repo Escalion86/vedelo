@@ -222,6 +222,26 @@ export const uploadEntityDocument = async ({
     file: validation.file,
     storageKey,
     uploadId,
+  }).catch((error) => {
+    if (error?.code === 'STORAGE_KEY_INVALID')
+      throw new EntityDocumentError(
+        'STORAGE_KEY_INVALID',
+        'Хранилище отклонило путь файла. Сообщите в поддержку код STORAGE_KEY_INVALID.',
+        502
+      )
+    if (error?.code === 'FILE_TOO_LARGE')
+      throw new EntityDocumentError(
+        'FILE_TOO_LARGE', 'Файл не должен превышать 5 МБ', 413, 'file'
+      )
+    if (error?.code === 'FILE_TYPE_NOT_ALLOWED')
+      throw new EntityDocumentError(
+        'FILE_TYPE_NOT_ALLOWED', 'Хранилище не принимает файл этого формата', 415, 'file'
+      )
+    throw new EntityDocumentError(
+      'DOCUMENT_STORAGE_FAILED',
+      'Не удалось сохранить файл в хранилище. Повторите попытку. Если ошибка повторится, сообщите в поддержку код DOCUMENT_STORAGE_FAILED.',
+      502
+    )
   })
   const document = normalizeEntityDocument(
     {
