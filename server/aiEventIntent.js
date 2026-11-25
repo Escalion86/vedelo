@@ -4,7 +4,7 @@ import { editError } from '@helpers/aiEditContract.mjs'
 import { explicitAiEventRequestKind } from '@helpers/aiEventRequestKind.mjs'
 
 export async function resolveAiEventIntent({ tenantId, userId, text }) {
-  const settings = await getTenantAiSettings(tenantId)
+  const settings = await getTenantAiSettings(tenantId, { userId })
   const response = await requestAiChatCompletion({
     settings: { ...settings, tenantId, userId }, feature: 'event_draft',
     maxTokens: 400, temperature: 0, timeoutMs: 45000,

@@ -3,7 +3,7 @@ import {
   reservePlatformAiUsage,
   settlePlatformAiUsage,
 } from '@server/aiBilling'
-import { getLocalAiProvider, tryLocalAiProvider } from './localAiProvider.mjs'
+import { getLocalAiProvider, isLocalAiEnabled, tryLocalAiProvider } from './localAiProvider.mjs'
 
 const TRANSCRIPTION_PROVIDERS = Object.freeze({
   artistcrm: {
@@ -30,15 +30,20 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024
 const DOWNLOAD_TIMEOUT_MS = 15000
 const CLOUD_TIMEOUT_MS = 45000
 
+const normalizeProviderName = (value) => String(value ?? '').trim().toLowerCase()
+
+const getSelectedLocalTranscription = (settings) =>
+  normalizeProviderName(settings.aiTranscriptionProvider) === 'local' && isLocalAiEnabled(settings)
+    ? getLocalAiProvider('transcription', process.env, settings)
+    : null
+
 const getTranscriptionProviderConfig = (settings = {}) => {
-  const providerName = String(
-    settings.aiTranscriptionProvider ||
-      process.env.AI_TRANSCRIPTION_PROVIDER ||
-      'aitunnel'
-  )
-    .trim()
-    .toLowerCase()
-  const provider = TRANSCRIPTION_PROVIDERS[providerName]
+  const choice = normalizeProviderName(settings.aiTranscriptionProvider)
+  const savedCloud = choice === 'local' ? normalizeProviderName(settings.aiTranscriptionFallbackProvider) : choice
+  const configuredCloud = normalizeProviderName(process.env.AI_TRANSCRIPTION_PROVIDER)
+  const providerName = (savedCloud === 'local' ? '' : savedCloud) ||
+    (configuredCloud === 'local' ? '' : configuredCloud) || 'aitunnel'
+  const provider = Object.hasOwn(TRANSCRIPTION_PROVIDERS, providerName) && TRANSCRIPTION_PROVIDERS[providerName]
   if (!provider) {
     return {
       name: providerName,
@@ -62,7 +67,7 @@ const getTranscriptionProviderConfig = (settings = {}) => {
 export const isCallTranscriptionConfigured = (settings = {}) => {
   const provider = getTranscriptionProviderConfig(settings)
   return settings.aiIntegrationEnabled !== false &&
-    Boolean(getLocalAiProvider('transcription') || (!provider.error && provider.apiKey))
+    Boolean(getSelectedLocalTranscription(settings) || (!provider.error && provider.apiKey))
 }
 
 const getFileNameFromUrl = (url) => {
@@ -162,9 +167,11 @@ export const transcribeAudioBlob = async (
 
   if (settings.aiIntegrationEnabled === false) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
   const send = (provider) => transcribeBlobWithOpenAiCompatible({ ...options, provider, audioBlob, fileName, settings })
-  let result = await tryLocalAiProvider(getLocalAiProvider('transcription'), send)
+  const cloud = getTranscriptionProviderConfig(settings)
+  let result = await tryLocalAiProvider(getSelectedLocalTranscription(settings), send, undefined, () => {
+    console.warn('[local-ai] transcription fallback', { provider: cloud.name })
+  })
   if (!result) {
-    const cloud = getTranscriptionProviderConfig(settings)
     if (cloud.error) throw new Error(cloud.error)
     if (!cloud.apiKey) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
     result = await send(cloud)

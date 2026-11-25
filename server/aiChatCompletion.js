@@ -1,4 +1,9 @@
-import { getLocalAiProvider, tryLocalAiProvider } from './localAiProvider.mjs'
+import {
+  getLocalAiProvider,
+  isLocalAiEnabled,
+  LOCAL_AI_ANALYSIS_PROVIDER,
+  tryLocalAiProvider,
+} from './localAiProvider.mjs'
 
 const AI_ANALYSIS_PROVIDERS = Object.freeze({
   artistcrm: {
@@ -29,6 +34,7 @@ const AI_ANALYSIS_PROVIDERS = Object.freeze({
     defaultModel: 'gpt-4o-mini',
     settingsKey: 'aitunnelKey',
   },
+  local: LOCAL_AI_ANALYSIS_PROVIDER,
 })
 
 const normalizeProviderName = (value) =>
@@ -40,16 +46,23 @@ const getDefaultProviderName = (settings = {}) => {
   const configuredProvider = normalizeProviderName(
     process.env.AI_ANALYSIS_PROVIDER
   )
-  if (AI_ANALYSIS_PROVIDERS[configuredProvider]) return configuredProvider
+  if (configuredProvider !== 'local' && Object.hasOwn(AI_ANALYSIS_PROVIDERS, configuredProvider)) return configuredProvider
   if (process.env.DEEPSEEK_API_KEY) return 'deepseek'
   if (process.env.AITUNNEL_KEY) return 'aitunnel'
   return 'openai'
 }
-export const getAiAnalysisProviderConfig = (settings = {}) => {
-  const requestedName =
-    normalizeProviderName(settings.aiAnalysisProvider) ||
-    getDefaultProviderName(settings)
-  const name = AI_ANALYSIS_PROVIDERS[requestedName] ? requestedName : 'openai'
+export const getAiAnalysisProviderConfig = (settings = {}, { allowLocal = true } = {}) => {
+  let requestedName = normalizeProviderName(settings.aiAnalysisProvider)
+  if (requestedName === 'local') {
+    const local = allowLocal && isLocalAiEnabled(settings) && getLocalAiProvider('analysis', process.env, settings)
+    if (local) return local
+    const fallback = normalizeProviderName(settings.aiAnalysisFallbackProvider)
+    requestedName = fallback !== 'local' && (fallback !== 'deepseek' || settings.isDeveloper === true)
+      ? fallback
+      : ''
+  }
+  requestedName ||= getDefaultProviderName(settings)
+  const name = Object.hasOwn(AI_ANALYSIS_PROVIDERS, requestedName) ? requestedName : 'openai'
   const provider = AI_ANALYSIS_PROVIDERS[name]
   const explicitlyDisabled = settings.aiIntegrationEnabled === false
   const openAiBaseUrl = String(process.env.OPENAI_BASE_URL || '').replace(
@@ -101,8 +114,9 @@ export const requestAiChatCompletion = async ({
   timeoutMs,
   requireVision = false,
 }) => {
-  const local = !requireVision && !prepaidImport && settings.aiIntegrationEnabled !== false
-    ? getLocalAiProvider('analysis') : null
+  const selected = getAiAnalysisProviderConfig(settings, { allowLocal: !requireVision && !prepaidImport })
+  const local = selected.name === 'local' ? selected : null
+  const provider = local ? getAiAnalysisProviderConfig(settings, { allowLocal: false }) : selected
   const localResult = await tryLocalAiProvider(local, async ({ apiUrl, apiKey, model, timeoutMs: localTimeout }) => {
     const response = await fetch(apiUrl, {
       method: 'POST', redirect: 'error', signal: AbortSignal.timeout(Math.min(localTimeout, timeoutMs || localTimeout)),
@@ -119,11 +133,12 @@ export const requestAiChatCompletion = async ({
       if (!value || typeof value !== 'object' || Array.isArray(value)) return null
     }
     return { content, provider: 'local', model, usage: payload?.usage || null }
+  }, undefined, () => {
+    console.warn('[local-ai] analysis fallback', { provider: provider.name })
   })
   if (localResult) return localResult
-  const provider = getAiAnalysisProviderConfig(settings)
   if (requireVision && (!isAiVisionProvider(provider) ||
-    (settings.aiAnalysisProvider && !AI_ANALYSIS_PROVIDERS[normalizeProviderName(settings.aiAnalysisProvider)]))) {
+    (settings.aiAnalysisProvider && !Object.hasOwn(AI_ANALYSIS_PROVIDERS, normalizeProviderName(settings.aiAnalysisProvider))))) {
     throw Object.assign(new Error('Выбранная модель не поддерживает распознавание фото'), { code: 'AI_VISION_UNSUPPORTED' })
   }
   if (!provider.apiKey) return null

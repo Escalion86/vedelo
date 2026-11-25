@@ -83,8 +83,8 @@ const requireFileImportTariff = async (context) => {
 
 const requireAi = async (context) => {
   const access = await requireFileImportTariff(context)
-  const settings = await getTenantAiSettings(context.tenantId)
-  const provider = getAiAnalysisProviderConfig(settings)
+  const settings = await getTenantAiSettings(context.tenantId, { user: context.user })
+  const provider = getAiAnalysisProviderConfig(settings, { allowLocal: false })
   if (!provider.apiKey)
     throw new FileImportError(
       'Настройте ИИ-провайдера в разделе интеграций.',

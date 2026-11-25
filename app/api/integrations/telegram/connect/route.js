@@ -1,3 +1,4 @@
+import { sanitizeLocalAiSiteSettings } from '@helpers/siteSettingsCustom.mjs'
 import { NextResponse } from 'next/server'
 import SiteSettings from '@models/SiteSettings'
 import dbConnect from '@server/dbConnect'
@@ -94,7 +95,7 @@ export const POST = async (req) => {
       {
         success: true,
         data: {
-          siteSettings: sanitizeTelegramSiteSettings(updated),
+          siteSettings: sanitizeLocalAiSiteSettings(sanitizeTelegramSiteSettings(updated)),
           telegramBusiness: {
             status:
               keepsBusinessConnection && telegram.businessConnectionId
@@ -131,7 +132,7 @@ export const POST = async (req) => {
       connectionMessage,
       400,
       'auth_error',
-      { siteSettings: sanitizeTelegramSiteSettings(updated) }
+      { siteSettings: sanitizeLocalAiSiteSettings(sanitizeTelegramSiteSettings(updated)) }
     )
   }
 }

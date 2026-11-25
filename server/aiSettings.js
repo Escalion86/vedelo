@@ -14,31 +14,41 @@ const normalizeStringList = (items) =>
         .filter(Boolean)
     : []
 
-export const getTenantAiSettings = async (tenantId) => {
-  if (!tenantId) return {}
-  const [siteSettings, owner] = await Promise.all([
-    SiteSettings.findOne({ tenantId }).lean(),
-    Users.findById(tenantId).select('_id role').lean(),
-  ])
+const readString = (custom, key) => String(getCustomValue(custom, key) || '').trim()
+
+export const isLocalAiDeveloper = (user, tenantId) =>
+  Boolean(tenantId && user?.role === 'dev' && String(user._id) === String(tenantId) &&
+    !user.archive && !user.impersonation?.active)
+
+export const resolveTenantAiSettings = (tenantId, siteSettings, owner, actor) => {
   const custom = siteSettings?.custom ?? {}
-  const aitunnelKey = String(getCustomValue(custom, 'aitunnelKey') || '').trim()
-  const deepseekKey = String(getCustomValue(custom, 'deepseekKey') || '').trim()
+  const aitunnelKey = readString(custom, 'aitunnelKey')
+  const deepseekKey = readString(custom, 'deepseekKey')
   const isDeveloper = owner?.role === 'dev'
-  const savedAnalysisProvider = String(
-    getCustomValue(custom, 'aiAnalysisProvider') || ''
+  const canUseLocalAi = isDeveloper && !owner.archive && (actor === undefined || (
+    actor && (Object.hasOwn(actor, 'user')
+      ? isLocalAiDeveloper(actor.user, tenantId)
+      : actor.userId != null && String(actor.userId) === String(tenantId))
+  ))
+  const savedAnalysisProvider = readString(custom, 'aiAnalysisProvider').toLowerCase()
+  const allowedAnalysisProviders = isDeveloper
+    ? ['artistcrm', 'aitunnel', 'deepseek']
+    : ['artistcrm', 'aitunnel']
+  const cloudAnalysisProvider = allowedAnalysisProviders.includes(savedAnalysisProvider)
+    ? savedAnalysisProvider
+    : aitunnelKey ? 'aitunnel' : 'artistcrm'
+  const savedTranscriptionProvider = readString(custom, 'aiTranscriptionProvider')
+  const cloudTranscriptionProvider = cloudAnalysisProvider === 'artistcrm'
+    ? 'artistcrm'
+    : (savedTranscriptionProvider.toLowerCase() === 'local' ? '' : savedTranscriptionProvider) ||
+      (aitunnelKey ? 'aitunnel' : '')
+  const localAnalysisSelected = canUseLocalAi && (
+    getCustomValue(custom, 'localAiAnalysisSelected') === true || savedAnalysisProvider === 'local'
   )
-    .trim()
-    .toLowerCase()
-  const aiAnalysisProvider =
-    savedAnalysisProvider === 'deepseek' && !isDeveloper
-      ? aitunnelKey
-        ? 'aitunnel'
-        : 'artistcrm'
-      : ['artistcrm', 'aitunnel', 'deepseek'].includes(savedAnalysisProvider)
-        ? savedAnalysisProvider
-        : aitunnelKey
-          ? 'aitunnel'
-          : 'artistcrm'
+  const localTranscriptionSelected = canUseLocalAi && (
+    getCustomValue(custom, 'localAiTranscriptionSelected') === true ||
+    savedTranscriptionProvider.toLowerCase() === 'local'
+  )
   const savedEnabled = getCustomValue(custom, 'aiIntegrationEnabled')
   return {
     tenantId: String(tenantId),
@@ -46,29 +56,36 @@ export const getTenantAiSettings = async (tenantId) => {
     isDeveloper,
     aitunnelKey,
     deepseekKey: isDeveloper ? deepseekKey : '',
-    aiIntegrationEnabled:
-      typeof savedEnabled === 'boolean' ? savedEnabled : true,
-    aiAnalysisProvider,
-    aiAnalysisModel:
-      aiAnalysisProvider === 'artistcrm'
-        ? String(
-            process.env.AITUNNEL_CALL_ANALYSIS_MODEL || 'gpt-4o-mini'
-          ).trim()
-        : String(getCustomValue(custom, 'aiAnalysisModel') || '').trim(),
-    aiTranscriptionProvider: String(
-      aiAnalysisProvider === 'artistcrm'
-        ? 'artistcrm'
-        : getCustomValue(custom, 'aiTranscriptionProvider') ||
-            (aitunnelKey ? 'aitunnel' : '')
-    ).trim(),
-    aiTranscriptionModel:
-      aiAnalysisProvider === 'artistcrm'
-        ? String(
-            process.env.AITUNNEL_TRANSCRIPTION_MODEL || 'whisper-1'
-          ).trim()
-        : String(
-            getCustomValue(custom, 'aiTranscriptionModel') || ''
-          ).trim(),
+    aiIntegrationEnabled: typeof savedEnabled === 'boolean' ? savedEnabled : true,
+    aiAnalysisProvider: localAnalysisSelected ? 'local' : cloudAnalysisProvider,
+    aiAnalysisModel: cloudAnalysisProvider === 'artistcrm'
+      ? String(process.env.AITUNNEL_CALL_ANALYSIS_MODEL || 'gpt-4o-mini').trim()
+      : readString(custom, 'aiAnalysisModel'),
+    aiTranscriptionProvider: localTranscriptionSelected ? 'local' : cloudTranscriptionProvider,
+    aiTranscriptionModel: cloudAnalysisProvider === 'artistcrm'
+      ? String(process.env.AITUNNEL_TRANSCRIPTION_MODEL || 'whisper-1').trim()
+      : readString(custom, 'aiTranscriptionModel'),
+    ...(canUseLocalAi ? {
+      aiAnalysisFallbackProvider: cloudAnalysisProvider,
+      aiTranscriptionFallbackProvider: cloudTranscriptionProvider,
+      aitunnelEnabled: getCustomValue(custom, 'aitunnelEnabled') === true,
+      localAiEnabled: getCustomValue(custom, 'localAiEnabled') === true,
+      localAiBaseUrl: readString(custom, 'localAiBaseUrl'),
+      localAiModel: readString(custom, 'localAiModel'),
+      localAiTranscriptionUrl: readString(custom, 'localAiTranscriptionUrl'),
+      localAiVoiceCardUrl: readString(custom, 'localAiVoiceCardUrl'),
+      localAiTimeoutMs: getCustomValue(custom, 'localAiTimeoutMs') ?? null,
+      localAiKey: readString(custom, 'localAiKey'),
+    } : {}),
     eventTypes: normalizeStringList(getCustomValue(custom, 'eventTypes')),
   }
+}
+
+export const getTenantAiSettings = async (tenantId, actor) => {
+  if (!tenantId) return {}
+  const [siteSettings, owner] = await Promise.all([
+    SiteSettings.findOne({ tenantId }).select('custom').lean(),
+    Users.findById(tenantId).select('_id role archive').lean(),
+  ])
+  return resolveTenantAiSettings(tenantId, siteSettings, owner, actor)
 }

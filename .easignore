@@ -14,11 +14,15 @@ mobile/ios
 mobile/.expo
 mobile/dist
 mobile/dist-android
+mobile/artifacts
+**/*.apk
 
 # Local tools and temporary files
 .git
 .agents
 .codex
+.codex-attachments
+.codex-remote-attachments
 .kilo
 .roo
 .superpowers
@@ -33,6 +37,11 @@ mobile/dist-android
 !.env.deploy.example
 google_calendar_token.json
 mobile/google-play-service-account.json
+.aws
+.local-android-signing
+**/credentials.json
+**/*.jks
+**/*.keystore
 
 # Generated PWA artifacts
 public/sw.js

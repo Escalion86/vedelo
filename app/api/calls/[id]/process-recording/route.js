@@ -19,7 +19,7 @@ export const POST = async (req, { params }) => {
 
   await dbConnect()
   try {
-    const call = await processCallRecording(id, access.tenantId)
+    const call = await processCallRecording(id, access.tenantId, { user: access.user })
     return NextResponse.json({ success: true, data: call }, { status: 200 })
   } catch (error) {
     const message =

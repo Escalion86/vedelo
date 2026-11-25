@@ -128,11 +128,13 @@ export const PATCH = async (req, { params }) => {
     auth.proposal.publishedAt = auth.proposal.publishedAt || new Date()
     auth.proposal.revokedAt = null
   } else if (action === 'revoke') {
-    const revoked = await Proposals.findOneAndUpdate(
-      { _id: id, tenantId: auth.context.tenantId, status: 'published', selectedPackageId: { $in: ['', null] } },
+    const filter = { _id: id, tenantId: auth.context.tenantId, selectedPackageId: { $in: ['', null] } }
+    const updated = await Proposals.findOneAndUpdate(
+      { ...filter, status: { $in: ['published', 'expired'] } },
       { $set: { status: 'revoked', revokedAt: new Date() } },
       { returnDocument: 'after' }
     )
+    const revoked = updated || await Proposals.findOne({ ...filter, status: 'revoked' })
     if (!revoked)
       return error('Принятое клиентом или уже недоступное предложение нельзя отозвать', 409, 'revoke_unavailable')
     return NextResponse.json({ success: true, data: await serialize(revoked, req) })

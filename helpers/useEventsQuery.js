@@ -51,12 +51,19 @@ const removeEventById = (items = [], eventId) => {
   return list.filter((item) => String(item?._id) !== String(eventId))
 }
 
+const eventBelongsToClient = (event, clientId) =>
+  Boolean(
+    clientId &&
+      (event?.clientId === clientId ||
+        event?.otherContacts?.some((contact) => contact?.clientId === clientId))
+  )
+
 const updateEventInClientRelations = async (queryClient, eventId, event) => {
   if (!eventId) return
   const relatedQueries = {
     queryKey: ['clientRelations'],
     predicate: ({ queryKey: [, clientId], state }) =>
-      (event && clientId === event.clientId) ||
+      eventBelongsToClient(event, clientId) ||
       state.fetchStatus === 'fetching' ||
       state.data?.events?.some((item) => item._id === eventId),
   }
@@ -72,12 +79,16 @@ const updateEventInClientRelations = async (queryClient, eventId, event) => {
   for (const [queryKey] of relations) {
     queryClient.setQueryData(queryKey, (current) => {
       if (!current) return current
-      const belongsToClient = event && queryKey[1] === event.clientId
+      const clientId = queryKey[1]
+      if (eventBelongsToClient(event, clientId)) {
+        return { ...current, events: replaceEventById(current.events, event) }
+      }
       return {
         ...current,
-        events: belongsToClient
-          ? replaceEventById(current.events, event)
-          : removeEventById(current.events, eventId),
+        events: removeEventById(current.events, eventId),
+        transactions: current.transactions.filter(
+          (item) => item.eventId !== eventId || item.clientId === clientId
+        ),
       }
     })
   }

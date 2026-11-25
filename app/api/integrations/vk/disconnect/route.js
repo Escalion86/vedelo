@@ -1,3 +1,4 @@
+import { sanitizeLocalAiSiteSettings } from '@helpers/siteSettingsCustom.mjs'
 import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import getTenantContext from '@server/getTenantContext'
@@ -27,7 +28,7 @@ export const POST = async () => {
   })
 
   return NextResponse.json(
-    { success: true, data: { siteSettings: updated } },
+    { success: true, data: { siteSettings: sanitizeLocalAiSiteSettings(updated) } },
     { status: 200 }
   )
 }

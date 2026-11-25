@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import IconActionButton from '@components/IconActionButton'
 import { faPencilAlt } from '@fortawesome/free-solid-svg-icons/faPencilAlt'
 import ProposalStatusChip from '@components/ProposalStatusChip'
-import { getProposalStatus } from '@helpers/proposalStatus.mjs'
+import { getProposalStatus, isProposalExpired } from '@helpers/proposalStatus.mjs'
 import SurfaceCard from '@components/SurfaceCard'
 import AppButton from '@components/AppButton'
 import Notice from '@components/Notice'
@@ -67,7 +67,8 @@ export default function EventPublishedProposals({ eventId }) {
       const body = await apiJson(`/api/proposals/${proposal._id}`, {
         cache: 'no-store',
       })
-      if (!body.data?.publicUrl) throw new Error('missing_url')
+      if (!body.data?.publicUrl || !['published', 'expired'].includes(body.data.status))
+        throw new Error('unavailable_url')
       tab.location.replace(body.data.publicUrl)
     } catch {
       tab?.close()
@@ -115,7 +116,7 @@ export default function EventPublishedProposals({ eventId }) {
                       <ProposalStatusChip status={getProposalStatus(proposal)} />
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
-                      {getProposalStatus(proposal) === 'expired' ? 'Срок истёк' : 'Опубликовано'} · Версия {proposal.version}
+                      {isProposalExpired(proposal) ? 'Срок истёк' : 'Опубликовано'} · Версия {proposal.version}
                     </p>
                     {proposal.validUntil ? (
                       <p className="mt-1 text-sm text-gray-600">

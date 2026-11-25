@@ -124,7 +124,7 @@ export const POST = async (req, { params }) => {
 
   if (!call.transcript && call.recordingUrl) {
     const aiSettings = access?.allowAi
-      ? await getTenantAiSettings(tenantId)
+      ? await getTenantAiSettings(tenantId, { user })
       : {}
     if (!access?.allowAi || !isCallTranscriptionConfigured(aiSettings)) {
       return NextResponse.json(
@@ -142,7 +142,7 @@ export const POST = async (req, { params }) => {
     }
 
     try {
-      call = await processCallRecording(id, tenantId)
+      call = await processCallRecording(id, tenantId, { user })
     } catch (error) {
       const failedCall = await Calls.findOneAndUpdate(
         { _id: id, tenantId },

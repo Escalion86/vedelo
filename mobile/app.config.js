@@ -5,6 +5,10 @@ const baseConfig = require('./app.json').expo
 module.exports = ({ config }) => {
   const resolved = { ...baseConfig, ...config }
   const development = process.env.APP_VARIANT === 'development'
+  const configuredUpdateChannel = process.env.VEDELO_ANDROID_UPDATE_CHANNEL
+  const androidUpdateChannel = !development && ['play', 'eas-apk'].includes(configuredUpdateChannel)
+    ? configuredUpdateChannel
+    : 'apk'
   const nativePrototype = development && process.env.VEDELO_NATIVE_PROTOTYPE === '1'
   const localGoogleServicesFile = resolve(__dirname, 'google-services.json')
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON ||
@@ -15,7 +19,8 @@ module.exports = ({ config }) => {
   }
   if (nativePrototype) delete android.googleServicesFile
 
-  if (!development) return { ...resolved, android }
+  const extra = { ...resolved.extra, androidUpdateChannel }
+  if (!development) return { ...resolved, android, extra }
 
   return {
     ...resolved,
@@ -30,7 +35,7 @@ module.exports = ({ config }) => {
       package: 'ru.escalion.vedelo.dev',
     },
     extra: {
-      ...resolved.extra,
+      ...extra,
       appVariant: 'development',
     },
   }

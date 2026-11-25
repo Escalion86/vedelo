@@ -23,7 +23,8 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://vedelo.ru/api",
-        "EXPO_PUBLIC_APP_SCHEME": "vedelo"
+        "EXPO_PUBLIC_APP_SCHEME": "vedelo",
+        "VEDELO_ANDROID_UPDATE_CHANNEL": "play"
       },
       "android": {
         "buildType": "app-bundle"
@@ -35,7 +36,8 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://vedelo.ru/api",
-        "EXPO_PUBLIC_APP_SCHEME": "vedelo"
+        "EXPO_PUBLIC_APP_SCHEME": "vedelo",
+        "VEDELO_ANDROID_UPDATE_CHANNEL": "eas-apk"
       },
       "android": {
         "buildType": "apk"

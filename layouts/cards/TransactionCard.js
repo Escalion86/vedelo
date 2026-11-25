@@ -56,6 +56,7 @@ const TransactionCard = ({
   transaction,
   client,
   event,
+  relatedByEvent = false,
   type,
   style,
   onEdit,
@@ -171,7 +172,7 @@ const TransactionCard = ({
             </span>
           </div>
           <div className="card-meta truncate text-sm font-medium">
-            {clientName || '-'}
+            {relatedByEvent ? 'По связанной работе' : clientName || '-'}
           </div>
           <div className="card-muted truncate text-xs">
             {eventTitleWithDate}
@@ -241,6 +242,7 @@ TransactionCard.propTypes = {
     value: PropTypes.string,
   }),
   style: PropTypes.shape({}),
+  relatedByEvent: PropTypes.bool,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
 }

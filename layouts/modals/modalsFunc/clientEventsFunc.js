@@ -5,6 +5,7 @@ import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import AiBadge from '@components/AiBadge'
 import AppButton from '@components/AppButton'
+import Notice from '@components/Notice'
 import EventCard from '@layouts/cards/EventCard'
 import useEventCreateMenu from '@helpers/useEventCreateMenu'
 import useWorkItemTerminology from '@helpers/useWorkItemTerminology'
@@ -30,22 +31,18 @@ const clientEventsFunc = (clientId, workItemTerms) => {
     const { items, draftModals, createDisabled } = useEventCreateMenu(client)
     const createMenuId = useId()
     const [createAnchor, setCreateAnchor] = useState(null)
-    const { data: relations } = useClientRelationsQuery(clientId)
+    const { data: relations, isError, isFetching, refetch } = useClientRelationsQuery(clientId)
     const events = useMemo(() => relations?.events ?? [], [relations?.events])
 
     const clientRequests = useMemo(
       () =>
-        events.filter(
-          (event) => event.clientId === clientId && event.status === 'draft'
-        ),
+        events.filter((event) => event.status === 'draft'),
       [events]
     )
 
     const clientEvents = useMemo(
       () =>
-        events.filter(
-          (event) => event.clientId === clientId && event.status !== 'draft'
-        ),
+        events.filter((event) => event.status !== 'draft'),
       [events]
     )
 
@@ -68,14 +65,23 @@ const clientEventsFunc = (clientId, workItemTerms) => {
           </div>
         </div>
 
+        {isError ? (
+          <Notice tone="warning" role="status" className="flex flex-wrap items-center gap-2">
+            Не удалось {relations ? 'обновить' : 'загрузить'} список работ
+            <AppButton variant="secondary" size="sm" disabled={isFetching} aria-busy={isFetching} onClick={() => refetch()}>
+              Повторить
+            </AppButton>
+          </Notice>
+        ) : !relations && isFetching ? (
+          <Notice role="status">Загружаем список…</Notice>
+        ) : null}
+
         <div className="p-4 bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold text-gray-900">
               Заявки клиента
             </div>
-            <div className="text-xs text-gray-500">
-              Всего: {clientRequests.length}
-            </div>
+            {relations && <div className="text-xs text-gray-500">Всего: {clientRequests.length}</div>}
           </div>
           {clientRequests.length > 0 ? (
             <div className="mt-3 grid gap-2">
@@ -85,14 +91,14 @@ const clientEventsFunc = (clientId, workItemTerms) => {
                   eventId={request._id}
                   event={request}
                   transactions={relations?.transactions ?? []}
-                  showClient={false}
+                  showClient={request.clientId !== clientId}
                   noHorizontalPadding
                 />
               ))}
             </div>
-          ) : (
+          ) : relations ? (
             <div className="mt-2 text-sm text-gray-500">Заявок нет</div>
-          )}
+          ) : null}
         </div>
 
         <div className="p-4 bg-white border border-gray-200 rounded-lg">
@@ -101,9 +107,7 @@ const clientEventsFunc = (clientId, workItemTerms) => {
               <div className="text-sm font-semibold text-gray-900">
                 {terms.pluralCapitalized} клиента
               </div>
-              <div className="text-xs text-gray-500">
-                Всего: {clientEvents.length}
-              </div>
+              {relations && <div className="text-xs text-gray-500">Всего: {clientEvents.length}</div>}
             </div>
             {!createDisabled && (
               <AppButton
@@ -169,16 +173,16 @@ const clientEventsFunc = (clientId, workItemTerms) => {
                   eventId={event._id}
                   event={event}
                   transactions={relations?.transactions ?? []}
-                  showClient={false}
+                  showClient={event.clientId !== clientId}
                   noHorizontalPadding
                 />
               ))}
             </div>
-          ) : (
+          ) : relations ? (
             <div className="mt-2 text-sm text-gray-500">
               Нет {terms.pluralGenitive}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     )

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState, type PropsWithChildren } from 'react'
+import { useEffect, useState, type PropsWithChildren } from 'react'
+import { proposalOverviewQueryKey, subscribeProposalChanges } from '../../features/proposals/changes'
 import { AuthProvider } from '../auth/AuthProvider'
 import { ThemeProvider } from '../ui/ThemeProvider'
 import { AppLockProvider } from '../auth/AppLockProvider'
@@ -14,6 +15,10 @@ export const AppProviders = ({ children }: PropsWithChildren) => {
         },
       })
   )
+  useEffect(() => subscribeProposalChanges((identity) => {
+    const filter = { queryKey: [proposalOverviewQueryKey, identity] }
+    void queryClient.cancelQueries(filter).then(() => queryClient.invalidateQueries(filter))
+  }), [queryClient])
 
   return (
     <ThemeProvider>

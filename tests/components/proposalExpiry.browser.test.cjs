@@ -5,7 +5,7 @@ const path = require('node:path')
 const os = require('node:os')
 const http = require('node:http')
 
-test('продление убирает истечение из Важного и бейджа; шаблоны доступны мышью и клавиатурой в обеих темах', { timeout: 180000 }, async () => {
+test('продление и отзыв КП обновляют Важное и бейдж; шаблоны доступны мышью и клавиатурой в обеих темах', { timeout: 180000 }, async () => {
   // Browser plugin отсутствует; настоящий UI/CSS проверяется через Playwright.
   process.env.ESBUILD_MODULE ||= path.resolve('mobile/node_modules/esbuild')
   const artifacts = process.env.QA_SCREENSHOT_DIR || await fs.mkdtemp(path.join(os.tmpdir(), 'vedelo-proposal-expiry-'))
@@ -18,6 +18,7 @@ test('продление убирает истечение из Важного �
     blocksSnapshot: [{ id: 'header', type: 'header', contentHtml: '<p>Предложение</p>', enabled: true }],
     mediaSnapshot: [], clientSnapshot: { firstName: 'Анна' }, artistSnapshot: {}, eventSnapshot: {},
     messageText: 'Предложение {{proposal.url}}',
+    renderedMessage: 'Предложение https://example.test/proposal/same-link',
   }
   const html = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"></head><body><div id="root"></div><script>window.fixtureProposal=${JSON.stringify(initial)}</script><script src="/bundle.js"></script></body></html>`
   const server = http.createServer((req, res) => {
@@ -45,8 +46,9 @@ test('продление убирает истечение из Важного �
         if (url.pathname === '/api/proposals/expired') {
           if (failExpiry) return route.fulfill({ status: 500, json: { success: false, error: { message: 'Ошибка' } } })
           data = proposal.status === 'expired' ? [{ ...proposal, eventType: 'Детский праздник', eventDate: '2030-01-01' }] : []
-        } else if (url.pathname === '/api/proposals/statuses') data = { event: proposal.status === 'expired' ? 'expired' : 'published' }
-        else if (url.pathname === '/api/proposal-templates') data = templates
+        } else if (url.pathname === '/api/proposals/statuses') {
+          data = proposal.status === 'revoked' ? {} : { event: proposal.status }
+        } else if (url.pathname === '/api/proposal-templates') data = templates
         else if (url.pathname === '/api/events/event/proposals') {
           if (req.method() === 'POST') {
             writes.push(req.postDataJSON())
@@ -54,10 +56,13 @@ test('продление убирает истечение из Важного �
           } else data = [proposal]
         } else if (url.pathname === '/api/proposals/proposal') {
           if (req.method() === 'PATCH') {
-            writes.push(req.postDataJSON())
+            const patch = req.postDataJSON()
+            writes.push(patch)
             if (failRenew) return route.fulfill({ status: 500, json: { success: false, error: { message: 'Не удалось продлить срок. Попробуйте ещё раз.' } } })
             // Server renewal/public-link/tenant behaviour is tested by the real route suite.
-            proposal = { ...proposal, ...req.postDataJSON(), status: 'published' }
+            proposal = patch.action === 'revoke'
+              ? { ...proposal, status: 'revoked', publicUrl: null }
+              : { ...proposal, ...patch, status: 'published' }
           }
           data = proposal
         }
@@ -90,12 +95,33 @@ test('продление убирает истечение из Важного �
       await section.getByRole('button', { name: 'Повторить' }).click()
       await section.waitFor({ state: 'detached' })
 
-      proposal = { ...proposal, status: 'published', validUntil: '2020-01-01', contentRevision: 7 }
+      proposal = structuredClone(initial)
+      await page.goto(`${origin}/?kind=revoke`)
+      await page.locator('body').evaluate((body, dark) => body.classList.toggle('theme-dark', dark), dark)
+      await section.getByText(initial.title, { exact: true }).first().waitFor()
+      const badge = page.getByText('Срок КП истёк', { exact: true })
+      await badge.nth(1).waitFor()
+      const proposalRow = page.locator('.proposal-list-item').filter({ hasText: initial.title })
+      const revoke = proposalRow.getByRole('button', { name: 'Отозвать', exact: true })
+      const beforeRevoke = writes.length
+      await revoke.click()
+      await proposalRow.getByText('Версия 1 · отозвано', { exact: true }).waitFor()
+      await revoke.waitFor({ state: 'detached' })
+      await section.waitFor({ state: 'detached' })
+      await badge.first().waitFor({ state: 'detached' })
+      assert.deepEqual(writes.slice(beforeRevoke), [{ action: 'revoke' }])
+      assert.equal(await proposalRow.getByText(initial.title, { exact: true }).count(), 1)
+      assert.equal(await page.locator('html').evaluate(node => node.scrollWidth > innerWidth), false)
+      await page.screenshot({ path: path.join(artifacts, `revoked-${width}-${dark}.png`), fullPage: true, animations: 'disabled' })
+
+      proposal = { ...initial, status: 'published', contentRevision: 7 }
       await page.goto(`${origin}/?kind=list`)
       await page.locator('body').evaluate((body, dark) => body.classList.toggle('theme-dark', dark), dark)
       await page.locator('summary').filter({ hasText: 'Коммерческие предложения' }).click()
       const renew = page.getByRole('button', { name: 'Продлить срок', exact: true })
       await renew.waitFor({ timeout: 5000 })
+      const linkActions = ['Открыть', 'Копировать ссылку', 'Отправить'].map(name => page.getByRole('button', { name, exact: true }))
+      for (const locator of linkActions) assert.equal(await locator.count(), 0)
       await page.screenshot({ path: path.join(artifacts, `renew-card-${width}-${dark}.png`), fullPage: true, animations: 'disabled' })
       const beforeRenew = writes.length
       await renew.click()
@@ -130,6 +156,16 @@ test('продление убирает истечение из Важного �
       assert.equal(proposal.publicUrl, initial.publicUrl)
       assert.equal(proposal.selectedPackageId, 'main')
       await renew.waitFor({ state: 'detached' })
+      for (const locator of linkActions) await locator.waitFor()
+      await linkActions[2].click()
+      const shareDialog = page.locator('.proposal-share-dialog')
+      await shareDialog.waitFor()
+      assert.equal(await shareDialog.locator('textarea').inputValue(), initial.renderedMessage)
+      proposal.status = 'revoked'
+      await shareDialog.getByRole('button', { name: 'Скопировать ссылку', exact: true }).click()
+      await shareDialog.getByRole('alert').getByText('Ссылка на предложение недоступна', { exact: true }).waitFor()
+      assert.equal(await shareDialog.locator('textarea').count(), 0)
+      await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
       await page.getByRole('button', { name: 'Создать предложение', exact: true }).click()
       const group = page.getByRole('group', { name: 'Шаблон предложения', exact: true })
       await group.getByRole('radio', { name: 'Детское', exact: true }).waitFor()

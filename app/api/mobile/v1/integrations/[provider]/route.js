@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import SiteSettings from '@models/SiteSettings'
 import Users from '@models/Users'
+import { sanitizeLocalAiCustom } from '@helpers/siteSettingsCustom.mjs'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
@@ -68,7 +69,7 @@ const getState = async ({ provider, tenantId, access, req }) => {
     SiteSettings.findOne({ tenantId }).lean(),
     Users.findById(tenantId).select('role').lean(),
   ])
-  const custom = siteSettings?.custom
+  const custom = provider === 'ai' ? sanitizeLocalAiCustom(siteSettings?.custom) : siteSettings?.custom
   let settings = {}
   if (provider === 'avito') settings = normalizeAvitoSettings(custom)
   if (provider === 'vk') settings = normalizeVkSettings(custom)

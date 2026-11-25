@@ -5,7 +5,11 @@ import getTenantContext from '@server/getTenantContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
 import { getProtectedCustomAccessFailures } from '@server/integrationAccess'
 import { sanitizeTelegramSiteSettings } from '@server/telegramBusiness'
-import { mergeSiteSettingsCustom } from '@helpers/siteSettingsCustom.mjs'
+import {
+  hasLocalAiCustomPatch,
+  mergeSiteSettingsCustom,
+  sanitizeLocalAiSiteSettings,
+} from '@helpers/siteSettingsCustom.mjs'
 import { isTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
 import { clearTenantWorkItemTerminologyCache } from '@server/tenantTerminology'
 import { allowLegacyActivitySelection, normalizeActivityPreset } from '@helpers/activityProfile.mjs'
@@ -52,7 +56,7 @@ export const GET = async () => {
   return NextResponse.json(
     {
       success: true,
-      data: sanitizeTelegramSiteSettings(siteSettings ?? {}),
+      data: sanitizeLocalAiSiteSettings(sanitizeTelegramSiteSettings(siteSettings ?? {})),
     },
     { status: 200 }
   )
@@ -65,6 +69,12 @@ export const POST = async (req) => {
     return NextResponse.json(
       { success: false, error: 'Не авторизован' },
       { status: 401 }
+    )
+  }
+  if (hasLocalAiCustomPatch(body?.custom)) {
+    return NextResponse.json(
+      { success: false, error: 'Локальный ИИ настраивается через /api/ai/settings владельцем с ролью разработчика' },
+      { status: 403 }
     )
   }
   await dbConnect()
@@ -218,7 +228,7 @@ export const POST = async (req) => {
         )
         const updated = await SiteSettings.findOne({ tenantId }).lean()
         return NextResponse.json(
-          { success: true, data: updated },
+          { success: true, data: sanitizeLocalAiSiteSettings(updated) },
           { status: 200 }
         )
       }
@@ -233,7 +243,7 @@ export const POST = async (req) => {
       )
       const updated = await SiteSettings.findOne({ tenantId }).lean()
       return NextResponse.json(
-        { success: true, data: updated },
+        { success: true, data: sanitizeLocalAiSiteSettings(updated) },
         { status: 200 }
       )
     }
@@ -259,7 +269,7 @@ export const POST = async (req) => {
   clearTenantWorkItemTerminologyCache(tenantId)
 
   return NextResponse.json(
-    { success: true, data: sanitizeTelegramSiteSettings(siteSettings) },
+    { success: true, data: sanitizeLocalAiSiteSettings(sanitizeTelegramSiteSettings(siteSettings)) },
     { status: 200 }
   )
 }

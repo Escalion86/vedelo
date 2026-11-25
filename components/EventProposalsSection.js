@@ -21,7 +21,7 @@ import {
 } from '@helpers/useEventProposalsQuery'
 import Input from '@components/Input'
 import Textarea from '@components/Textarea'
-import { getProposalStatus } from '@helpers/proposalStatus.mjs'
+import { isProposalExpired, isProposalShareable } from '@helpers/proposalStatus.mjs'
 import AppButton from '@components/AppButton'
 import ProposalRenewButton from '@components/ProposalRenewButton'
 import AddIconButton from '@components/AddIconButton'
@@ -447,12 +447,6 @@ const EventProposalsSection = ({
     return body.data
   }
 
-  const loadDetails = async (proposal, edit = false) => {
-    const data = await fetchProposalDetails(proposal)
-    if (data && (edit || proposal.status === 'draft')) openEditor(data)
-    return data
-  }
-
   const saveAsTemplate = async (proposal) => {
     if (openInFlight.current || busy) return
     openInFlight.current = true
@@ -481,7 +475,8 @@ const EventProposalsSection = ({
     openInFlight.current = true
     setBusy(true)
     try {
-      await loadDetails(proposal, true)
+      const data = await fetchProposalDetails(proposal)
+      if (data) openEditor(data)
     } catch {
       reportMessage({ tone: 'error', text: 'Не удалось открыть предложение' })
     } finally {
@@ -490,56 +485,85 @@ const EventProposalsSection = ({
     }
   }
 
-  const shareProposal = async (proposal) => {
-    if (busy) return
-    setBusy(true)
-    try {
-      const data = await loadDetails(proposal)
-      if (!data?.renderedMessage) return
-      let initiallyCopied = false
-      try {
-        await copyText(data.renderedMessage)
-        initiallyCopied = true
-      } catch {
-        // Keep the message available for manual copying in the dialog.
-      }
-      modalsFunc.add({
-        title: 'Отправить предложение',
-        closeButtonName: 'Закрыть',
-        Children: ProposalShareDialog,
-        childrenProps: {
-          clientId: data.clientId,
-          message: data.renderedMessage,
-          publicUrl: data.publicUrl,
-          initiallyCopied,
-        },
-      })
-    } catch {
-      reportMessage({
-        tone: 'error',
-        text: 'Не удалось подготовить предложение для отправки',
-      })
-    } finally {
-      setBusy(false)
+  const getCurrentShareableProposal = async (proposal) => {
+    const data = await fetchProposalDetails(proposal).catch(() => null)
+    if (!data) throw new Error('Не удалось проверить доступность предложения')
+    if (!isProposalShareable(data)) {
+      await cacheEventProposal(queryClient, eventId, data)
+      throw new Error(isProposalExpired(data)
+        ? 'Срок действия предложения истёк. Продлите срок, чтобы отправить ссылку.'
+        : 'Ссылка на предложение недоступна')
     }
+    if (!data.publicUrl) throw new Error('Ссылка на предложение недоступна')
+    return data
   }
 
-  const copyProposalLink = async (proposal) => {
-    if (openInFlight.current || busy) return
+  const runProposalLinkAction = async (proposal, onCurrentProposal) => {
+    if (openInFlight.current || busy) return false
     openInFlight.current = true
     setBusy(true)
     try {
-      const data = await fetchProposalDetails(proposal)
-      if (!data) return
-      if (!data.publicUrl) throw new Error('missing_url')
-      await copyText(data.publicUrl)
-      snackbar.info('Ссылка скопирована')
-    } catch {
-      snackbar.error('Не удалось скопировать ссылку')
+      const data = await getCurrentShareableProposal(proposal)
+      setMessage(null)
+      await onCurrentProposal(data)
+      return true
+    } catch (error) {
+      reportMessage({ tone: 'error', text: error.message })
+      return false
     } finally {
       openInFlight.current = false
       setBusy(false)
     }
+  }
+
+  const shareProposal = (proposal) => runProposalLinkAction(proposal, async (data) => {
+    if (!data.renderedMessage) throw new Error('Текст предложения недоступен')
+    let initiallyCopied = false
+    try {
+      await copyText(data.renderedMessage)
+      initiallyCopied = true
+    } catch {
+      // Текст остаётся доступен для копирования в окне отправки.
+    }
+    modalsFunc.add({
+      title: 'Отправить предложение',
+      closeButtonName: 'Закрыть',
+      Children: ProposalShareDialog,
+      childrenProps: {
+        clientId: data.clientId,
+        message: data.renderedMessage,
+        publicUrl: data.publicUrl,
+        initiallyCopied,
+        reloadProposal: () => getCurrentShareableProposal(proposal),
+      },
+    })
+  })
+
+  const copyProposalLink = (proposal) => runProposalLinkAction(proposal, async (data) => {
+    try {
+      await copyText(data.publicUrl)
+    } catch {
+      throw new Error('Не удалось скопировать ссылку')
+    }
+    snackbar.info('Ссылка скопирована')
+  })
+
+  const openProposalLink = async (proposal) => {
+    if (openInFlight.current || busy) return
+    const tab = window.open('about:blank', '_blank')
+    if (!tab) {
+      snackbar.error('Разрешите открытие новой вкладки и повторите')
+      return
+    }
+    tab.opener = null
+    const opened = await runProposalLinkAction(proposal, (data) => {
+      try {
+        tab.location.replace(data.publicUrl)
+      } catch {
+        throw new Error('Не удалось открыть предложение')
+      }
+    })
+    if (!opened) tab.close()
   }
 
   const uploadLogo = async (file) => {
@@ -769,6 +793,10 @@ const EventProposalsSection = ({
       {items.length ? (
         <div className="space-y-2">
           {items.map((proposal) => {
+            const showRevoke = ['published', 'expired'].includes(proposal.status)
+            const canShare = isProposalShareable(proposal)
+            const canApply = proposal.status !== 'draft' && proposal.selectedPackageId &&
+              (!isProposalSelectionLocked(proposal) || isProposalApplicationPending(proposal))
             return (
               <div
                 key={proposal._id}
@@ -781,7 +809,7 @@ const EventProposalsSection = ({
                       Версия {proposal.version} ·{' '}
                       {proposal.status === 'draft'
                         ? 'черновик'
-                        : getProposalStatus(proposal) === 'expired'
+                        : isProposalExpired(proposal)
                           ? 'срок истёк'
                           : proposal.status === 'revoked'
                             ? 'отозвано'
@@ -832,7 +860,7 @@ const EventProposalsSection = ({
                 </div>
                 <div className="tablet:grid-cols-3 mt-3 grid grid-cols-2 gap-2">
                   <ProposalRenewButton proposal={proposal} eventId={eventId} disabled={busy} />
-                  {proposal.status === 'published' ? (
+                  {canShare ? (
                     <AppButton
                       variant="secondary"
                       size="sm"
@@ -863,46 +891,41 @@ const EventProposalsSection = ({
                     </AppButton>
                   ) : null}
                 </div>
-                {proposal.status !== 'draft' ? (
+                {canShare || canApply || showRevoke ? (
                   <div className="tablet:grid-cols-3 mt-3 grid grid-cols-2 gap-2">
-                    <AppButton
-                      variant="secondary"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={busy}
-                      onClick={async () => {
-                        const data = await loadDetails(proposal)
-                        if (data?.publicUrl)
-                          window.open(
-                            data.publicUrl,
-                            '_blank',
-                            'noopener,noreferrer'
-                          )
-                      }}
-                    >
-                      <FontAwesomeIcon
-                        icon={faExternalLinkAlt}
-                        className="h-3.5 w-3.5"
-                        aria-hidden="true"
-                      />
-                      Открыть
-                    </AppButton>
-                    <AppButton
-                      variant="secondary"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={busy}
-                      onClick={() => shareProposal(proposal)}
-                    >
-                      <FontAwesomeIcon
-                        icon={faPaperPlane}
-                        className="h-3.5 w-3.5"
-                        aria-hidden="true"
-                      />
-                      Отправить
-                    </AppButton>
-                    {proposal.selectedPackageId &&
-                    (!isProposalSelectionLocked(proposal) || isProposalApplicationPending(proposal)) ? (
+                    {canShare ? (
+                      <>
+                        <AppButton
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={busy}
+                          onClick={() => openProposalLink(proposal)}
+                        >
+                          <FontAwesomeIcon
+                            icon={faExternalLinkAlt}
+                            className="h-3.5 w-3.5"
+                            aria-hidden="true"
+                          />
+                          Открыть
+                        </AppButton>
+                        <AppButton
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={busy}
+                          onClick={() => shareProposal(proposal)}
+                        >
+                          <FontAwesomeIcon
+                            icon={faPaperPlane}
+                            className="h-3.5 w-3.5"
+                            aria-hidden="true"
+                          />
+                          Отправить
+                        </AppButton>
+                      </>
+                    ) : null}
+                    {canApply ? (
                       <div className="flex items-center gap-1">
                         <AppButton
                           variant="primary"
@@ -918,7 +941,7 @@ const EventProposalsSection = ({
                         />
                       </div>
                     ) : null}
-                    {proposal.status === 'published' ? (
+                    {showRevoke ? (
                       <AppButton
                         variant="danger"
                         size="sm"

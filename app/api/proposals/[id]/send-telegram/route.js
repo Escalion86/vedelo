@@ -10,6 +10,7 @@ import {
   canUseProposalBuilder,
   PROPOSAL_BUILDER_ACCESS_ERROR,
 } from '@helpers/proposalAccess'
+import { isProposalExpired } from '@helpers/proposalStatus.mjs'
 import {
   isTelegramReplyWindowOpen,
   normalizeTelegramSettings,
@@ -50,6 +51,8 @@ export const POST = async (req, { params }) => {
     )
   await dbConnect()
   const proposal = await Proposals.findOne({ _id: id, tenantId })
+  if (isProposalExpired(proposal))
+    return error('Срок действия предложения истёк', 409, 'expired')
   if (!proposal || proposal.status !== 'published')
     return error(
       'Опубликуйте предложение перед отправкой',
@@ -86,6 +89,8 @@ export const POST = async (req, { params }) => {
 
   const origin = process.env.DOMAIN || req.nextUrl.origin
   const requestBody = await req.json().catch(() => ({}))
+  if (isProposalExpired(proposal))
+    return error('Срок действия предложения истёк', 409, 'expired')
   const retryFailedOnly = requestBody?.retryFailedOnly === true
   const latestDelivery = new Map()
   for (const item of proposal.delivery || []) {

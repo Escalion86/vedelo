@@ -14,6 +14,7 @@ import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import getPersonFullName from '@helpers/getPersonFullName'
 import { formatPhoneWithPlus } from '@helpers/phoneUi'
+import { OBLIGATION_PAYMENT_METHOD } from '@helpers/transactionObligation'
 import {
   useClientQuery,
   useClientRelationsQuery,
@@ -84,7 +85,12 @@ const clientViewFunc = (clientId) => {
     const loggedUser = useAtomValue(loggedUserAtom)
     const tariffs = useAtomValue(tariffsAtom)
     const clientActions = useClientActions()
-    const { data: relations } = useClientRelationsQuery(clientId)
+    const {
+      data: relations,
+      isError: relationsError,
+      isFetching: relationsFetching,
+      refetch: refetchRelations,
+    } = useClientRelationsQuery(clientId)
     const events = useMemo(() => relations?.events ?? [], [relations?.events])
     const transactions = useMemo(
       () => relations?.transactions ?? [],
@@ -98,28 +104,25 @@ const clientViewFunc = (clientId) => {
       now.getDate()
     ).getTime()
 
-    const clientEvents = useMemo(() => {
-      if (!clientId) return []
-      return events.filter((event) => event.clientId === clientId)
-    }, [events])
+    const primaryEvents = events.filter((event) => event.clientId === clientId)
 
-    const canceledCount = clientEvents.filter(
+    const canceledCount = primaryEvents.filter(
       (event) => event.status === 'canceled'
     ).length
 
-    const passedCount = clientEvents.filter((event) => {
+    const passedCount = primaryEvents.filter((event) => {
       if (event.status === 'canceled') return false
       if (!event.eventDate) return false
       return new Date(event.eventDate).getTime() < startOfToday
     }).length
 
-    const upcomingCount = clientEvents.filter((event) => {
+    const upcomingCount = primaryEvents.filter((event) => {
       if (event.status === 'canceled') return false
       if (!event.eventDate) return true
       return new Date(event.eventDate).getTime() >= startOfToday
     }).length
 
-    const upcomingEvents = clientEvents
+    const upcomingEvents = events
       .filter((event) =>
         event.status !== 'canceled' &&
         event.status !== 'closed' &&
@@ -128,23 +131,20 @@ const clientViewFunc = (clientId) => {
       )
       .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
 
-    const clientTransactions = useMemo(() => {
-      if (!clientId) return []
-      return (transactions ?? []).filter(
-        (transaction) => transaction.clientId === clientId
-      )
-    }, [transactions])
-
-    const incomeTotal = clientTransactions.reduce(
-      (total, item) =>
-        item.type === 'income' ? total + (item.amount ?? 0) : total,
-      0
-    )
-    const expenseTotal = clientTransactions.reduce(
-      (total, item) =>
-        item.type === 'expense' ? total + (item.amount ?? 0) : total,
-      0
-    )
+    let incomeTotal = 0
+    let expenseTotal = 0
+    let obligationTotal = 0
+    for (const item of transactions) {
+      if (item.clientId !== clientId) continue
+      const amount = Number(item.amount ?? 0)
+      if (item.paymentMethod === OBLIGATION_PAYMENT_METHOD) {
+        obligationTotal += amount
+      } else if (item.type === 'income') {
+        incomeTotal += amount
+      } else if (item.type === 'expense') {
+        expenseTotal += amount
+      }
+    }
     const balanceTotal = incomeTotal - expenseTotal
     const requisitesLines = useMemo(() => {
       if (!client) return []
@@ -275,6 +275,23 @@ const clientViewFunc = (clientId) => {
           )}
         </div>
 
+        {relationsError ? (
+          <Notice tone="warning" role="status" className="flex flex-wrap items-center gap-2">
+            {relations ? 'Не удалось обновить связанные данные' : 'Не удалось загрузить работы и транзакции'}
+            <AppButton
+              variant="secondary"
+              size="sm"
+              disabled={relationsFetching}
+              aria-busy={relationsFetching}
+              onClick={() => refetchRelations()}
+            >
+              Повторить
+            </AppButton>
+          </Notice>
+        ) : !relations && relationsFetching ? (
+          <Notice role="status">Загружаем работы и транзакции…</Notice>
+        ) : null}
+
         <SectionBlock
           title={terms.pluralCapitalized}
           action={
@@ -291,19 +308,19 @@ const clientViewFunc = (clientId) => {
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Прошли</div>
               <div className="text-base font-semibold text-gray-900">
-                {passedCount}
+                {relations ? passedCount : '—'}
               </div>
             </div>
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Будут</div>
               <div className="text-base font-semibold text-gray-900">
-                {upcomingCount}
+                {relations ? upcomingCount : '—'}
               </div>
             </div>
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Отменены</div>
               <div className="text-base font-semibold text-gray-900">
-                {canceledCount}
+                {relations ? canceledCount : '—'}
               </div>
             </div>
           </div>
@@ -315,7 +332,7 @@ const clientViewFunc = (clientId) => {
                   eventId={event._id}
                   event={event}
                   transactions={transactions}
-                  showClient={false}
+                  showClient={event.clientId !== clientId}
                   noHorizontalPadding
                 />
               ))}
@@ -349,22 +366,27 @@ const clientViewFunc = (clientId) => {
             <div className="client-view-kpi-income rounded-lg border border-emerald-200 bg-emerald-50 p-2">
               <div className="text-[11px] text-emerald-700">Доходы</div>
               <div className="text-base font-semibold text-emerald-700">
-                {incomeTotal.toLocaleString()} ₽
+                {relations ? `${incomeTotal.toLocaleString('ru-RU')} ₽` : '—'}
               </div>
             </div>
             <div className="client-view-kpi-expense rounded-lg border border-red-200 bg-red-50 p-2">
               <div className="text-[11px] text-red-700">Расходы</div>
               <div className="text-base font-semibold text-red-700">
-                {expenseTotal.toLocaleString()} ₽
+                {relations ? `${expenseTotal.toLocaleString('ru-RU')} ₽` : '—'}
               </div>
             </div>
             <div className="client-view-kpi rounded-lg border border-gray-200 bg-gray-50 p-2">
               <div className="text-[11px] text-gray-500">Итог</div>
               <div className="text-base font-semibold text-gray-900">
-                {balanceTotal.toLocaleString()} ₽
+                {relations ? `${balanceTotal.toLocaleString('ru-RU')} ₽` : '—'}
               </div>
             </div>
           </div>
+          {obligationTotal !== 0 && (
+            <Notice tone="info" className="mt-2">
+              Обязательства к получению или оплате · {obligationTotal.toLocaleString('ru-RU')} ₽
+            </Notice>
+          )}
         </SectionBlock>
         <SectionBlock title="Файлы и документы">
           {canUseDocuments ? (

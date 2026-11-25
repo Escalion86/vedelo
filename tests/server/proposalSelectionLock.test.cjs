@@ -28,6 +28,7 @@ function matches(record, filter) {
         if (operator === '$nin') return !operand.some((item) => equal(actual, item))
         if (operator === '$gt') return actual > operand
         if (operator === '$gte') return actual >= operand
+        if (operator === '$lt') return actual != null && actual < operand
         if (operator === '$ne') return !equal(actual, operand)
         throw new Error(`Неизвестный Mongo-оператор ${operator}`)
       })
@@ -186,6 +187,56 @@ function gate() {
   const held = new Promise((resolve) => { release = resolve })
   return { waiting, release, pause: async () => { entered(); await held } }
 }
+
+test('expired proposal can be revoked only by its owner before selection and is kept in history', async () => {
+  const f = fixture()
+  const revoke = () => f.edit({ action: 'revoke' })
+  const view = () => f.publicRoute.GET(f.req({}), { params: f.params })
+  const proposal = f.records.Proposals
+  proposal.validUntil = new Date('2020-01-01')
+  assert.equal((await view()).body.data.status, 'expired')
+  assert.equal((await revoke()).body.error.code, 'revoke_unavailable')
+  Object.assign(proposal, { selectedPackageId: '', selectedAt: null })
+
+  f.setTenant(foreign)
+  const before = copy(f.records)
+  assert.equal((await revoke()).status, 404)
+  assert.deepEqual(f.records, before)
+  f.setTenant(tenantId)
+
+  const result = await revoke()
+  assert.equal(result.status, 200)
+  assert.equal(result.body.data.status, 'revoked')
+  const revokedAt = f.records.Proposals.revokedAt
+  assert.ok(revokedAt instanceof Date)
+  assert.deepEqual(f.records.Proposals, { ...before.Proposals, status: 'revoked', revokedAt })
+  assert.deepEqual(f.records.Events, before.Events)
+  assert.equal((await f.read()).body.data.status, 'revoked')
+  assert.equal((await view()).body.error.code, 'unavailable')
+  assert.equal((await f.select('basic')).body.error.code, 'selection_closed')
+  const writes = f.writes.length
+  assert.equal((await revoke()).status, 200)
+  assert.equal(f.writes.length, writes)
+})
+
+test('public expiry in flight cannot reopen a revoked proposal', async () => {
+  for (const method of ['GET', 'POST']) {
+    const f = fixture(), g = gate()
+    Object.assign(f.records.Proposals, {
+      validUntil: new Date('2020-01-01'), selectedPackageId: '', selectedAt: null,
+    })
+    f.hooks.saveProposals = g.pause
+    const pending = f.publicRoute[method](f.req({ packageId: 'basic' }), { params: f.params })
+    await g.waiting
+    const revoked = await f.edit({ action: 'revoke' })
+    const before = copy(f.records)
+    g.release()
+    assert.equal(revoked.status, 200)
+    assert.equal((await pending).status, method === 'GET' ? 410 : 409)
+    assert.deepEqual(f.records, before)
+    assert.equal((await f.publicRoute.GET(f.req({}), { params: f.params })).status, 410)
+  }
+})
 
 test('публичное чтение до apply, поздний save после apply: атомарный отказ без побочных действий', async () => {
   const f = fixture(), g = gate()

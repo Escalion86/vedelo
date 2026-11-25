@@ -453,10 +453,34 @@ test('publication from the card updates the shared list and old GET cannot resto
   )
 })
 
+test('revocation cancels initial badge and attention requests started before the update', async (t) => {
+  const { QueryClient, isCancelledError } = require('@tanstack/react-query')
+  const { queryKeys } = mocks['@helpers/queryKeys']
+  const { cacheEventProposal } = load('helpers/useEventProposalsQuery.js')
+  const client = new QueryClient()
+  t.after(() => client.clear())
+
+  let resolveOldRequest
+  const oldRequest = new Promise((resolve) => { resolveOldRequest = resolve })
+  const overviewKeys = [queryKeys.proposalStatuses, queryKeys.expiredProposals]
+  const pending = overviewKeys.map((queryKey) =>
+    client.fetchQuery({ queryKey, queryFn: () => oldRequest }).catch((error) => error)
+  )
+
+  await cacheEventProposal(client, 'event-revoke', { _id: 'proposal-1', status: 'revoked' })
+  resolveOldRequest('stale')
+  assert.ok((await Promise.all(pending)).every(isCancelledError))
+  assert.deepEqual(overviewKeys.map((key) => client.getQueryData(key)), [undefined, undefined])
+})
+
 test('event view shows only published proposals and hides an empty section', async (t) => {
   const previousHook = mocks['@helpers/useEventProposalsQuery']
+  const previousApi = mocks['@helpers/apiClient']
+  const previousOpen = window.open
   t.after(() => {
     mocks['@helpers/useEventProposalsQuery'] = previousHook
+    mocks['@helpers/apiClient'] = previousApi
+    window.open = previousOpen
   })
   mocks['@components/SurfaceCard'] = Box
   let data = [
@@ -476,6 +500,11 @@ test('event view shows only published proposals and hides an empty section', asy
   mocks['@helpers/useEventProposalsQuery'] = {
     useEventProposalsQuery: () => ({ data }),
   }
+  const navigations = []
+  let closed = 0
+  const publicUrl = 'https://vedelo.ru/proposal/demo'
+  mocks['@helpers/apiClient'] = { apiJson: async (url) => ({ data: { publicUrl, status: url.endsWith('/accepted') ? 'expired' : 'revoked' } }) }
+  window.open = () => ({ location: { replace: (url) => navigations.push(url) }, close: () => { closed++ } })
   const View = load('components/EventPublishedProposals.js').default
   const element = await mount(t, View, { eventId: 'event-view' })
   assert.match(element.textContent, /Опубликованное КП/)
@@ -486,6 +515,11 @@ test('event view shows only published proposals and hides an empty section', asy
     /Скрытый черновик|Отозванное КП/
   )
   assert.match(element.textContent, /Истёкшее КП/)
+  const openButtons = [...element.querySelectorAll('button')].filter((button) => button.textContent === 'Открыть предложение')
+  await React.act(async () => openButtons[0].click())
+  assert.equal(closed, 1)
+  await React.act(async () => openButtons[1].click())
+  assert.deepEqual(navigations, [publicUrl])
   data = []
   const empty = await mount(t, View, { eventId: 'event-empty' })
   assert.equal(empty.textContent, '')
@@ -584,10 +618,10 @@ test('proposal loading stays visible until templates and list finish; refetch re
 })
 
 
-test('accepted proposal can be deleted only after confirmation', async (t) => {
+test('accepted expired proposal can be deleted only after confirmation', async (t) => {
   const previousHook = mocks['@helpers/useEventProposalsQuery']
   const previousFetch = global.fetch
-  const proposal = { _id: 'accepted-delete', title: 'Принятое КП', version: 3, status: 'published', selectedPackageId: 'main', appliedAt: '2026-09-28', packages: [{ id: 'main', title: 'Основной' }] }
+  const proposal = { _id: 'accepted-delete', title: 'Принятое КП', version: 3, status: 'expired', selectedPackageId: 'main', appliedAt: '2026-09-28', packages: [{ id: 'main', title: 'Основной' }] }
   let deleted = 0, cached = [proposal]
   mocks['@helpers/useEventProposalsQuery'] = { useEventProposalsQuery: () => ({ data: cached }) }
   queryClient.cancelQueries = async () => {}
@@ -737,13 +771,61 @@ test('share copies the proposal and opens contact choice without sending it', as
   assert.equal(writes, 0)
   const dialog = openedModals.at(-1)
   assert.equal(dialog.title, 'Отправить предложение')
-  assert.deepEqual(dialog.childrenProps, { clientId: proposal.clientId, message: proposal.renderedMessage, publicUrl: proposal.publicUrl, initiallyCopied: true })
+  const { reloadProposal, ...dialogProps } = dialog.childrenProps
+  assert.deepEqual(dialogProps, { clientId: proposal.clientId, message: proposal.renderedMessage, publicUrl: proposal.publicUrl, initiallyCopied: true })
+  assert.deepEqual(await reloadProposal(), proposal)
   mocks['@helpers/copyProposalText'].copyProposalText = async () => { throw new Error('denied') }
   // A new module captures the changed clipboard helper, as in a browser denial.
   const FailedSection = load('components/EventProposalsSection.js').default
   const failedElement = await mount(t, FailedSection, { eventId: 'share-event' })
   await React.act(async () => [...failedElement.querySelectorAll('button')].find((button) => button.textContent === 'Отправить').click())
   assert.equal(openedModals.at(-1).childrenProps.initiallyCopied, false)
+})
+
+test('proposal link actions hide expired and revoked items and check the current status before use', async (t) => {
+  const previousHook = mocks['@helpers/useEventProposalsQuery']
+  const previousCopy = mocks['@helpers/copyProposalText']
+  const previousFetch = global.fetch
+  const previousOpen = window.open
+  const proposal = { _id: 'current', status: 'published', title: 'Текущее КП', packages: [], publicUrl: 'https://vedelo.ru/proposal/demo', renderedMessage: 'Предложение' }
+  const olderItems = [
+    { ...proposal, _id: 'expired', status: 'expired', title: 'Истёкшее КП' },
+    { ...proposal, _id: 'expired-by-date', validUntil: '2020-01-01', title: 'Срок КП истёк' },
+    { ...proposal, _id: 'revoked', status: 'revoked', title: 'Отозванное КП' },
+  ]
+  const copied = [], checked = [], navigated = []
+  let closed = 0
+  mocks['@helpers/useEventProposalsQuery'] = {
+    useEventProposalsQuery: () => ({ data: [proposal, ...olderItems] }),
+    cacheEventProposal: async (_client, _eventId, current) => checked.push(current),
+  }
+  mocks['@helpers/copyProposalText'] = { copyProposalText: async (value) => copied.push(value) }
+  global.fetch = async (url) => response(String(url).includes('/api/proposals/current') ? { ...proposal, validUntil: '2020-01-01' } : [])
+  window.open = () => ({ location: { replace: (url) => navigated.push(url) }, close: () => { closed++ } })
+  t.after(() => {
+    mocks['@helpers/useEventProposalsQuery'] = previousHook
+    mocks['@helpers/copyProposalText'] = previousCopy
+    global.fetch = previousFetch
+    window.open = previousOpen
+  })
+  const Section = load('components/EventProposalsSection.js').default
+  const element = await mount(t, Section, { eventId: 'share-event' })
+  const beforeDialogs = openedModals.length
+  const revocableTitles = [...element.querySelectorAll('.proposal-list-item')]
+    .filter((card) => card.querySelector('button[title="Закрыть доступ по ссылке"]:enabled'))
+    .map((card) => card.querySelector('.font-semibold').textContent)
+  assert.deepEqual(revocableTitles, ['Текущее КП', 'Истёкшее КП', 'Срок КП истёк'])
+  for (const action of ['Открыть', 'Отправить', 'Копировать ссылку']) {
+    const buttons = [...element.querySelectorAll('button')].filter((button) => button.textContent === action)
+    assert.equal(buttons.length, 1)
+    await React.act(async () => buttons[0].click())
+    assert.match(element.textContent, /Срок действия предложения истёк/)
+  }
+  assert.equal(checked.length, 3)
+  assert.equal(closed, 1)
+  assert.deepEqual(navigated, [])
+  assert.deepEqual(copied, [])
+  assert.equal(openedModals.length, beforeDialogs)
 })
 
 test('contact choices include supported channels, respect unavailable numbers and preserve MAX message', async () => {
@@ -788,15 +870,25 @@ test('share dialog copies the message or only the public link on demand', async 
   const Dialog = load('components/ProposalShareDialog.js').default
   const button = (element, text) => [...element.querySelectorAll('button')].find((item) => item.textContent === text)
 
-  const element = await mount(t, Dialog, { clientId: 'client-share', message, publicUrl })
+  let available = true
+  const reloadProposal = async () => {
+    if (!available) throw new Error('Срок действия предложения истёк')
+    return { clientId: 'client-share', renderedMessage: message, publicUrl }
+  }
+  const element = await mount(t, Dialog, { clientId: 'client-share', message, publicUrl, reloadProposal })
   await React.act(async () => button(element, 'Скопировать текст').click())
   assert.deepEqual(copied, [message])
   assert.match(element.textContent, /Текст предложения скопирован/)
   await React.act(async () => button(element, 'Скопировать ссылку').click())
   assert.deepEqual(copied, [message, publicUrl])
   assert.match(element.textContent, /Ссылка на предложение скопирована/)
+  available = false
+  await React.act(async () => button(element, 'Скопировать ссылку').click())
+  assert.deepEqual(copied, [message, publicUrl])
+  assert.match(element.textContent, /Срок действия предложения истёк/)
+  assert.equal(element.querySelector('textarea'), null)
 
-  const withoutUrl = await mount(t, Dialog, { clientId: 'client-share', message })
+  const withoutUrl = await mount(t, Dialog, { clientId: 'client-share', message, reloadProposal })
   assert.equal(button(withoutUrl, 'Скопировать ссылку'), undefined)
   assert.equal(button(withoutUrl, 'Скопировать текст') === undefined, false)
 })

@@ -374,6 +374,7 @@ test('исходящее приветствие перед первым вход
   const { saveTelegramBusinessMessage } = load('server/telegramBusiness.js', {
     crypto: require('node:crypto'), dns: require('node:dns'),
     undici: { Agent: class {}, ProxyAgent: class {}, Socks5ProxyAgent: class {} },
+    '@helpers/siteSettingsCustom.mjs': await import('../../helpers/siteSettingsCustom.mjs'),
     '@helpers/telegramPushAudience.mjs': {},
     '@helpers/telegramBusinessMessage': { getTelegramBusinessMessageDirection: () => 'incoming' },
     '@models/Clients': { findOne: async () => null }, '@models/SiteSettings': {},

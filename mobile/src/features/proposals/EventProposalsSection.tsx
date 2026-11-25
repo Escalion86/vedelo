@@ -583,7 +583,7 @@ const IdentitySection = ({
               disabled={
                 busy ||
                 Boolean(item.selectedPackageId) ||
-                item.status !== 'published'
+                !['published', 'expired'].includes(item.status)
               }
               onPress={() => action(item, 'revoke')}
             />

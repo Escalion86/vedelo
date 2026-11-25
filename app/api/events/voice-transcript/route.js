@@ -47,7 +47,7 @@ export async function POST(request) {
       )
     }
 
-    const aiSettings = await getTenantAiSettings(tenantId)
+    const aiSettings = await getTenantAiSettings(tenantId, { user })
     const { transcript, provider, model } = await transcribeAudioBlob(
       audioFile,
       audioFile.name || 'voice-draft.webm',

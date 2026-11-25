@@ -101,7 +101,7 @@ export async function processEventAiDraft({ text, tenantId, userId, clientPhone 
         .select('_id title description price')
         .sort({ title: 1 })
         .lean(),
-      providedAiSettings || getTenantAiSettings(tenantId),
+      providedAiSettings || getTenantAiSettings(tenantId, { userId }),
       SiteSettings.findOne({ tenantId }).select('timeZone').lean(),
     ])
 

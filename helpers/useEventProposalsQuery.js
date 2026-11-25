@@ -20,15 +20,19 @@ export const useEventProposalsQuery = (eventId, { enabled = true } = {}) =>
   })
 
 export const cacheEventProposal = async (queryClient, eventId, proposal) => {
-  void queryClient.invalidateQueries({ queryKey: queryKeys.proposalStatuses })
-  void queryClient.invalidateQueries({ queryKey: queryKeys.expiredProposals })
   const queryKey = queryKeys.eventProposals(eventId)
-  // Старый GET не должен перезаписать подтверждённый сервером статус.
-  await queryClient.cancelQueries({ queryKey })
+  // Запросы, начатые до записи, могут вернуть прежний статус, даже если кэш ещё пуст.
+  await Promise.all([
+    queryClient.cancelQueries({ queryKey }),
+    queryClient.cancelQueries({ queryKey: queryKeys.proposalStatuses }),
+    queryClient.cancelQueries({ queryKey: queryKeys.expiredProposals }),
+  ])
   queryClient.setQueryData(queryKey, (current = []) => {
     const exists = current.some((item) => item._id === proposal._id)
     return exists
       ? current.map((item) => (item._id === proposal._id ? proposal : item))
       : [proposal, ...current]
   })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.proposalStatuses })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.expiredProposals })
 }

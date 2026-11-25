@@ -74,9 +74,9 @@ export async function handleAiPhotoDraft(request) {
     const body = await readBoundedBody(request)
     const image = await normalizePhoto(body?.image)
     await dbConnect()
-    const settings = { ...await getTenantAiSettings(tenantId), tenantId: String(tenantId), userId: String(user._id) }
-    const provider = getAiAnalysisProviderConfig(settings)
-    if (!['artistcrm', 'aitunnel', 'openai'].includes(settings.aiAnalysisProvider) || !isAiVisionProvider(provider)) {
+    const settings = { ...await getTenantAiSettings(tenantId, { user }), tenantId: String(tenantId), userId: String(user._id) }
+    const provider = getAiAnalysisProviderConfig(settings, { allowLocal: false })
+    if (!['artistcrm', 'aitunnel', 'openai', 'local'].includes(settings.aiAnalysisProvider) || !isAiVisionProvider(provider)) {
       return fail(503, 'Выбранная модель ИИ не поддерживает фото. Выберите vision-модель gpt-4o-mini в настройках ИИ или заполните форму вручную.')
     }
     if (!provider.apiKey) return fail(503, 'ИИ отключён или не настроен. Проверьте настройки ИИ.')

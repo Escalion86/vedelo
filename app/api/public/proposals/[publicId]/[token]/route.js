@@ -65,22 +65,43 @@ const findProposal = async (publicId, token) => {
   return proposal
 }
 
+const publicLinkFilter = (proposal) => ({
+  tenantId: proposal.tenantId,
+  publicTokenHash: proposal.publicTokenHash,
+  publicTokenNonce: proposal.publicTokenNonce,
+})
+
+const savePublicProposal = async (proposal) => {
+  try {
+    await proposal.save()
+    return true
+  } catch (saveError) {
+    if (['DocumentNotFoundError', 'VersionError'].includes(saveError.name)) return false
+    throw saveError
+  }
+}
+
+const viewableStatuses = ['published', 'expired']
+
 export const GET = async (_req, { params }) => {
   const { publicId, token } = await params
-  const proposal = await findProposal(publicId, token)
+  let proposal = await findProposal(publicId, token)
   if (!proposal) return error('Предложение не найдено', 404, 'not_found')
-  if (proposal.status === 'revoked' || proposal.status === 'draft')
+  if (!viewableStatuses.includes(proposal.status))
     return error('Предложение недоступно', 410, 'unavailable')
-  proposal.viewedAt = new Date()
+  const now = new Date()
+  proposal.viewedAt = now
   proposal.viewCount = Number(proposal.viewCount || 0) + 1
-  if (
-    proposal.validUntil &&
-    new Date(proposal.validUntil).getTime() < Date.now() &&
-    proposal.status === 'published'
-  ) {
+  const visibleFilter = { ...publicLinkFilter(proposal), status: { $in: viewableStatuses } }
+  proposal.$where = visibleFilter
+  if (proposal.status === 'published' && proposal.validUntil && new Date(proposal.validUntil) < now) {
     proposal.status = 'expired'
+    proposal.$where = { ...visibleFilter, status: 'published', validUntil: { $lt: now } }
   }
-  await proposal.save()
+  if (!(await savePublicProposal(proposal))) {
+    proposal = await Proposals.findOne({ _id: proposal._id, ...visibleFilter })
+    if (!proposal) return error('Предложение недоступно', 410, 'unavailable')
+  }
   return NextResponse.json(
     { success: true, data: await publicData(proposal) },
     {
@@ -100,12 +121,12 @@ export const POST = async (req, { params }) => {
     return error('Выбор недоступен', 410, 'selection_closed')
   if (isProposalSelectionLocked(proposal))
     return error('Выбор закрыт: применение подтверждено или ожидает сверки. Обновите предложение.', 409, 'selection_locked')
-  if (
-    proposal.validUntil &&
-    new Date(proposal.validUntil).getTime() < Date.now()
-  ) {
+  const now = new Date()
+  if (proposal.validUntil && new Date(proposal.validUntil) < now) {
     proposal.status = 'expired'
-    await proposal.save()
+    proposal.$where = { ...publicLinkFilter(proposal), status: 'published', validUntil: { $lt: now } }
+    if (!(await savePublicProposal(proposal)))
+      return error('Предложение изменилось или больше недоступно. Обновите страницу.', 409, 'selection_conflict')
     return error('Срок действия предложения истёк', 410, 'expired')
   }
   const body = await req.json().catch(() => ({}))
@@ -137,11 +158,9 @@ export const POST = async (req, { params }) => {
   }
   // Compare-and-set against apply, revocation, token rotation and another selection.
   proposal.$where = {
+    ...publicLinkFilter(proposal),
     status: 'published',
     contentRevision: contentRevision || { $in: [0, null] },
-    tenantId: proposal.tenantId,
-    publicTokenHash: proposal.publicTokenHash,
-    publicTokenNonce: proposal.publicTokenNonce,
     applyOperation: null,
     appliedAt: null,
     appliedPackageId: { $in: ['', null] },
@@ -150,13 +169,8 @@ export const POST = async (req, { params }) => {
     selectedAt: previousSelectedAt,
     $or: [{ validUntil: null }, { validUntil: { $gte: new Date() } }],
   }
-  try {
-    await proposal.save()
-  } catch (saveError) {
-    if (['DocumentNotFoundError', 'VersionError'].includes(saveError.name))
-      return error('Предложение изменилось или больше недоступно. Обновите страницу.', 409, 'selection_conflict')
-    throw saveError
-  }
+  if (!(await savePublicProposal(proposal)))
+    return error('Предложение изменилось или больше недоступно. Обновите страницу.', 409, 'selection_conflict')
   // Also reconcile on an unchanged retry after a lost response/partial failure.
   await syncProposalSelectionTask({ proposalId: proposal._id, tenantId: proposal.tenantId })
   if (changed) {

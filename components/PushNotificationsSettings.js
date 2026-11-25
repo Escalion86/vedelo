@@ -1,6 +1,7 @@
 'use client'
 
 import fieldHelp from '@helpers/fieldHelp.json'
+import AppButton from './AppButton'
 import FieldHelp from './FieldHelp'
 
 import { useAtom } from 'jotai'
@@ -88,6 +89,8 @@ const PushNotificationsSettings = () => {
   const customSettings = siteSettings?.custom ?? {}
   const isPushEnabled =
     getCustomValue(customSettings, 'publicLeadPushEnabled') === true
+  const additionalEventsPushEnabled =
+    getCustomValue(customSettings, 'additionalEventsPushEnabled') !== false
   const additionalEventsPushTime = normalizeReminderTime(
     getCustomValue(customSettings, 'additionalEventsPushTime')
   )
@@ -116,21 +119,19 @@ const PushNotificationsSettings = () => {
 
   const saveCustom = useCallback(
     async (patch) => {
-      await postData(
+      const response = await postData(
         '/api/site',
-        {
-          custom: {
-            ...(siteSettings?.custom ?? {}),
-            ...patch,
-          },
-        },
-        (data) => setSiteSettings(data),
+        { custom: patch },
         null,
-        false,
-        null
+        null,
+        true
       )
+      if (!response?.success || !response.data) {
+        throw new Error('Не удалось сохранить настройки уведомлений')
+      }
+      setSiteSettings(response.data)
     },
-    [setSiteSettings, siteSettings?.custom]
+    [setSiteSettings]
   )
 
   const refreshPushState = useCallback(async () => {
@@ -406,13 +407,18 @@ const PushNotificationsSettings = () => {
   //   }
   // }
 
-  const saveAdditionalEventsPushTime = async (value) => {
-    const nextValue = normalizeReminderTime(value)
+  const saveReminderSettings = async (patch, successMessage) => {
+    if (pushBusy) return
+    setPushBusy(true)
+    setPushAction('reminders')
     try {
-      await saveCustom({ additionalEventsPushTime: nextValue })
-      snackbar.success(`Время напоминаний: ${nextValue}`)
-    } catch (error) {
-      snackbar.error('Не удалось сохранить время напоминаний')
+      await saveCustom(patch)
+      snackbar.success(successMessage)
+    } catch {
+      snackbar.error('Не удалось сохранить настройки ежедневной сводки')
+    } finally {
+      setPushBusy(false)
+      setPushAction('')
     }
   }
 
@@ -548,16 +554,56 @@ const PushNotificationsSettings = () => {
             : 'Локальный тест'}
         </button> */}
       </div>
-      <div className="push-settings-surface rounded border border-gray-200 bg-white/70 p-3">
-        <div className="flex items-center gap-1 text-sm font-semibold">Время ежедневных напоминаний <FieldHelp text={fieldHelp['notifications.reminderTime']} label="Время ежедневных напоминаний" /></div>
-        <label className="tablet:max-w-xs flex flex-col gap-2 text-sm text-gray-700">
-          <span className="sr-only">Время ежедневных напоминаний</span>
-          <select
-            value={additionalEventsPushTime}
-            className="h-10 cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm"
-            onChange={(event) =>
-              saveAdditionalEventsPushTime(event.target.value)
+      <section
+        aria-label="Ежедневная сводка"
+        aria-busy={pushBusy && pushAction === 'reminders'}
+        className="push-settings-surface flex flex-col gap-3 rounded border border-gray-200 bg-white/70 p-3"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Ежедневная сводка</h2>
+            <p className="text-xs text-gray-600">
+              {additionalEventsPushEnabled ? 'Включена' : 'Отключена'}
+            </p>
+          </div>
+          <AppButton
+            variant="secondary"
+            className="min-h-10 cursor-pointer disabled:cursor-not-allowed"
+            disabled={pushBusy}
+            onClick={() =>
+              saveReminderSettings(
+                { additionalEventsPushEnabled: !additionalEventsPushEnabled },
+                additionalEventsPushEnabled
+                  ? 'Ежедневная сводка отключена'
+                  : 'Ежедневная сводка включена'
+              )
             }
+          >
+            {additionalEventsPushEnabled ? 'Отключить сводку' : 'Включить сводку'}
+          </AppButton>
+        </div>
+        {additionalEventsPushEnabled && !isPushEnabled ? (
+          <p className="text-xs text-gray-600">
+            Для доставки сводки включите уведомления аккаунта.
+          </p>
+        ) : null}
+        <div className="tablet:max-w-xs flex flex-col gap-1 text-sm text-gray-700">
+          <div className="flex items-center gap-1">
+            <label htmlFor="daily-summary-time">Время ежедневной сводки</label>
+            <FieldHelp text={fieldHelp['notifications.reminderTime']} label="Время ежедневной сводки" />
+          </div>
+          <select
+            id="daily-summary-time"
+            value={additionalEventsPushTime}
+            disabled={pushBusy}
+            className="h-10 cursor-pointer rounded border border-gray-300 bg-white px-3 text-sm"
+            onChange={(event) => {
+              const time = normalizeReminderTime(event.target.value)
+              saveReminderSettings(
+                { additionalEventsPushTime: time },
+                `Время напоминаний: ${time}`
+              )
+            }}
           >
             {TIME_OPTIONS.map((time) => (
               <option key={time} value={time}>
@@ -565,8 +611,8 @@ const PushNotificationsSettings = () => {
               </option>
             ))}
           </select>
-        </label>
-      </div>
+        </div>
+      </section>
       <div className="push-settings-surface mt-2 rounded border border-gray-200 bg-white/70 p-3 text-xs">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="font-semibold text-gray-800">

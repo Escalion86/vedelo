@@ -91,11 +91,11 @@ function App() {
             <ProposalPageView proposal={publicProposal} />
           ) : kind === 'view' ? (
             <EventPublishedProposals eventId="event" />
-          ) : kind === 'expiry' ? (
+          ) : ['expiry', 'revoke'].includes(kind) ? (
             <div className="space-y-3">
               <ExpiredProposals onOpenEvent={(id) => { window.openedEventId = id }} />
               <EventProposalStatus eventId="event" />
-              <EventPublishedProposals eventId="event" />
+              {kind === 'revoke' ? <EventProposalsSection eventId="event" /> : <EventPublishedProposals eventId="event" />}
             </div>
           ) : kind === 'list' ? (
             <Compact

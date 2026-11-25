@@ -16,6 +16,55 @@ const tenant = 'a'.repeat(24),
 
 test.before(() => loadBindings())
 
+test('Telegram rejects an expired published proposal and keeps valid sending tenant-scoped', async () => {
+  const proposal = {
+    _id: proposalId, tenantId: tenant, eventId, status: 'published',
+    validUntil: '2020-01-01', publicId: 'public', publicTokenNonce: 'nonce',
+    delivery: [], mediaSnapshot: [], messageText: 'Ссылка {{proposal.url}}',
+    save: async () => {},
+  }
+  let activeTenant = tenant
+  const filters = [], sent = []
+  const load = loader({
+    'next/server': { NextResponse: json },
+    '@server/dbConnect': async () => {},
+    '@server/proposalRequestContext': async () => ({ tenantId: activeTenant, user: { _id: activeTenant } }),
+    '@server/getUserTariffAccess': async () => ({ allowProposals: true, allowTelegramIntegration: true }),
+    '@models/Proposals': { findOne: (filter) => {
+      filters.push(filter)
+      return filter.tenantId === tenant ? proposal : null
+    } },
+    '@models/SiteSettings': { findOne: () => chain({}) },
+    '@models/TelegramConversations': { findOne: () => chain({ telegramChatId: 'fixture' }) },
+    '@server/telegramBusiness': {
+      isTelegramReplyWindowOpen: () => true,
+      normalizeTelegramSettings: () => ({ enabled: true, botToken: 'fixture', businessConnectionId: 'fixture' }),
+      sendTelegramBusinessMessage: async ({ text }) => { sent.push(text); return { message_id: 1 } },
+      saveTelegramBusinessMessage: async () => {},
+    },
+  })
+  const route = load('app/api/proposals/[id]/send-telegram/route.js')
+  const req = { json: async () => ({}), nextUrl: { origin: 'https://example.test' } }
+  const send = () => route.POST(req, { params: { id: proposalId } })
+  const expired = await send()
+  assert.equal(expired.status, 409)
+  assert.equal(expired.body.error.code, 'expired')
+  assert.deepEqual(sent, [])
+  assert.deepEqual(proposal.delivery, [])
+
+  proposal.validUntil = new Date(Date.now() + 60_000)
+  activeTenant = foreign
+  assert.equal((await send()).status, 409)
+  assert.deepEqual(sent, [])
+  assert.deepEqual(filters.at(-1), { _id: proposalId, tenantId: foreign })
+
+  activeTenant = tenant
+  proposal.selectedPackageId = 'accepted'
+  assert.equal((await send()).status, 201)
+  assert.match(sent[0], /^Ссылка https:\/\/example\.test\/proposal\/public\//)
+  assert.equal(proposal.delivery[0].status, 'sent')
+})
+
 test('extending an expired proposal restores publication and the same public link, with tenant protection', async () => {
   const f = fixture()
   await f.load('app/api/events/[id]/proposals/route.js').POST(f.req({}), { params: { id: eventId } })

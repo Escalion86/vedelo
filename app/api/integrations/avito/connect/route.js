@@ -1,3 +1,4 @@
+import { sanitizeLocalAiSiteSettings } from '@helpers/siteSettingsCustom.mjs'
 import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import { requireTenantIntegrationAccess } from '@server/integrationAccess'
@@ -65,7 +66,7 @@ export const POST = async (req) => {
           type: 'avito',
           message: 'Avito не принял Client ID / Client Secret',
         },
-        data: updated,
+        data: sanitizeLocalAiSiteSettings(updated),
       },
       { status: 400 }
     )
@@ -103,7 +104,7 @@ export const POST = async (req) => {
     {
       success: true,
       data: {
-        siteSettings: updated,
+        siteSettings: sanitizeLocalAiSiteSettings(updated),
         avito: {
           status,
           webhookUrl,

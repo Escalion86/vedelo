@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import SiteSettings from '@models/SiteSettings'
+import { siteSettingsCustomPaths } from '@helpers/siteSettingsCustom.mjs'
 import Clients from '@models/Clients'
 import Events from '@models/Events'
 import VkConversations from '@models/VkConversations'
@@ -791,16 +792,9 @@ const backfillVkLeadClients = async ({ tenantId }) => {
 }
 
 const updateVkCustom = async ({ tenantId, patch }) => {
-  const current = await SiteSettings.findOne({ tenantId }).lean()
-  const custom = current?.custom ?? {}
-  const nextCustom = {
-    ...(typeof custom?.get === 'function' ? Object.fromEntries(custom) : custom),
-    ...patch,
-  }
-
   return SiteSettings.findOneAndUpdate(
     { tenantId },
-    { $set: { tenantId, custom: nextCustom } },
+    { $set: { tenantId, ...siteSettingsCustomPaths(patch) } },
     { upsert: true, returnDocument: 'after' }
   ).lean()
 }

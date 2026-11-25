@@ -61,6 +61,7 @@ export const useCreateTransactionMutation = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['clientRelations'] })
     },
   })
 }
@@ -85,6 +86,7 @@ export const useUpdateTransactionMutation = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['clientRelations'] })
     },
   })
 }
@@ -109,6 +111,7 @@ export const useDeleteTransactionMutation = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['clientRelations'] })
     },
   })
 }

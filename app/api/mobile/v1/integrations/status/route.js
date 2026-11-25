@@ -1,5 +1,6 @@
 import SiteSettings from '@models/SiteSettings'
 import Users from '@models/Users'
+import { sanitizeLocalAiCustom } from '@helpers/siteSettingsCustom.mjs'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
@@ -29,6 +30,7 @@ export const GET = async (req) => {
   const avito = normalizeAvitoSettings(settings?.custom)
   const vk = normalizeVkSettings(settings?.custom)
   const telegram = normalizeTelegramSettings(settings?.custom)
+  const mobileAi = sanitizeLocalAiCustom(settings?.custom)
   const calendar = normalizeCalendarSettings(user)
   return mobileSuccess({
     googleCalendar: serializeMobileGoogleCalendar(calendar, access),
@@ -74,10 +76,10 @@ export const GET = async (req) => {
       settings: {
         enabled: readCustom(settings?.custom, 'aitunnelEnabled') === true,
         key: readCustom(settings?.custom, 'aitunnelKey'),
-        transcriptionProvider: readCustom(settings?.custom, 'aiTranscriptionProvider'),
-        transcriptionModel: readCustom(settings?.custom, 'aiTranscriptionModel'),
-        analysisProvider: readCustom(settings?.custom, 'aiAnalysisProvider'),
-        analysisModel: readCustom(settings?.custom, 'aiAnalysisModel'),
+        transcriptionProvider: mobileAi.aiTranscriptionProvider,
+        transcriptionModel: mobileAi.aiTranscriptionModel,
+        analysisProvider: mobileAi.aiAnalysisProvider,
+        analysisModel: mobileAi.aiAnalysisModel,
       },
     }),
     publicLeadApi: serializeMobileProviderIntegration({

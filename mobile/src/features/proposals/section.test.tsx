@@ -79,6 +79,40 @@ it('accepted/applied visible after expiry and selected revoke disabled', async (
     screen.getByTestId('proposal-revoke-p').props.accessibilityState.disabled
   ).toBe(true)
 })
+it('expired unselected proposal can be revoked after confirmation and survives a failed request', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+  const expired = { ...chosen, title: 'Просроченное КП', selectedPackageId: '', selectedAt: null, appliedAt: null, appliedPackageId: '', appliedSelectionAt: null }
+  const revoked = { ...expired, status: 'revoked' }
+  mockList.mockResolvedValue([expired])
+  mockAction.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({ proposal: revoked })
+  const screen = draw()
+
+  try {
+    await screen.findByText('Срок истёк')
+    const button = screen.getByTestId('proposal-revoke-p')
+    expect(button.props.accessibilityState.disabled).toBe(false)
+    fireEvent.press(button)
+    expect(alert.mock.lastCall?.[0]).toBe('Отозвать доступ?')
+    expect(mockAction).not.toHaveBeenCalled()
+    await act(async () => alert.mock.lastCall?.[2]?.find(option => option.style === 'destructive')?.onPress?.())
+
+    await screen.findByText('Действие не подтверждено. Проверьте сеть и повторите чтение КП.')
+    expect(screen.getByText('Срок истёк')).toBeTruthy()
+    mockList.mockResolvedValue([revoked])
+    fireEvent.press(screen.getByTestId('proposal-revoke-p'))
+    await act(async () => alert.mock.lastCall?.[2]?.find(option => option.style === 'destructive')?.onPress?.())
+
+    await screen.findByText('Ссылка отозвана')
+    expect(mockAction).toHaveBeenLastCalledWith(expired, 'revoke', expect.objectContaining({ signal: expect.anything() }))
+    expect(screen.getByText('Просроченное КП')).toBeTruthy()
+    expect(screen.getByText('Отозвано')).toBeTruthy()
+    expect(screen.queryByText('Срок истёк')).toBeNull()
+    expect(screen.getByTestId('proposal-revoke-p').props.accessibilityState.disabled).toBe(true)
+    expect(mockRemove).not.toHaveBeenCalled()
+  } finally {
+    alert.mockRestore()
+  }
+})
 it('opens the renewal calendar before any write, keeps the date on error and retries explicitly', async () => {
   const screen = draw()
   fireEvent.press(await screen.findByText('Продлить срок'))

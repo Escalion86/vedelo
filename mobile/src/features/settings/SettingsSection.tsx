@@ -9,6 +9,7 @@ import type { Palette } from '../../shared/ui/theme'
 import { getFieldHelp } from '../../shared/domain/fieldHelp'
 import { useSettingsEditor, type SettingsConfig } from './settingsEditor'
 import { ThemePreferenceSection } from './ThemePreferenceSection'
+import { AppUpdateSection } from './AppUpdateSection'
 import { ClientTypesSection } from './ClientTypesSection'
 import { PromoCodeRedeem } from '../billing/PromoCodeRedeem'
 import { WorkspaceSettings } from './WorkspaceSettings'
@@ -33,6 +34,7 @@ export const SettingsSection = () => {
   const terms = resolveMobileWorkItemTerminology(editor.settings)
   return <>
     <ThemePreferenceSection />
+    <AppUpdateSection />
     <PromoCodeRedeem />
     <Button title={workspaceOpen ? 'Закрыть настройки организации' : 'Настройки организации'} variant="secondary" onPress={() => setWorkspaceOpen(open => !open)} />
     {workspaceOpen ? <WorkspaceSettings /> : null}

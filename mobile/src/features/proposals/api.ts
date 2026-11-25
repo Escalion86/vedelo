@@ -769,7 +769,7 @@ export const proposalsApi = Object.fromEntries(
         return result
       } finally {
         check.close()
-        if (['renew', 'save', 'create', 'action', 'remove', 'recoverApply', 'recoverCreate', 'cancelCreate', 'sendTelegram'].includes(name)) notifyProposalChanges()
+        if (['renew', 'save', 'create', 'action', 'remove', 'recoverApply', 'recoverCreate', 'cancelCreate', 'sendTelegram'].includes(name)) notifyProposalChanges(check.identity)
       }
     },
   ])

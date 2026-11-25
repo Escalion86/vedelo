@@ -1,4 +1,5 @@
 import { normalizeTelegramPushAudience } from '@helpers/telegramPushAudience.mjs'
+import { siteSettingsCustomPaths } from '@helpers/siteSettingsCustom.mjs'
 import crypto from 'crypto'
 import dns from 'dns'
 import {
@@ -229,14 +230,9 @@ export const sanitizeTelegramSiteSettings = (siteSettings) => {
 }
 
 export const updateTelegramCustom = async ({ tenantId, patch }) => {
-  const current = await SiteSettings.findOne({ tenantId }).lean()
-  const custom = current?.custom ?? {}
-  const normalizedCustom =
-    typeof custom?.get === 'function' ? Object.fromEntries(custom) : custom
-
   return SiteSettings.findOneAndUpdate(
     { tenantId },
-    { $set: { tenantId, custom: { ...normalizedCustom, ...patch } } },
+    { $set: { tenantId, ...siteSettingsCustomPaths(patch) } },
     { upsert: true, returnDocument: 'after' }
   ).lean()
 }

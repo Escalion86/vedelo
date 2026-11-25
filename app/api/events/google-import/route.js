@@ -320,7 +320,7 @@ export const GET = async (req) => {
         calendarId: context.calendarId,
         ...range,
       }),
-      getTenantAiSettings(context.tenantId),
+      getTenantAiSettings(context.tenantId, { user: context.user }),
     ])
     const items = Array.isArray(calendarResult.items)
       ? calendarResult.items.filter((item) => item?.id && item?.start)
@@ -341,7 +341,7 @@ export const GET = async (req) => {
         alreadyImported: existingIds.has(item.id),
       })
     )
-    const provider = getAiAnalysisProviderConfig(aiSettings)
+    const provider = getAiAnalysisProviderConfig(aiSettings, { allowLocal: false })
     let quote = {
       billingMode: 'user_key',
       costPerEvent: 0,
@@ -440,7 +440,7 @@ export const POST = async (req) => {
         Services.find({ tenantId: context.tenantId })
           .select('_id title description price')
           .lean(),
-        getTenantAiSettings(context.tenantId),
+        getTenantAiSettings(context.tenantId, { user: context.user }),
         SiteSettings.findOne({ tenantId: context.tenantId })
           .select('timeZone custom.defaultEventDurationMinutes')
           .lean(),

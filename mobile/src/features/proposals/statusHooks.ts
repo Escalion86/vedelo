@@ -1,19 +1,13 @@
-import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useProposalIdentity } from './identity'
 import { proposalsApi } from './api'
-import { subscribeProposalChanges } from './changes'
+import { proposalOverviewQueryKey } from './changes'
 
 export function useProposalOverview<K extends 'statuses' | 'expired'>(kind: K, enabled = true) {
   const identity = useProposalIdentity()
-  const cache = useQueryClient()
-  const key = 'native-proposal-overview'
-  useEffect(() => subscribeProposalChanges(() => {
-    void cache.invalidateQueries({ queryKey: [key, identity, kind] })
-  }), [cache, identity, kind])
   type Data = Awaited<ReturnType<typeof proposalsApi[K]>>
   return useQuery<Data>({
-    queryKey: [key, identity, kind],
+    queryKey: [proposalOverviewQueryKey, identity, kind],
     enabled: Boolean(identity && enabled),
     queryFn: ({ signal }) => proposalsApi[kind]({ expectedIdentity: identity, signal }) as Promise<Data>,
     staleTime: 30_000,

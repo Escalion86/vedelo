@@ -279,7 +279,7 @@ export const buildEventDraftFromCall = async (call, tenantId) => {
   }
 }
 
-export const processCallRecording = async (callId, tenantId) => {
+export const processCallRecording = async (callId, tenantId, actor) => {
   const call = await Calls.findOne({ _id: callId, tenantId }).lean()
   if (!call) throw new Error('CALL_NOT_FOUND')
   if (!call.recordingUrl) throw new Error('RECORDING_URL_REQUIRED')
@@ -291,7 +291,7 @@ export const processCallRecording = async (callId, tenantId) => {
 
   try {
     const [aiSettings, services] = await Promise.all([
-      getTenantAiSettings(tenantId),
+      getTenantAiSettings(tenantId, actor),
       Services.find({ tenantId }).select('title').lean(),
     ])
     aiSettings.services = services
@@ -305,7 +305,13 @@ export const processCallRecording = async (callId, tenantId) => {
     )
     await Calls.findOneAndUpdate(
       { _id: callId, tenantId },
-      { transcript, transcriptionProvider, transcriptionModel, status: 'processing', processingError: '' }
+      {
+        transcript,
+        transcriptionProvider,
+        transcriptionModel: transcriptionProvider === 'local' ? '' : transcriptionModel,
+        status: 'processing',
+        processingError: '',
+      }
     )
     const analysis = await analyzeCallTranscript(transcript, aiSettings, {
       feature: 'call_analysis',
@@ -320,7 +326,7 @@ export const processCallRecording = async (callId, tenantId) => {
         aiSummary: analysis.summary,
         aiExtractedFields: analysis.extractedFields,
         analysisProvider: analysis.provider || '',
-        analysisModel: analysis.model || '',
+        analysisModel: analysis.provider === 'local' ? '' : analysis.model || '',
         processingError: '',
       },
       { returnDocument: 'after' }

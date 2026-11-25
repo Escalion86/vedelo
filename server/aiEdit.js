@@ -48,7 +48,7 @@ export async function pruneAbandonedAiEditPlans({ now = new Date(), limit = 100 
 }
 
 async function complete(tenantId, userId, messages) {
-  const settings = await getTenantAiSettings(tenantId)
+  const settings = await getTenantAiSettings(tenantId, { userId })
   const response = await requestAiChatCompletion({
     settings: { ...settings, tenantId, userId }, feature: 'event_draft',
     messages, maxTokens: 2500, temperature: 0, timeoutMs: 45000,

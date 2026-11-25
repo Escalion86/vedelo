@@ -6,6 +6,9 @@ export const isProposalExpired = (proposal, now = Date.now()) => Boolean(
     (proposal.validUntil && new Date(proposal.validUntil).getTime() <= now))
 )
 
+export const isProposalShareable = (proposal, now = Date.now()) =>
+  proposal?.status === 'published' && !isProposalExpired(proposal, now)
+
 export const getProposalStatus = (proposal, now = Date.now()) => {
   if (!proposal || !['published', 'expired'].includes(proposal.status)) return null
   if (proposal.selectedPackageId) return 'accepted'

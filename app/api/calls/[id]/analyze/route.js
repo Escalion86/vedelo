@@ -37,7 +37,7 @@ export const POST = async (req, { params }) => {
 
   try {
     const [aiSettings, services] = await Promise.all([
-      getTenantAiSettings(access.tenantId),
+      getTenantAiSettings(access.tenantId, { user: access.user }),
       Services.find({ tenantId }).select('title').lean(),
     ])
     aiSettings.services = services
@@ -54,6 +54,8 @@ export const POST = async (req, { params }) => {
         status: 'ready',
         aiSummary: analysis.summary,
         aiExtractedFields: analysis.extractedFields,
+        analysisProvider: analysis.provider || '',
+        analysisModel: analysis.provider === 'local' ? '' : analysis.model || '',
         processingError: '',
       },
       { returnDocument: 'after' }

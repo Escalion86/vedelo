@@ -5,6 +5,7 @@ const { loadBindings, transformSync } = require('next/dist/build/swc')
 
 async function adapter(mode = 'ok') {
   await loadBindings()
+  const localAi = await import('../../server/localAiProvider.mjs')
   const calls = []
   const reservation = { id: 'reservation' }
   const billing = {
@@ -15,7 +16,11 @@ async function adapter(mode = 'ok') {
   const { code } = transformSync(fs.readFileSync('server/aiChatCompletion.js', 'utf8'), { filename: 'server/aiChatCompletion.js', jsc: { parser: { syntax: 'ecmascript' }, target: 'es2022' }, module: { type: 'commonjs' } })
   const loaded = { exports: {} }
   new Function('require', 'module', 'exports', 'process', 'fetch', code)(
-    name => { assert.equal(name, './aiBilling.js'); return billing }, loaded, loaded.exports,
+    name => {
+      if (name === './localAiProvider.mjs') return localAi
+      assert.equal(name, './aiBilling.js')
+      return billing
+    }, loaded, loaded.exports,
     { env: { AITUNNEL_KEY: 'test-platform-key' } }, async (_url, options) => {
       calls.push(['fetch', JSON.parse(options.body)])
       if (mode === 'network') throw new Error('network-private-key')
@@ -41,4 +46,18 @@ test('personal AITunnel vision uses personal key and no platform billing', async
   const { requestAiChatCompletion, calls } = await adapter()
   await requestAiChatCompletion({ settings: { aiAnalysisProvider: 'aitunnel', aitunnelKey: 'personal-key' }, messages: [], requireVision: true })
   assert.deepEqual(calls.map(c => c[0]), ['fetch'])
+})
+
+test('selecting local keeps OCR and prepaid imports on their existing cloud paths', async () => {
+  const { requestAiChatCompletion, calls } = await adapter()
+  const settings = {
+    tenantId: 'tenant-a', userId: 'user-a',
+    aiAnalysisProvider: 'local', aiAnalysisFallbackProvider: 'artistcrm',
+    isDeveloper: true, localAiEnabled: true,
+    localAiBaseUrl: 'http://127.0.0.1:18010/v1', localAiModel: 'local-model',
+  }
+  assert.equal((await requestAiChatCompletion({ settings, messages: [], requireVision: true })).provider, 'artistcrm')
+  assert.deepEqual(calls.map(c => c[0]), ['reserve', 'fetch', 'settle'])
+  assert.equal((await requestAiChatCompletion({ settings, messages: [], prepaidImport: true })).provider, 'artistcrm')
+  assert.deepEqual(calls.map(c => c[0]), ['reserve', 'fetch', 'settle', 'fetch'])
 })

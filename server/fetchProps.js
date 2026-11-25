@@ -13,6 +13,7 @@ import dbConnect from './dbConnect'
 import mongoose from 'mongoose'
 import { applyUserEventStats } from '@helpers/userEventStats'
 import { sanitizeTelegramSiteSettings } from '@server/telegramBusiness'
+import { sanitizeLocalAiSiteSettings } from '@helpers/siteSettingsCustom.mjs'
 
 let tenantBackfillApplied = false
 
@@ -393,7 +394,7 @@ const fetchProps = async (user, page = 'eventsUpcoming') => {
       events: JSON.parse(JSON.stringify(eventsPayload.events)),
       eventsPaging: JSON.parse(JSON.stringify(eventsPayload.paging)),
       siteSettings: JSON.parse(
-        JSON.stringify(sanitizeTelegramSiteSettings(siteSettings ?? {}))
+        JSON.stringify(sanitizeLocalAiSiteSettings(sanitizeTelegramSiteSettings(siteSettings ?? {})))
       ),
       transactions: JSON.parse(JSON.stringify(transactions ?? [])),
       transactionsComplete:

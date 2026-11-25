@@ -1,3 +1,4 @@
+import { sanitizeLocalAiSiteSettings } from '@helpers/siteSettingsCustom.mjs'
 import { NextResponse } from 'next/server'
 import SiteSettings from '@models/SiteSettings'
 import dbConnect from '@server/dbConnect'
@@ -50,7 +51,7 @@ export const POST = async (req) => {
   return NextResponse.json(
     {
       success: true,
-      data: { siteSettings: sanitizeTelegramSiteSettings(updated) },
+      data: { siteSettings: sanitizeLocalAiSiteSettings(sanitizeTelegramSiteSettings(updated)) },
     },
     { status: 200 }
   )

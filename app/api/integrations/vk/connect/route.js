@@ -1,3 +1,4 @@
+import { sanitizeLocalAiSiteSettings } from '@helpers/siteSettingsCustom.mjs'
 import { NextResponse } from 'next/server'
 import dbConnect from '@server/dbConnect'
 import SiteSettings from '@models/SiteSettings'
@@ -83,7 +84,7 @@ export const POST = async (req) => {
           type: 'vk_group',
           message: 'VK не принял токен сообщества',
         },
-        data: { siteSettings: updated },
+        data: { siteSettings: sanitizeLocalAiSiteSettings(updated) },
       },
       { status: 400 }
     )
@@ -111,7 +112,7 @@ export const POST = async (req) => {
     {
       success: true,
       data: {
-        siteSettings: updated,
+        siteSettings: sanitizeLocalAiSiteSettings(updated),
         vkGroup: { status: 'connected', webhookUrl, webhookSecret, backfill },
       },
     },

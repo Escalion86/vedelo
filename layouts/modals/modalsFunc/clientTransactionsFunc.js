@@ -2,6 +2,8 @@
 import { useMemo, useState, useCallback } from 'react'
 import { List } from 'react-window'
 import TransactionTypeToggleButtons from '@components/IconToggleButtons/TransactionTypeToggleButtons'
+import AppButton from '@components/AppButton'
+import Notice from '@components/Notice'
 import TransactionCard from '@layouts/cards/TransactionCard'
 import { TRANSACTION_TYPES } from '@helpers/constants'
 import { useAtomValue } from 'jotai'
@@ -14,7 +16,7 @@ const clientTransactionsFunc = (clientId) => {
   const ClientTransactionsModal = () => {
     const { data: clients = [] } = useClientsQuery()
     const modalsFunc = useAtomValue(modalsFuncAtom)
-    const { data: relations } = useClientRelationsQuery(clientId)
+    const { data: relations, isError, isFetching, refetch } = useClientRelationsQuery(clientId)
     const transactions = relations?.transactions ?? []
     const events = relations?.events ?? []
     const [typeFilter, setTypeFilter] = useState({
@@ -49,25 +51,14 @@ const clientTransactionsFunc = (clientId) => {
       []
     )
 
-    const clientTransactions = useMemo(
-      () =>
-        (transactions ?? [])
-          .filter((transaction) => transaction.clientId === clientId)
-          .sort(
-            (a, b) =>
-              new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime()
-          ),
-      [transactions, clientId]
-    )
-
     const filteredTransactions = useMemo(() => {
-      if (typeFilter.income && typeFilter.expense) return clientTransactions
+      if (typeFilter.income && typeFilter.expense) return transactions
       if (typeFilter.income)
-        return clientTransactions.filter((item) => item.type === 'income')
+        return transactions.filter((item) => item.type === 'income')
       if (typeFilter.expense)
-        return clientTransactions.filter((item) => item.type === 'expense')
-      return clientTransactions
-    }, [clientTransactions, typeFilter])
+        return transactions.filter((item) => item.type === 'expense')
+      return transactions
+    }, [transactions, typeFilter])
 
     const RowComponent = useCallback(
       ({ index, style }) => {
@@ -84,25 +75,32 @@ const clientTransactionsFunc = (clientId) => {
             transaction={transaction}
             client={client}
             event={event}
+            relatedByEvent={transaction.clientId !== clientId}
             type={type}
             onEdit={handleEdit}
             onDelete={() => {}}
           />
         )
       },
-      [filteredTransactions, clientsMap, eventsMap, typeMap, modalsFunc]
+      [filteredTransactions, clientsMap, eventsMap, typeMap, modalsFunc, clientId]
     )
 
     return (
       <div className="flex h-full flex-col gap-3 tablet:h-[60vh]">
+        {isError && (
+          <Notice tone="warning" role="status" className="flex flex-wrap items-center gap-2">
+            Не удалось {relations ? 'обновить' : 'загрузить'} транзакции
+            <AppButton variant="secondary" size="sm" disabled={isFetching} aria-busy={isFetching} onClick={() => refetch()}>
+              Повторить
+            </AppButton>
+          </Notice>
+        )}
         <div className="flex items-center justify-between gap-3 text-sm text-gray-600">
           <TransactionTypeToggleButtons
             value={typeFilter}
             onChange={setTypeFilter}
           />
-          <span>
-            {filteredTransactions.length} из {clientTransactions.length}
-          </span>
+          {relations && <span>{filteredTransactions.length} из {transactions.length}</span>}
         </div>
         <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           {filteredTransactions.length > 0 ? (
@@ -113,11 +111,15 @@ const clientTransactionsFunc = (clientId) => {
               rowProps={{}}
               style={{ height: '100%', width: '100%' }}
             />
-          ) : (
+          ) : relations ? (
             <div className="flex h-full items-center justify-center text-sm text-gray-500">
               Транзакций не найдено
             </div>
-          )}
+          ) : isFetching ? (
+            <div role="status" className="flex h-full items-center justify-center text-sm text-gray-500">
+              Загружаем транзакции…
+            </div>
+          ) : null}
         </div>
       </div>
     )

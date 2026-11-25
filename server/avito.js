@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import SiteSettings from '@models/SiteSettings'
+import { siteSettingsCustomPaths } from '@helpers/siteSettingsCustom.mjs'
 import Events from '@models/Events'
 import AvitoConversations from '@models/AvitoConversations'
 import AvitoMessages from '@models/AvitoMessages'
@@ -560,16 +561,9 @@ const createOrUpdateAvitoLead = async ({ tenantId, siteSettings, body }) => {
 }
 
 const updateAvitoCustom = async ({ tenantId, patch }) => {
-  const current = await SiteSettings.findOne({ tenantId }).lean()
-  const custom = current?.custom ?? {}
-  const nextCustom = {
-    ...(typeof custom?.get === 'function' ? Object.fromEntries(custom) : custom),
-    ...patch,
-  }
-
   return SiteSettings.findOneAndUpdate(
     { tenantId },
-    { $set: { tenantId, custom: nextCustom } },
+    { $set: { tenantId, ...siteSettingsCustomPaths(patch) } },
     { upsert: true, returnDocument: 'after' }
   ).lean()
 }
