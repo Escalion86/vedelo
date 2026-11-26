@@ -78,9 +78,24 @@ it('the edit assistant routes text to its plan handler without creating a voice 
   const screen = render(<VoiceDraftSection initialMode="text" onApply={apply} onAnalyzeText={analyze} />)
   fireEvent.changeText(await screen.findByTestId('voice-draft-text'), 'Изменить дату')
   fireEvent.press(screen.getByText('Разобрать текст'))
-  await waitFor(() => expect(analyze).toHaveBeenCalledWith('Изменить дату'))
+  await waitFor(() => expect(analyze).toHaveBeenCalledWith('Изменить дату', 'text'))
   expect(mockPost).not.toHaveBeenCalled(); expect(apply).not.toHaveBeenCalled()
   expect(screen.queryByTestId('voice-draft-apply')).toBeNull()
+})
+
+it('передаёт признак голоса для распознанной записи и повторного разбора её текста', async () => {
+  const analyze = jest.fn(async () => undefined)
+  const screen = render(<VoiceDraftSection initialMode="voice" onApply={jest.fn()} onAnalyzeText={analyze} />)
+  fireEvent.press(await screen.findByTestId('voice-draft-start'))
+  fireEvent.press(await screen.findByTestId('voice-draft-stop'))
+  await screen.findByText('Проверьте результат перед сохранением.')
+  expect(analyze).toHaveBeenLastCalledWith('Свадьба', 'voice')
+  fireEvent.press(screen.getByText('Разобрать текст'))
+  await waitFor(() => expect(analyze).toHaveBeenCalledTimes(2))
+  expect(analyze).toHaveBeenLastCalledWith('Свадьба', 'voice')
+  fireEvent.changeText(screen.getByTestId('voice-draft-text'), 'День рождения')
+  fireEvent.press(screen.getByText('Разобрать текст'))
+  await waitFor(() => expect(analyze).toHaveBeenLastCalledWith('День рождения', 'text'))
 })
 
 it('потеря сети между показом формы и действием блокирует отправку и запрос микрофона', async () => {

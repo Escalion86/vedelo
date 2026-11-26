@@ -75,6 +75,7 @@ export default function AiEditAssistant({
   const [error, setError] = useState('')
   const [applyStarted, setApplyStarted] = useState(false)
   const [clipboardPhone, setClipboardPhone] = useState('')
+  const inputSource = useRef('text')
   const inFlight = useRef(false)
   const mounted = useRef(true)
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function AiEditAssistant({
     else setVoice(false)
   }, [standaloneVoice, closeModal])
   const receiveTranscript = useCallback((transcript) => {
+    inputSource.current = 'voice'
     setText((current) => [current, transcript].filter(Boolean).join('\n'))
     setResult(null)
     setVoice(false)
@@ -156,6 +158,7 @@ export default function AiEditAssistant({
       }
       if (!mounted.current) return
       const body = { text: requestText, eventId: selectedId,
+        ...(inputSource.current === 'voice' ? { inputSource: 'voice' } : {}),
         ...(unified && !selectedId ? { mode: 'auto', deferClientCreation: true } : {}),
         ...(clientId ? { mode: 'create' } : {}),
       }
@@ -258,7 +261,10 @@ export default function AiEditAssistant({
   ) : result?.question ? (
     <Modal title={result.intent === 'question' ? 'Вопрос без изменения записей' : 'Уточните запрос'}
       Children={VoiceClarification}
-      childrenProps={{ question: result.question, requestText: text, canRetry: result.intent !== 'question', onRetry: (value) => prepare(initialEventId, value) }}
+      childrenProps={{ question: result.question, requestText: text, canRetry: result.intent !== 'question', onRetry: (value) => {
+        inputSource.current = 'text'
+        prepare(initialEventId, value)
+      } }}
       onlyCloseButtonShow crossActsAsDecline={false} closeButtonName="Закрыть" onClose={closeModal}
     />
   ) : null
@@ -276,7 +282,13 @@ export default function AiEditAssistant({
         label={requestLabel}
         ariaLabel={requestLabel}
         value={text}
-        onChange={(value) => { setText(value); setResult(null); setError(''); if (!initialEventId) setEventId(null) }}
+        onChange={(value) => {
+          inputSource.current = 'text'
+          setText(value)
+          setResult(null)
+          setError('')
+          if (!initialEventId) setEventId(null)
+        }}
         rows={5}
         maxLength={12000}
         disabled={busy || applyStarted || Boolean(result?.planId)}

@@ -16,7 +16,7 @@ const isProviderSelection = (key) =>
   key === 'aiAnalysisProvider' || key === 'aiTranscriptionProvider'
 
 const isLocalProvider = (value) =>
-  typeof value === 'string' && value.trim().toLowerCase() === 'local'
+  typeof value === 'string' && ['local', 'fu02'].includes(value.trim().toLowerCase())
 
 export const isLocalAiCustomKey = (key) =>
   key.startsWith('localAi') ||

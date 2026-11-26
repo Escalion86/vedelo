@@ -1,6 +1,7 @@
 import React from 'react'
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
 import AiAssistantScreen from './AiAssistantScreen'
+import type { AiAssistantInputSource } from './VoiceDraftSection'
 import { ThemeProvider } from '../../shared/ui/ThemeProvider'
 import { clearSharedDraft, readSharedDraft, setSharedDraft } from '../../shared/native/shareDraft'
 const mockPost = jest.fn(), mockPush = jest.fn(), mockOpen = jest.fn(), mockList = jest.fn()
@@ -16,10 +17,13 @@ jest.mock('../../shared/api/client', () => ({ api: { post: (...args: unknown[]) 
 jest.mock('../../shared/auth/tokenStore', () => ({ getAuthSessionEpoch: () => mockEpoch }))
 jest.mock('../../shared/storage/localEntityCoordination', () => ({ localDataEpoch: () => mockEpoch }))
 jest.mock('./aiReview', () => ({ openAiReview: (...args: unknown[]) => mockOpen(...args), listAiReviews: () => mockList() }))
-jest.mock('./VoiceDraftSection', () => ({ VoiceDraftSection: ({ onAnalyzeText, initialText }: { onAnalyzeText: (text: string) => Promise<void>; initialText?: string }) => {
+jest.mock('./VoiceDraftSection', () => ({ VoiceDraftSection: ({ onAnalyzeText, initialText }: { onAnalyzeText: (text: string, inputSource: AiAssistantInputSource) => Promise<void>; initialText?: string }) => {
   const { Button } = require('../../shared/ui/components')
   const { Text } = require('react-native')
-  return <><Text>{initialText}</Text><Button title="Разобрать тестовый запрос" onPress={() => void onAnalyzeText(initialText || mockRequest)} /></>
+  return <><Text>{initialText}</Text>
+    <Button title="Разобрать тестовый запрос" onPress={() => void onAnalyzeText(initialText || mockRequest, 'text')} />
+    <Button title="Разобрать тестовую запись" onPress={() => void onAnalyzeText(mockRequest, 'voice')} />
+  </>
 } }))
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View, useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }))
 const first = 'a'.repeat(24), second = 'b'.repeat(24)
@@ -38,6 +42,21 @@ it('a clipboard phone is attached only to its own request, never to a new unrela
   fireEvent.press(screen.getByText('Разобрать тестовый запрос'))
   await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(3))
   expect(mockPost).toHaveBeenLastCalledWith('/mobile/v1/events/ai-assistant', { text: mockRequest })
+})
+it('повтор с телефоном сохраняет голосовой источник и ID из карточки', async () => {
+  mockParams = { eventId: first, mode: 'voice' }
+  mockRequest = 'Пятнадцатого августа в шесть'
+  mockPost.mockResolvedValueOnce({ needsClipboardPhone: true }).mockResolvedValue({ question: 'Уточните дату' })
+  const screen = render(<AiAssistantScreen />)
+  await act(async () => undefined)
+  fireEvent.press(screen.getByText('Разобрать тестовую запись'))
+  fireEvent.changeText(await screen.findByLabelText('Телефон из буфера обмена'), '79992222222')
+  fireEvent.press(screen.getByText('Продолжить с этим телефоном'))
+  await screen.findByText('Уточните дату')
+  expect(mockPost.mock.calls).toEqual([
+    ['/mobile/v1/events/ai-assistant', { text: mockRequest, eventId: first, inputSource: 'voice' }],
+    ['/mobile/v1/events/ai-assistant', { text: mockRequest, eventId: first, inputSource: 'voice', clipboardPhone: '79992222222' }],
+  ])
 })
 it('shared text waits for explicit analysis, then creates only a local review and opens the ordinary new form', async () => {
   setSharedDraft({ id: 'share', generation: 'test', mode: 'text', text: 'Создай заявку для Анны' })

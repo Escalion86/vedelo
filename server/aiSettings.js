@@ -49,6 +49,9 @@ export const resolveTenantAiSettings = (tenantId, siteSettings, owner, actor) =>
     getCustomValue(custom, 'localAiTranscriptionSelected') === true ||
     savedTranscriptionProvider.toLowerCase() === 'local'
   )
+  const localAiFu02Selected = canUseLocalAi && getCustomValue(custom, 'localAiFu02Selected') === true
+  const aiAnalysisProvider = localAiFu02Selected ? 'artistcrm'
+    : localAnalysisSelected ? 'local' : cloudAnalysisProvider
   const savedEnabled = getCustomValue(custom, 'aiIntegrationEnabled')
   return {
     tenantId: String(tenantId),
@@ -57,8 +60,8 @@ export const resolveTenantAiSettings = (tenantId, siteSettings, owner, actor) =>
     aitunnelKey,
     deepseekKey: isDeveloper ? deepseekKey : '',
     aiIntegrationEnabled: typeof savedEnabled === 'boolean' ? savedEnabled : true,
-    aiAnalysisProvider: localAnalysisSelected ? 'local' : cloudAnalysisProvider,
-    aiAnalysisModel: cloudAnalysisProvider === 'artistcrm'
+    aiAnalysisProvider,
+    aiAnalysisModel: localAiFu02Selected || cloudAnalysisProvider === 'artistcrm'
       ? String(process.env.AITUNNEL_CALL_ANALYSIS_MODEL || 'gpt-4o-mini').trim()
       : readString(custom, 'aiAnalysisModel'),
     aiTranscriptionProvider: localTranscriptionSelected ? 'local' : cloudTranscriptionProvider,
@@ -68,6 +71,7 @@ export const resolveTenantAiSettings = (tenantId, siteSettings, owner, actor) =>
     ...(canUseLocalAi ? {
       aiAnalysisFallbackProvider: cloudAnalysisProvider,
       aiTranscriptionFallbackProvider: cloudTranscriptionProvider,
+      localAiFu02Selected,
       aitunnelEnabled: getCustomValue(custom, 'aitunnelEnabled') === true,
       localAiEnabled: getCustomValue(custom, 'localAiEnabled') === true,
       localAiBaseUrl: readString(custom, 'localAiBaseUrl'),

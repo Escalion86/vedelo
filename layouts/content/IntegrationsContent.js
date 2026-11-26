@@ -694,7 +694,7 @@ const IntegrationsContent = () => {
   const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false)
   const [aiUsage, setAiUsage] = useState(null)
   const [aiUsageLoading, setAiUsageLoading] = useState(false)
-  const [editingLocalAi, setEditingLocalAi] = useState(false)
+  const [editingDeveloperAiProvider, setEditingDeveloperAiProvider] = useState(null)
   const queryClient = useQueryClient()
   const aiAverageCosts = useMemo(() => {
     const quotes = new Map(
@@ -748,8 +748,14 @@ const IntegrationsContent = () => {
       return result.data
     },
   })
-  const isLocalAiSaved = canManageLocalAi && localAiQuery.data?.aiAnalysisProvider === 'local'
-  const isLocalAiSelected = canManageLocalAi && (editingLocalAi || isLocalAiSaved)
+  const isFu02Saved = canManageLocalAi && localAiQuery.data?.aiTranscriptionProvider === 'fu02'
+  const isLocalAiSaved = canManageLocalAi && (
+    localAiQuery.data?.aiAnalysisProvider === 'local' ||
+    localAiQuery.data?.aiTranscriptionProvider === 'local'
+  )
+  const savedDeveloperAiProvider = isFu02Saved ? 'fu02' : isLocalAiSaved ? 'local' : null
+  const developerAiProvider = canManageLocalAi && (editingDeveloperAiProvider || savedDeveloperAiProvider)
+  const developerAiName = developerAiProvider === 'fu02' ? 'ИИ Ведело Fu02' : 'локального ИИ'
   const saveLocalAi = useMutation({
     gcTime: 0,
     mutationFn: (values) => apiJson('/api/ai/settings', {
@@ -758,8 +764,8 @@ const IntegrationsContent = () => {
     }),
     onSuccess: (result, values) => {
       queryClient.setQueryData(localAiQueryKey, result.data)
-      setEditingLocalAi(false)
-      if (values.aiAnalysisProvider !== 'local') {
+      setEditingDeveloperAiProvider(null)
+      if (values.aiAnalysisProvider && values.aiAnalysisProvider !== 'local') {
         setSiteSettings((current) => ({
           ...current,
           custom: {
@@ -1081,12 +1087,12 @@ const IntegrationsContent = () => {
 
   const selectAiProvider = async (provider) => {
     if (isSaving || saveLocalAi.isPending) return
-    if (provider === 'local') {
-      if (canManageLocalAi) setEditingLocalAi(true)
+    if (provider === 'local' || provider === 'fu02') {
+      if (canManageLocalAi) setEditingDeveloperAiProvider(provider)
       return
     }
-    if (editingLocalAi && !isLocalAiSaved && provider === aiAnalysisProvider) {
-      setEditingLocalAi(false)
+    if (editingDeveloperAiProvider && !savedDeveloperAiProvider && provider === aiAnalysisProvider) {
+      setEditingDeveloperAiProvider(null)
       return
     }
     const isDeepseek = provider === 'deepseek'
@@ -1102,7 +1108,7 @@ const IntegrationsContent = () => {
           ? aiAnalysisModel
           : 'gpt-4o-mini',
       ...(isDeepseek
-        ? localAiQuery.data?.aiTranscriptionProvider === 'local'
+        ? ['local', 'fu02'].includes(localAiQuery.data?.aiTranscriptionProvider)
           ? { aiTranscriptionProvider: localAiQuery.data.aiTranscriptionFallbackProvider || '' }
           : {}
         : isPlatform
@@ -1119,7 +1125,7 @@ const IntegrationsContent = () => {
     const successMessage = `Выбран провайдер ${
       isDeepseek ? 'DeepSeek' : isPlatform ? 'ИИ Ведело' : 'AITunnel'
     }`
-    if (isLocalAiSaved) {
+    if (savedDeveloperAiProvider) {
       try {
         await saveLocalAi.mutateAsync(patch)
         snackbar.success(successMessage)
@@ -1130,7 +1136,7 @@ const IntegrationsContent = () => {
     }
     const saved = await saveCustom(patch, { successMessage })
     if (saved && canManageLocalAi) {
-      setEditingLocalAi(false)
+      setEditingDeveloperAiProvider(null)
       await queryClient.invalidateQueries({ queryKey: localAiQueryKey })
     }
   }
@@ -2098,9 +2104,9 @@ const IntegrationsContent = () => {
           <IntegrationAccordion
             title="ИИ-провайдер"
             description="ИИ Ведело с оплатой из баланса или ваш собственный AITunnel."
-            connected={!isLocalAiSelected && isAiProviderConnected}
+            connected={!developerAiProvider && isAiProviderConnected}
             warning={
-              !isLocalAiSelected && aiIntegrationEnabled &&
+              !developerAiProvider && aiIntegrationEnabled &&
               (!isAiProviderConfigured ||
                 (aiAnalysisProvider === 'artistcrm' && !aiUsage?.available))
             }
@@ -2138,14 +2144,17 @@ const IntegrationsContent = () => {
                 noMargin
               />
               <Select
-                label="Провайдер AI-анализа"
-                aria-label="Провайдер AI-анализа"
+                label="Провайдер ИИ"
+                aria-label="Провайдер ИИ"
                 help={fieldHelp['integrations.aiProvider']}
-                value={isLocalAiSelected ? 'local' : aiAnalysisProvider}
+                value={developerAiProvider || aiAnalysisProvider}
                 onChange={selectAiProvider}
                 disabled={isSaving || saveLocalAi.isPending || (canManageLocalAi && localAiQuery.isLoading)}
                 options={[
                   { value: 'artistcrm', label: 'ИИ Ведело' },
+                  ...(canManageLocalAi
+                    ? [{ value: 'fu02', label: 'ИИ Ведело Fu02 (разработчик)' }]
+                    : []),
                   { value: 'aitunnel', label: 'Свой AITunnel' },
                   ...(isDeveloper
                     ? [{ value: 'deepseek', label: 'DeepSeek (разработчик)' }]
@@ -2157,28 +2166,29 @@ const IntegrationsContent = () => {
                 noMargin
                 fullWidth
               />
-              {isLocalAiSelected ? (
+              {developerAiProvider ? (
                 localAiQuery.data ? (
                   <LocalAiSettings
-                    key={loggedUser._id}
+                    key={`${loggedUser._id}:${developerAiProvider}`}
+                    provider={developerAiProvider}
                     settings={localAiQuery.data}
                     onSave={async (values) => {
                       await saveLocalAi.mutateAsync(values)
-                      snackbar.success('Настройки локального ИИ сохранены')
+                      snackbar.success(`Настройки ${developerAiName} сохранены`)
                     }}
                     saving={saveLocalAi.isPending}
                     disabled={isSaving}
                   />
                 ) : localAiQuery.isError ? (
                   <Notice tone="error" role="alert" className="flex flex-wrap items-center gap-2">
-                    Не удалось загрузить настройки локального ИИ
+                    Не удалось загрузить настройки {developerAiName}
                     <AppButton variant="secondary" onClick={() => localAiQuery.refetch()}>
                       Повторить
                     </AppButton>
                   </Notice>
                 ) : (
                   <p role="status" className="text-sm text-[var(--ui-secondary-text)]">
-                    Загружаем настройки локального ИИ…
+                    Загружаем настройки {developerAiName}…
                   </p>
                 )
               ) : aiAnalysisProvider === 'artistcrm' ? (
@@ -2326,7 +2336,7 @@ const IntegrationsContent = () => {
                   />
                 </div>
               )}
-              {!isLocalAiSelected && aiAnalysisProvider === 'aitunnel' ? (
+              {!developerAiProvider && aiAnalysisProvider === 'aitunnel' ? (
                 <Input
                   label="Модель распознавания записей звонков"
                   value={aiTranscriptionModel}
@@ -2339,7 +2349,7 @@ const IntegrationsContent = () => {
                   noMargin
                   fullWidth
                 />
-              ) : !isLocalAiSelected && aiAnalysisProvider === 'deepseek' ? (
+              ) : !developerAiProvider && aiAnalysisProvider === 'deepseek' ? (
                 <Notice tone="info" className="flex flex-col gap-3 rounded-md p-3">
                   <div>
                     DeepSeek доступен только разработчику и анализирует готовый
@@ -2414,7 +2424,7 @@ const IntegrationsContent = () => {
                   </div>
                 </div>
               ) : null}
-              {!isLocalAiSelected && aiAnalysisProvider !== 'artistcrm' ? (
+              {!developerAiProvider && aiAnalysisProvider !== 'artistcrm' ? (
                 <InstructionButton
                   onClick={() =>
                     modalsFunc.add({

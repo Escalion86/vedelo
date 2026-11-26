@@ -18,6 +18,7 @@ export async function POST(req) {
   headers.set('content-type', 'application/json')
   return sharedAssistant(new Request(req.url, { method: 'POST', headers, body: JSON.stringify({
     text: body.text, eventId: body.eventId, clipboardPhone: body.clipboardPhone,
+    ...(body.inputSource === 'voice' ? { inputSource: 'voice' } : {}),
     mode: 'auto', deferClientCreation: true,
   }) }))
 }

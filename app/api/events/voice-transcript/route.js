@@ -10,6 +10,10 @@ import {
 } from '@server/aiBilling'
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024
+const FU02_ERRORS = {
+  FU02_TRANSCRIPTION_NOT_CONFIGURED: 'Укажите адрес распознавания аудио Fu02 в настройках ИИ.',
+  FU02_TRANSCRIPTION_UNAVAILABLE: 'Распознавание Fu02 сейчас недоступно. Повторите запрос или выберите «ИИ Ведело».',
+}
 
 export async function POST(request) {
   try {
@@ -57,6 +61,9 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, transcript, provider, model })
   } catch (error) {
+    if (Object.hasOwn(FU02_ERRORS, error?.message)) {
+      return NextResponse.json({ success: false, error: FU02_ERRORS[error.message] }, { status: 503 })
+    }
     const message =
       isAiBalanceError(error)
         ? getAiBalanceErrorMessage(error)

@@ -29,6 +29,7 @@ const TRANSCRIPTION_PROVIDERS = Object.freeze({
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024
 const DOWNLOAD_TIMEOUT_MS = 15000
 const CLOUD_TIMEOUT_MS = 45000
+const VOICE_DRAFT_WHISPER_PROMPT = 'Заказ, мероприятие, заявка, заказчик, предоплата, задаток, выезд, площадка, смета, коммерческое предложение.'
 
 const normalizeProviderName = (value) => String(value ?? '').trim().toLowerCase()
 
@@ -125,6 +126,9 @@ const transcribeBlobWithOpenAiCompatible = async ({
   formData.set('language', 'ru')
   formData.set('response_format', 'json')
   formData.set('file', audioBlob, fileName || 'recording.webm')
+  if (feature === 'voice_transcription' && provider.name !== 'local' && provider.model === 'whisper-1') {
+    formData.set('prompt', VOICE_DRAFT_WHISPER_PROMPT)
+  }
 
   let response
   let payload
@@ -167,6 +171,13 @@ export const transcribeAudioBlob = async (
 
   if (settings.aiIntegrationEnabled === false) throw new Error('TRANSCRIPTION_API_KEY_REQUIRED')
   const send = (provider) => transcribeBlobWithOpenAiCompatible({ ...options, provider, audioBlob, fileName, settings })
+  if (options.feature === 'voice_transcription' && settings.localAiFu02Selected === true) {
+    const fu02 = isLocalAiEnabled(settings) && getLocalAiProvider('transcription', process.env, settings)
+    if (!fu02) throw new Error('FU02_TRANSCRIPTION_NOT_CONFIGURED')
+    const result = await tryLocalAiProvider(fu02, send)
+    if (!result) throw new Error('FU02_TRANSCRIPTION_UNAVAILABLE')
+    return options.includeProvider ? { ...result, provider: 'fu02' } : result.transcript
+  }
   const cloud = getTranscriptionProviderConfig(settings)
   let result = await tryLocalAiProvider(getSelectedLocalTranscription(settings), send, undefined, () => {
     console.warn('[local-ai] transcription fallback', { provider: cloud.name })

@@ -18,9 +18,11 @@ import { useAiDraftAccess } from './useAiDraftAccess'
 
 const MAX_RECORDING_MS = 120_000
 
+export type AiAssistantInputSource = 'text' | 'voice'
+
 type Props = {
   onApply: (fields: VoiceDraftFields) => void
-  onAnalyzeText?: (text: string) => Promise<void>
+  onAnalyzeText?: (text: string, inputSource: AiAssistantInputSource) => Promise<void>
   initialMode?: 'manual' | 'voice' | 'text'
   initialText?: string
 }
@@ -51,6 +53,7 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingRef = useRef(false)
   const mounted = useRef(true)
+  const inputSource = useRef<AiAssistantInputSource>('text')
   const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
   const [transcript, setTranscript] = useState(initialText || '')
@@ -88,11 +91,11 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
     finally { if (mounted.current) setBusy(false) }
   }
 
-  const requestDraft = async (text: string) => {
+  const requestDraft = async (text: string, source: AiAssistantInputSource) => {
     await access.assertAvailable()
     if (!mounted.current) return
     if (onAnalyzeText) {
-      await onAnalyzeText(text)
+      await onAnalyzeText(text, source)
       if (mounted.current) setMessage('Проверьте результат перед сохранением.')
       return
     }
@@ -133,9 +136,10 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
       if (!mounted.current) return
       const text = response.transcript?.trim() || ''
       if (!text) throw new Error('Не удалось распознать речь')
+      inputSource.current = 'voice'
       setTranscript(text)
       setMessage('Собираю поля мероприятия…')
-      await requestDraft(text)
+      await requestDraft(text, 'voice')
     } catch (reason) {
       setMessage('')
       setError(reason instanceof Error ? reason.message : 'Не удалось обработать голосовой черновик')
@@ -191,7 +195,7 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
     setMessage('Собираю поля мероприятия…')
     setPendingFields(null)
     try {
-      await requestDraft(text)
+      await requestDraft(text, inputSource.current)
     } catch (reason) {
       setMessage('')
       setError(reason instanceof Error ? reason.message : 'Не удалось подготовить черновик')
@@ -236,7 +240,12 @@ const VoiceDraftEditor = ({ onApply, onAnalyzeText, initialMode, initialText, ac
         testID="voice-draft-text"
         label="Распознанный текст или описание"
         value={transcript}
-        onChangeText={(value) => { setTranscript(value); setPendingFields(null); setMessage('') }}
+        onChangeText={(value) => {
+          inputSource.current = 'text'
+          setTranscript(value)
+          setPendingFields(null)
+          setMessage('')
+        }}
         placeholder="Например: свадьба 15 августа в 18:00, Красноярск, бюджет 50 тысяч…"
         multiline
         editable={!recording && !busy}

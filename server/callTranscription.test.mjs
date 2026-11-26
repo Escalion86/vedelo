@@ -20,7 +20,7 @@ const hooks = registerHooks({
     return nextResolve(specifier, context)
   },
 })
-const { isCallTranscriptionConfigured } = await import('./callTranscription.js')
+const { isCallTranscriptionConfigured, transcribeAudioBlob } = await import('./callTranscription.js')
 hooks.deregister()
 
 test('detects configured AITunnel transcription from tenant settings', () => {
@@ -64,4 +64,26 @@ test('returns false for unsupported transcription provider', () => {
     }),
     false
   )
+})
+
+test('hints Russian CRM vocabulary only for cloud Whisper voice drafts', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => Response.json({ text: 'Задаток двадцать тысяч.' }))
+  const audio = new Blob(['audio'], { type: 'audio/mp4' })
+  const settings = { aiTranscriptionProvider: 'aitunnel', aiTranscriptionModel: 'whisper-1', aitunnelKey: 'fixture' }
+  const voiceOptions = { feature: 'voice_transcription', includeProvider: true }
+
+  assert.deepEqual(await transcribeAudioBlob(audio, 'voice.m4a', settings, voiceOptions), {
+    transcript: 'Задаток двадцать тысяч.', provider: 'aitunnel', model: 'whisper-1',
+  })
+  await transcribeAudioBlob(audio, 'call.m4a', settings)
+  await transcribeAudioBlob(audio, 'voice.m4a', { ...settings, aiTranscriptionModel: 'custom-stt' }, voiceOptions)
+
+  const [voice, call, custom] = fetchMock.mock.calls.map(({ arguments: [, request] }) => request.body)
+  assert.equal(voice.get('language'), 'ru')
+  assert.equal(voice.get('file').name, 'voice.m4a')
+  assert.equal(voice.get('file').type, 'audio/mp4')
+  assert.match(voice.get('prompt'), /задаток/iu)
+  assert.doesNotMatch(voice.get('prompt'), /редактир|измен|созда/iu)
+  assert.equal(call.has('prompt'), false)
+  assert.equal(custom.has('prompt'), false)
 })

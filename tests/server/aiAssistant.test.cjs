@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { createLoader } = require('./loadWithAliases.cjs')
 
-async function harness({ intent = 'create', clients = [], parsed = {}, context = { tenantId: 'tenant-a', user: { _id: 'owner-a' } }, access = { allowAi: true, hasTariff: true }, completion } = {}) {
+async function harness({ intent = 'create', editInstruction, needsClipboardPhone = false, clients = [], parsed = {}, context = { tenantId: 'tenant-a', user: { _id: 'owner-a' } }, access = { allowAi: true, hasTariff: true }, completion } = {}) {
   const created = [], calls = [], searches = []
   const query = (data) => ({ select() { return this }, sort() { return this }, lean: async () => data })
   const { load } = await createLoader({
@@ -22,7 +22,7 @@ async function harness({ intent = 'create', clients = [], parsed = {}, context =
       assert.equal(args.settings.tenantId, 'tenant-a')
       assert.equal(args.settings.userId, 'owner-a')
       if (completion !== undefined) return { content: completion }
-      return { content: JSON.stringify(calls.length === 1 ? { intent, needsClipboardPhone: false } : parsed) }
+      return { content: JSON.stringify(calls.length === 1 ? { intent, editInstruction, needsClipboardPhone } : parsed) }
     } },
     '@server/aiBilling': { isAiBalanceError: () => false },
     '@server/aiEdit': {
@@ -134,6 +134,66 @@ test('edit and clarification never fall back to creating a client', async () => 
     assert.equal(h.searches.length, intent === 'edit' ? 1 : 0)
     if (intent === 'edit') assert.equal(h.searches[0].tenantId, 'tenant-a')
   }
+})
+
+test('voice descriptions default to a new draft even if the classifier guesses edit or clarification', async () => {
+  for (const [endpoint, intent, editInstruction] of [
+    ['post', 'edit', 'Перенеси свадьбу Анны'],
+    ['post', 'edit', 'Свадьба Анны в субботу'],
+    ['postNative', 'clarify', ''],
+  ]) {
+    const h = await harness({ intent, editInstruction, parsed: { eventType: 'Свадьба' } })
+    const result = await h[endpoint]({
+      mode: 'auto', inputSource: 'voice', deferClientCreation: true,
+      text: 'Свадьба Анны в субботу в шесть, задаток десять тысяч.',
+    })
+    assert.equal(result.status, 200)
+    assert.equal(result.body.intent, 'create')
+    assert.equal(result.body.fields.eventType, 'Свадьба')
+    assert.equal(h.calls.length, 2)
+    assert.equal(h.searches.length, 0)
+    assert.equal(h.created.length, 0)
+  }
+})
+
+test('voice can find an existing record for an explicit or quoted edit request', async () => {
+  for (const [text, editInstruction] of [
+    ['Перенеси заказ Анны на завтра', undefined],
+    ['По заказу Анны дату с пятницы на субботу', 'Дату с пятницы на субботу'],
+    ['Поменяй адрес заказа Анны', 'поменяй адрес'],
+    ['Добавь к заказу Анны оплату', 'Добавь к заказу Анны оплату'],
+  ]) {
+    const h = await harness({ intent: 'edit', editInstruction })
+    const result = await h.postNative({ inputSource: 'voice', text, tenantId: 'tenant-b' })
+    assert.equal(result.body.intent, 'edit')
+    assert.equal(h.calls.length, 1)
+    assert.equal(h.searches.length, 1)
+    assert.equal(h.searches[0].tenantId, 'tenant-a')
+    assert.equal(h.created.length, 0)
+  }
+})
+
+test('voice default keeps the clipboard check and direct selection of an existing record', async () => {
+  const h = await harness({ intent: 'clarify', needsClipboardPhone: true, parsed: { contractSum: 50000 } })
+  const text = 'Свадьба в субботу, гонорар пятьдесят тысяч'
+  const first = await h.post({ mode: 'auto', inputSource: 'voice', text })
+  assert.equal(first.body.needsClipboardPhone, true)
+  assert.equal(h.searches.length, 0)
+
+  const selected = await h.postNative({ inputSource: 'voice', eventId: 'existing', text: 'Цена теперь пятьдесят тысяч' })
+  assert.equal(selected.body.planId, 'plan')
+  assert.equal(h.searches[0].eventId, 'existing')
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.created.length, 0)
+})
+
+test('typed auto keeps ambiguity handling', async () => {
+  const h = await harness({ intent: 'clarify' })
+  const result = await h.postNative({ text: 'Свадьба Анны в субботу' })
+  assert.equal(result.body.intent, 'clarify')
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.searches.length, 0)
+  assert.equal(h.created.length, 0)
 })
 
 test('read-only and mixed requests do not reach planning or client creation', async () => {

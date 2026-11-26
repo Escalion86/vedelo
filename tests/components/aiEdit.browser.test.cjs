@@ -120,6 +120,7 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       })
       let applyCalls = 0
       let multipleCandidates = false
+      const assistantRequests = []
       let transcriptCalls = 0, prepareCalls = 0, deferTranscript = false, releaseTranscript, transcriptReadyResolve
       const plan = {
         planId: 'plan', eventId: 'event', clientName: 'Анна', eventTitle: 'Свадьба', eventDate: '2026-10-25T10:00:00Z',
@@ -132,8 +133,11 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       await page.route('**/api/events/ai-edit', async (route) => {
         prepareCalls++
         const body = route.request().postDataJSON()
+        assistantRequests.push(body)
         let payload
-        if (body.mode === 'auto' && body.text.startsWith('Создай')) {
+        if (body.text?.startsWith('Свадьба 15 августа') && !body.clipboardPhone) {
+          payload = { needsClipboardPhone: true }
+        } else if (body.mode === 'auto' && (body.text.startsWith('Создай') || body.text.startsWith('Свадьба 15 августа'))) {
           if (body.text.includes('буфер')) assert.equal(body.clipboardPhone, '79992222222', JSON.stringify(body))
           payload = { fields: { clientId: 'client', description: 'Новая заявка' }, client: { _id: 'client', phone: 79992222222 }, aiFilledFields: ['clientId'] }
         } else if (body.mode === 'apply') {
@@ -180,6 +184,7 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       if(process.env.QA_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,`ai-text-${width}-${dark?'dark':'light'}.png`)})
       await analyze.click()
       await page.waitForFunction(()=>window.createdDraft?.initialClient?.phone===79992222222)
+      assert.equal(assistantRequests.at(-1).inputSource, undefined)
       assert.equal(await page.evaluate(()=>window.clipboardReads),1)
       await page.getByRole('button',{name:/Добавить заявку/}).click()
       await page.getByRole('button',{name:'Создать/Ред. свободным текстом ИИ',exact:true}).click()
@@ -295,6 +300,8 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
       assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
       assert.equal(await page.getByRole('button',{name:/Добавить заявку/}).getAttribute('aria-expanded'),'false')
+      assert.equal(assistantRequests.at(-1).inputSource, 'voice')
+      assert.equal(assistantRequests.at(-1).eventId, 'event')
       assert.equal(await page.evaluate(()=>window.editedDraft.options.initialEvent.contractSum),40000)
       assert.deepEqual(await page.evaluate(()=>window.editedDraft.options.aiFilledFields),['contractSum'])
       assert.equal(applyCalls, 2, 'voice prepares the request but never applies edits automatically')
@@ -342,7 +349,7 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       await page.waitForFunction(()=>window.createdDraft?.initialEvent?.clientId==='client')
       assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
       assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
-      voiceText = 'Создай новую заявку'
+      voiceText = 'Свадьба 15 августа, возьми скопированный контакт Анны'
       await page.evaluate(()=>{window.createdDraft=null;window.renderCreatedDraft=true})
       await page.getByRole('button', {name:/Добавить заявку/}).click()
       await page.getByRole('button', {name:'Создать/Ред. голосом ИИ',exact:true}).click()
@@ -351,6 +358,8 @@ test('AI editor: menu, preview, clarification, retry, mobile and dark theme', { 
       await page.getByRole('button', {name:'Завершить запись'}).click()
       await page.waitForFunction(()=>window.createdDraft?.initialEvent?.clientId==='client')
       await page.getByText('Поля с фиолетовой подсветкой заполнены ИИ.',{exact:false}).waitFor()
+      assert.deepEqual(assistantRequests.slice(-2).map(({ inputSource, clipboardPhone }) => [inputSource, clipboardPhone]),
+        [['voice', undefined], ['voice', '79992222222']])
       assert.equal(await page.getByText('Уточнение голосового запроса',{exact:true}).count(),0)
       assert.equal(await page.getByRole('button',{name:'Создать/Ред. голосом ИИ',exact:true}).count(),0)
 

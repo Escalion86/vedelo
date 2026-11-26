@@ -58,7 +58,11 @@ async function fixture({ context = requester, owner = ownerUser, initial = saved
     },
     '@server/aiBilling': {
       DEFAULT_AI_MARKUP_COEFFICIENT: 1.5,
+      failPlatformAiUsage: async () => {},
+      isAiBalanceError: () => false,
       normalizeAiMarkupCoefficient: (value) => Number(value ?? 1.5),
+      reservePlatformAiUsage: async () => ({ id: 'test-reservation' }),
+      settlePlatformAiUsage: async () => {},
     },
     '@server/dbConnect': async () => {},
     '@server/getRequestContext': async () => context,
@@ -95,6 +99,7 @@ test('PATCH и local-test закрыты для обычного аккаунт�
     const response = await patch({ aiAnalysisProvider: 'local', localAiEnabled: true })
     assert.equal(response.status, 403)
     assert.match((await response.json()).error, /владельцу с ролью разработчика/)
+    assert.equal((await patch({ aiTranscriptionProvider: 'fu02', localAiEnabled: true })).status, 403)
     assert.equal((await probe({ localAiBaseUrl: baseUrl })).status, 403)
     assert.deepEqual(writes, [])
     assert.deepEqual(reads, [])
@@ -143,6 +148,99 @@ test('PATCH владельца сохраняет локальный выбор 
   const read = await readResponse.json()
   assert.equal(read.data.localAiBaseUrl, baseUrl)
   assert.equal(read.data.localAiKey, undefined)
+})
+
+test('Fu02 processes voice input only on the developer node and platform selection restores AITunnel', async (t) => {
+  const initial = { ...savedCustom, localAiAnalysisSelected: true, localAiTranscriptionSelected: true }
+  const { patch, doc, load, settings } = await fixture({ initial })
+  const localEndpoint = 'http://127.0.0.1:18011/v1/audio/transcriptions'
+  const cloudEndpoint = 'https://api.aitunnel.ru/v1/audio/transcriptions'
+  const env = {
+    AITUNNEL_KEY: 'test-platform-key',
+    AITUNNEL_TRANSCRIPTION_MODEL: 'whisper-1',
+    AI_TRANSCRIPTION_API_URL: cloudEndpoint,
+    LOCAL_AI_TRANSCRIPTION_MODEL: 'gigaam',
+  }
+  const savedEnv = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]))
+  Object.assign(process.env, env)
+  t.after(() => {
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  })
+  let localAvailable = true
+  const destinations = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    destinations.push(url)
+    if (url === localEndpoint) {
+      assert.equal(options.redirect, 'error')
+      assert.equal(options.body.get('language'), 'ru')
+      assert.equal(options.body.get('model'), 'gigaam')
+      if (!localAvailable) return Response.json({}, { status: 503 })
+    } else {
+      assert.equal(url, cloudEndpoint)
+      assert.equal(options.headers.Authorization, 'Bearer test-platform-key')
+    }
+    return Response.json({ text: 'Свадьба в субботу' })
+  })
+
+  const selected = await patch({
+    aiTranscriptionProvider: 'fu02', localAiEnabled: true, localAiTranscriptionUrl: localEndpoint,
+  })
+  assert.equal(selected.status, 200)
+  assert.equal((await selected.json()).data.aiTranscriptionProvider, 'fu02')
+  const { data } = await (await settings.GET(request('ai/settings', 'GET'))).json()
+  assert.equal(data.aiTranscriptionProvider, 'fu02')
+  assert.equal(data.aiAnalysisProvider, 'artistcrm')
+  assert.equal(doc.custom.aiAnalysisProvider, 'deepseek')
+  assert.equal(doc.custom.localAiTranscriptionSelected, true)
+
+  const { getTenantAiSettings } = load('server/aiSettings.js')
+  const member = await getTenantAiSettings(ownerId, { user: { _id: memberId, role: 'dev' } })
+  assert.equal(member.localAiFu02Selected, undefined)
+  assert.equal(member.aiTranscriptionProvider, 'aitunnel')
+  assert.equal(member.aiAnalysisProvider, 'deepseek')
+
+  const audio = new Blob(['synthetic audio'], { type: 'audio/webm' })
+  const submit = (path) => {
+    const form = new FormData()
+    form.set('audio', audio, 'voice.webm')
+    return load(`app/api/${path}/route.js`).POST(new Request(`http://vedelo.test/api/${path}`, {
+      method: 'POST', body: form,
+    }))
+  }
+  const web = await submit('events/voice-transcript')
+  const mobile = await submit('mobile/v1/events/voice-transcript')
+  for (const response of [web, mobile]) {
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      success: true, transcript: 'Свадьба в субботу', provider: 'fu02', model: 'gigaam',
+    })
+  }
+
+  const { transcribeAudioBlob } = load('server/callTranscription.js')
+  const call = await transcribeAudioBlob(audio, 'call.webm', await getTenantAiSettings(ownerId, { user: ownerUser }), {
+    feature: 'call_transcription', includeProvider: true,
+  })
+  assert.equal(call.provider, 'local')
+
+  localAvailable = false
+  const unavailable = await submit('events/voice-transcript')
+  assert.equal(unavailable.status, 503)
+  assert.match((await unavailable.json()).error, /Fu02 сейчас недоступно/)
+  assert.deepEqual(destinations, Array(4).fill(localEndpoint))
+
+  const switched = await patch({ aiAnalysisProvider: 'artistcrm', aiTranscriptionProvider: 'artistcrm' })
+  assert.equal(switched.status, 200)
+  assert.equal((await switched.json()).data.aiTranscriptionProvider, 'artistcrm')
+  assert.equal(doc.custom.localAiFu02Selected, false)
+  const cloud = await submit('events/voice-transcript')
+  assert.equal(cloud.status, 200)
+  assert.deepEqual(await cloud.json(), {
+    success: true, transcript: 'Свадьба в субботу', provider: 'artistcrm', model: 'whisper-1',
+  })
+  assert.deepEqual(destinations, [...Array(4).fill(localEndpoint), cloudEndpoint])
 })
 
 test('PATCH отклоняет адреса вне loopback, неподходящий таймаут и чужой tenant', async () => {
@@ -225,6 +323,8 @@ test('общие настройки удаляют localAi* из ответа, �
   for (const custom of [
     { aiAnalysisProvider: 'local' },
     { aiTranscriptionProvider: ' LOCAL ' },
+    { aiTranscriptionProvider: ' FU02 ' },
+    { localAiFu02Selected: true },
     { 'localAiEnabled.enabled': true },
     { localAiKey: 'changed' },
   ]) {

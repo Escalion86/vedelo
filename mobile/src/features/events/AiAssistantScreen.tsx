@@ -5,7 +5,7 @@ import { api } from '../../shared/api/client'
 import { getAuthSessionEpoch } from '../../shared/auth/tokenStore'
 import { localDataEpoch } from '../../shared/storage/localEntityCoordination'
 import { Button, ErrorNotice, Field, Notice, PageHeader, Screen, SectionTitle, Surface } from '../../shared/ui/components'
-import { VoiceDraftSection } from './VoiceDraftSection'
+import { VoiceDraftSection, type AiAssistantInputSource } from './VoiceDraftSection'
 import { aiReviewError, listAiReviews, openAiReview, type AiReview } from './aiReview'
 import { listAiCreateReviews, openAiCreateReview, type AiCreateReview } from './aiCreateReview'
 import { consumeSharedDraft, readSharedDraft } from '../../shared/native/shareDraft'
@@ -26,7 +26,8 @@ export default function AiAssistantScreen() {
   const [pending, setPending] = useState<AiReview[]>([])
   const [creations, setCreations] = useState<AiCreateReview[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [text, setText] = useState(''), [question, setQuestion] = useState(''), [phone, setPhone] = useState('')
+  const [request, setRequest] = useState<{ text: string; inputSource: AiAssistantInputSource }>({ text: '', inputSource: 'text' })
+  const [question, setQuestion] = useState(''), [phone, setPhone] = useState('')
   const [needsPhone, setNeedsPhone] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
   useFocusEffect(useCallback(() => {
     let focused = true
@@ -38,19 +39,24 @@ export default function AiAssistantScreen() {
   }, [current, entry.eventId]))
   const open = (review: AiReview) => router.push({ pathname: '/events/edit/[id]', params: { id: review.plan.eventId, aiPlan: review._id } } as never)
   const openCreate = (review: AiCreateReview) => router.push({ pathname: '/events/edit/[id]', params: { id: 'new', aiDraft: review._id } } as never)
-  const analyze = async (request: string, eventId = entry.eventId) => {
+  const analyze = async (text: string, inputSource: AiAssistantInputSource, eventId = entry.eventId) => {
     if (!current() || working.current) return
-    const clipboardPhone = request === text ? phone : ''
-    if (request !== text) setPhone('')
+    const sameRequest = text === request.text && inputSource === request.inputSource
+    const clipboardPhone = sameRequest ? phone : ''
+    if (!sameRequest) setPhone('')
     setNeedsPhone(false)
-    working.current = true; setBusy(true); setError(''); setCandidates([]); setQuestion(''); setText(request)
+    working.current = true; setBusy(true); setError(''); setCandidates([]); setQuestion(''); setRequest({ text, inputSource })
     try {
       // Searching never guesses one of several matching records.
-      const prepare = (id?: string) => api.post<Record<string, unknown>>('/mobile/v1/events/ai-assistant', { text: request, ...(id ? { eventId: id } : {}), ...(clipboardPhone ? { clipboardPhone } : {}) })
-      const result = await prepare(eventId)
+      const result = await api.post<Record<string, unknown>>('/mobile/v1/events/ai-assistant', {
+        text,
+        ...(eventId ? { eventId } : {}),
+        ...(inputSource === 'voice' ? { inputSource } : {}),
+        ...(clipboardPhone ? { clipboardPhone } : {}),
+      })
       if (!current()) return
       if (result.planId) { const review = await openAiReview(result, current); if (current()) open(review); return }
-      if (result.fields) { const review = await openAiCreateReview(result, request, current); if (current()) openCreate(review); return }
+      if (result.fields) { const review = await openAiCreateReview(result, text, current); if (current()) openCreate(review); return }
       const response = resultSchema.parse(result)
       setCandidates(response.candidates || []); setQuestion(response.question || 'Уточните запрос и повторите разбор.'); setNeedsPhone(Boolean(response.needsClipboardPhone))
     } catch (reason) { if (current()) setError(aiReviewError(reason)) }
@@ -61,9 +67,9 @@ export default function AiAssistantScreen() {
     {pending.length ? <Surface><SectionTitle>Незавершённые изменения</SectionTitle>{pending.map(item => <Button key={item._id} title={`${item.plan.eventTitle} · ${item.attempt ? 'продолжить сохранение' : 'проверить предложения'}`} variant="secondary" disabled={busy} onPress={() => open(item)} />)}</Surface> : null}
     {creations.length ? <Surface><SectionTitle>Незавершённые заявки</SectionTitle>{creations.map(item => <Button key={item._id} title={`${typeof item.fields.eventType === 'string' ? item.fields.eventType : 'Новая заявка'} · ${item.eventAttempt ? 'продолжить сохранение' : 'проверить форму'}`} variant="secondary" disabled={busy} onPress={() => openCreate(item)} />)}</Surface> : null}
     <VoiceDraftSection initialMode={entry.mode === 'text' || sharedDraft ? 'text' : 'voice'} initialText={sharedDraft?.text} onApply={() => {}} onAnalyzeText={analyze} />
-    {needsPhone ? <Surface><Field label="Телефон из буфера обмена" value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!busy} /><Button title="Продолжить с этим телефоном" onPress={() => void analyze(text)} loading={busy} disabled={!phone.trim()} /></Surface> : null}
+    {needsPhone ? <Surface><Field label="Телефон из буфера обмена" value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!busy} /><Button title="Продолжить с этим телефоном" onPress={() => void analyze(request.text, request.inputSource)} loading={busy} disabled={!phone.trim()} /></Surface> : null}
     {question ? <Notice message={question} /> : null}
-    {candidates.map(candidate => <Button key={candidate.id} variant="secondary" title={`${candidate.title} · ${candidate.client}${candidate.date ? ` · ${new Date(candidate.date).toLocaleDateString('ru-RU')}` : ''}`} disabled={busy} onPress={() => void analyze(text, candidate.id)} />)}
+    {candidates.map(candidate => <Button key={candidate.id} variant="secondary" title={`${candidate.title} · ${candidate.client}${candidate.date ? ` · ${new Date(candidate.date).toLocaleDateString('ru-RU')}` : ''}`} disabled={busy} onPress={() => void analyze(request.text, request.inputSource, candidate.id)} />)}
     {error ? <ErrorNotice message={error} /> : null}
   </Screen>
 }

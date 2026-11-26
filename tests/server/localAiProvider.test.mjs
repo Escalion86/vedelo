@@ -105,13 +105,14 @@ test('transcription bounds local and cloud requests and reports who answered', a
     assert.equal(options.body.get('file').name, 'voice.webm')
     if (url === localEndpoint) {
       assert.equal(options.redirect, 'error')
+      assert.equal(options.body.has('prompt'), false)
       if (!localAvailable) throw new Error('timeout')
     }
     return Response.json({ text: 'Пример' })
   })
   const request = changes => transcribeAudioBlob(new Blob(['audio']), 'voice.webm', {
     aiTranscriptionProvider: 'local', aiTranscriptionFallbackProvider: 'openai', isDeveloper: true, localAiEnabled: true, ...changes,
-  }, { includeProvider: true })
+  }, { feature: 'voice_transcription', includeProvider: true })
   assert.equal((await request({ isDeveloper: false })).provider, 'openai')
   assert.equal((await request({ localAiEnabled: false })).provider, 'openai')
   assert.equal((await request({ aiTranscriptionProvider: 'openai' })).provider, 'openai')

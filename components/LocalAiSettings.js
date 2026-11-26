@@ -17,7 +17,10 @@ const LocalAiCheck = ({ children, checked, onChange, disabled }) => (
   </label>
 )
 
-export default function LocalAiSettings({ settings, saving, disabled, onSave }) {
+export default function LocalAiSettings({ provider, settings, saving, disabled, onSave }) {
+  const isFu02 = provider === 'fu02'
+  const isLegacyTranscriptionOnly = settings.aiTranscriptionProvider === 'local' &&
+    settings.aiAnalysisProvider !== 'local'
   const [values, setValues] = useState({
     localAiEnabled: settings.localAiEnabled === true,
     localAiBaseUrl: settings.localAiBaseUrl || '',
@@ -51,19 +54,30 @@ export default function LocalAiSettings({ settings, saving, disabled, onSave }) 
     if (invalidTimeout) return
     setSaveError('')
     try {
+      if (isFu02) {
+        await onSave({
+          aiTranscriptionProvider: 'fu02',
+          localAiEnabled: true,
+          localAiTranscriptionUrl: values.localAiTranscriptionUrl,
+          localAiTimeoutMs: timeout,
+        })
+        return
+      }
       const transcriptionProvider = useLocalTranscription
         ? 'local'
-        : settings.aiTranscriptionProvider === 'local'
+        : ['local', 'fu02'].includes(settings.aiTranscriptionProvider)
           ? settings.aiTranscriptionFallbackProvider || ''
           : undefined
       await onSave({
         ...values,
         localAiTimeoutMs: timeout,
-        aiAnalysisProvider: 'local',
+        ...(isLegacyTranscriptionOnly ? {} : { aiAnalysisProvider: 'local' }),
         ...(transcriptionProvider === undefined ? {} : { aiTranscriptionProvider: transcriptionProvider }),
       })
     } catch (error) {
-      setSaveError(error.message || 'Не удалось сохранить настройки локального ИИ')
+      setSaveError(error.message || (isFu02
+        ? 'Не удалось сохранить настройки ИИ Ведело Fu02'
+        : 'Не удалось сохранить настройки локального ИИ'))
     }
   }
 
@@ -88,48 +102,56 @@ export default function LocalAiSettings({ settings, saving, disabled, onSave }) 
 
   return (
     <form className="flex min-w-0 flex-col gap-3" onSubmit={save} aria-busy={saving || testing}>
-      <div>
-        <LocalAiCheck
-          checked={values.localAiEnabled}
-          onChange={(value) => setValue('localAiEnabled', value)}
-          disabled={busy}
-        >
-          Включить локальный ИИ
-        </LocalAiCheck>
-        <LocalAiCheck
-          checked={useLocalTranscription}
-          onChange={(value) => {
-            setUseLocalTranscription(value)
-            setSaveError('')
-          }}
-          disabled={busy || !values.localAiEnabled}
-        >
-          Распознавать аудио локально
-        </LocalAiCheck>
-      </div>
+      {isFu02 ? null : (
+        <div>
+          <LocalAiCheck
+            checked={values.localAiEnabled}
+            onChange={(value) => setValue('localAiEnabled', value)}
+            disabled={busy}
+          >
+            Включить локальный ИИ
+          </LocalAiCheck>
+          <LocalAiCheck
+            checked={useLocalTranscription}
+            onChange={(value) => {
+              setUseLocalTranscription(value)
+              setSaveError('')
+            }}
+            disabled={busy || !values.localAiEnabled}
+          >
+            Распознавать аудио локально
+          </LocalAiCheck>
+        </div>
+      )}
       <p className="text-sm text-[var(--ui-secondary-text)]">
-        Если локальный сервис недоступен, запрос обработает облачный провайдер.
+        {isFu02
+          ? 'Голосовой ввод распознаёт Fu02. Текст разбирает «ИИ Ведело» по условиям тарифа. Если Fu02 недоступен, выберите «ИИ Ведело» для облачного распознавания.'
+          : 'Если локальный сервис недоступен, запрос обработает облачный провайдер.'}
       </p>
       <div className="tablet:grid-cols-2 grid grid-cols-1 gap-3">
-        <Input
-          label="Базовый URL чата"
-          ariaLabel="Базовый URL чата"
-          placeholder="http://127.0.0.1:18010/v1"
-          value={values.localAiBaseUrl}
-          onChange={(value) => setValue('localAiBaseUrl', value)}
-          disabled={busy}
-          noMargin
-          fullWidth
-        />
-        <Input
-          label="Локальная модель"
-          ariaLabel="Локальная модель"
-          value={values.localAiModel}
-          onChange={(value) => setValue('localAiModel', value)}
-          disabled={busy}
-          noMargin
-          fullWidth
-        />
+        {isFu02 ? null : (
+          <>
+            <Input
+              label="Базовый URL чата"
+              ariaLabel="Базовый URL чата"
+              placeholder="http://127.0.0.1:18010/v1"
+              value={values.localAiBaseUrl}
+              onChange={(value) => setValue('localAiBaseUrl', value)}
+              disabled={busy}
+              noMargin
+              fullWidth
+            />
+            <Input
+              label="Локальная модель"
+              ariaLabel="Локальная модель"
+              value={values.localAiModel}
+              onChange={(value) => setValue('localAiModel', value)}
+              disabled={busy}
+              noMargin
+              fullWidth
+            />
+          </>
+        )}
         <Input
           label="URL распознавания аудио"
           ariaLabel="URL распознавания аудио"
@@ -164,9 +186,11 @@ export default function LocalAiSettings({ settings, saving, disabled, onSave }) 
         <AppButton type="submit" disabled={busy}>
           {saving ? 'Сохраняем…' : 'Сохранить настройки'}
         </AppButton>
-        <AppButton variant="secondary" disabled={busy} onClick={testConnection}>
-          {testing ? 'Проверяем…' : 'Проверить подключение'}
-        </AppButton>
+        {isFu02 ? null : (
+          <AppButton variant="secondary" disabled={busy} onClick={testConnection}>
+            {testing ? 'Проверяем…' : 'Проверить подключение'}
+          </AppButton>
+        )}
       </div>
       {saveError ? <Notice tone="error" role="alert">{saveError}</Notice> : null}
       {testResult ? (

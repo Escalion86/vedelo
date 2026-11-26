@@ -5,6 +5,7 @@ import { sanitizeLocalAiCustom } from '@helpers/siteSettingsCustom.mjs'
 import dbConnect from '@server/dbConnect'
 import getRequestContext from '@server/getRequestContext'
 import getUserTariffAccess from '@server/getUserTariffAccess'
+import { isLocalAiDeveloper } from '@server/aiSettings'
 import {
   hasIntegrationAccess,
 } from '@server/integrationAccess'
@@ -248,6 +249,10 @@ export const POST = async (req, { params }) => {
     }
     const isAitunnel = aiProvider === 'aitunnel'
     const isPlatform = aiProvider === 'artistcrm'
+    const cloudTranscriptionConfigured = isAitunnel || (isPlatform && Boolean(process.env.AITUNNEL_KEY?.trim()))
+    const owner = cloudTranscriptionConfigured && isLocalAiDeveloper(context.user, context.tenantId)
+      ? await Users.findById(context.tenantId).select('_id role archive').lean()
+      : null
     await updateCustom({
       tenantId: context.tenantId,
       patch: {
@@ -255,6 +260,13 @@ export const POST = async (req, { params }) => {
         aiAnalysisProvider: aiProvider,
         aiAnalysisModel: normalizeText(body?.analysisModel, 120) ||
           (aiProvider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini'),
+        ...(isLocalAiDeveloper(owner, context.tenantId)
+          ? {
+              localAiFu02Selected: false,
+              localAiTranscriptionSelected: false,
+              localAiAnalysisSelected: false,
+            }
+          : {}),
         ...(isPlatform
           ? {
               aiTranscriptionProvider: 'artistcrm',

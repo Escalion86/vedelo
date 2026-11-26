@@ -60,7 +60,9 @@ export async function POST(req) {
       args.clientPhone = clipboardPhone
     }
     if (body.mode === 'auto' && !body.eventId) {
-      const intent = await resolveAiEventIntent(args)
+      const intent = await resolveAiEventIntent(body.inputSource === 'voice'
+        ? { ...args, text, inputSource: 'voice' }
+        : args)
       if (intent.intent === 'question')
         return NextResponse.json({ intent: 'question', question: aiReadOnlyQuestion })
       if (intent.intent === 'clarify')

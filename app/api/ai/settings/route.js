@@ -62,7 +62,7 @@ const serializeLocalSettings = (settings) => {
     localAiTimeoutMs,
     aiAnalysisProvider,
     aiAnalysisModel,
-    aiTranscriptionProvider,
+    aiTranscriptionProvider: settings.localAiFu02Selected ? 'fu02' : aiTranscriptionProvider,
     aiTranscriptionModel,
     aiIntegrationEnabled,
     aitunnelEnabled,
@@ -174,11 +174,14 @@ const parseLocalSettings = (body) => {
       settings[key] = timeout ?? null
     } else if (textFields.has(key) && (value === null || typeof value === 'string')) {
       settings[key] = value?.trim() || ''
+    } else if (key === 'aiTranscriptionProvider' && value === 'fu02') {
+      settings.localAiFu02Selected = true
     } else if (Object.hasOwn(cloudProviders, key)) {
       if (value !== 'local' && !cloudProviders[key].includes(value)) {
         return { error: 'Некорректный ИИ-провайдер' }
       }
       settings[localSelectionFields[key]] = value === 'local'
+      if (key === 'aiTranscriptionProvider') settings.localAiFu02Selected = false
       if (value !== 'local') settings[key] = value
     } else {
       return { error: 'Некорректные параметры локального ИИ' }
